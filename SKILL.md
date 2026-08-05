@@ -62,8 +62,8 @@ version: 1.0.0
 ## 📂 模块索引与工具链
 
 - [`rules/`](rules/)：工作区核心规则与交互契约（`AGENTS.md` ~ `USER.md`）。
-- [`config/`](config/)：项目技术架构模板（`project_architecture.template.yaml`）与看板角色配置模板（`workflow.config.template.yaml`）。
+- [`config/`](config/)：技术架构模板/ Schema（`project_architecture.schema.json`）与看板角色配置模板。
 - [`agents/`](agents/)：7 大角色 YAML 定义 (`01-pm.yaml` ~ `07-devops.yaml`)。
 - [`references/`](references/)：4 大全量提炼参考规约（路由、流转规则、防错闭环、Git 规范）。
 - [`templates/`](templates/)：标准化开发/审查/测试任务报告模板。
-- [`scripts/`](scripts/)：看板 API/CLI 自动化交互与状态巡检脚本。
+- [`scripts/`](scripts/)：看板通用工厂适配器 (`board_adapter_factory.py`)、门控强校验预检 (`validate_transition.py`)、报告生成器 (`generate_report.py`) 及技术栈同步脚本。

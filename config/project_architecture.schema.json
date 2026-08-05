@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProjectArchitectureConfig",
+  "description": "项目技术架构与技术栈配置文件 Schema 校验规范",
+  "type": "object",
+  "required": ["project", "tech_stack", "architecture_overview"],
+  "properties": {
+    "project": {
+      "type": "object",
+      "required": ["name", "version", "app_type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string" },
+        "app_type": {
+          "type": "string",
+          "enum": ["frontend", "backend", "fullstack", "microservice", "cli", "library", "skill_package", "agent_skill"]
+        }
+      }
+    },
+    "tech_stack": {
+      "type": "object",
+      "required": ["languages", "frameworks"],
+      "properties": {
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "version": { "type": "string" }
+            }
+          }
+        },
+        "frameworks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "version": { "type": "string" }
+            }
+          }
+        },
+        "testing": {
+          "type": "object",
+          "properties": {
+            "framework": { "type": "string" },
+            "min_coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        }
+      }
+    },
+    "architecture_overview": {
+      "type": "object",
+      "required": ["pattern", "core_directories"],
+      "properties": {
+        "pattern": { "type": "string" },
+        "entry_points": { "type": "array", "items": { "type": "string" } },
+        "core_directories": { "type": "object" }
+      }
+    },
+    "deployment_and_ci": {
+      "type": "object",
+      "properties": {
+        "containerized": { "type": "boolean" },
+        "ci_cd_provider": { "type": "string" }
+      }
+    }
+  }
+}
