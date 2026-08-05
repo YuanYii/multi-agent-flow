@@ -7,10 +7,10 @@ tech_stack:
   frameworks: Pydantic
   testing_framework: pytest
 responsibilities:
-  - Schema / Workflow / API / AI 编码实现
-  - 单元测试撰写与覆盖率达标 (coverage>80%)
+  - Python 与 Pydantic 核心业务逻辑实现
+  - 单元测试撰写与覆盖率达标 (pytest)
   - 开发任务报告撰写与工作包归档
-  - G 类环境搭建与运维治理
+  - 依赖治理与本地运行环境维护
 boundaries:
   can_approve: false
   can_review: false

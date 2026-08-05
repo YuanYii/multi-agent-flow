@@ -57,7 +57,7 @@ def generate_report(report_type: str, task_id: str, task_name: str, assignee: st
 
 def main():
     parser = argparse.ArgumentParser(description="自动化任务报告生成器")
-    parser.add_argument("--type", required=True, choices=["dev", "review", "qa"], help="报告类型 (dev|review|qa)")
+    parser.add_argument("--type", required=True, help="报告类型 (dev|review|qa)")
     parser.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
     parser.add_argument("--task-name", default="任务示例", help="任务名称")
     parser.add_argument("--assignee", default="Agent", help="处理人")

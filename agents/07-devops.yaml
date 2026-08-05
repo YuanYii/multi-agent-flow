@@ -7,8 +7,8 @@ tech_stack:
   ci_cd_provider: github_actions
 responsibilities:
   - 分支管理与 Git 工作流治理 (SemVer Tag)
-  - CI/CD 自动化流水线维护
-  - 环境镜像与容器化支持
+  - CI/CD 自动化流水线维护 (github_actions)
+  - '环境镜像与容器化支持 (Docker: False)'
 boundaries:
   can_approve: false
   can_code: false

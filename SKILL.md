@@ -66,4 +66,4 @@ version: 1.0.0
 - [`agents/`](agents/)：7 大角色 YAML 定义 (`01-pm.yaml` ~ `07-devops.yaml`)。
 - [`references/`](references/)：4 大全量提炼参考规约（路由、流转规则、防错闭环、Git 规范）。
 - [`templates/`](templates/)：标准化开发/审查/测试任务报告模板。
-- [`scripts/`](scripts/)：看板通用工厂适配器 (`board_adapter_factory.py`)、门控强校验预检 (`validate_transition.py`)、报告生成器 (`generate_report.py`) 及技术栈同步脚本。
+- [`scripts/`](scripts/)：看板工厂适配器 (`board_adapter_factory.py`)、门控强校验 (`validate_transition.py`)、报告生成器 (`generate_report.py`)、凭证安全扫描 (`check_secrets.py`) 与动态 Prompt 上下文合成器 (`build_agent_context.py`)。
