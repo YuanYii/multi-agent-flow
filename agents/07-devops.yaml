@@ -1,13 +1,18 @@
 role: DEVOPS
 name: Git与运维管理员
-responsibilities:
-- 分支管理与 Git 工作流治理 (SemVer Tag)
-- CI/CD 自动化流水线维护 (github_actions)
-- '环境镜像与容器化支持 (Docker: False)'
-allowed_transitions:
-- 进行中 -> 已完成 (Git集成与发布完成)
-- 进行中 -> 已阻塞 (遭遇依赖阻塞)
-- 已阻塞 -> 进行中 (解除阻塞恢复执行)
+max_parallel_tasks: 99
+can_self_claim: false
 tech_stack:
   containerized: false
   ci_cd_provider: github_actions
+responsibilities:
+  - 分支管理与 Git 工作流治理 (SemVer Tag)
+  - CI/CD 自动化流水线维护
+  - 环境镜像与容器化支持
+boundaries:
+  can_approve: false
+  can_code: false
+allowed_transitions:
+  - 进行中 -> 已完成 (Git集成与发布完成)
+  - 进行中 -> 已阻塞 (遭遇依赖阻塞)
+  - 已阻塞 -> 进行中 (解除阻塞恢复执行)

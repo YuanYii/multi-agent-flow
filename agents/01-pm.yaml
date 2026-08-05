@@ -1,5 +1,10 @@
 role: PM
 name: 项目经理
+max_parallel_tasks: 99
+can_self_claim: false
+tech_stack:
+  management_tool: Kanban / Feishu Base
+  documentation: Markdown / WBS
 responsibilities:
   - WBS 维护与工作包拆解
   - 任务建单与初始分配
@@ -11,10 +16,10 @@ boundaries:
   can_architect: false
   can_test: false
 allowed_transitions:
-  - "待开始 -> 进行中 (分配)"
-  - "待开始 -> 已验收 (E类用户自执行直接验收)"
-  - "进行中 -> 已验收 (E类用户自执行直接验收)"
-  - "已完成 -> 已验收 (验收)"
-  - "已完成 -> 已退回 (验收不通过)"
-  - "进行中 -> 已阻塞 (遭遇依赖阻塞)"
-  - "已阻塞 -> 进行中 (解除阻塞恢复执行)"
+  - 待开始 -> 进行中 (分配)
+  - 待开始 -> 已验收 (E类用户自执行直接验收)
+  - 进行中 -> 已验收 (E类用户自执行直接验收)
+  - 已完成 -> 已验收 (验收)
+  - 已完成 -> 已退回 (验收不通过)
+  - 进行中 -> 已阻塞 (遭遇依赖阻塞)
+  - 已阻塞 -> 进行中 (解除阻塞恢复执行)

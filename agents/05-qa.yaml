@@ -1,14 +1,19 @@
 role: QA
 name: 测试工程师
-responsibilities:
-- 基于 pytest 的集成与端到端测试覆盖
-- 测试用例执行与单测覆盖率校验 (≥80%)
-- 缺陷回写与复测结论追加
-allowed_transitions:
-- 测试中 -> 已完成 (测试通过，必带结束时间)
-- 测试中 -> 已退回 (测试不通过)
-- 进行中 -> 已阻塞 (遭遇依赖阻塞)
-- 已阻塞 -> 进行中 (解除阻塞恢复执行)
+max_parallel_tasks: 99
+can_self_claim: false
 tech_stack:
   testing_framework: pytest
   min_coverage_percent: 80%
+responsibilities:
+  - 集成测试与端到端链路验证
+  - 测试用例执行与单测覆盖率校验 (≥80%)
+  - 缺陷回写与复测结论追加
+boundaries:
+  can_approve: false
+  can_code: false
+allowed_transitions:
+  - 测试中 -> 已完成 (测试通过，必带结束时间)
+  - 测试中 -> 已退回 (测试不通过)
+  - 进行中 -> 已阻塞 (遭遇依赖阻塞)
+  - 已阻塞 -> 进行中 (解除阻塞恢复执行)

@@ -10,6 +10,14 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.join(SCRIPT_DIR, "..", "config")
 AGENTS_DIR = os.path.join(SCRIPT_DIR, "..", "agents")
 
+class IndentedDumper(yaml.Dumper):
+    def increase_indent(self, flow=False, indentless=False):
+        return super().increase_indent(flow=False, indentless=False)
+
+def dump_yaml(data, filepath):
+    with open(filepath, "w", encoding="utf-8") as f:
+        yaml.dump(data, f, Dumper=IndentedDumper, allow_unicode=True, sort_keys=False)
+
 def load_architecture_config():
     target_config = os.path.join(CONFIG_DIR, "project_architecture.config.yaml")
     template_config = os.path.join(CONFIG_DIR, "project_architecture.template.yaml")
@@ -45,7 +53,6 @@ def update_dev_role(arch_data):
         "testing_framework": test_framework
     }
 
-    # 更新责任描述
     dev_data["responsibilities"] = [
         f"{lang_str} 与 {fw_str} 核心业务逻辑实现",
         f"单元测试撰写与覆盖率达标 ({test_framework})",
@@ -53,8 +60,7 @@ def update_dev_role(arch_data):
         "依赖治理与本地运行环境维护"
     ]
 
-    with open(dev_path, "w", encoding="utf-8") as f:
-        yaml.dump(dev_data, f, allow_unicode=True, sort_keys=False)
+    dump_yaml(dev_data, dev_path)
     print(f"[SUCCESS] 已更新开发专家配置: {dev_path}")
 
 def update_reviewer_role(arch_data):
@@ -80,8 +86,7 @@ def update_reviewer_role(arch_data):
         "架构契约与设计模式合规性审查"
     ]
 
-    with open(reviewer_path, "w", encoding="utf-8") as f:
-        yaml.dump(reviewer_data, f, allow_unicode=True, sort_keys=False)
+    dump_yaml(reviewer_data, reviewer_path)
     print(f"[SUCCESS] 已更新代码审查专家配置: {reviewer_path}")
 
 def update_qa_role(arch_data):
@@ -108,8 +113,7 @@ def update_qa_role(arch_data):
         "缺陷回写与复测结论追加"
     ]
 
-    with open(qa_path, "w", encoding="utf-8") as f:
-        yaml.dump(qa_data, f, allow_unicode=True, sort_keys=False)
+    dump_yaml(qa_data, qa_path)
     print(f"[SUCCESS] 已更新测试专家配置: {qa_path}")
 
 def update_devops_role(arch_data):
@@ -130,13 +134,12 @@ def update_devops_role(arch_data):
     }
 
     devops_data["responsibilities"] = [
-        f"分支管理与 Git 工作流治理 (SemVer Tag)",
+        "分支管理与 Git 工作流治理 (SemVer Tag)",
         f"CI/CD 自动化流水线维护 ({ci_provider})",
         f"环境镜像与容器化支持 (Docker: {is_docker})"
     ]
 
-    with open(devops_path, "w", encoding="utf-8") as f:
-        yaml.dump(devops_data, f, allow_unicode=True, sort_keys=False)
+    dump_yaml(devops_data, devops_path)
     print(f"[SUCCESS] 已更新 DevOps 专家配置: {devops_path}")
 
 def main():

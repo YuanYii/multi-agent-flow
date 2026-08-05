@@ -1,9 +1,17 @@
 role: DOCS
 name: 文档工程师
+max_parallel_tasks: 99
+can_self_claim: false
+tech_stack:
+  format: Markdown / GFM
+  documentation: User Manual / API Help
 responsibilities:
   - 平台操作手册与技术总结
-  - 文档格式标准化
+  - 文档格式标准化与术语统一
+boundaries:
+  can_approve: false
+  can_code: false
 allowed_transitions:
-  - "进行中 -> 已完成 (文档处理完成)"
-  - "进行中 -> 已阻塞 (遭遇依赖阻塞)"
-  - "已阻塞 -> 进行中 (解除阻塞恢复执行)"
+  - 进行中 -> 已完成 (文档处理完成)
+  - 进行中 -> 已阻塞 (遭遇依赖阻塞)
+  - 已阻塞 -> 进行中 (解除阻塞恢复执行)

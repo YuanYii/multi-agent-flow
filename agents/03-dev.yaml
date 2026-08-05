@@ -1,20 +1,23 @@
 role: DEV
 name: 全栈与AI开发工程师
-responsibilities:
-- Python 与 Pydantic 核心业务逻辑实现
-- 单元测试撰写与覆盖率达标 (pytest)
-- 开发任务报告撰写与工作包归档
-- 依赖治理与本地运行环境维护
 max_parallel_tasks: 3
 can_self_claim: true
-allowed_transitions:
-- 待开始 -> 进行中 (自领取，需先改状态落库)
-- 进行中 -> 审查中 (提交代码审查)
-- 进行中 -> 已完成 (G类环境搭建任务完成提交PM)
-- 已退回 -> 进行中 (开始修复)
-- 进行中 -> 已阻塞 (遭遇依赖阻塞)
-- 已阻塞 -> 进行中 (解除阻塞恢复执行)
 tech_stack:
   languages: Python
   frameworks: Pydantic
   testing_framework: pytest
+responsibilities:
+  - Schema / Workflow / API / AI 编码实现
+  - 单元测试撰写与覆盖率达标 (coverage>80%)
+  - 开发任务报告撰写与工作包归档
+  - G 类环境搭建与运维治理
+boundaries:
+  can_approve: false
+  can_review: false
+allowed_transitions:
+  - 待开始 -> 进行中 (自领取，需先改状态落库)
+  - 进行中 -> 审查中 (提交代码审查)
+  - 进行中 -> 已完成 (G类环境搭建任务完成提交PM)
+  - 已退回 -> 进行中 (开始修复)
+  - 进行中 -> 已阻塞 (遭遇依赖阻塞)
+  - 已阻塞 -> 进行中 (解除阻塞恢复执行)
