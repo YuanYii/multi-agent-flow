@@ -1,0 +1,16 @@
+role: DEV
+name: 全栈与AI开发工程师
+responsibilities:
+  - Schema / Workflow / API / AI 编码实现
+  - 单元测试覆盖
+  - 开发任务报告撰写
+  - G 类环境搭建与运维治理
+max_parallel_tasks: 3
+can_self_claim: true
+allowed_transitions:
+  - "待开始 -> 进行中 (自领取，需先改状态落库)"
+  - "进行中 -> 审查中 (提交代码审查)"
+  - "进行中 -> 已完成 (G类环境搭建任务完成提交PM)"
+  - "已退回 -> 进行中 (开始修复)"
+  - "进行中 -> 已阻塞 (遭遇依赖阻塞)"
+  - "已阻塞 -> 进行中 (解除阻塞恢复执行)"

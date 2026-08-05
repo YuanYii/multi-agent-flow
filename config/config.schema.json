@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WorkflowConfig",
+  "description": "Multi-Agent Team Workflow Skill 配置 Schema",
+  "type": "object",
+  "properties": {
+    "project": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "root_dir": { "type": "string" }
+      },
+      "required": ["name", "version", "root_dir"]
+    },
+    "board": {
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string", "enum": ["feishu_base", "jira", "github_projects"] },
+        "base_token": { "type": "string" },
+        "table_id": { "type": "string" },
+        "fields": {
+          "type": "object",
+          "properties": {
+            "task_id": { "type": "string" },
+            "status": { "type": "string" },
+            "assignee": { "type": "string" },
+            "owner": { "type": "string" },
+            "process_desc": { "type": "string" },
+            "remarks": { "type": "string" }
+          },
+          "required": ["task_id", "status", "assignee", "owner"]
+        }
+      },
+      "required": ["provider", "fields"]
+    },
+    "roles": {
+      "type": "object",
+      "patternProperties": {
+        "^[A-Z_]+$": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "max_parallel_tasks": { "type": "integer" },
+            "can_self_claim": { "type": "boolean" }
+          },
+          "required": ["name", "max_parallel_tasks", "can_self_claim"]
+        }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "properties": {
+        "docs_root": { "type": "string" },
+        "dev_reports_dir": { "type": "string" },
+        "review_reports_dir": { "type": "string" },
+        "qa_reports_dir": { "type": "string" }
+      },
+      "required": ["docs_root", "dev_reports_dir", "review_reports_dir", "qa_reports_dir"]
+    }
+  },
+  "required": ["project", "board", "roles", "paths"]
+}

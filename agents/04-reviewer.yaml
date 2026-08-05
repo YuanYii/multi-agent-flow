@@ -1,0 +1,11 @@
+role: REVIEWER
+name: 代码审查专家
+responsibilities:
+  - PEP8与团队规范审查
+  - 安全漏洞与性能瓶颈审查
+  - Pydantic v2 规范核验
+allowed_transitions:
+  - "审查中 -> 测试中 (审查通过)"
+  - "审查中 -> 已退回 (审查不通过)"
+  - "进行中 -> 已阻塞 (遭遇依赖阻塞)"
+  - "已阻塞 -> 进行中 (解除阻塞恢复执行)"
