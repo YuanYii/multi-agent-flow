@@ -1,0 +1,45 @@
+# project_architecture.template.yaml - 项目技术架构与技术栈配置文件模板
+# 当首次加载 multi-agent-flow 技能时，Agent 自动识别项目并复制生成 project_architecture.config.yaml
+
+project:
+  name: "project_name"             # 项目名称
+  version: "1.0.0"                # 版本号
+  app_type: "fullstack"           # 应用类型: frontend | backend | fullstack | microservice | cli | skill_package
+
+tech_stack:
+  languages:                     # 主要编程语言与版本
+    - name: "Python"
+      version: ">=3.10"
+  frameworks:                    # 核心框架与组件
+    - name: "Pydantic"
+      version: "v2"
+  build_and_packaging:           # 构建与包管理工具
+    - name: "pip"
+  testing:                       # 测试框架与覆盖率要求
+    framework: "pytest"
+    min_coverage_percent: 80
+  databases_and_storage:         # 数据库与存储方案
+    - type: "relational"
+      name: "SQLite/PostgreSQL"
+      orm: "SQLAlchemy"
+
+architecture_overview:
+  pattern: "modular_monolith"    # 架构模式: MVC | DDD | microservices | modular_monolith | agent_skill
+  entry_points:                  # 项目主入口文件/路径
+    - "main.py"
+  core_directories:              # 核心目录分工职责
+    config: "配置文件与 Schema"
+    scripts: "自动化运行与适配工具脚本"
+    references: "业务/技术规范参考文档"
+
+deployment_and_ci:
+  containerized: false           # 是否 Docker 容器化
+  ci_cd_provider: "github_actions" # CI/CD 工具
+  target_environments:           # 部署环境列表
+    - "dev"
+    - "stage"
+    - "prod"
+
+third_party_integrations:        # 第三方 API 与服务集成
+  - name: "Feishu Base API"
+    purpose: "看板自动化同步与任务管理"

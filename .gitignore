@@ -1,0 +1,14 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local runtime configs (keep templates only)
+config/workflow.config.yaml
+config/project_architecture.config.yaml

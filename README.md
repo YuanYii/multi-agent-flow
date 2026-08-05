@@ -24,23 +24,57 @@ cd /path/to/your-project
 git clone --depth 1 https://github.com/YuanYii/multi-agent-team-workflow.git skills/multi-agent-flow && rm -rf skills/multi-agent-flow/.git
 ```
 
-### 项目初始化与看板配置
+### 项目初始化与架构识别
 
-复制配置模板并使用适配器快速初始化：
+1. **技术架构自动识别**：当 Agent 初次在项目中调阅本 Skill 时，将自动扫描项目工程文件（如 `package.json`, `pyproject.toml`, `go.mod` 等），复制 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 生成并落库 `config/project_architecture.config.yaml`。
+2. **专家团队技术栈自动同步**：运行 `python3 scripts/update_agent_tech_stacks.py`，将扫描到的技术栈自动同步落盘至 `agents/*.yaml` 配置文件，使开发、审查、测试专家角色与项目真实语言工具链高精对齐。
+3. **看板配置初始化**：复制配置模板并使用适配器快速初始化：
 
 ```bash
 cd skills/multi-agent-flow
 
-# 复制配置模板
+# 复制看板配置模板
 cp config/workflow.config.template.yaml config/workflow.config.yaml
 
 # (可选) 自动扫描看板获取动态字段 ID
 python3 scripts/init_field_mapping.py --base-token <YOUR_BASE_TOKEN> --table-id <YOUR_TABLE_ID>
 ```
 
+### 🔌 连接在线数据看板的必要信息与凭证指南
+
+在将 Agent 与线上数据看板建立连接时，需在 [`config/workflow.config.yaml`](config/workflow.config.template.yaml) 及系统环境变量中配置以下必备 API 鉴权与连接参数：
+
+#### 1. 飞书多维表格 (Feishu Base) —— 推荐
+- **配置文件参数** (`config/workflow.config.yaml`)：
+  - `board.provider`: `"feishu_base"`
+  - `board.base_token`: **Base Token**（多维表格浏览器 URL `https://feishu.cn/base/【Base_Token】?table=...` 中 `base/` 后方的字符串）
+  - `board.table_id`: **Table ID**（多维表格 URL `...table=【tbl_ID】` 中 `table=` 后方的字符串）
+- **系统环境变量凭证**（API 授权使用）：
+  - `FEISHU_APP_ID`: 飞书开放平台自建应用的 App ID（示例：`cli_a1b2c3d4e5`）
+  - `FEISHU_APP_SECRET`: 飞书开放平台自建应用的 App Secret 密钥
+
+#### 2. Jira 看板
+- **配置文件参数**：
+  - `board.provider`: `"jira"`
+  - `board.domain`: Jira 实例域名（示例：`https://your-domain.atlassian.net`）
+  - `board.project_key`: 项目 Project Key（示例：`PROJ`）
+- **系统环境变量凭证**：
+  - `JIRA_USER_EMAIL`: Atlassian 账号邮箱
+  - `JIRA_API_TOKEN`: Atlassian 账号后台生成的 API Token
+
+#### 3. GitHub Projects (v2)
+- **配置文件参数**：
+  - `board.provider`: `"github_projects"`
+  - `board.owner`: GitHub 组织名或用户名
+  - `board.project_number`: Project 编号（示例：`1`）
+- **系统环境变量凭证**：
+  - `GITHUB_TOKEN`: 具备 `repo` 和 `project` 读写权限的 Personal Access Token (PAT)
+
+---
+
 ### 任务流转与指令交互
 
-与 Agent 对话，激活协同流转：
+在与 Agent 对话时，只需在 Prompt 中唤起 `multi-agent-flow` 技能标识，Agent 将自动调阅 `SKILL.md` 并动态加载 `rules/` 下的核心规则与防错契约：
 
 #### 1. 开发人员自领取任务
 > **“使用 multi-agent-flow，自领取下一个待开始任务”**
@@ -73,6 +107,19 @@ python3 scripts/init_field_mapping.py --base-token <YOUR_BASE_TOKEN> --table-id 
 ```text
 → 检查结束时间强校验，状态更新为【已验收】，末处理人保持【PM】
 ```
+
+---
+
+## 📜 核心契约与防错规则 (`rules/`)
+
+技能包在 [`rules/`](rules/) 目录下内置了全套标准化交互契约与防错规则，在调用 Skill 时自动按需装载：
+
+- 🚩 [`rules/AGENTS.md`](rules/AGENTS.md)：**多专家团队协作契约** —— 规定 4 大协作红线、看板状态不变量与动态按需加载协议。
+- 🎭 [`rules/IDENTITY.md`](rules/IDENTITY.md)：**专家团多面人设与身份契约** —— 定义 PM、ARCHITECT、DEV、REVIEWER、QA、DOCS、DEVOPS 7 大专家身份及其提权代行规约。
+- ⚡ [`rules/SOUL.md`](rules/SOUL.md)：**行为原则与防错控制心脏** —— 规定事实高于推论、原子更新、缺陷溯源不切碎等安全控制核心。
+- 💓 [`rules/HEARTBEAT.md`](rules/HEARTBEAT.md)：**看板状态巡检与卡顿监控** —— 规定滞留任务、并发上限及状态处理人一致性等巡检 Checklist。
+- 🛠️ [`rules/TOOLS.md`](rules/TOOLS.md)：**看板与工程工具链指引** —— 描述 `init_field_mapping.py`、`feishu_base_adapter.py` 等脚本说明。
+- 🤝 [`rules/USER.md`](rules/USER.md)：**用户交互协议与协同契约** —— 规定自领取筛选规则、跨角色提权代行交互及打回确认流程。
 
 ---
 
@@ -127,17 +174,18 @@ python3 scripts/init_field_mapping.py --base-token <YOUR_BASE_TOKEN> --table-id 
 
 ```text
 2_多专家协同研发工作流/
-├── AGENTS.md                          # [核心] 多专家团队 Agent 协作契约
-├── IDENTITY.md                        # [角色] 7大专家 Agent 身份定义与多面人设
-├── SOUL.md                            # [控制] 状态流转防错闭环心脏 (§九)
-├── TOOLS.md                           # [工具] 看板工具与 CLI 适配层使用指引
-├── USER.md                            # [协议] 自领取规则与跨角色提权代行协议
-├── HEARTBEAT.md                       # [巡检] 看板巡检与状态不变量核验规则
 └── multi-agent-flow/                  # [技能核心包]
     ├── SKILL.md                       # 技能主入口指令与 Prompt
     ├── README.md                      # 本说明文档
+    ├── rules/                         # [核心规则与契约]
+    │   ├── AGENTS.md                  # [核心] 多专家团队 Agent 协作契约
+    │   ├── IDENTITY.md                # [角色] 7大专家 Agent 身份定义与多面人设
+    │   ├── SOUL.md                    # [控制] 状态流转防错闭环心脏 (§九)
+    │   ├── TOOLS.md                   # [工具] 看板工具与 CLI 适配层使用指引
+    │   ├── USER.md                    # [协议] 自领取规则与跨角色提权代行协议
+    │   └── HEARTBEAT.md               # [巡检] 看板巡检与状态不变量核验规则
     ├── agents/                        # 7 大专家 Agent YAML 描述 (01-pm.yaml ~ 07-devops.yaml)
-    ├── config/                        # 零硬编码配置模板 (workflow.config.template.yaml)
+    ├── config/                        # 零硬编码配置模板 (workflow.config & project_architecture)
     ├── references/                    # 4 大全量提炼参考规约 (路由/流转/防错/Git)
     ├── templates/                     # 开发/审查/测试报告模版
     └── scripts/                       # 自动化脚本与看板适配器 (feishu_base_adapter.py 等)
