@@ -26,7 +26,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-team-workflow.git ski
 
 ### 项目初始化与架构识别
 
-1. **技术架构自动识别**：当 Agent 初次在项目中调阅本 Skill 时，将自动扫描项目工程文件（如 `package.json`, `pyproject.toml`, `go.mod` 等），复制 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 生成并落库 `config/project_architecture.config.yaml`。
+1. **技术架构自动识别与 Token 消耗提示**：当 Agent 初次在项目中调阅本 Skill 时，将自动在回复中显式输出初始化通知及 Token 消耗提醒（说明全面扫描工程配置文件及更新专家规则的过程**会消耗较多 Token**），随后自动复制 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 生成并落库 `config/project_architecture.config.yaml`。
 2. **专家团队技术栈自动同步**：运行 `python3 scripts/update_agent_tech_stacks.py`，将扫描到的技术栈自动同步落盘至 `agents/*.yaml` 配置文件，使开发、审查、测试专家角色与项目真实语言工具链高精对齐。
 3. **看板配置初始化**：复制配置模板并使用适配器快速初始化：
 

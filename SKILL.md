@@ -25,7 +25,15 @@ version: 1.0.0
 
 ## 🔍 初次加载：技术架构自动识别 SOP (Architecture Discovery)
 
-当 Agent **初次在此工作区调阅/加载本 Skill** 时，自动执行以下架构识别与落库步骤：
+当 Agent **初次在此工作区调阅/加载本 Skill**（检测到 `config/project_architecture.config.yaml` 不存在）时，必须自动执行以下操作并遵循响应契约：
+
+> 📢 **【显式响应与 Token 预警契约】**
+> Agent 在启动初始化时，**必须第一时间在回复中显式输出以下提示**：
+> 1. **初始化声明**：“正在为您初始化 `multi-agent-flow` 工作流并识别当前项目技术架构...”
+> 2. **Token 消耗提示**：“💡 **提示**：初次初始化需要全面扫描与解析全局项目配置文件（如 `package.json`/`pyproject.toml`/`go.mod`/`Dockerfile` 等）并同步更新专家团队规则，**本次操作可能会消耗较多 Token**。初始化完成后配置将持久落盘，后续使用无需重新扫描。”
+> 3. **步骤清单展示**：向用户展示即将自动执行的 4 大初始化动作。
+
+### 初始化自动执行步骤：
 
 1. **核验配置文件**：检查 `config/project_architecture.config.yaml` 是否已存在。
 2. **自动扫描与识别**（若不存在）：
