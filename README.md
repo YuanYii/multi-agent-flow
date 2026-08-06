@@ -26,19 +26,13 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-team-workflow.git ski
 
 ### 项目初始化与架构识别
 
-1. **技术架构自动识别与 Token 消耗提示**：当 Agent 初次在项目中调阅本 Skill 时，将自动在回复中显式输出初始化通知及 Token 消耗提醒（说明全面扫描工程配置文件及更新专家规则的过程**会消耗较多 Token**），随后自动复制 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 生成并落库 `config/project_architecture.config.yaml`。
-2. **专家团队技术栈自动同步**：运行 `python3 scripts/update_agent_tech_stacks.py`，将扫描到的技术栈自动同步落盘至 `agents/*.yaml` 配置文件，使开发、审查、测试专家角色与项目真实语言工具链高精对齐。
-3. **看板配置初始化**：复制配置模板并使用适配器快速初始化：
+您可以直接指令 Agent 为您完成所有初始配置，无需手动执行文件复制或系统架构分析操作。
 
-```bash
-cd skills/multi-agent-flow
-
-# 复制看板配置模板
-cp config/workflow.config.template.yaml config/workflow.config.yaml
-
-# (可选) 自动扫描看板获取动态字段 ID
-python3 scripts/init_field_mapping.py --base-token <YOUR_BASE_TOKEN> --table-id <YOUR_TABLE_ID>
-```
+1. **技术架构自动识别与 Token 消耗提示**：当 Agent 初次在项目中调阅本 Skill 时，系统架构分析与识别工作可直接交由 Agent 自动执行。它将自动输出初始化通知及 Token 消耗提醒（说明全面扫描工程配置的过程**会消耗较多 Token**），随后自动读取 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 模板生成并落库 `config/project_architecture.config.yaml`。
+2. **专家团队技术栈自动同步**：可直接让 Agent 运行 `python3 scripts/update_agent_tech_stacks.py`，将扫描到的技术栈同步落盘至 `agents/*.yaml` 配置文件，使专家角色与项目真实工具链高精对齐。
+3. **看板配置初始化**：无需手动执行 `cp` 等命令，直接让 Agent 帮您完成初始化：
+   - 让 Agent 将配置模板 `config/workflow.config.template.yaml` 复制为 `config/workflow.config.yaml`。
+   - (可选) 让 Agent 运行脚本扫描看板获取动态字段 ID，例如输入：`请运行 init_field_mapping 脚本，我的 base-token 是 xxx...`
 
 ### 🔌 连接在线数据看板的必要信息与凭证指南
 
@@ -138,23 +132,62 @@ python3 scripts/init_field_mapping.py --base-token <YOUR_BASE_TOKEN> --table-id 
 
 ## 核心架构与 7 大抽象角色
 
-每个节点由独立的专家角色（Role Agent）执行，详见角色路由表：
-👉 [`references/01-AI-Team-Workflow-Index.md`](references/01-AI-Team-Workflow-Index.md)
+每个节点由独立的专家角色（Role Agent）执行，详尽信息可参考 [`references/01-AI-Team-Workflow-Index.md`](references/01-AI-Team-Workflow-Index.md)。以下为各角色核心职责与红线边界：
 
-- **PM**：WBS 维护、建单、终态验收、阶段总结
-- **ARCHITECT**：系统架构设计、ADR、技术总结
-- **DEV**：API/数据库编码、单测 (coverage>80%)、环境治理
-- **REVIEWER**：代码规范、安全漏洞、性能与 Pydantic v2 核验
-- **QA**：集成测试、端到端测试、缺陷回写 (带结束时间)
-- **DOCS**：操作手册、API 帮助文档、技术总结
-- **DEVOPS**：分支合并 (`feature → stage → main`)、SemVer 打 Tag
+- **PM（项目经理）**：负责 WBS 维护、工作包拆解、任务派发与最终阶段验收。
+  - *红线*：不编写业务代码、不做技术架构设计、不亲自跑单测/集成测试。
+- **ARCHITECT（系统架构师）**：负责系统架构设计、技术选型与 ADR 编写。
+  - *红线*：架构设计不等于代码实现，任务完成后直接交由 PM 验收。
+- **DEV（开发工程师）**：负责 Schema 定义、业务编码、单测（覆盖率>80%）及环境治理。
+  - *红线*：并发上限3个任务，必须先将看板状态改为“进行中”再开始编码。
+- **REVIEWER（代码审查员）**：负责代码规范 (PEP8 / Clean Code)、安全漏洞扫描与性能评估。
+  - *规范*：审查报告需标注问题优先级，打回时需回写结构化缺陷信息。
+- **QA（测试工程师）**：负责集成测试、端到端系统测试、回归测试。
+  - *红线*：不做单元测试。测试通过时必须在看板中填入结束时间。
+- **DOCS（文档工程师）**：负责平台操作手册、API 帮助文档等。
+  - *特例*：文档任务走精简流转，无需代码审查与测试。
+- **DEVOPS（运维管理员）**：负责分支合并、打 SemVer 标签与环境编排。
+  - *触发*：当前阶段任务全验收后由 PM 触发。
 
 ---
 
-## 7 类任务生命周期 (A-G 分类流转模型)
+## 任务生命周期与状态流转
 
-全量 A-G 类任务流转链路图与退回规则详见：
-👉 [`references/02-State-Flow-Rules.md`](references/02-State-Flow-Rules.md)
+本工作流包含 8 个标准状态：`待开始`、`进行中`、`审查中`、`测试中`、`已退回`、`已阻塞`、`已完成`、`已验收`。
+详细状态定义与退回规则可参考 [`references/02-State-Flow-Rules.md`](references/02-State-Flow-Rules.md)。
+
+### 常规开发任务（A类）标准流转链：
+
+```mermaid
+graph TD
+    Start((开始)) -->|PM分配任务| Todo["待开始<br/>(处理人: PM/DEV)"]
+    
+    Todo -->|DEV自领取| InProgress["进行中<br/>(处理人: DEV)"]
+    
+    InProgress -->|提交审查| InReview["审查中<br/>(处理人: REVIEWER)"]
+    InProgress -->|依赖未就绪| Blocked["已阻塞<br/>(处理人: DEV)"]
+    Blocked -->|依赖恢复| InProgress
+    
+    InReview -->|审查通过| InTesting["测试中<br/>(处理人: QA)"]
+    InReview -->|审查不通过| Rejected["已退回<br/>(处理人: 原负责人)"]
+    
+    InTesting -->|测试通过,填结束时间| Done["已完成<br/>(处理人: PM)"]
+    InTesting -->|测试不通过| Rejected
+    
+    Rejected -->|返工修复| InProgress
+    
+    Done -->|终态验收通过| Accepted["已验收<br/>(处理人: PM)"]
+    Done -->|验收不通过| Rejected
+    
+    Accepted --> End((结束))
+```
+
+### 其他类型任务流转：
+- **架构设计（B类）/ 文档（C类）/ 运维（D类）/ 环境（G类）**：通常直接由 `进行中` 流转至 `已完成` 交由 PM 验收，跳过代码审查与测试环节。
+
+### 核心防错：打回不拆单与报告追加原则
+- **严禁派生孤儿任务**：当审查或测试不通过时，**禁止新建独立修复任务（如 T0103-fix）**。一律在原任务上修改状态为 `已退回`，并在备注中写入结构化缺陷信息（`DEF-{原任务编号}-{轮次}`）。
+- **禁止新建碎片报告**：审查/测试退回修复后，重新流转时的复审/复测结论，强制要求追加在原有审查/测试报告的末尾章节（如 `§8 复审结论`），严禁新建独立的复审/复测报告文件。
 
 ---
 
