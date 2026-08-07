@@ -69,10 +69,10 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 
 ### 任务流转与指令交互
 
-在与 Agent 对话时，只需在 Prompt 中唤起 `multi-agent-flow` 技能标识，Agent 将自动调阅 `SKILL.md` 并动态加载 `rules/` 下的核心规则与防错契约：
+在与 Agent 对话时，只需在 Prompt 中唤起 `multi-agent-flow` 技能标识，或在支持子 Agent 命令的 IDE 中直接使用快捷语法（如 `@flow-dev`, `/flow-dev`），Agent 将自动调阅 `SKILL.md` 并动态加载 `rules/` 下的核心规则与防错契约：
 
 #### 1. 开发人员自领取任务
-> **“使用 multi-agent-flow，自领取下一个待开始任务”**
+> **“使用 multi-agent-flow，自领取下一个待开始任务”** （或直接在对话中召唤 `@flow-dev` / `/flow-dev`）
 
 ```text
 → Agent 自动核验并发上限 (≤3) 与领用顺序 (按编号从小到大)
@@ -80,7 +80,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 ```
 
 #### 2. 开发完成提交审查
-> **“使用 multi-agent-flow，提交 T0001 代码审查”**
+> **“使用 multi-agent-flow，提交 T0001 代码审查”** （或召唤 `@flow-reviewer` / `/flow-reviewer`）
 
 ```text
 → 自动撰写/更新开发任务报告 (按工作包归档)
@@ -88,7 +88,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 ```
 
 #### 3. 审查与测试通过/打回
-> **“使用 multi-agent-flow，审查 T0001”**
+> **“使用 multi-agent-flow，审查 T0001”** （或召唤 `@flow-qa` / `/flow-qa`）
 
 ```text
 → 若审查通过：状态推至【测试中】，处理人移交【QA】
@@ -97,7 +97,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 ```
 
 #### 4. 项目经理验收
-> **“使用 multi-agent-flow，验收已完成任务”**
+> **“使用 multi-agent-flow，验收已完成任务”** （或召唤 `@flow-pm` / `/flow-pm`）
 
 ```text
 → 检查结束时间强校验，状态更新为【已验收】，末处理人保持【PM】
@@ -194,13 +194,14 @@ graph TD
 
 ## 🛡️ 防错闭环机制 (§九 守护原则)
 
-完整四层防错门控、拦截处理与提权代行逻辑详见：
+完整五层防错门控、拦截处理与提权代行逻辑详见：
 👉 [`references/03-Anti-Error-Mechanism.md`](references/03-Anti-Error-Mechanism.md)
 
 1. **状态与处理人原子绑定 (Atomic Update)**：修改状态必须同步修改处理人。
 2. **打回不拆单原则 (Non-Fragmented Defect)**：打回一律在原任务上置为 `已退回` 并追加 `DEF-TXXX-N`。
 3. **报告复验追加原则 (Appended Audit)**：复审/复测结论强制追加至原报告。
-4. **四层防错门控 (Anti-Error Protocol)**：路径推导 ➔ 角色门控 ➔ 提权协议 ➔ 指令分派。
+4. **原项目文档只读归档原则 (Read-Only Legacy Governance)**：归档镜像拷贝入 `docs/*/原项目文档/`，源文件 100% 保持原样，严格禁篡改历史原文档。
+5. **五层防错门控 (Anti-Error Protocol)**：路径推导 ➔ 角色门控 ➔ 提权协议 ➔ 指令分派 ➔ 隔离安全。
 
 ---
 
@@ -227,7 +228,7 @@ graph TD
     │   ├── 04-Git-Workflow-Spec.md
     │   └── 05-Document-Management-Spec.md
     ├── templates/                     # 开发/审查/测试报告与模块设计/排查文档模板
-    └── scripts/                       # 自动化脚本与看板适配器 (feishu_base_adapter.py 等)
+    └── scripts/                       # 动态 Agent 探针 (export_agent_adapters)、旧文档归档 (migrate_legacy_docs) 与看板适配器
 ```
 
 ---
