@@ -36,10 +36,9 @@ version: 1.0.0
 ### 初始化自动执行步骤：
 
 1. **核验配置文件**：检查 `config/project_architecture.config.yaml` 是否已存在。
-2. **动态 Agent 环境探测与按需构建子 Agent 配置**：
-   - 运行 `python3 scripts/export_agent_adapters.py` 启动通用环境探针，自动感知当前实际启用的 AI Agent 运行环境。
-   - **按需落盘 (On-Demand)**：仅为当前检测激活的 Agent 环境创建子 Agent 规则文件（统一使用 `flow-` 命名空间前缀），避免在项目中预建海量无关的隐藏配置文件夹。
-   - 若未检测到特殊 IDE/Agent 特征，则仅按需在 `.agents/` 下落盘一份通配副本。
+2. **代码物理强拦截与 Subagent 官方规范落盘**：
+   - **【代码层 100% 物理拦截】**：必须运行 `python3 scripts/verify_and_export_agents.py`。该 Python 脚本在代码底层强制发起 HTTP 校验，访问官方页面查验 Subagent 规范断言。
+   - **防遗忘硬锁 (Hard Code Assurance)**：无论 Agent 模型本身是否遗忘规则，只要运行该初始化脚本，**代码解释器在物理层 100% 必然会执行官方联网查验**；若网络/断言失败则直接 `exit(1)` 抛错阻断，从机制上彻底解耦对 AI 纯文本“记忆力”的依赖。
 3. **自动扫描与识别**（若不存在配置文件）：
    - 自动扫描工作区配置文件（如 `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `Dockerfile`, `README.md` 等）。
    - 识别应用类型、开发语言、核心框架、单测/构建工具及目录架构模式。
@@ -55,9 +54,9 @@ version: 1.0.0
    - 将扫描到的真实语言、框架、单测框架与 CI/CD 工具自动落盘同步至 `agents/03-dev.yaml` ~ `07-devops.yaml`，完成专家团队技术栈的高精定制。
 7. **唤起 PM 专家进行项目定位鉴定与显式响应契约**：
    - 自动加载 `agents/01-pm.yaml` 身份，扫描解析当前项目的 `README.md`、配置文件与源码入口。
-   - 分析认定项目主要用途与核心功能，**强制在回复顶部输出标志行**：
+   - 分析认定项目主要用途与核心功能，**强制在回复顶部输出标志行与官方查证凭据**：
      > **`【已识别 xxxx 项目】`**
-     > *(示例：`【已识别 聚合日志解析与告警引擎 项目】`)*
+     > 🔗 **官方 Subagent 规范查证凭据**：`https://antigravity.google/docs/...` (查证物理路径：`{workspace}/.agents/agents/{name}/agent.md`)
    - 输出子 Agent 语法调用提示（如 `当前 Agent 支持通过 @flow-dev 或 /flow-dev 直接调度开发专家...`）。
 
 ---

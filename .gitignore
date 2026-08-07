@@ -17,3 +17,6 @@ config/project_architecture.config.yaml
 .drafts/
 docs/.drafts/
 .agents/
+.claude/
+.cursor/
+.codex/

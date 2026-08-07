@@ -29,7 +29,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 您可以直接指令 Agent（如输入 `“使用 multi-agent-flow 初始化当前项目”`）为您完成所有初始配置，无需手动执行文件复制或系统架构分析操作。
 
 1. **技术架构自动识别与 Token 消耗提示**：当 Agent 初次在项目中调阅本 Skill 时，系统架构分析与识别工作可直接交由 Agent 自动执行。它将自动输出初始化通知及 Token 消耗提醒（说明全面扫描工程配置的过程**会消耗较多 Token**）。
-2. **动态 Agent 环境感知与按需构建**：启动通用环境探针，自动感知当前实际启用的运行环境，运行 `python3 scripts/export_agent_adapters.py` **仅针对当前启用的 Agent 环境按需落盘子 Agent 配置**（具有 `flow-` 命名空间前缀），杜绝乱建多余的隐藏配置文件夹。
+2. **Subagent 官方标准路径实时查证与挂载**：识别当前运行环境后，严格查阅对应 Agent 官方最新文档（如 Antigravity 的 `{workspace}/.agents/agents/{agent_name}/agent.md` 与 `subagent: true` 标头），运行 `python3 scripts/export_agent_adapters.py` 将 7 大专家精准挂载放置于官方原生支持的路径下。
 3. **读取模板生成配置**：读取 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 模板生成并落库 `config/project_architecture.config.yaml`。
 4. **项目工程文档骨架建立与原项目文档自动归档**：Agent 将自动在项目中校验/创建标准的 `docs/` 目录树骨架，自动运行 `python3 scripts/migrate_legacy_docs.py` 扫描原项目散落的历史文档，并在对应的分类下自动创建 **`原项目文档/`** 子目录进行拷贝归档与隔离，并在 `.gitignore` 中追加 `.drafts/` 隔离规约。
 5. **专家团队技术栈自动同步**：自动运行 `python3 scripts/update_agent_tech_stacks.py`，将扫描到的技术栈同步落盘至 `agents/*.yaml` 配置文件。
