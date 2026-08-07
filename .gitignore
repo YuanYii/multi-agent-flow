@@ -13,6 +13,7 @@ __pycache__/
 config/workflow.config.yaml
 config/project_architecture.config.yaml
 
-# Drafts and temporary process notes
+# Drafts, temporary process notes, and generated agent runtime outputs
 .drafts/
 docs/.drafts/
+.agents/
