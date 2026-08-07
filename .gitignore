@@ -12,3 +12,7 @@ __pycache__/
 # Local runtime configs (keep templates only)
 config/workflow.config.yaml
 config/project_architecture.config.yaml
+
+# Drafts and temporary process notes
+.drafts/
+docs/.drafts/

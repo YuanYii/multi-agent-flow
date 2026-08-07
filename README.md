@@ -21,18 +21,19 @@
 cd /path/to/your-project
 
 # 克隆技能包到 skills 目录
-git clone --depth 1 https://github.com/YuanYii/multi-agent-team-workflow.git skills/multi-agent-flow && rm -rf skills/multi-agent-flow/.git
+git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi-agent-flow && rm -rf skills/multi-agent-flow/.git
 ```
 
 ### 项目初始化与架构识别
 
-您可以直接指令 Agent 为您完成所有初始配置，无需手动执行文件复制或系统架构分析操作。
+您可以直接指令 Agent（如输入 `“使用 multi-agent-flow 初始化当前项目”`）为您完成所有初始配置，无需手动执行文件复制或系统架构分析操作。
 
-1. **技术架构自动识别与 Token 消耗提示**：当 Agent 初次在项目中调阅本 Skill 时，系统架构分析与识别工作可直接交由 Agent 自动执行。它将自动输出初始化通知及 Token 消耗提醒（说明全面扫描工程配置的过程**会消耗较多 Token**），随后自动读取 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 模板生成并落库 `config/project_architecture.config.yaml`。
-2. **专家团队技术栈自动同步**：可直接让 Agent 运行 `python3 scripts/update_agent_tech_stacks.py`，将扫描到的技术栈同步落盘至 `agents/*.yaml` 配置文件，使专家角色与项目真实工具链高精对齐。
-3. **看板配置初始化**：无需手动执行 `cp` 等命令，直接让 Agent 帮您完成初始化：
-   - 让 Agent 将配置模板 `config/workflow.config.template.yaml` 复制为 `config/workflow.config.yaml`。
-   - (可选) 让 Agent 运行脚本扫描看板获取动态字段 ID，例如输入：`请运行 init_field_mapping 脚本，我的 base-token 是 xxx...`
+1. **技术架构自动识别与 Token 消耗提示**：当 Agent 初次在项目中调阅本 Skill 时，系统架构分析与识别工作可直接交由 Agent 自动执行。它将自动输出初始化通知及 Token 消耗提醒（说明全面扫描工程配置的过程**会消耗较多 Token**）。
+2. **动态 Agent 环境感知与按需构建**：启动通用环境探针，自动感知当前实际启用的运行环境，运行 `python3 scripts/export_agent_adapters.py` **仅针对当前启用的 Agent 环境按需落盘子 Agent 配置**（具有 `flow-` 命名空间前缀），杜绝乱建多余的隐藏配置文件夹。
+3. **读取模板生成配置**：读取 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 模板生成并落库 `config/project_architecture.config.yaml`。
+4. **项目工程文档骨架建立与原项目文档自动归档**：Agent 将自动在项目中校验/创建标准的 `docs/` 目录树骨架，自动运行 `python3 scripts/migrate_legacy_docs.py` 扫描原项目散落的历史文档，并在对应的分类下自动创建 **`原项目文档/`** 子目录进行拷贝归档与隔离，并在 `.gitignore` 中追加 `.drafts/` 隔离规约。
+5. **专家团队技术栈自动同步**：自动运行 `python3 scripts/update_agent_tech_stacks.py`，将扫描到的技术栈同步落盘至 `agents/*.yaml` 配置文件。
+6. **唤起 PM 鉴定项目并输出声明**：自动触发 PM 角色扫描当前项目 `README.md` 和源码，并在回复中显式输出：**`【已识别 xxxx 项目】`** 标识及使用指引。
 
 ### 🔌 连接在线数据看板的必要信息与凭证指南
 
@@ -108,7 +109,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-team-workflow.git ski
 
 技能包在 [`rules/`](rules/) 目录下内置了全套标准化交互契约与防错规则，在调用 Skill 时自动按需装载：
 
-- 🚩 [`rules/AGENTS.md`](rules/AGENTS.md)：**多专家团队协作契约** —— 规定 4 大协作红线、看板状态不变量与动态按需加载协议。
+- 🚩 [`rules/AGENTS.md`](rules/AGENTS.md)：**多专家团队协作契约** —— 规定 5 大协作红线、看板状态不变量与动态按需加载协议。
 - 🎭 [`rules/IDENTITY.md`](rules/IDENTITY.md)：**专家团多面人设与身份契约** —— 定义 PM、ARCHITECT、DEV、REVIEWER、QA、DOCS、DEVOPS 7 大专家身份及其提权代行规约。
 - ⚡ [`rules/SOUL.md`](rules/SOUL.md)：**行为原则与防错控制心脏** —— 规定事实高于推论、原子更新、缺陷溯源不切碎等安全控制核心。
 - 💓 [`rules/HEARTBEAT.md`](rules/HEARTBEAT.md)：**看板状态巡检与卡顿监控** —— 规定滞留任务、并发上限及状态处理人一致性等巡检 Checklist。
@@ -203,7 +204,7 @@ graph TD
 
 ---
 
-## 📋 目录结构与规范
+## 📂 目录结构与规范
 
 ```text
 2_多专家协同研发工作流/
@@ -211,7 +212,7 @@ graph TD
     ├── SKILL.md                       # 技能主入口指令与 Prompt
     ├── README.md                      # 本说明文档
     ├── rules/                         # [核心规则与契约]
-    │   ├── AGENTS.md                  # [核心] 多专家团队 Agent 协作契约
+    │   ├── AGENTS.md                  # [核心] 多专家团队 Agent 协作契约与 5 大红线
     │   ├── IDENTITY.md                # [角色] 7大专家 Agent 身份定义与多面人设
     │   ├── SOUL.md                    # [控制] 状态流转防错闭环心脏 (§九)
     │   ├── TOOLS.md                   # [工具] 看板工具与 CLI 适配层使用指引
@@ -219,8 +220,13 @@ graph TD
     │   └── HEARTBEAT.md               # [巡检] 看板巡检与状态不变量核验规则
     ├── agents/                        # 7 大专家 Agent YAML 描述 (01-pm.yaml ~ 07-devops.yaml)
     ├── config/                        # 零硬编码配置模板 (workflow.config & project_architecture)
-    ├── references/                    # 4 大全量提炼参考规约 (路由/流转/防错/Git)
-    ├── templates/                     # 开发/审查/测试报告模版
+    ├── references/                    # 5 大全量提炼参考规约 (路由/流转/防错/Git/文档管理)
+    │   ├── 01-AI-Team-Workflow-Index.md
+    │   ├── 02-State-Flow-Rules.md
+    │   ├── 03-Anti-Error-Mechanism.md
+    │   ├── 04-Git-Workflow-Spec.md
+    │   └── 05-Document-Management-Spec.md
+    ├── templates/                     # 开发/审查/测试报告与模块设计/排查文档模板
     └── scripts/                       # 自动化脚本与看板适配器 (feishu_base_adapter.py 等)
 ```
 

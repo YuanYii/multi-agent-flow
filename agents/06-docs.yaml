@@ -7,7 +7,8 @@ tech_stack:
   documentation: User Manual / API Help
 responsibilities:
   - 平台操作手册与技术总结
-  - 文档格式标准化与术语统一
+  - 文档格式标准化、Frontmatter 元数据校验与术语统一
+  - 控制工程文档层级深度（≤3级）与 .drafts/ 隔离清理
 boundaries:
   can_approve: false
   can_code: false

@@ -11,6 +11,7 @@
 2. **状态流转矩阵**：调阅 [`../references/02-State-Flow-Rules.md`](../references/02-State-Flow-Rules.md)
 3. **防错闭环与提权门控**：调阅 [`../references/03-Anti-Error-Mechanism.md`](../references/03-Anti-Error-Mechanism.md)
 4. **Git 与版本规范**：调阅 [`../references/04-Git-Workflow-Spec.md`](../references/04-Git-Workflow-Spec.md)
+5. **文档结构与元数据规范**：调阅 [`../references/05-Document-Management-Spec.md`](../references/05-Document-Management-Spec.md)
 
 ---
 
@@ -21,12 +22,13 @@
 
 ---
 
-## 🚫 团队协作 4 大红线 (Red Lines)
+## 🚫 团队协作 5 大红线 (Red Lines)
 
 1. **绝对禁止越权修改状态**：不在操作人集合内的角色禁止推动状态（提权需显式声明代行协议）。
 2. **打回绝对禁止新建任务编号**：任何审查/测试退回必须在**原任务**上改状态为 `已退回`，并在备注写入 `DEF-TXXX-N`。
 3. **绝对禁止先干后补**：自领取任务时，必须先将看板状态修改为 `进行中` 并落库，方可开始编码。
 4. **绝对禁止生成孤儿复审/复测报告**：退回修复后的结论必须追加至原报告，不新建碎片文档。
+5. **绝对禁止无元数据乱建深层文档与擅改原文档**：工程文档路径深度不得超过 3 级，所有 `.md` 强校验 YAML Frontmatter 标头，过程草稿统一入 `.drafts/` 隔离；初始化归档原项目历史文档时采用**只读镜像拷贝**，绝对禁止修改、覆盖或删除原项目源文档中的任何内容。
 
 ---
 

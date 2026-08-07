@@ -31,20 +31,34 @@ version: 1.0.0
 > Agent 在启动初始化时，**必须第一时间在回复中显式输出以下提示**：
 > 1. **初始化声明**：“正在为您初始化 `multi-agent-flow` 工作流并识别当前项目技术架构...”
 > 2. **Token 消耗提示**：“💡 **提示**：初次初始化需要全面扫描与解析全局项目配置文件（如 `package.json`/`pyproject.toml`/`go.mod`/`Dockerfile` 等）并同步更新专家团队规则，**本次操作可能会消耗较多 Token**。初始化完成后配置将持久落盘，后续使用无需重新扫描。”
-> 3. **步骤清单展示**：向用户展示即将自动执行的 4 大初始化动作。
+> 3. **步骤清单展示**：向用户展示即将自动执行的 7 大初始化动作。
 
 ### 初始化自动执行步骤：
 
 1. **核验配置文件**：检查 `config/project_architecture.config.yaml` 是否已存在。
-2. **自动扫描与识别**（若不存在）：
+2. **动态 Agent 环境探测与按需构建子 Agent 配置**：
+   - 运行 `python3 scripts/export_agent_adapters.py` 启动通用环境探针，自动感知当前实际启用的 AI Agent 运行环境。
+   - **按需落盘 (On-Demand)**：仅为当前检测激活的 Agent 环境创建子 Agent 规则文件（统一使用 `flow-` 命名空间前缀），避免在项目中预建海量无关的隐藏配置文件夹。
+   - 若未检测到特殊 IDE/Agent 特征，则仅按需在 `.agents/` 下落盘一份通配副本。
+3. **自动扫描与识别**（若不存在配置文件）：
    - 自动扫描工作区配置文件（如 `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `Dockerfile`, `README.md` 等）。
    - 识别应用类型、开发语言、核心框架、单测/构建工具及目录架构模式。
-3. **模板复制与落库**：
+4. **模板复制与落库**：
    - 复制模板 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 生成 `config/project_architecture.config.yaml`。
    - 将扫描识别出的真实技术架构结构化填充写入 `project_architecture.config.yaml`，作为后续 DEV / ARCHITECT / QA 等专家角色的统一技术事实依据。
-4. **专家团队技术栈自动同步**：
+5. **项目工程文档骨架建立与原项目历史文档自动归档**：
+   - 在目标项目下自动校验/建立 `docs/` 目录规范骨架（包含 `01-architecture/`, `02-modules/`, `03-operations/`, `04-standards/`, `05-templates/` 及 `.drafts/`）。
+   - **历史文档隔离归档**：运行 `python3 scripts/migrate_legacy_docs.py` 自动扫描原项目中散落的历史文档，在对应的分类目录下创建 **`原项目文档/`** 专用文件夹进行拷贝分类隔离。
+   - 在目标项目 `.gitignore` 中确保排除 `.drafts/` 隔离区。
+6. **专家团队技术栈自动同步**：
    - 运行脚本 `python3 scripts/update_agent_tech_stacks.py`（或由 Agent 依据 `project_architecture.config.yaml` 直接修改 `agents/*.yaml`）。
    - 将扫描到的真实语言、框架、单测框架与 CI/CD 工具自动落盘同步至 `agents/03-dev.yaml` ~ `07-devops.yaml`，完成专家团队技术栈的高精定制。
+7. **唤起 PM 专家进行项目定位鉴定与显式响应契约**：
+   - 自动加载 `agents/01-pm.yaml` 身份，扫描解析当前项目的 `README.md`、配置文件与源码入口。
+   - 分析认定项目主要用途与核心功能，**强制在回复顶部输出标志行**：
+     > **`【已识别 xxxx 项目】`**
+     > *(示例：`【已识别 聚合日志解析与告警引擎 项目】`)*
+   - 输出子 Agent 语法调用提示（如 `当前 Agent 支持通过 @flow-dev 或 /flow-dev 直接调度开发专家...`）。
 
 ---
 
@@ -56,6 +70,7 @@ version: 1.0.0
 2. **推导合法下一状态** ➔ 调阅 [`references/02-State-Flow-Rules.md`](references/02-State-Flow-Rules.md)
 3. **校验角色权限与门控** ➔ 调阅 [`references/03-Anti-Error-Mechanism.md`](references/03-Anti-Error-Mechanism.md)
 4. **校验分支与 Git 规范** ➔ 调阅 [`references/04-Git-Workflow-Spec.md`](references/04-Git-Workflow-Spec.md)
+5. **校验文档结构与元数据** ➔ 调阅 [`references/05-Document-Management-Spec.md`](references/05-Document-Management-Spec.md)
 
 ---
 
@@ -64,6 +79,6 @@ version: 1.0.0
 - [`rules/`](rules/)：工作区核心规则与交互契约（`AGENTS.md` ~ `USER.md`）。
 - [`config/`](config/)：技术架构模板/ Schema（`project_architecture.schema.json`）与看板角色配置模板。
 - [`agents/`](agents/)：7 大角色 YAML 定义 (`01-pm.yaml` ~ `07-devops.yaml`)。
-- [`references/`](references/)：4 大全量提炼参考规约（路由、流转规则、防错闭环、Git 规范）。
-- [`templates/`](templates/)：标准化开发/审查/测试任务报告模板。
+- [`references/`](references/)：5 大全量提炼参考规约（路由、流转规则、防错闭环、Git 规范、文档治理规范）。
+- [`templates/`](templates/)：标准化开发/审查/测试任务报告与工程文档模板。
 - [`scripts/`](scripts/)：看板工厂适配器 (`board_adapter_factory.py`)、门控强校验 (`validate_transition.py`)、报告生成器 (`generate_report.py`)、凭证安全扫描 (`check_secrets.py`) 与动态 Prompt 上下文合成器 (`build_agent_context.py`)。
