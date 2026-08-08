@@ -12,9 +12,13 @@ PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 TEMPLATES_DIR = os.path.join(SCRIPT_DIR, "..", "templates")
 
 REPORT_TEMPLATE_MAP = {
+    "pm": "wbs_breakdown_template.md",
+    "arch": "module_design_template.md",
     "dev": "dev_task_report_template.md",
-    "review": "code_review_template.md",
-    "qa": "qa_test_report_template.md"
+    "reviewer": "code_review_template.md",
+    "qa": "qa_test_report_template.md",
+    "docs": "module_design_template.md",
+    "devops": "troubleshooting_template.md"
 }
 
 def generate_report(report_type: str, task_id: str, task_name: str, assignee: str, output_path: str, summary_content: str = ""):
