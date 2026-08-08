@@ -70,7 +70,7 @@ ROLES_MAP = {
 }
 
 def detect_active_platforms():
-    """环境感知探针：识别当前被激活的 Agent 平台"""
+    """环境感知探针：识别当前被激活的 Agent 平台，包含对未知 Agent (如 mimo) 的动态泛化感知"""
     env = os.environ
     active = []
 
@@ -79,6 +79,23 @@ def detect_active_platforms():
         is_dir = os.path.exists(os.path.join(TARGET_PROJECT_DIR, spec["dir_flag"]))
         if is_env or is_dir:
             active.append(platform_key)
+
+    # 动态检测用户显式传入的环境变量 AGENT_NAME 或命令行动态 Agent
+    custom_agent = env.get("AGENT_NAME") or env.get("CUSTOM_AGENT")
+    if custom_agent and custom_agent.lower() not in PLATFORM_SPECS:
+        c_key = custom_agent.lower()
+        print(f"💡 [未知 Agent 探针] 感知到未显式枚举的 Agent 平台: [{custom_agent}]")
+        PLATFORM_SPECS[c_key] = {
+            "name": f"Custom Agent ({custom_agent})",
+            "env_keys": [f"{c_key.upper()}_ENV"],
+            "dir_flag": f".{c_key}",
+            "official_doc_url": f"https://www.google.com/search?q={c_key}+AI+agent+subagent+prompt+rules+location",
+            "keyword_assert": None,  # 动态未知 Agent 免硬编码关键字约束
+            "rel_path_pattern": os.path.join(f".{c_key}", "agents", "{agent_id}", "agent.md"),
+            "frontmatter_subagent": True,
+            "extension": ".md"
+        }
+        active.append(c_key)
 
     # 兜底：若均未检测到特化探针，默认包含 antigravity
     if not active:
