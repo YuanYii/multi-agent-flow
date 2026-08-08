@@ -2,7 +2,7 @@
 """
 一键门控流转管道命令 (Transition Task Pipeline)
 将 4 道安全防错门控 (validate_transition) 与看板写入 (board_adapter) 物理绑定。
-未通过防错门控强校验，程序拒绝进行任何看板 API 写入操作！
+贯彻 Fail-Closed (故障即拦截) 原则：未通过门控或 API 写入失败绝对返回 False，杜绝伪假成功！
 """
 
 import sys
@@ -31,7 +31,7 @@ def transition_task_pipeline(
 ) -> bool:
     print(f"🔒 [Step 1/2] 触发防错门控强校验 (Task: {task_id}, {from_status} ➔ {to_status})...")
 
-    # 1. 强制运行四道防护门控，未通过则直接抛错中断！
+    # 1. 强制运行防护门控，未通过则直接抛错中断！
     is_valid = validate(
         role=current_role,
         from_status=from_status,
@@ -47,11 +47,16 @@ def transition_task_pipeline(
 
     print(f"✅ [门控通过] 防错规则核验成功，开始写卡落库...")
 
-    # 2. 获取看板 Adapter 物理更新
-    adapter = get_board_adapter(config_path)
+    # 2. 获取看板 Adapter 物理更新（贯彻 Fail-Closed 原则，拿不到 Adapter 直接报错拦截）
+    try:
+        adapter = get_board_adapter(config_path)
+    except Exception as e:
+        print(f"❌ [看板配置异常] 无法加载看板 Adapter ({e})，阻止假成功更新！")
+        return False
+
     if not adapter:
-        print(f"⚠️ [警告] 未配置物理看板 Adapter，流转在本地校验层面成功记录。")
-        return True
+        print(f"❌ [看板更新失败] 适配器未正确初始化，严格拦截落库操作。")
+        return False
 
     # 3. 执行状态与处理人原子写入
     update_fields = {
@@ -63,13 +68,21 @@ def transition_task_pipeline(
 
     try:
         success = adapter.update_record(record_id, update_fields)
+        if not success:
+            print(f"❌ [物理 API 写入失败] 看板未动，硬阻断流转结果！")
+            return False
     except Exception as e:
-        print(f"⚠️ [看板更新跳过] 无法连接物理 API ({e})，校验在本地安全拦截层成功完成。")
-        return True
+        print(f"❌ [物理 API 调用异常] 看板更新过程抛出错误 ({e})，物理阻断！")
+        return False
 
     # 4. 若有追加备注 (如缺陷结构化信息 DEF-TXXX-N)
     if remarks:
-        adapter.append_remarks(record_id, "remarks", remarks)
+        try:
+            rem_ok = adapter.append_remarks(record_id, "remarks", remarks)
+            if not rem_ok:
+                print(f"⚠️ [警告] 状态已原子更新，但结构化缺陷备注追加失败，请检查卡片设置。")
+        except Exception as e:
+            print(f"⚠️ [警告] 结构化缺陷备注追加触发异常 ({e})。")
 
     print(f"🎉 [流转物理闭环成功] 看板 {task_id} 已成功推至【{to_status}】，处理人: {assignee}")
     return True
@@ -83,7 +96,7 @@ def main():
     parser.add_argument("--role", required=True, help="当前触发者角色 (PM/DEV/REVIEWER/QA 等)")
     parser.add_argument("--from-status", required=True, help="原状态")
     parser.add_argument("--to-status", required=True, help="目标状态")
-    parser.add_argument("--assignee", required=True, help="目标处理人")
+    parser.add_argument("--assignee", required=True, help="同步更新的处理人")
     parser.add_argument("--type", default="A", help="任务类型 (A-G)")
     parser.add_argument("--end-time", help="结束时间 (完成/验收必填)")
     parser.add_argument("--remarks", help="追加结构化缺陷或备注描述")
