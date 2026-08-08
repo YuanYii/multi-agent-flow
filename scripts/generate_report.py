@@ -8,6 +8,7 @@ import argparse
 from datetime import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 TEMPLATES_DIR = os.path.join(SCRIPT_DIR, "..", "templates")
 
 REPORT_TEMPLATE_MAP = {
@@ -61,17 +62,24 @@ def main():
     parser.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
     parser.add_argument("--task-name", default="任务示例", help="任务名称")
     parser.add_argument("--assignee", default="Agent", help="处理人")
-    parser.add_argument("--output", required=True, help="输出报告文件路径")
+    parser.add_argument("--output", help="输出报告文件路径 (未指定时自动归档至 docs/reports/{type}/)")
     parser.add_argument("--summary", default="", help="执行总结与补充文本")
 
     args = parser.parse_args()
+
+    output_path = args.output
+    if not output_path:
+        reports_dir = os.path.join(PROJECT_ROOT, "docs", "reports", args.type.lower())
+        os.makedirs(reports_dir, exist_ok=True)
+        filename = f"{args.task_id}_{args.type.lower()}_report.md"
+        output_path = os.path.join(reports_dir, filename)
 
     success = generate_report(
         report_type=args.type,
         task_id=args.task_id,
         task_name=args.task_name,
         assignee=args.assignee,
-        output_path=args.output,
+        output_path=output_path,
         summary_content=args.summary
     )
 

@@ -39,7 +39,21 @@ def record_audit_event(
     
     try:
         with open(AUDIT_LOG_FILE, "a", encoding="utf-8") as f:
+            if sys.platform == "win32":
+                import msvcrt
+                msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(f, fcntl.LOCK_EX)
+            
             f.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+            if sys.platform == "win32":
+                import msvcrt
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(f, fcntl.LOCK_UN)
     except Exception as e:
         sys.stderr.write(f"[AuditLogger Error] 审计日志落盘失败: {e}\n")
 
