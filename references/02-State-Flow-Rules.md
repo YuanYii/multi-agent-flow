@@ -1,5 +1,8 @@
 # 02 - 状态流转规则与打回不拆单规范
 
+> 本规范定义任务在 8 个标准状态间的推进规则、打回处理约束与终态核验门控。  
+> 跨角色提权代行与专家 Agent 间的消息总线 Context Payload 结构请强参阅：👉 [`references/06-Inter-Agent-Handover-Protocol.md`](06-Inter-Agent-Handover-Protocol.md)
+
 > **本文件说明**：定义任务生命周期的 8 个标准状态、7 类任务类型流转链、打回回退表与报告追加规范。
 
 ---

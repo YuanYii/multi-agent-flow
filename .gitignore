@@ -9,11 +9,10 @@ __pycache__/
 *.swp
 *.swo
 
-# Local runtime configs (keep templates only)
+# Local runtime configs, logs, and agent outputs
 config/workflow.config.yaml
 config/project_architecture.config.yaml
-
-# Drafts, temporary process notes, and generated agent runtime outputs
+logs/
 .drafts/
 docs/.drafts/
 .agents/
