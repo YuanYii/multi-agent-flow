@@ -10,6 +10,7 @@ from typing import Any
 from feishu_base_adapter import FeishuBaseAdapter
 from jira_adapter import JiraAdapter
 from github_projects_adapter import GitHubProjectsAdapter
+from offline_board_adapter import OfflineBoardAdapter
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(SCRIPT_DIR, "..", "config", "workflow.config.yaml")
@@ -59,7 +60,12 @@ def get_board_adapter(config_file: str = CONFIG_PATH) -> Any:
     board_cfg = config.get("board", {})
     provider = board_cfg.get("provider", "feishu_base").lower()
 
-    if provider == "feishu_base":
+    if provider == "local":
+        # 离线看板：数据存本地 JSON 文件，无网络依赖；多专家并发新建任务编号由 adapter 全局锁保证唯一
+        board_file = board_cfg.get("board_file", os.path.join(SCRIPT_DIR, "..", "kanban", "board.json"))
+        return OfflineBoardAdapter(board_file=board_file, field_map=board_cfg.get("fields", {}))
+
+    elif provider == "feishu_base":
         base_token = board_cfg.get("base_token", "")
         table_id = board_cfg.get("table_id", "")
         return FeishuBaseAdapter(base_token=base_token, table_id=table_id)

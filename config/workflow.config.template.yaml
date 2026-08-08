@@ -8,7 +8,19 @@ project:
   version: "1.0.0"
   root_dir: "./"
 
-# 看板配置 (支持 feishu_base, jira, github_projects)
+# 看板配置 (支持 feishu_base, jira, github_projects, local)
+# 离线模式示例 (无需任何凭证/网络, 数据存本地 kanban/board.json):
+#   board:
+#     provider: "local"
+#     board_file: "kanban/board.json"   # 离线看板 JSON 文件路径
+#     fields:
+#       task_id: "task_id"
+#       task_name: "task_name"
+#       status: "status"
+#       assignee: "assignee"
+#       owner: "owner"
+#       end_time: "end_time"
+#       remarks: "remarks"
 board:
   provider: "feishu_base"
   base_token: "${FEISHU_BASE_TOKEN}" # 示例: XdBTbXwAzaDb9Bs9yoQc5i6UnPf

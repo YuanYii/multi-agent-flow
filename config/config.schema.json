@@ -16,9 +16,10 @@
     "board": {
       "type": "object",
       "properties": {
-        "provider": { "type": "string", "enum": ["feishu_base", "jira", "github_projects"] },
+        "provider": { "type": "string", "enum": ["feishu_base", "jira", "github_projects", "local"] },
         "base_token": { "type": "string" },
         "table_id": { "type": "string" },
+    "board_file": { "type": "string", "description": "离线看板 JSON 文件路径 (provider=local 时使用)" },
         "fields": {
           "type": "object",
           "properties": {
