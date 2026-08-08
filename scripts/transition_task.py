@@ -72,27 +72,37 @@ def release_concurrency_lock(lock_tuple):
 
 def transition_task_pipeline(
     config_path: str,
-    task_id: str,
-    record_id: str,
-    current_role: str,
-    from_status: str,
-    to_status: str,
-    assignee: str,
+    task_id: str = "",
+    record_id: str = None,
+    current_role: str = "",
+    from_status: str = "",
+    to_status: str = "",
+    assignee: str = "",
     task_type: str = "A",
     end_time: str = None,
     remarks: str = None,
     dry_run: bool = False,
-    active_dev_count: int = 1
+    active_dev_count: int = 1,
+    task_name: str = None,
+    stage: str = None,
+    wp: str = None,
+    wbs: str = None,
+    owner: str = None
 ) -> bool:
-    extra_log = {"task_id": task_id}
+    resolved_task_id = task_id or "AUTO"
+    extra_log = {"task_id": resolved_task_id}
     logger.info(f"🔒 触发防错门控校验 ({from_status} ➔ {to_status}, 模式: {'DRY-RUN' if dry_run else 'REAL'})...", extra=extra_log)
 
     # 1. 尝试获取并发独占锁 (Fail-Closed 硬拦截)
-    lock_tuple = acquire_concurrency_lock(task_id)
-    if not lock_tuple or not lock_tuple[0]:
-        logger.error(f"❌ [并发锁排他硬拦截] 任务 {task_id} 当前正被另一个进程独占写卡中，物理阻断！", extra=extra_log)
-        record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "物理并发排他锁硬拦截")
-        return False
+    #    自动编号场景 (task_id 为空) 不取 per-task 锁：编号分配由 OfflineBoardAdapter 内部
+    #    全局阻塞锁 (board.json.seq.lock) 串行化保证唯一，多个专家并发新建任务全部可成功。
+    lock_tuple = None
+    if resolved_task_id != "AUTO":
+        lock_tuple = acquire_concurrency_lock(resolved_task_id)
+        if not lock_tuple or not lock_tuple[0]:
+            logger.error(f"❌ [并发锁排他硬拦截] 任务 {resolved_task_id} 当前正被另一个进程独占写卡中，物理阻断！", extra=extra_log)
+            record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "物理并发排他锁硬拦截")
+            return False
 
     try:
         # 2. 完整加载看板 Adapter 与配置文件格式断言 (dry-run 模式下也不跳过校验)
@@ -135,17 +145,49 @@ def transition_task_pipeline(
         assignee_key = field_mapping.get("assignee", "assignee")
         end_time_key = field_mapping.get("end_time", "end_time")
 
+        # 5. 任务存在性检查：不存在则自动创建（所有专家角色均可操作）
+        #    dry-run 模式不落库，仅提示正式执行时的行为
         if dry_run:
+            if task_id:
+                existing = adapter.get_record(task_id)
+                if existing is None:
+                    logger.info(f"ℹ️ [DRY-RUN] 任务 {task_id} 在看板中不存在，正式执行时将自动创建后再流转", extra=extra_log)
             logger.info("🧪 [DRY-RUN] 配置文件与 Schema 检验完全通过！模拟预检不触发物理网络写卡", extra=extra_log)
-            record_audit_event(task_id, current_role, from_status, to_status, assignee, True, "DRY-RUN 完整校验测试通过")
+            record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, True, "DRY-RUN 完整校验测试通过")
             return True
 
-        # 5. 执行物理原子写入
+        resolved_record_id = record_id or task_id
+        existing = adapter.get_record(resolved_record_id) if resolved_record_id else None
+        if existing is None:
+            create_fields = {
+                "task_id": task_id,
+                "task_name": task_name or "工作包开发任务",
+                "assignee": assignee,
+                "owner": owner or current_role,
+                "stage": stage,
+                "workpackage": wp,
+                "wbs_id": wbs,
+            }
+            created_id = adapter.create_record(create_fields)
+            if not created_id:
+                logger.error(f"❌ 任务自动创建失败（编号冲突或写入失败），硬阻断流转！", extra=extra_log)
+                record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "任务自动创建失败")
+                return False
+            if not task_id:
+                task_id = created_id
+            resolved_record_id = task_id
+            extra_log = {"task_id": task_id}
+            logger.info(f"🆕 任务 {task_id} 在看板中不存在，已自动创建（初始状态：待开始）", extra=extra_log)
+            record_audit_event(task_id, current_role, "新建", "待开始", assignee, True, "任务自动创建")
+        else:
+            resolved_record_id = existing.get("record_id") or resolved_record_id
+
+        # 6. 执行物理原子写入
         update_fields = {status_key: to_status, assignee_key: assignee}
         if end_time: update_fields[end_time_key] = end_time
 
         try:
-            success = adapter.update_record(record_id, update_fields)
+            success = adapter.update_record(resolved_record_id, update_fields)
             if not success:
                 logger.error("❌ 物理 API 写入失败，硬阻断流转！", extra=extra_log)
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "看板状态 API 写入失败")
@@ -159,7 +201,7 @@ def transition_task_pipeline(
         remarks_key = field_mapping.get("remarks", "remarks")
         if remarks:
             try:
-                rem_ok = adapter.append_remarks(record_id, remarks_key, remarks)
+                rem_ok = adapter.append_remarks(resolved_record_id, remarks_key, remarks)
                 if not rem_ok:
                     logger.warning("⚠️ 结构化缺陷备注追加失败，准备执行物理原子补偿回滚...", extra=extra_log)
                     rollback_fields = {status_key: from_status, assignee_key: current_role}
@@ -184,8 +226,13 @@ def transition_task_pipeline(
 def main():
     parser = argparse.ArgumentParser(description="一键门控任务流转管道工具")
     parser.add_argument("--config", default="config/workflow.config.yaml", help="配置文件路径")
-    parser.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
-    parser.add_argument("--record-id", required=True, help="看板内部记录 ID")
+    parser.add_argument("--task-id", default="", help="任务编号 (如 T0001)；不传则自动分配最大编号+1 (并发安全)")
+    parser.add_argument("--record-id", default=None, help="看板内部记录 ID (离线看板默认等于任务编号，可省略)")
+    parser.add_argument("--task-name", default=None, help="任务名称 (任务不存在自动创建时必填建议项)")
+    parser.add_argument("--stage", default=None, help="项目阶段 (自动创建时写入)")
+    parser.add_argument("--wp", default=None, help="工作包 (自动创建时写入)")
+    parser.add_argument("--wbs", default=None, help="WBS 编号 (自动创建时写入)")
+    parser.add_argument("--owner", default=None, help="负责人/验收人 (自动创建时写入 handler)")
     parser.add_argument("--role", required=True, help="当前触发者角色 (PM/DEV/REVIEWER/QA 等)")
     parser.add_argument("--from-status", required=True, help="原状态")
     parser.add_argument("--to-status", required=True, help="目标状态")
@@ -210,7 +257,12 @@ def main():
         end_time=args.end_time,
         remarks=args.remarks,
         dry_run=args.dry_run,
-        active_dev_count=args.active_dev_count
+        active_dev_count=args.active_dev_count,
+        task_name=args.task_name,
+        stage=args.stage,
+        wp=args.wp,
+        wbs=args.wbs,
+        owner=args.owner
     )
 
     if not ok:
