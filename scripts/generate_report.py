@@ -17,7 +17,7 @@ REPORT_TEMPLATE_MAP = {
     "dev": "dev_task_report_template.md",
     "reviewer": "code_review_template.md",
     "qa": "qa_test_report_template.md",
-    "docs": "module_design_template.md",
+    "docs": "documentation_template.md",
     "devops": "troubleshooting_template.md"
 }
 
