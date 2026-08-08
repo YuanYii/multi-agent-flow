@@ -39,13 +39,16 @@ class FeishuBaseAdapter:
         if filter_json:
             cmd.extend(["--filter-json", json.dumps(filter_json, ensure_ascii=False)])
 
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        if res.returncode == 0:
-            try:
-                data = json.loads(res.stdout)
-                return data.get("data", {}).get("items", [])
-            except Exception:
-                return []
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if res.returncode == 0:
+                try:
+                    data = json.loads(res.stdout)
+                    return data.get("data", {}).get("items", [])
+                except Exception:
+                    return []
+        except Exception:
+            return []
         return []
 
     def get_record(self, record_id: str) -> Optional[Dict[str, Any]]:
@@ -78,8 +81,11 @@ class FeishuBaseAdapter:
             "--json", task_json,
             "--as", "user"
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        return res.returncode == 0 and '"updated": true' in res.stdout.lower()
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            return res.returncode == 0 and '"updated": true' in res.stdout.lower()
+        except Exception:
+            return False
 
     def create_record(self, fields: Dict[str, Any]) -> Optional[str]:
         """新建看板记录，成功则返回新建记录的 record_id，失败返回 None。"""

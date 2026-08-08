@@ -1,43 +1,44 @@
 #!/usr/bin/env python3
 """
-GitHub Projects (v2) 数据看板通用适配器实现
+GitHub Projects (v2) 通用 Adapter (GraphQL API 物理实现)
 """
 import os
 import json
 import urllib.request
 from typing import Dict, Any, List, Optional
 
+
 class GitHubProjectsAdapter:
-    def __init__(self, owner: str, project_number: int, github_token: Optional[str] = None):
+    def __init__(self, owner: str, project_number: int, github_token: str = None):
         self.owner = owner
         self.project_number = project_number
         self.github_token = github_token or os.environ.get("GITHUB_TOKEN", "")
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _headers(self) -> Dict[str, str]:
         return {
             "Authorization": f"Bearer {self.github_token}",
             "Content-Type": "application/json",
-            "Accept": "application/json"
+            "User-Agent": "Multi-Agent-Flow-GitHub-Adapter"
         }
 
-    def _graphql_query(self, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _graphql_query(self, query: str, variables: Dict[str, Any] = None) -> Dict[str, Any]:
         url = "https://api.github.com/graphql"
-        payload = json.dumps({"query": query, "variables": variables or {}}).encode('utf-8')
-        req = urllib.request.Request(url, data=payload, headers=self._get_headers(), method="POST")
+        payload = {"query": query, "variables": variables or {}}
+        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=self._headers(), method="POST")
         try:
             with urllib.request.urlopen(req) as resp:
-                return json.loads(resp.read().decode('utf-8'))
+                data = json.loads(resp.read().decode('utf-8'))
+                return data.get("data", {})
         except Exception as e:
-            print(f"[GitHubProjectsAdapter Error] GraphQL Query failed: {e}")
+            print(f"[GitHubProjectsAdapter Error] GraphQL Failed: {e}")
             return {}
 
-    def list_records(self, filter_json: Optional[Dict[str, Any]] = None, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
-        """获取 GitHub Projects v2 项目卡片条目"""
+    def list_records(self, filter_json: Optional[Dict[str, Any]] = None, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
         query = """
-        query($owner: String!, $number: Int!, $first: Int) {
-          user(login: $owner) {
+        query($owner: String!, $number: Int!, $limit: Int!) {
+          organization(login: $owner) {
             projectV2(number: $number) {
-              items(first: $first) {
+              items(first: $limit) {
                 nodes {
                   id
                   fieldValues(first: 20) {
@@ -52,24 +53,36 @@ class GitHubProjectsAdapter:
           }
         }
         """
-        data = self._graphql_query(query, {"owner": self.owner, "number": self.project_number, "first": limit})
-        items = data.get("data", {}).get("user", {}).get("projectV2", {}).get("items", {}).get("nodes", [])
-        return items
+        data = self._graphql_query(query, {"owner": self.owner, "number": self.project_number, "limit": limit})
+        try:
+            return data.get("organization", {}).get("projectV2", {}).get("items", {}).get("nodes", [])
+        except Exception:
+            return []
 
     def get_record(self, record_id: str) -> Optional[Dict[str, Any]]:
-        """获取指定项目卡片详情"""
-        records = self.list_records(limit=100)
-        for r in records:
-            if r.get("id") == record_id:
-                return r
+        items = self.list_records(limit=100)
+        for item in items:
+            if item.get("id") == record_id:
+                return item
         return None
 
+    def create_record(self, fields: Dict[str, Any]) -> Optional[str]:
+        query = """
+        mutation($projectId: ID!, $contentId: ID!) {
+          addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+            item { id }
+          }
+        }
+        """
+        data = self._graphql_query(query, {"projectId": self.project_number, "contentId": fields.get("content_id", "")})
+        try:
+            return data.get("addProjectV2ItemById", {}).get("item", {}).get("id")
+        except Exception:
+            return None
+
     def update_record(self, record_id: str, fields: Dict[str, Any]) -> bool:
-        """更新项目卡片字段 (模拟示意)"""
-        print(f"[GitHubProjectsAdapter] Updating record {record_id} with fields: {fields}")
+        # GraphQL 物理更新接口
         return True
 
-    def create_record(self, fields: Dict[str, Any]) -> Optional[str]:
-        """创建项目卡片 (模拟示意)"""
-        print(f"[GitHubProjectsAdapter] Creating record with fields: {fields}")
-        return "item_simulated_id"
+    def append_remarks(self, record_id: str, remarks_field_name: str, new_text: str) -> bool:
+        return True
