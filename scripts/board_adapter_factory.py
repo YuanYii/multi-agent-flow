@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 看板适配器统一工厂 (Board Adapter Factory)
+严格贯彻 Fail-Closed 原则：当配置文件不存在时拒绝隐式 fallback，物理抛出 FileNotFoundError！
 """
 import os
 import yaml
@@ -15,7 +16,10 @@ CONFIG_PATH = os.path.join(SCRIPT_DIR, "..", "config", "workflow.config.yaml")
 def get_board_adapter(config_file: str = CONFIG_PATH) -> Any:
     """根据 workflow.config.yaml 自动创建并返回适配器实例"""
     if not os.path.exists(config_file):
-        config_file = os.path.join(SCRIPT_DIR, "..", "config", "workflow.config.template.yaml")
+        raise FileNotFoundError(
+            f"❌ [Fail-Closed 物理拦截] 无法找到指定的看板配置文件: '{config_file}'！\n"
+            f"请核验路径是否正确，或先从 config/workflow.config.template.yaml 复制生成对应配置。"
+        )
 
     with open(config_file, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)

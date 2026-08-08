@@ -97,9 +97,19 @@ def detect_active_platforms():
         }
         active.append(c_key)
 
-    # 兜底：若均未检测到特化探针，默认包含 antigravity
+    # 兜底：若均未检测到特化探针，默认降级为 universal 通用子代理标准 (绝不隐式假阳性冒充 antigravity)
     if not active:
-        active.append("antigravity")
+        PLATFORM_SPECS["universal"] = {
+            "name": "Universal Agent (通用标准)",
+            "env_keys": [],
+            "dir_flag": ".agents",
+            "official_doc_url": "https://antigravity.google/docs/skills",
+            "keyword_assert": None,
+            "rel_path_pattern": os.path.join(".agents", "agents", "{agent_id}", "agent.md"),
+            "frontmatter_subagent": True,
+            "extension": ".md"
+        }
+        active.append("universal")
 
     return active
 

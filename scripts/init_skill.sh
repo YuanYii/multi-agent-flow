@@ -2,8 +2,8 @@
 # ==============================================================================
 # Multi-Agent Flow 技能包一键化 SOP 7 步初始化脚本 (完全对齐 SKILL.md 定义)
 # 自动打通：
-# 1.核验配置 ➔ 2.Subagent强校验导出 ➔ 3.技术栈扫描 ➔ 4.模板生成落库
-# ➔ 5.文档骨架与旧文档只读归档 ➔ 6.专家技术栈同步 ➔ 7.PM 识别展示指引
+# 1.核验配置 ➔ 2.Subagent物理强校验导出 ➔ 3.物理代码技术栈扫描 ➔ 4.模板生成落库
+# ➔ 5.文档骨架与旧文档只读归档 ➔ 6.专家技术栈同步 ➔ 7.PM 识别展示【已识别 xxxx 项目】
 # ==============================================================================
 
 set -e
@@ -25,8 +25,8 @@ fi
 echo "🔒 [Step 2/7] 动态 Agent 环境探测、官方文档实时查证与 Subagent 强规范落盘..."
 python3 "${SCRIPT_DIR}/verify_and_export_agents.py"
 
-echo "🔎 [Step 3/7] 自动扫描工程基础设施与语言技术栈配置..."
-echo "  - 自动解析 package.json / pyproject.toml / go.mod / Dockerfile 等核心架构依据..."
+echo "🔎 [Step 3/7] 自动代码扫描工程基础设施、依赖文件与语言技术栈配置..."
+python3 "${SCRIPT_DIR}/auto_scan_stack.py"
 
 echo "📝 [Step 4/7] 复制模板并落库生成 project_architecture.config.yaml..."
 if [ ! -f "${PROJECT_ROOT}/config/project_architecture.config.yaml" ]; then
@@ -47,9 +47,9 @@ python3 "${SCRIPT_DIR}/migrate_legacy_docs.py"
 echo "🔄 [Step 6/7] 专家团队技术栈自动同步至 agents/*.yaml..."
 python3 "${SCRIPT_DIR}/update_agent_tech_stacks.py"
 
-echo "👑 [Step 7/7] 唤起 PM 专家进行项目定位鉴定与显式响应指引..."
+echo "👑 [Step 7/7] 唤起 PM 专家物理扫描 README.md 进行项目定位鉴定与标志打印..."
+python3 "${SCRIPT_DIR}/auto_scan_stack.py"
+
 echo "=============================================================================="
 echo "✅ [SOP 7 步全量就绪] multi-agent-flow 物理初始化顺利完成！"
-echo "👉 运行提示：请直接在 Agent 对话中唤起 PM 专家：【使用 multi-agent-flow 初始化当前项目】"
-echo "   系统将自动扫描 README 并显式输出：【已识别 xxxx 项目】"
 echo "=============================================================================="

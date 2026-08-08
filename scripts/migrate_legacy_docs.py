@@ -1,109 +1,115 @@
 #!/usr/bin/env python3
 """
-原项目文档归档与分类迁移脚本 (Legacy Docs Migration Script)
-在初始化项目时，自动识别工程中散落的旧文档，并在 docs/ 对应规范分类下创建【原项目文档/】子目录进行拷贝归档。
+只读归档迁移脚本 (Migrate Legacy Docs CLI)
+严格遵循“不修改原文档任何内容”红线，识别散落历史文档并只读镜像拷贝放入 docs/{category}/原项目文档/。
+结合父目录上下文语义与文件内容权重进行分类判定。
 """
 
 import os
 import sys
 import shutil
-import glob
+from typing import Dict, List, Tuple
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
-TARGET_PROJECT_DIR = os.getcwd()
+DOCS_ROOT = os.path.join(PROJECT_ROOT, "docs")
 
-DOCS_ROOT = os.path.join(TARGET_PROJECT_DIR, "docs")
-
-# 忽略归档的特定文件/目录
-IGNORE_FILES = {"README.md", "CONTRIBUTING.md", "LICENSE", "CHANGELOG.md", "SKILL.md"}
-IGNORE_DIRS = {
-    ".git", ".idea", ".vscode", "node_modules", "venv", "env", "__pycache__",
-    "skills", "multi-agent-flow", "docs", ".drafts", ".cursor", ".claude",
-    ".codex", ".pi", ".opencode", ".windsurf", ".github", ".agents",
-    "rules", "templates", "references", "agents", "config"
+EXCLUDE_DIRS = {
+    ".git", ".idea", "__pycache__", "venv", ".venv", "node_modules",
+    "docs", "rules", "templates", "references", "agents", "config", "scripts", ".agents", ".claude", ".cursor", ".codex"
 }
 
-# 规则分类关键词映射表
-CLASSIFICATION_RULES = {
-    "01-architecture": ["architecture", "设计", "架构", "选型", "接口", "数据结构", "schema", "adr", "技术方案"],
-    "02-modules": ["module", "模块", "组件", "log", "parser", "troubleshooting", "踩坑", "排查"],
-    "03-operations": ["operation", "task", "report", "guide", "部署", "操作", "手册", "任务", "测试报告", "审查报告", "总结"],
-    "04-standards": ["standard", "coding", "git", "规范", "流程", "标准", "守则"],
-    "05-templates": ["template", "模板", "样板"]
+CATEGORY_KEYWORDS: Dict[str, Dict[str, List[str]]] = {
+    "01-architecture": {
+        "dir_keywords": ["arch", "architecture", "design", "system", "spec"],
+        "text_keywords": ["架构", "系统设计", "architecture", "adr", "接口规范", "数据模型"]
+    },
+    "02-modules": {
+        "dir_keywords": ["module", "component", "subsystem", "service"],
+        "text_keywords": ["模块设计", "组件", "服务设计", "module", "subsystem"]
+    },
+    "03-operations": {
+        "dir_keywords": ["ops", "deploy", "operation", "guide", "manual", "report"],
+        "text_keywords": ["运维指南", "部署手册", "操作手册", "troubleshooting", "排查指南", "测试报告"]
+    },
+    "04-standards": {
+        "dir_keywords": ["standard", "rule", "convention", "guide"],
+        "text_keywords": ["规范", "代码标准", "命名规约", "standard", "convention"]
+    },
+    "05-templates": {
+        "dir_keywords": ["template", "tpl", "example"],
+        "text_keywords": ["模板", "template", "样例"]
+    }
 }
 
-def classify_doc(filename, filepath):
-    """根据文件名与文章前几行内容判定存放目录"""
-    fname_lower = filename.lower()
-    
-    # 优先读文件头部内容判定
-    content_snippet = ""
+
+def classify_document(filepath: str) -> str:
+    fname = os.path.basename(filepath).lower()
+    parent_dir = os.path.basename(os.path.dirname(filepath)).lower()
+    content = ""
     try:
         with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-            content_snippet = "".join([f.readline().lower() for _ in range(20)])
+            content = f.read(2048).lower()
     except Exception:
         pass
 
-    text_to_search = f"{fname_lower} {content_snippet}"
+    scores: Dict[str, int] = {cat: 0 for cat in CATEGORY_KEYWORDS}
 
-    for category, keywords in CLASSIFICATION_RULES.items():
-        if any(kw in text_to_search for kw in keywords):
-            return category
+    for cat, kw_dict in CATEGORY_KEYWORDS.items():
+        # 1. 父目录语义权重最高 (权重: +10)
+        for dkw in kw_dict["dir_keywords"]:
+            if dkw in parent_dir:
+                scores[cat] += 10
 
-    return "general"  # 无法精准归类的通用旧文档
+        # 2. 文件名匹配 (权重: +5)
+        for tkw in kw_dict["text_keywords"]:
+            if tkw in fname:
+                scores[cat] += 5
 
-def migrate_legacy_docs():
-    print("🔍 [原项目文档识别] 正在扫描工程中散落的历史文档...")
+        # 3. 文本内容匹配 (权重: +1)
+        for tkw in kw_dict["text_keywords"]:
+            if tkw in content:
+                scores[cat] += 1
 
-    migrated_count = 0
-    migrated_summary = []
+    best_cat = max(scores, key=scores.get)
+    if scores[best_cat] > 0:
+        return best_cat
+    return "02-modules"
 
-    # 在 docs/ 各分类下以及顶层准备【原项目文档/】目录
-    target_legacy_dirs = {
-        "01-architecture": os.path.join(DOCS_ROOT, "01-architecture", "原项目文档"),
-        "02-modules": os.path.join(DOCS_ROOT, "02-modules", "原项目文档"),
-        "03-operations": os.path.join(DOCS_ROOT, "03-operations", "原项目文档"),
-        "04-standards": os.path.join(DOCS_ROOT, "04-standards", "原项目文档"),
-        "05-templates": os.path.join(DOCS_ROOT, "05-templates", "原项目文档"),
-        "general": os.path.join(DOCS_ROOT, "原项目文档")
-    }
 
-    for root, dirs, files in os.walk(TARGET_PROJECT_DIR):
-        # 过滤忽略的文件夹
-        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not d.startswith(".")]
+def scan_and_migrate_legacy_docs(target_project_dir: str = PROJECT_ROOT):
+    print("🔍 [原项目文档识别] 正在结合目录语义扫描工程中散落的历史文档...")
+
+    migrated_files: List[Tuple[str, str]] = []
+
+    for root, dirs, files in os.walk(target_project_dir):
+        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS and not d.startswith(".")]
 
         for file in files:
-            if file in IGNORE_FILES:
+            if not file.endswith((".md", ".txt", ".pdf", ".docx", ".puml", ".drawio")):
                 continue
-            
-            # 支持对 .md, .txt, .pdf, .docx 等文档格式归档
-            if file.endswith((".md", ".txt", ".pdf", ".docx", ".xmind")):
-                src_path = os.path.join(root, file)
 
-                # 避免死循环：如果文件已经在 docs/ 里面则跳过
-                rel_to_target = os.path.relpath(src_path, TARGET_PROJECT_DIR)
-                if rel_to_target.startswith("docs/") or rel_to_target.startswith("skills/"):
-                    continue
+            src_path = os.path.join(root, file)
+            category = classify_document(src_path)
 
-                category = classify_doc(file, src_path)
-                dest_dir = target_legacy_dirs[category]
-                os.makedirs(dest_dir, exist_ok=True)
+            dest_dir = os.path.join(DOCS_ROOT, category, "原项目文档")
+            os.makedirs(dest_dir, exist_ok=True)
 
-                dest_path = os.path.join(dest_dir, file)
-                
-                # 执行安全拷贝
+            dest_path = os.path.join(dest_dir, file)
+
+            if not os.path.exists(dest_path):
                 shutil.copy2(src_path, dest_path)
-                migrated_count += 1
-                migrated_summary.append(f"  - `{rel_to_target}` ➔ 归档至 `{os.path.relpath(dest_path, TARGET_PROJECT_DIR)}`")
+                migrated_files.append((src_path, dest_path))
 
-    if migrated_count > 0:
-        print(f"✅ [历史文档归档完成] 成功识别并分类拷贝了 {migrated_count} 份原项目文档：")
-        for s in migrated_summary:
-            print(s)
-        print("🛡️  [只读安全保障] 原路径下的源文档已 100% 完整保留，未进行任何修改、剪切或删除。")
+    if migrated_files:
+        print(f"✅ [原项目文档归档完成] 已以只读方式分类镜像拷贝 {len(migrated_files)} 份历史文档：")
+        for src, dest in migrated_files:
+            rel_src = os.path.relpath(src, target_project_dir)
+            rel_dest = os.path.relpath(dest, target_project_dir)
+            print(f"  - [{rel_src}] ➔ [{rel_dest}]")
     else:
-        print("💡 [未发现散落旧文档] 当前项目根路径下无需要迁移的历史文档。")
+        print("💡 [未发现散落旧文档] 当前项目根路径下无新增需要迁移的历史文档。")
+
 
 if __name__ == "__main__":
-    migrate_legacy_docs()
+    scan_and_migrate_legacy_docs()
