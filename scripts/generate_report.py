@@ -39,6 +39,10 @@ def generate_report(report_type: str, task_id: str, task_name: str, assignee: st
 
     # 替换变量占位符
     content = content.replace("T0001", task_id)
+    content = content.replace("${TASK_ID}", task_id)
+    content = content.replace("${TASK_NAME}", task_name)
+    content = content.replace("${DEV_NAME}", assignee)
+    content = content.replace("${DATE}", now_str)
     content = content.replace("【填写任务名称】", task_name)
     content = content.replace("【填写处理人】", assignee)
     content = content.replace("【填写日期】", now_str)
@@ -60,35 +64,34 @@ def generate_report(report_type: str, task_id: str, task_name: str, assignee: st
     print(f"[SUCCESS] 已成功{action}任务报告: {output_path}")
     return True
 
-def main():
+def main(args: list = None):
     parser = argparse.ArgumentParser(description="自动化任务报告生成器")
-    parser.add_argument("--type", required=True, help="报告类型 (dev|review|qa)")
+    parser.add_argument("--type", required=True, choices=["dev", "review", "qa"], help="报告类型 (dev|review|qa)")
     parser.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
-    parser.add_argument("--task-name", default="任务示例", help="任务名称")
-    parser.add_argument("--assignee", default="Agent", help="处理人")
-    parser.add_argument("--output", help="输出报告文件路径 (未指定时自动归档至 docs/reports/{type}/)")
+    parser.add_argument("--task-name", default="工作包开发任务", help="任务名称")
+    parser.add_argument("--assignee", default="DEV", help="处理人")
+    parser.add_argument("--output", default="", help="输出报告文件路径 (未指定时自动归档至 docs/reports/{type}/)")
     parser.add_argument("--summary", default="", help="执行总结与补充文本")
 
-    args = parser.parse_args()
+    parsed_args = parser.parse_args(args)
 
-    output_path = args.output
+    output_path = parsed_args.output
     if not output_path:
-        reports_dir = os.path.join(PROJECT_ROOT, "docs", "reports", args.type.lower())
+        reports_dir = os.path.join(PROJECT_ROOT, "docs", "reports", parsed_args.type.lower())
         os.makedirs(reports_dir, exist_ok=True)
-        filename = f"{args.task_id}_{args.type.lower()}_report.md"
+        filename = f"{parsed_args.task_id}_{parsed_args.type.lower()}_report.md"
         output_path = os.path.join(reports_dir, filename)
 
     success = generate_report(
-        report_type=args.type,
-        task_id=args.task_id,
-        task_name=args.task_name,
-        assignee=args.assignee,
+        report_type=parsed_args.type,
+        task_id=parsed_args.task_id,
+        task_name=parsed_args.task_name,
+        assignee=parsed_args.assignee,
         output_path=output_path,
-        summary_content=args.summary
+        summary_content=parsed_args.summary
     )
 
-    if not success:
-        sys.exit(1)
+    return 0 if success else 1
 
 if __name__ == "__main__":
     main()

@@ -109,7 +109,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 
 技能包在 [`rules/`](rules/) 目录下内置了全套标准化交互契约与防错规则，在调用 Skill 时自动按需装载：
 
-- 🚩 [`rules/AGENTS.md`](rules/AGENTS.md)：**多专家团队协作契约** —— 规定 6 大协作红线、看板状态不变量与动态按需加载协议。
+- 🚩 [`rules/AGENTS.md`](rules/AGENTS.md)：**多专家团队协作契约** —— 规定 5 大协作红线、看板状态不变量与动态按需加载协议。
 - 🎭 [`rules/IDENTITY.md`](rules/IDENTITY.md)：**专家团多面人设与身份契约** —— 定义 PM、ARCHITECT、DEV、REVIEWER、QA、DOCS、DEVOPS 7 大专家身份及其提权代行规约。
 - ⚡ [`rules/SOUL.md`](rules/SOUL.md)：**行为原则与防错控制心脏** —— 规定事实高于推论、原子更新、缺陷溯源不切碎等安全控制核心。
 - 💓 [`rules/HEARTBEAT.md`](rules/HEARTBEAT.md)：**看板状态巡检与卡顿监控** —— 规定滞留任务、并发上限及状态处理人一致性等巡检 Checklist。
@@ -213,7 +213,7 @@ graph TD
     ├── SKILL.md                       # 技能主入口指令与 Prompt
     ├── README.md                      # 本说明文档
     ├── rules/                         # [核心规则与契约]
-    │   ├── AGENTS.md                  # [核心] 多专家团队 Agent 协作契约与 6 大红线
+    │   ├── AGENTS.md                  # [核心] 多专家团队 Agent 协作契约与 5 大红线
     │   ├── IDENTITY.md                # [角色] 7大专家 Agent 身份定义与多面人设
     │   ├── SOUL.md                    # [控制] 状态流转防错闭环心脏 (§九)
     │   ├── TOOLS.md                   # [工具] 看板工具与 CLI 适配层使用指引
@@ -221,7 +221,7 @@ graph TD
     │   └── HEARTBEAT.md               # [巡检] 看板巡检与状态不变量核验规则
     ├── agents/                        # 7 大专家 Agent YAML 描述 (01-pm.yaml ~ 07-devops.yaml)
     ├── config/                        # 零硬编码配置模板 (workflow.config & project_architecture)
-    ├── references/                    # 6 大全量提炼参考规约 (路由/流转/防错/Git/文档管理/交接协议)
+    ├── references/                    # 5 大全量提炼参考规约 (路由/流转/防错/Git/文档管理)
     │   ├── 01-AI-Team-Workflow-Index.md
     │   ├── 02-State-Flow-Rules.md
     │   ├── 03-Anti-Error-Mechanism.md

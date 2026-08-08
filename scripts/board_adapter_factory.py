@@ -4,6 +4,7 @@
 严格贯彻 Fail-Closed 原则：当配置文件不存在时拒绝隐式 fallback，物理抛出 FileNotFoundError！
 """
 import os
+import json
 import yaml
 from typing import Any
 from feishu_base_adapter import FeishuBaseAdapter

@@ -4,6 +4,7 @@
 """
 import os
 import sys
+import json
 import yaml
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

@@ -70,7 +70,6 @@ version: 1.0.0
 3. **校验角色权限与门控** ➔ 调阅 [`references/03-Anti-Error-Mechanism.md`](references/03-Anti-Error-Mechanism.md)
 4. **校验分支与 Git 规范** ➔ 调阅 [`references/04-Git-Workflow-Spec.md`](references/04-Git-Workflow-Spec.md)
 5. **校验文档结构与元数据** ➔ 调阅 [`references/05-Document-Management-Spec.md`](references/05-Document-Management-Spec.md)
-6. **校验交接契约与 Message 载荷** ➔ 调阅 [`references/06-Inter-Agent-Handover-Protocol.md`](references/06-Inter-Agent-Handover-Protocol.md)
 
 ---
 
@@ -79,6 +78,6 @@ version: 1.0.0
 - [`rules/`](rules/)：工作区核心规则与交互契约（`AGENTS.md` ~ `USER.md`）。
 - [`config/`](config/)：技术架构模板/ Schema（`project_architecture.schema.json`）与看板角色配置模板。
 - [`agents/`](agents/)：7 大角色 YAML 定义 (`01-pm.yaml` ~ `07-devops.yaml`)。
-- [`references/`](references/)：6 大全量提炼参考规约（路由、流转规则、防错闭环、Git 规范、文档治理规范、交接协议）。
+- [`references/`](references/)：5 大全量提炼参考规约（路由、流转规则、防错闭环、Git 规范、文档治理规范）。
 - [`templates/`](templates/)：标准化开发/审查/测试任务报告与工程文档模板。
 - [`scripts/`](scripts/)：看板工厂适配器 (`board_adapter_factory.py`)、门控强校验 (`validate_transition.py`)、报告生成器 (`generate_report.py`)、凭证安全扫描 (`check_secrets.py`) 与动态 Prompt 上下文合成器 (`build_agent_context.py`)。

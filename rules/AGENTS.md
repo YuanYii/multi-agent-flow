@@ -12,6 +12,7 @@
 3. **防错闭环与提权门控**：调阅 [`../references/03-Anti-Error-Mechanism.md`](../references/03-Anti-Error-Mechanism.md)
 4. **Git 与版本规范**：调阅 [`../references/04-Git-Workflow-Spec.md`](../references/04-Git-Workflow-Spec.md)
 5. **文档结构与元数据规范**：调阅 [`../references/05-Document-Management-Spec.md`](../references/05-Document-Management-Spec.md)
+6. **交接契约与消息总线载荷**：调阅 [`../references/06-Inter-Agent-Handover-Protocol.md`](../references/06-Inter-Agent-Handover-Protocol.md)
 
 ---
 
@@ -22,7 +23,7 @@
 
 ---
 
-## 🚫 团队协作 5 大红线 (Red Lines)
+## 🚫 团队协作 6 大红线 (Red Lines)
 
 1. **绝对禁止越权修改状态**：不在操作人集合内的角色禁止推动状态（提权需显式声明代行协议）。
 2. **打回绝对禁止新建任务编号**：任何审查/测试退回必须在**原任务**上改状态为 `已退回`，并在备注写入 `DEF-TXXX-N`。

@@ -19,3 +19,6 @@ docs/.drafts/
 .claude/
 .cursor/
 .codex/
+
+# Auto-generated task reports (regenerated on every run)
+docs/reports/

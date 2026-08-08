@@ -1,4 +1,4 @@
-# 03 - 防错闭环与四层防错门控机制 (§九)
+# 03 - 防错闭环与五层防错门控机制 (§九)
 
 > **全规约导航**：[01 主索引](01-AI-Team-Workflow-Index.md) | [02 状态推导](02-State-Flow-Rules.md) | [04 Git规范](04-Git-Workflow-Spec.md) | [05 文档管理](05-Document-Management-Spec.md) | [06 交接协议](06-Inter-Agent-Handover-Protocol.md)
 
@@ -10,7 +10,7 @@
 
 ## 一、防错闭环四大链路
 
-为防止 AI Agent 产生“机械推演”、“越权操作”或“指令乱发”，所有状态流转操作执行前必须经过四层校验：
+为防止 AI Agent 产生“机械推演”、“越权操作”或“指令乱发”，所有状态流转操作执行前必须经过五层校验：
 
 ```text
 [用户指令/事件触发] 

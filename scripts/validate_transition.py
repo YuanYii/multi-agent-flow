@@ -101,7 +101,7 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
         print(f"[REJECT 并发超限] 开发人员处于 '进行中' 任务数目前为 {active_dev_count}，超出并发上限 (≤3)！")
         return False
 
-    print(f"[PASS 校验通过] 角色 {role_upper} (任务类型 {type_upper}) 推动 '{transition_key}' 满足所有四层防错门控。")
+    print(f"[PASS 校验通过] 角色 {role_upper} (任务类型 {type_upper}) 推动 '{transition_key}' 满足所有五层防错门控。")
     return True
 
 

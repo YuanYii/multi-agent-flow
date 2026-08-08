@@ -40,9 +40,21 @@ def scan_project_stack(target_dir: str = PROJECT_ROOT) -> dict:
             pass
 
     # 2. 解析 Python (pyproject.toml / setup.py / requirements.txt)
-    if os.path.exists(os.path.join(target_dir, "pyproject.toml")) or os.path.exists(os.path.join(target_dir, "requirements.txt")):
+    pyproject_path = os.path.join(target_dir, "pyproject.toml")
+    req_path = os.path.join(target_dir, "requirements.txt")
+    if os.path.exists(pyproject_path) or os.path.exists(req_path):
         info["languages"].append("Python")
         info["testing_framework"] = "pytest"
+        if os.path.exists(pyproject_path):
+            try:
+                with open(pyproject_path, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+                    if "pytest" in content:
+                        info["testing_framework"] = "pytest"
+                    elif "unittest" in content:
+                        info["testing_framework"] = "unittest"
+            except Exception:
+                pass
 
     # 3. 解析 Node.js (package.json)
     pkg_path = os.path.join(target_dir, "package.json")
