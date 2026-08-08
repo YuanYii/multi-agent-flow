@@ -81,7 +81,8 @@ def transition_task_pipeline(
     task_type: str = "A",
     end_time: str = None,
     remarks: str = None,
-    dry_run: bool = False
+    dry_run: bool = False,
+    active_dev_count: int = 1
 ) -> bool:
     extra_log = {"task_id": task_id}
     logger.info(f"🔒 触发防错门控校验 ({from_status} ➔ {to_status}, 模式: {'DRY-RUN' if dry_run else 'REAL'})...", extra=extra_log)
@@ -94,25 +95,7 @@ def transition_task_pipeline(
         return False
 
     try:
-        # 2. 强制运行防护门控，未通过则直接抛错中断！
-        is_valid = validate(
-            role=current_role,
-            from_status=from_status,
-            to_status=to_status,
-            assignee=assignee,
-            end_time=end_time or "",
-            active_dev_count=1,
-            task_type=task_type
-        )
-
-        if not is_valid:
-            logger.error("❌ 门控物理拦截失败！阻止落库更新", extra=extra_log)
-            record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "门控规则校验未通过")
-            return False
-
-        logger.info("✅ 防错规则核验成功", extra=extra_log)
-
-        # 3. 完整加载看板 Adapter 与配置文件格式断言 (dry-run 模式下也不跳过校验)
+        # 2. 完整加载看板 Adapter 与配置文件格式断言 (dry-run 模式下也不跳过校验)
         import yaml
         try:
             adapter = get_board_adapter(config_path)
@@ -128,6 +111,24 @@ def transition_task_pipeline(
             logger.error("❌ 适配器未正确初始化，拦截落库", extra=extra_log)
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "适配器缺失")
             return False
+
+        # 3. 强制运行防护门控 (并发上限透传，未通过则直接抛错中断！)
+        is_valid = validate(
+            role=current_role,
+            from_status=from_status,
+            to_status=to_status,
+            assignee=assignee,
+            end_time=end_time or "",
+            active_dev_count=active_dev_count,
+            task_type=task_type
+        )
+
+        if not is_valid:
+            logger.error("❌ 门控物理拦截失败！阻止落库更新", extra=extra_log)
+            record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "门控规则校验未通过")
+            return False
+
+        logger.info("✅ 防错规则核验成功", extra=extra_log)
 
         # 4. 动态读取 Key 映射
         status_key = field_mapping.get("status", "status")
@@ -192,6 +193,7 @@ def main():
     parser.add_argument("--type", default="A", help="任务类型 (A-G)")
     parser.add_argument("--end-time", help="结束时间 (完成/验收必填)")
     parser.add_argument("--remarks", help="追加结构化缺陷或备注描述")
+    parser.add_argument("--active-dev-count", type=int, default=1, help="当前开发人员'进行中'任务数 (并发上限校验用)")
     parser.add_argument("--dry-run", action="store_true", help="开启预检测试模式而不物理写卡")
 
     args = parser.parse_args()
@@ -207,7 +209,8 @@ def main():
         task_type=args.type,
         end_time=args.end_time,
         remarks=args.remarks,
-        dry_run=args.dry_run
+        dry_run=args.dry_run,
+        active_dev_count=args.active_dev_count
     )
 
     if not ok:
