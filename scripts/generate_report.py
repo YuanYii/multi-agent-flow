@@ -21,6 +21,22 @@ REPORT_TEMPLATE_MAP = {
     "devops": "troubleshooting_template.md"
 }
 
+# 元数据/表格示例类占位符：生成时统一替换，避免交付物残留 ${...}
+# (正文内容占位符如 ${PROBLEM_BACKGROUND} 保留给专家填写)
+META_PLACEHOLDERS = {
+    "${STAGE_NAME}": "",
+    "${WORKPACKAGE_NAME}": "",
+    "${START_DATE}": "",
+    "${END_DATE}": "",
+    "${QA_NAME}": "",
+    "${SCENARIO_1}": "",
+    "${SCENARIO_2}": "",
+    "${EXPECT_1}": "",
+    "${EXPECT_2}": "",
+    "${ACTUAL_1}": "",
+    "${ACTUAL_2}": ""
+}
+
 def generate_report(report_type: str, task_id: str, task_name: str, assignee: str, output_path: str, summary_content: str = ""):
     template_file = REPORT_TEMPLATE_MAP.get(report_type.lower())
     if not template_file:
@@ -42,10 +58,14 @@ def generate_report(report_type: str, task_id: str, task_name: str, assignee: st
     content = content.replace("${TASK_ID}", task_id)
     content = content.replace("${TASK_NAME}", task_name)
     content = content.replace("${DEV_NAME}", assignee)
+    content = content.replace("${QA_NAME}", assignee)
     content = content.replace("${DATE}", now_str)
+    content = content.replace("${END_DATE}", now_str)
     content = content.replace("【填写任务名称】", task_name)
     content = content.replace("【填写处理人】", assignee)
     content = content.replace("【填写日期】", now_str)
+    for placeholder, value in META_PLACEHOLDERS.items():
+        content = content.replace(placeholder, value)
 
     if summary_content:
         content += f"\n\n### 📝 过程执行明细与补充记录 ({now_str})\n\n{summary_content}\n"
