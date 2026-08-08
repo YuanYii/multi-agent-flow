@@ -21,6 +21,11 @@ REPORT_TEMPLATE_MAP = {
     "devops": "troubleshooting_template.md"
 }
 
+# 旧名/别名兼容映射 (如 --type review 等价 reviewer)
+TYPE_ALIASES = {
+    "review": "reviewer"
+}
+
 # 元数据/表格示例类占位符：生成时统一替换，避免交付物残留 ${...}
 # (正文内容占位符如 ${PROBLEM_BACKGROUND} 保留给专家填写)
 META_PLACEHOLDERS = {
@@ -38,6 +43,7 @@ META_PLACEHOLDERS = {
 }
 
 def generate_report(report_type: str, task_id: str, task_name: str, assignee: str, output_path: str, summary_content: str = ""):
+    report_type = TYPE_ALIASES.get(report_type.lower(), report_type.lower())
     template_file = REPORT_TEMPLATE_MAP.get(report_type.lower())
     if not template_file:
         print(f"[ERROR] 不支持的报告类型: {report_type}")
@@ -86,7 +92,7 @@ def generate_report(report_type: str, task_id: str, task_name: str, assignee: st
 
 def main(args: list = None):
     parser = argparse.ArgumentParser(description="自动化任务报告生成器")
-    parser.add_argument("--type", required=True, choices=["dev", "review", "qa"], help="报告类型 (dev|review|qa)")
+    parser.add_argument("--type", required=True, help="报告类型 (pm|arch|dev|reviewer|qa|docs|devops，兼容别名 review)")
     parser.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
     parser.add_argument("--task-name", default="工作包开发任务", help="任务名称")
     parser.add_argument("--assignee", default="DEV", help="处理人")
@@ -95,15 +101,21 @@ def main(args: list = None):
 
     parsed_args = parser.parse_args(args)
 
+    # 归一化类型 (别名兼容) 并物理校验，不支持的返回非零退出码 (Fail-Closed)
+    report_type = TYPE_ALIASES.get(parsed_args.type.lower(), parsed_args.type.lower())
+    if report_type not in REPORT_TEMPLATE_MAP:
+        print(f"[ERROR] 不支持的报告类型: {parsed_args.type} (可选: {', '.join(REPORT_TEMPLATE_MAP.keys())})")
+        return 1
+
     output_path = parsed_args.output
     if not output_path:
-        reports_dir = os.path.join(PROJECT_ROOT, "docs", "reports", parsed_args.type.lower())
+        reports_dir = os.path.join(PROJECT_ROOT, "docs", "reports", report_type)
         os.makedirs(reports_dir, exist_ok=True)
-        filename = f"{parsed_args.task_id}_{parsed_args.type.lower()}_report.md"
+        filename = f"{parsed_args.task_id}_{report_type}_report.md"
         output_path = os.path.join(reports_dir, filename)
 
     success = generate_report(
-        report_type=parsed_args.type,
+        report_type=report_type,
         task_id=parsed_args.task_id,
         task_name=parsed_args.task_name,
         assignee=parsed_args.assignee,
