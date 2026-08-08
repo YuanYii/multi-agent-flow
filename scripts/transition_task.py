@@ -38,7 +38,8 @@ def transition_task_pipeline(
         to_status=to_status,
         assignee=assignee,
         end_time=end_time or "",
-        active_dev_count=1
+        active_dev_count=1,
+        task_type=task_type
     )
 
     if not is_valid:

@@ -32,9 +32,9 @@ def scan_project_stack(target_dir: str = PROJECT_ROOT) -> dict:
                 for line in f:
                     line_str = line.strip()
                     if line_str.startswith("# "):
-                        title = line_str.replace("# ", "").strip()
-                        info["readme_title"] = title
-                        info["project_name"] = title
+                        clean_title = line_str.replace("# ", "").split("\n")[0].split("\r")[0].strip()
+                        info["readme_title"] = clean_title
+                        info["project_name"] = clean_title
                         break
         except Exception:
             pass
@@ -53,11 +53,17 @@ def scan_project_stack(target_dir: str = PROJECT_ROOT) -> dict:
                 pkg_data = json.load(f)
                 info["project_name"] = pkg_data.get("name", info["project_name"])
                 deps = {**pkg_data.get("dependencies", {}), **pkg_data.get("devDependencies", {})}
+                scripts = pkg_data.get("scripts", {})
+                scripts_str = json.dumps(scripts).lower()
+
                 if "next" in deps: info["frameworks"].append("Next.js")
                 if "react" in deps: info["frameworks"].append("React")
                 if "vue" in deps: info["frameworks"].append("Vue.js")
-                if "jest" in deps: info["testing_framework"] = "jest"
-                if "vitest" in deps: info["testing_framework"] = "vitest"
+
+                if "vitest" in deps or "vitest" in scripts_str:
+                    info["testing_framework"] = "vitest"
+                elif "jest" in deps or "jest" in scripts_str:
+                    info["testing_framework"] = "jest"
         except Exception:
             pass
 

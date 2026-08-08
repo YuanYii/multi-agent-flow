@@ -40,7 +40,7 @@ class FeishuBaseAdapter:
             cmd.extend(["--filter-json", json.dumps(filter_json, ensure_ascii=False)])
 
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
             if res.returncode == 0:
                 try:
                     data = json.loads(res.stdout)
@@ -82,7 +82,7 @@ class FeishuBaseAdapter:
             "--as", "user"
         ]
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
             return res.returncode == 0 and '"updated": true' in res.stdout.lower()
         except Exception:
             return False
