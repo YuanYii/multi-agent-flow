@@ -11,7 +11,7 @@
 ### 前置要求
 
 - 任一 AI Agent：Antigravity CLI / Codex / Claude Code / Cursor / 或其他支持加载 Markdown 规范的 Agent
-- (可选) 飞书 Base / Jira / GitHub Projects 看板凭证
+- (可选) 在线看板凭证：飞书 Base / Jira / GitHub Projects（使用**离线本地看板**则完全无需任何凭证）
 
 ### 安装
 
@@ -35,7 +35,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 5. **专家团队技术栈自动同步**：自动运行 `python3 scripts/update_agent_tech_stacks.py`，将扫描到的技术栈同步落盘至 `agents/*.yaml` 配置文件。
 6. **唤起 PM 鉴定项目并输出声明**：自动触发 PM 角色扫描当前项目 `README.md` 和源码，并在回复中显式输出：**`【已识别 xxxx 项目】`** 标识及使用指引。
 
-### 🔌 连接在线数据看板的必要信息与凭证指南
+### 🔌 连接数据看板的必要信息与凭证指南（在线 / 离线）
 
 在将 Agent 与线上数据看板建立连接时，需在 [`config/workflow.config.yaml`](config/workflow.config.template.yaml) 及系统环境变量中配置以下必备 API 鉴权与连接参数：
 
@@ -64,6 +64,35 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
   - `board.project_number`: Project 编号（示例：`1`）
 - **系统环境变量凭证**：
   - `GITHUB_TOKEN`: 具备 `repo` 和 `project` 读写权限的 Personal Access Token (PAT)
+
+#### 4. 离线本地看板 (Local JSON) —— 零依赖，开箱即用
+
+无需任何 API 凭证与网络，数据存储于本地 JSON 文件（与 [multiagent-kanban](https://github.com/YuanYii/multiagent-kanban) 离线看板格式互通，支持浏览器拖拽流转）：
+
+- **配置文件参数** (`config/workflow.config.yaml`)：
+  - `board.provider`: `"local"`
+  - `board.board_file`: 看板 JSON 文件路径（示例：`kanban/board.json`）
+  - `board.fields`: 字段名映射（完整示例见 [`config/workflow.config.template.yaml`](config/workflow.config.template.yaml)）
+- **无需任何环境变量凭证**
+
+**专家流转自动落卡**：调用 `transition_task.py` 执行流转时，若任务在看板中不存在将自动创建（初始状态「待开始」）后再流转，**7 大专家角色均可操作**：
+
+```bash
+# 首次使用：初始化空看板文件
+python3 scripts/offline_board_adapter.py --init kanban/board.json
+
+# 专家流转：任务不存在自动创建；省略 --task-id 时自动分配最大编号+1
+python3 scripts/transition_task.py --config config/workflow.config.yaml \
+  --role PM --from-status 待开始 --to-status 进行中 --assignee Dev_User_1 \
+  --task-name "新任务" --stage "S1" --wp "WP-1"
+
+# 查看看板任务
+python3 scripts/offline_board_adapter.py --list kanban/board.json
+```
+
+**并发安全编号分配**：多个专家并发新建任务时，任务编号（`T\d+` 取最大号 +1）由适配器**全局排他锁**（`board.json.seq.lock`）串行分配，**编号 100% 不重复**；文件写入采用临时文件 + 原子替换（`os.replace`），杜绝半写文件；显式指定编号重复时 Fail-Closed 拒绝创建。
+
+**人工查看与拖拽**：使用配套离线看板 UI（[multiagent-kanban](https://github.com/YuanYii/multiagent-kanban)，零依赖 HTML 应用），通过「导入 JSON」加载 `kanban/board.json` 浏览与拖拽流转，操作后「导出 JSON」覆盖回文件，即可与 Agent 流转双向同步。
 
 ---
 
@@ -226,9 +255,10 @@ graph TD
     │   ├── 02-State-Flow-Rules.md
     │   ├── 03-Anti-Error-Mechanism.md
     │   ├── 04-Git-Workflow-Spec.md
-    │   └── 05-Document-Management-Spec.md
+    │   ├── 05-Document-Management-Spec.md
+    │   └── 06-Inter-Agent-Handover-Protocol.md
     ├── templates/                     # 开发/审查/测试报告与模块设计/排查文档模板
-    └── scripts/                       # 动态 Agent 探针 (export_agent_adapters)、旧文档归档 (migrate_legacy_docs) 与看板适配器
+    └── scripts/                       # 动态 Agent 探针 (export_agent_adapters)、旧文档归档 (migrate_legacy_docs) 与看板适配器 (board_adapter_factory / offline_board_adapter)
 ```
 
 ---
