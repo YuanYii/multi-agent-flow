@@ -1,5 +1,7 @@
 # 📄 项目通用文档管理规范标准 (V2.0 现代精简版)
 
+> **全规约导航**：[01 主索引](01-AI-Team-Workflow-Index.md) | [02 状态推导](02-State-Flow-Rules.md) | [03 防错机制](03-Anti-Error-Mechanism.md) | [04 Git规范](04-Git-Workflow-Spec.md) | [06 交接协议](06-Inter-Agent-Handover-Protocol.md)
+
 > 本规范定义了项目工程文档的扁平化目录架构、Frontmatter 元数据格式、模块化划分与过程草稿隔离机制。
 
 ---

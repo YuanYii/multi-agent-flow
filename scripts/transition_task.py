@@ -27,15 +27,19 @@ logger = logging.getLogger("transition_pipeline")
 
 
 def acquire_concurrency_lock(task_id: str):
-    """获取并发排他锁 (fcntl 物理跨进程锁)"""
+    """获取跨平台并发排他锁 (POSIX fcntl / Windows msvcrt)"""
     lock_file = os.path.join(SCRIPT_DIR, f".lock_{task_id}.lock")
     f = open(lock_file, "w")
     try:
-        import fcntl
-        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        if sys.platform == "win32":
+            import msvcrt
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         return f, lock_file
-    except (ImportError, IOError):
-        # 非 POSIX 环境降级
+    except Exception as e:
+        logger.warning(f"⚠️ 获取任务 {task_id} 并发互斥锁提示: {e}")
         return f, lock_file
 
 
@@ -112,9 +116,20 @@ def transition_task_pipeline(
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "适配器缺失")
             return False
 
-        # 4. 执行状态与处理人原子写入
-        update_fields = {"status": to_status, "assignee": assignee}
-        if end_time: update_fields["end_time"] = end_time
+        # 4. 读取看板配置中的物理字段映射，动态拼装更新 Key
+        try:
+            with open(config_path, "r", encoding="utf-8") as cfg_f:
+                cfg_data = yaml.safe_load(cfg_f)
+                field_mapping = cfg_data.get("board", {}).get("fields", {})
+        except Exception:
+            field_mapping = {}
+
+        status_key = field_mapping.get("status", "status")
+        assignee_key = field_mapping.get("assignee", "assignee")
+        end_time_key = field_mapping.get("end_time", "end_time")
+
+        update_fields = {status_key: to_status, assignee_key: assignee}
+        if end_time: update_fields[end_time_key] = end_time
 
         try:
             success = adapter.update_record(record_id, update_fields)
@@ -128,20 +143,21 @@ def transition_task_pipeline(
             return False
 
         # 5. 若有追加备注，执行追加；若追加失败，触发物理原子补偿回滚！
+        remarks_key = field_mapping.get("remarks", "remarks")
         if remarks:
             try:
-                rem_ok = adapter.append_remarks(record_id, "remarks", remarks)
+                rem_ok = adapter.append_remarks(record_id, remarks_key, remarks)
                 if not rem_ok:
                     logger.warning("⚠️ 结构化缺陷备注追加失败，准备执行物理原子补偿回滚...", extra=extra_log)
                     # 物理补偿回滚：还原状态与处理人
-                    rollback_fields = {"status": from_status, "assignee": current_role}
+                    rollback_fields = {status_key: from_status, assignee_key: current_role}
                     adapter.update_record(record_id, rollback_fields)
                     logger.error("🔄 状态已物理回滚还原至原状态，拒绝非原子性中间态落库！", extra=extra_log)
                     record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "追加备注失败触发状态原子补偿回滚")
                     return False
             except Exception as e:
                 logger.error(f"⚠️ 备注追加抛出异常 ({e})，执行物理原子补偿回滚...", extra=extra_log)
-                adapter.update_record(record_id, {"status": from_status, "assignee": current_role})
+                adapter.update_record(record_id, {status_key: from_status, assignee_key: current_role})
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"备注异常回滚: {e}")
                 return False
 

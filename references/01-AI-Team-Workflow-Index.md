@@ -1,6 +1,15 @@
-# 01 - AI 多角色团队路由表与职责边界
+# 01 - AI Team Workflow 协同主索引
 
-> **本文件说明**：定义多 Agent / 人类研发团队中的 7 大角色路由映射、职责边界与工作约束。
+> **核心规约交叉索引**：
+> - 状态推导与打回规则：👉 [`02-State-Flow-Rules.md`](02-State-Flow-Rules.md)
+> - 防错门控与守护机制：👉 [`03-Anti-Error-Mechanism.md`](03-Anti-Error-Mechanism.md)
+> - Git 分支与版本模型：👉 [`04-Git-Workflow-Spec.md`](04-Git-Workflow-Spec.md)
+> - 工程文档管理规范标准：👉 [`05-Document-Management-Spec.md`](05-Document-Management-Spec.md)
+> - Agent 间交接与提权协议：👉 [`06-Inter-Agent-Handover-Protocol.md`](06-Inter-Agent-Handover-Protocol.md)
+
+---
+
+**本文件说明**：定义多 Agent / 人类研发团队中的 7 大角色路由映射、职责边界与工作约束。
 
 ---
 

@@ -13,6 +13,24 @@ from github_projects_adapter import GitHubProjectsAdapter
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(SCRIPT_DIR, "..", "config", "workflow.config.yaml")
 
+def exponential_backoff_retry(max_retries: int = 3, initial_delay: float = 1.0):
+    """通用 API 请求指数退避重试装饰器"""
+    import time
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            delay = initial_delay
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_retries:
+                        raise e
+                    print(f"⚠️ [网络重试退避] 第 {attempt} 次请求失败 ({e})，将在 {delay} 秒后发起重试...")
+                    time.sleep(delay)
+                    delay *= 2
+        return wrapper
+    return decorator
+
 def get_board_adapter(config_file: str = CONFIG_PATH) -> Any:
     """根据 workflow.config.yaml 自动创建并返回适配器实例"""
     if not os.path.exists(config_file):
@@ -23,6 +41,19 @@ def get_board_adapter(config_file: str = CONFIG_PATH) -> Any:
 
     with open(config_file, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
+
+    # 物理硬校验：调用 config.schema.json 执行 Schema 格式验证
+    schema_file = os.path.join(SCRIPT_DIR, "..", "config", "config.schema.json")
+    if os.path.exists(schema_file):
+        try:
+            import jsonschema
+            with open(schema_file, "r", encoding="utf-8") as sf:
+                schema_data = json.load(sf)
+            jsonschema.validate(instance=config, schema=schema_data)
+        except ImportError:
+            pass
+        except Exception as se:
+            raise ValueError(f"❌ [Schema 物理断言拦截] 看板配置违反 config.schema.json 规范: {se}")
 
     board_cfg = config.get("board", {})
     provider = board_cfg.get("provider", "feishu_base").lower()

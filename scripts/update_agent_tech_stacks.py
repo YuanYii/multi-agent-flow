@@ -28,7 +28,22 @@ def load_architecture_config():
         sys.exit(1)
         
     with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        arch_data = yaml.safe_load(f)
+
+    # 物理 Schema 强校验
+    schema_path = os.path.join(CONFIG_DIR, "project_architecture.schema.json")
+    if os.path.exists(schema_path):
+        try:
+            import jsonschema
+            with open(schema_path, "r", encoding="utf-8") as sf:
+                s_data = json.load(sf)
+            jsonschema.validate(instance=arch_data, schema=s_data)
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"[WARNING] 架构配置文件违反 project_architecture.schema.json 规范: {e}")
+            
+    return arch_data
 
 def update_dev_role(arch_data):
     dev_path = os.path.join(AGENTS_DIR, "03-dev.yaml")

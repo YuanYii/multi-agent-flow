@@ -1,4 +1,8 @@
-# 03 - 状态流转防错闭环机制与提权授权协议
+# 03 - 防错闭环与四层防错门控机制 (§九)
+
+> **全规约导航**：[01 主索引](01-AI-Team-Workflow-Index.md) | [02 状态推导](02-State-Flow-Rules.md) | [04 Git规范](04-Git-Workflow-Spec.md) | [05 文档管理](05-Document-Management-Spec.md) | [06 交接协议](06-Inter-Agent-Handover-Protocol.md)
+
+---
 
 > **本文件说明**：规范 AI Agent 在协同研发中的越权防护、提权授权与指令拆分分派 SOP。
 

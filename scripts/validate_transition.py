@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
 状态流转与角色门控强校验预检脚本 (Validate Transition CLI)
-支持 A-G 任务类型 (task_type) 转换权限矩阵防越权物理硬拦截。
+支持 A-G 全量 7 类任务类型 (task_type) 转换权限矩阵防越权物理硬拦截。
 """
 import sys
 import argparse
 from typing import List, Dict
 
-# 定义基础权限矩阵 (区分通用流转)
 ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
     "PM": [
         "待开始 -> 进行中",
@@ -31,7 +30,6 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
         "已退回 -> 进行中",
         "进行中 -> 已阻塞",
         "已阻塞 -> 进行中"
-        # 注意: 进行中 -> 已完成 属于特权，仅允许在 G/B/C/D 类任务中解锁！
     ],
     "REVIEWER": [
         "审查中 -> 测试中",
@@ -65,14 +63,18 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
     role_upper = role.upper()
     type_upper = task_type.upper()
 
-    # 1. 越权校验 (基于 task_type 分级判定)
     allowed_list = list(ROLE_BASE_PERMISSIONS.get(role_upper, []))
 
-    # 特殊规则解锁：仅当为 B(架构), C(文档), D(运维), G(环境搭建) 类任务时，DEV 允许直接推至已完成
+    # 1. 任务类型特权解锁
+    # F 类 (阶段总结): 解锁 PM 从 "进行中 -> 已完成"
+    if role_upper == "PM" and type_upper == "F":
+        allowed_list.append("进行中 -> 已完成")
+
+    # B(架构), C(文档), D(运维), G(环境搭建) 类任务: 解锁 DEV 直接推至 "已完成"
     if role_upper == "DEV" and type_upper in ["B", "C", "D", "G"]:
         allowed_list.append("进行中 -> 已完成")
 
-    # A 类 (常规开发任务) DEV 强行推已完成判断为违规越权
+    # A 类 (常规代码开发) 任务 DEV 强行推已完成判断为违规越权
     if role_upper == "DEV" and type_upper == "A" and transition_key == "进行中 -> 已完成":
         print(f"[REJECT 越权拦截] DEV 角色在 A 类 (常规代码开发) 任务中禁止直接推动至 '已完成'！必须先提交审查 (审查中 ➔ 测试中)！")
         return False
@@ -86,10 +88,13 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
         print(f"[REJECT 原子更新拦截] 变更状态至 '{to_status}' 时必须同步指定处理人 (Assignee)！")
         return False
 
-    # 3. 终态结束时间强校验
+    # 3. 终态结束时间强校验 (E 类用户自执行任务豁免 end_time 强校验)
     if to_status in ["已完成", "已验收"] and not end_time:
-        print(f"[REJECT 结束时间缺失] 推动至终态 '{to_status}' 前，强制要求写入结束时间 (end_time)！")
-        return False
+        if type_upper == "E":
+            print(f"[EXEMPT 豁免提示] E 类 (用户自执行/审批) 任务在推动至 '{to_status}' 时物理豁免 end_time 强校验。")
+        else:
+            print(f"[REJECT 结束时间缺失] 推动至终态 '{to_status}' 前，强制要求写入结束时间 (end_time)！")
+            return False
 
     # 4. 开发人员并发上限核验
     if role_upper == "DEV" and to_status == "进行中" and active_dev_count >= 3:

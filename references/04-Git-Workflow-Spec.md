@@ -1,4 +1,8 @@
-# 04 - Git 工作流规范与分支管理策略
+# 04 - Git 分支模型与版本发布规范
+
+> **全规约导航**：[01 主索引](01-AI-Team-Workflow-Index.md) | [02 状态推导](02-State-Flow-Rules.md) | [03 防错机制](03-Anti-Error-Mechanism.md) | [05 文档管理](05-Document-Management-Spec.md) | [06 交接协议](06-Inter-Agent-Handover-Protocol.md)
+
+---
 
 > **本文件说明**：定义软件研发团队的分支模型、命名约定与 Commit 提交规范。
 
