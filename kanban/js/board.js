@@ -1123,25 +1123,45 @@
                 `;
             }
 
-            // 3. Populate Timeline Audit Logs & Defect Trace
+            // 3. Populate Timeline Audit Logs & Defect Trace (Multi-field Aggregator)
             const timelineList = document.getElementById('detail-timeline-list');
             if (timelineList) {
                 timelineList.innerHTML = '';
-                const fullText = card.process || card.remarks || '';
-                const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
+                
+                let rawLogs = [];
+                if (card.process) rawLogs.push(card.process);
+                if (card.history && card.history !== card.process) rawLogs.push(card.history);
+                if (card.remarks && !card.process) rawLogs.push(`[备注记录] ${card.remarks}`);
+
+                let lines = rawLogs.join('\n').split('\n').map(l => l.trim()).filter(Boolean);
+                
+                // 智能保底推演：若没有任何显式日志行，自动基于元数据推导首条初始化流转记录
                 if (lines.length === 0) {
-                    timelineList.innerHTML = `<div style="color:var(--text-muted); font-size:12px; padding:10px 0;">暂无全流程流转历史记录。</div>`;
-                } else {
-                    lines.forEach(line => {
-                        const item = document.createElement('div');
-                        const isDefect = line.includes('DEF-') || line.includes('DEFECT') || line.includes('退回') || line.includes('阻塞');
-                        item.className = `timeline-item ${isDefect ? 'defect' : ''}`;
-                        item.innerHTML = `
-                            <div class="timeline-content">${escapeHtml(line)}</div>
-                        `;
-                        timelineList.appendChild(item);
-                    });
+                    lines = [
+                        `[系统初始化] 任务 [${card.id}] 已推入看板，当前状态【${card.status || '待开始'}】，负责人: ${card.assignee || '未分配'}`
+                    ];
+                    if (card.remarks) lines.push(`[说明/备注] ${card.remarks}`);
                 }
+
+                lines.forEach(line => {
+                    const item = document.createElement('div');
+                    const isDefect = line.includes('DEF-') || line.includes('DEFECT') || line.includes('退回') || line.includes('阻塞');
+                    item.className = `timeline-item ${isDefect ? 'defect' : ''}`;
+                    
+                    let timeStr = '';
+                    let contentStr = line;
+                    const timeMatch = line.match(/^\[(\d{4}-\d{2}-\d{2}[^\]]*)\]\s*(.*)$/);
+                    if (timeMatch) {
+                        timeStr = timeMatch[1];
+                        contentStr = timeMatch[2];
+                    }
+
+                    item.innerHTML = `
+                        ${timeStr ? `<div class="timeline-time">⏱️ ${escapeHtml(timeStr)}</div>` : ''}
+                        <div class="timeline-content">${escapeHtml(contentStr)}</div>
+                    `;
+                    timelineList.appendChild(item);
+                });
             }
 
             // Default to Read Mode
