@@ -159,21 +159,20 @@
             if (label) label.textContent = theme === 'dark' ? '浅色' : '深色';
         }
 
-        function checkThemeBySun() {
-            const isNight = isNightBySun(new Date());
-            const targetTheme = isNight ? 'dark' : 'light';
-            applyTheme(targetTheme);
-        }
-
         function initTheme() {
-            // 自动日落算法拥有最高优先级：计算完成后立即切换主题
-            checkThemeBySun();
-            // 设置 1 小时 (3600000ms) 后台定时器，自动重新计算并切换主题
-            setInterval(checkThemeBySun, 3600000);
+            let theme = 'light';
+            try {
+                const saved = localStorage.getItem(THEME_KEY);
+                if (saved === 'light' || saved === 'dark') {
+                    theme = saved;
+                }
+            } catch (e) {}
+            applyTheme(theme);
         }
 
         function toggleTheme() {
             const cur = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
             applyTheme(cur);
-            showToast(cur === 'dark' ? '已临时切换为深色主题' : '已临时切换为浅色主题');
+            try { localStorage.setItem(THEME_KEY, cur); } catch (e) {}
+            showToast(cur === 'dark' ? '已切换为深色主题' : '已切换为浅色主题');
         }
