@@ -533,6 +533,8 @@
             }
         }
 
+        let pendingTransition = null;
+
         function drop(event) {
             event.preventDefault();
             const list = event.currentTarget;
@@ -548,16 +550,10 @@
 
             if (card[groupField] === colValue) return;
 
-            const oldVal = card[groupField];
-            card[groupField] = colValue;
-
-            // 1. 负责人看板拖拽：负责人 (assignee) 与 当前处理人 (handler) 双向同步改动
+            let newHandler = card.handler;
             if (groupField === 'assignee') {
-                card.handler = colValue;
-            }
-
-            // 2. 状态看板拖拽：按多专家协同标准流程，状态 (status) 改变时自动联动智能分配专家处理人
-            if (groupField === 'status') {
+                newHandler = colValue;
+            } else if (groupField === 'status') {
                 const statusRoleMap = {
                     '审查中': '周审查',
                     '测试中': '章测试',
@@ -566,16 +562,75 @@
                     '已完成': '严经理'
                 };
                 if (statusRoleMap[colValue]) {
-                    card.handler = statusRoleMap[colValue];
+                    newHandler = statusRoleMap[colValue];
                 }
             }
 
-            const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责人与处理人' : '阶段');
-            appendProcessLog(card, `[看板拖拽联动] 将${fieldName}由【${oldVal || '未设定'}】成功更新至【${colValue}】${card.handler ? `(处理人移交至: ${card.handler})` : ''}`);
+            pendingTransition = {
+                cardId,
+                groupField,
+                oldVal: card[groupField],
+                newVal: colValue,
+                newHandler
+            };
 
+            const banner = document.getElementById('transition-change-banner');
+            if (banner) {
+                const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责人' : '阶段');
+                banner.innerHTML = `
+                    <div style="font-weight:600; font-size:14px; margin-bottom:4px; color:var(--text-main);">
+                        [${esc(card.id)}] ${esc(card.name)}
+                    </div>
+                    <div>
+                        ${fieldName}: <span style="text-decoration:line-through; color:var(--text-muted);">${esc(card[groupField] || '未设定')}</span>
+                        &nbsp;&rarr;&nbsp;
+                        <strong style="color:var(--primary); font-size:14px;">${esc(colValue)}</strong>
+                        ${newHandler ? `<span class="tag tag-stage" style="margin-left:8px;">处理人移交至: ${esc(newHandler)}</span>` : ''}
+                    </div>
+                `;
+            }
+
+            const commentInput = document.getElementById('transition-comment-input');
+            if (commentInput) commentInput.value = '';
+
+            document.getElementById('transition-modal').classList.add('show');
+            setTimeout(() => { if (commentInput) commentInput.focus(); }, 100);
+        }
+
+        function cancelTransition() {
+            pendingTransition = null;
+            document.getElementById('transition-modal').classList.remove('show');
+        }
+
+        function confirmTransition() {
+            if (!pendingTransition) {
+                cancelTransition();
+                return;
+            }
+
+            const { cardId, groupField, oldVal, newVal, newHandler } = pendingTransition;
+            const card = rawCardsData.find(c => c.id === cardId);
+            if (!card) {
+                cancelTransition();
+                return;
+            }
+
+            card[groupField] = newVal;
+            if (newHandler) {
+                card.handler = newHandler;
+            }
+
+            const userComment = (document.getElementById('transition-comment-input').value || '').trim();
+            const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责人' : '阶段');
+            const defaultAction = `[看板拖拽联动] 将${fieldName}由【${oldVal || '未设定'}】更新至【${newVal}】${newHandler ? `(处理人: ${newHandler})` : ''}`;
+            const logMsg = userComment ? `${defaultAction} — 说明: ${userComment}` : defaultAction;
+
+            appendProcessLog(card, logMsg);
             saveStorageData();
             applyFilters();
-            showToast(`已成功联动更新 ${cardId} → ${colValue}`);
+
+            cancelTransition();
+            showToast(`已成功流转 ${cardId} → ${newVal}`);
         }
 
         function onTableRowClick(event, cardId) {

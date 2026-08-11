@@ -379,6 +379,29 @@
         </div>
     </div>
 
+    <!-- 状态流转与审计说明填写弹窗 -->
+    <div class="modal-overlay" id="transition-modal">
+        <div class="modal-box" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3>📝 填写状态流转说明</h3>
+                <button class="close-btn" onclick="cancelTransition()">&times;</button>
+            </div>
+            <div style="padding: 16px 0;">
+                <div id="transition-change-banner" style="background:var(--primary-light); border-left:4px solid var(--primary); padding:10px 14px; border-radius:6px; margin-bottom:14px; font-size:13px;">
+                    <!-- 动态插入流转变更提示 -->
+                </div>
+                <div class="form-item">
+                    <label style="font-weight:600; margin-bottom:6px; display:block;">流转过程说明 / 变更原因 <span style="color:var(--text-muted); font-weight:normal;">(选填)</span></label>
+                    <textarea id="transition-comment-input" rows="4" placeholder="例如：已完成架构设计与单元测试编写，流转至审查阶段代码评审..." style="width:100%; box-sizing:border-box; border:1px solid var(--border-color); border-radius:6px; padding:10px; font-family:inherit; font-size:13px; background:var(--card-bg); color:var(--text-main); outline:none; resize:vertical;"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="cancelTransition()">取消</button>
+                <button class="btn primary-btn" onclick="confirmTransition()">确认流转并记录</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div class="toast-container" id="toast-container"></div>
     <script src="js/util.js"></script>
