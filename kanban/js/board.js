@@ -1344,11 +1344,11 @@
 
         function deleteCurrentTask() {
             const cardId = document.getElementById('edit-original-id').value;
-            openCustomConfirm('删除任务确认', `确认要永久删除任务 [${cardId}] 吗？删除后不可恢复。`, () => {
+            closeDetailModal();
+            openCustomConfirm('删除任务确认', `确认要永久删除任务 [${cardId}] 吗？删除后无法恢复。`, () => {
                 rawCardsData = rawCardsData.filter(c => c.id !== cardId);
                 saveStorageData();
                 applyFilters();
-                closeDetailModal();
                 showToast(`已删除任务 ${cardId}`);
             });
         }
