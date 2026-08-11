@@ -2,7 +2,7 @@
 
 > 契约驱动的多角色 Agent 协同研发技能包 —— 消除跨角色越权、打回碎片化与状态悬挂，让 AI 团队协作严丝合缝。
 
-解耦、高可靠、具备防错闭环机制的 AI 多专家协同研发工作流技能包。基于成熟的软件工程实践，将项目管理、系统架构、代码开发、代码审查、功能测试、技术文档与 Git/运维整理解耦为 7 大标准职能角色，提供防错门控、打回不拆单、报告复验追加与看板自动化流转等能力。
+解耦、高可靠、具备防错闭环机制的 AI 多专家协同研发工作流技能包。基于成熟的软件工程实践，将项目管理、系统架构、代码开发、前端开发、代码审查、功能测试、技术文档与 Git/运维整理解耦为 8 大标准职能角色，提供防错门控、打回不拆单、报告复验追加与看板自动化流转等能力。
 
 ---
 
@@ -35,13 +35,15 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 5. **专家团队技术栈自动同步**：自动运行 `python3 scripts/update_agent_tech_stacks.py`，将扫描到的技术栈同步落盘至 `agents/*.yaml` 配置文件。
 6. **唤起 PM 鉴定项目并输出声明**：自动触发 PM 角色扫描当前项目 `README.md` 和源码，并在回复中显式输出：**`【已识别 xxxx 项目】`** 标识及使用指引。
 
+---
+
 ### 🔌 数据看板配置指南（离线默认 / 在线扩展）
 
 在配置文件 [`config/workflow.config.yaml`](config/workflow.config.yaml) 中，看板默认配置为**离线本地看板 (`local`)**，零依赖开箱即用；同时也支持配置扩展为线上数据看板（飞书 Base / Jira / GitHub Projects）。
 
 #### 1. 离线本地看板 (Local JSON) —— 默认配置，零依赖开箱即用
 
-无需任何 API 凭证与网络，数据存储于本地 JSON 文件（与 [multiagent-kanban](https://github.com/YuanYii/multiagent-kanban) 离线看板格式互通，支持浏览器拖拽流转）：
+无需任何 API 凭证与网络，数据存储于本地 JSON 文件（与 [multiagent-kanban](https://github.com/YuanYii/multiagent-kanban) 离线看板格式互通）：
 
 - **配置文件参数** (`config/workflow.config.yaml`)：
   - `board.provider`: `"local"` (默认)
@@ -92,11 +94,32 @@ python3 scripts/offline_board_adapter.py --list kanban/board.json
 
 **并发安全编号分配**：多个专家并发新建任务时，任务编号（`T\d+` 取最大号 +1）由适配器**全局排他锁**（`board.json.seq.lock`）串行分配，**编号 100% 不重复**；文件写入采用临时文件 + 原子替换（`os.replace`），杜绝半写文件；显式指定编号重复时 Fail-Closed 拒绝创建。
 
-**人工查看与拖拽**：使用技能包内置的离线看板应用 [`kanban/offline_board.html`](kanban/offline_board.html)，通过「导入 JSON」选择加载同目录下的 `kanban/board.json` 即可进行 4 种视图查阅与全功能卡片拖拽，操作后导出 JSON 覆盖保存即可与 Agent 双向同步。也可运行 `kanban/start.sh` 开启局域网分享服务。
+**Web 物理强同步交互**：直接在浏览器打开内置应用 [`kanban/offline_board.html`](kanban/offline_board.html)（或访问同目录软链接 [`kanban/index.html`](kanban/index.html)），页面将通过动态 Ajax 实时读取 `./board.json?t=...` 数据，确保界面状态与 `board.json` **物理 100% 强一致强同步**（彻底清除硬编码 Demo 卡片与浏览器缓存干涉）。亦可运行 `kanban/start.sh` 开启本地 Web HTTP 服务。
 
 ---
 
-### 任务流转与指令交互
+## 🧪 自动化测试与质量门控
+
+项目内置了完备的物理级质量防错与自动化回归测试套件：
+
+- **36 个状态流转场景测试套件** ([`tests/test_full_workflow_suite.py`](tests/test_full_workflow_suite.py))：
+  - **正向流转**（ST-01 ~ ST-09）：覆盖 7 类任务（A-G）的标准正向流转与特权短链完成。
+  - **缺陷打回与复核**（ST-10 ~ ST-15）：验证审查/测试/验收打回精准将 Assignee 回退给原 DEV/DOCS/DEVOPS，追加 `[DEFECT-xxx]` 日志且**不派生孤儿任务**。
+  - **阻塞挂起与解阻**（ST-16 ~ ST-21）：验证全阶段的挂起与解阻状态转换。
+  - **防越权物理拦截**（ST-22 ~ ST-30）：物理断言拦截 DEV 自自我验收、未审直推测试、终态二次篡改等违规行为。
+  - **门控与环境护栏**（ST-31 ~ ST-36）：断言缺失 `assignee`、缺失 `end_time`、DEV 在手并发数 ≥3 等拦截规则。
+- **排他锁与并发测试** ([`tests/test_offline_adapter.py`](tests/test_offline_adapter.py))：校验多专家线程并发新建任务时的唯一 Task ID 分配与原子落盘。
+- **敏感凭据与硬编码密钥扫描** ([`scripts/check_secrets.py`](scripts/check_secrets.py))：硬拦截任何意外硬编码的 Token、AK/SK 密钥。
+- **持续集成 (GitHub Actions CI)**：在提交代码与 PR 时自动触发纯净环境构建，校验零环境依赖自愈性与测试 100% 通过率。
+
+执行全量测试套件：
+```bash
+pytest tests/ --verbose
+```
+
+---
+
+## 任务流转与指令交互
 
 在与 Agent 对话时，只需在 Prompt 中唤起 `multi-agent-flow` 技能标识，或在支持子 Agent 命令的 IDE 中直接使用快捷语法（如 `@flow-dev`, `/flow-dev`），Agent 将自动调阅 `SKILL.md` 并动态加载 `rules/` 下的核心规则与防错契约：
 
@@ -160,7 +183,7 @@ python3 scripts/offline_board_adapter.py --list kanban/board.json
 
 ---
 
-## 核心架构与 7 大抽象角色
+## 核心架构与 8 大抽象角色
 
 每个节点由独立的专家角色（Role Agent）执行，详尽信息可参考 [`references/01-AI-Team-Workflow-Index.md`](references/01-AI-Team-Workflow-Index.md)。以下为各角色核心职责与红线边界：
 
@@ -168,8 +191,10 @@ python3 scripts/offline_board_adapter.py --list kanban/board.json
   - *红线*：不编写业务代码、不做技术架构设计、不亲自跑单测/集成测试。
 - **ARCHITECT（系统架构师）**：负责系统架构设计、技术选型与 ADR 编写。
   - *红线*：架构设计不等于代码实现，任务完成后直接交由 PM 验收。
-- **DEV（开发工程师）**：负责 Schema 定义、业务编码、单测（覆盖率>80%）及环境治理。
+- **DEV（全栈开发工程师）**：负责 Backend/Core 编码、单测（覆盖率>80%）及环境治理。
   - *红线*：并发上限3个任务，必须先将看板状态改为“进行中”再开始编码。
+- **FRONTEND（前端开发工程师）**：负责 UI/UX 界面构建、组件拆分与 Web 看板交互对接。
+  - *红线*：并发上限3个任务，需遵守模块化样式与响应式工程规范。
 - **REVIEWER（代码审查员）**：负责代码规范 (PEP8 / Clean Code)、安全漏洞扫描与性能评估。
   - *规范*：审查报告需标注问题优先级，打回时需回写结构化缺陷信息。
 - **QA（测试工程师）**：负责集成测试、端到端系统测试、回归测试。
@@ -192,10 +217,10 @@ python3 scripts/offline_board_adapter.py --list kanban/board.json
 graph TD
     Start((开始)) -->|PM分配任务| Todo["待开始<br/>(处理人: PM/DEV)"]
     
-    Todo -->|DEV自领取| InProgress["进行中<br/>(处理人: DEV)"]
+    Todo -->|DEV/FRONTEND自领取| InProgress["进行中<br/>(处理人: DEV/FRONTEND)"]
     
     InProgress -->|提交审查| InReview["审查中<br/>(处理人: REVIEWER)"]
-    InProgress -->|依赖未就绪| Blocked["已阻塞<br/>(处理人: DEV)"]
+    InProgress -->|依赖未就绪| Blocked["已阻塞<br/>(处理人: DEV/FRONTEND/REVIEWER/QA)"]
     Blocked -->|依赖恢复| InProgress
     
     InReview -->|审查通过| InTesting["测试中<br/>(处理人: QA)"]
@@ -243,13 +268,15 @@ graph TD
     ├── README.md                      # 本说明文档
     ├── rules/                         # [核心规则与契约]
     │   ├── AGENTS.md                  # [核心] 多专家团队 Agent 协作契约与 6 大红线
-    │   ├── IDENTITY.md                # [角色] 7大专家 Agent 身份定义与多面人设
+    │   ├── IDENTITY.md                # [角色] 8大专家 Agent 身份定义与多面人设
     │   ├── SOUL.md                    # [控制] 状态流转防错闭环心脏 (§九)
     │   ├── TOOLS.md                   # [工具] 看板工具与 CLI 适配层使用指引
     │   ├── USER.md                    # [协议] 自领取规则与跨角色提权代行协议
     │   └── HEARTBEAT.md               # [巡检] 看板巡检与状态不变量核验规则
     ├── agents/                        # 8 大专家 Agent YAML 描述 (01-pm.yaml ~ 08-frontend.yaml)
+    ├── kanban/                        # 离线 Web 看板 (offline_board.html, board.json, js/)
     ├── config/                        # 零硬编码配置模板 (workflow.config & project_architecture)
+    ├── tests/                         # 自动化测试套件 (test_full_workflow_suite, test_validate_transition, etc.)
     ├── references/                    # 6 大全量提炼参考规约 (路由/流转/防错/Git/文档管理/交接协议)
     │   ├── 01-AI-Team-Workflow-Index.md
     │   ├── 02-State-Flow-Rules.md
@@ -258,7 +285,7 @@ graph TD
     │   ├── 05-Document-Management-Spec.md
     │   └── 06-Inter-Agent-Handover-Protocol.md
     ├── templates/                     # 开发/审查/测试报告与模块设计/排查文档模板
-    └── scripts/                       # 动态 Agent 探针 (export_agent_adapters)、旧文档归档 (migrate_legacy_docs) 与看板适配器 (board_adapter_factory / offline_board_adapter)
+    └── scripts/                       # 物理防错校验 (validate_transition)、状态流转 (transition_task)、动态 Agent 探针 (verify_and_export_agents) 与看板适配器 (board_adapter_factory / offline_board_adapter)
 ```
 
 ---
