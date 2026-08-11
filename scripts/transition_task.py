@@ -156,12 +156,28 @@ def transition_task_pipeline(
             record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, True, "DRY-RUN 完整校验测试通过")
             return True
 
+        ROLE_NAME_MAP = {
+            "PM": "严经理", "ARCHITECT": "钱架构", "DEV": "李开发",
+            "FRONTEND": "前端开发", "REVIEWER": "周审查", "QA": "章测试",
+            "DOCS": "李文通", "DEVOPS": "吕改特"
+        }
+        assignee = ROLE_NAME_MAP.get(assignee, assignee)
+
         resolved_record_id = record_id or task_id
         existing = adapter.get_record(resolved_record_id) if resolved_record_id else None
-        initial_status = to_status or "进行中"
-        import datetime
-        now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # 物理硬阻断：对于 A 类常规开发任务，若看板中尚无此任务，绝对禁止直接新建为【已完成/审查中】！
+        # 强迫 A 类开发任务必须分两步执行：任务开始时先调 CLI 初始化建单为【进行中】，完成后再提交！
         if existing is None:
+            is_valid_creation = (from_status == "待开始") or (to_status == "进行中") or (task_type in ["B", "C", "D", "E", "F", "G"])
+            if not is_valid_creation:
+                logger.error(f"❌ [物理硬阻断] 看板中尚无此任务，绝对禁止直接新建为【{to_status}】！你必须首先在任务开始时调用 CLI 初始化建单为【进行中】！", extra=extra_log)
+                record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"拒绝直接新建为{to_status}")
+                return False
+
+            import datetime
+            now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            initial_status = "已验收" if (task_type == "E" and to_status == "已验收") else "进行中"
             create_fields = {
                 "task_id": task_id,
                 "task_name": task_name or "工作包任务",
@@ -172,7 +188,7 @@ def transition_task_pipeline(
                 "workpackage": wp or "-",
                 "wbs_id": wbs or "-",
                 "start_date": now_str,
-                "process": f"[用户需求指令] {remarks}" if remarks else None,
+                "process": remarks or None,
                 "remarks": remarks or None,
             }
             created_id = adapter.create_record(create_fields)
@@ -184,8 +200,8 @@ def transition_task_pipeline(
                 task_id = created_id
             resolved_record_id = task_id
             extra_log = {"task_id": task_id}
-            logger.info(f"🆕 任务 {task_id} 在看板中不存在，已自动创建（初始状态：{initial_status}，记录用户需求）", extra=extra_log)
-            record_audit_event(task_id, current_role, "新建", initial_status, assignee, True, "任务自动创建并记录用户需求")
+            logger.info(f"🆕 任务 {task_id} 在看板中不存在，已成功初始化建单为【{initial_status}】(负责人: {assignee})", extra=extra_log)
+            record_audit_event(task_id, current_role, "新建", initial_status, assignee, True, "任务自动初始化建单")
         else:
             resolved_record_id = existing.get("record_id") or resolved_record_id
 
@@ -200,7 +216,7 @@ def transition_task_pipeline(
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "看板状态 API 写入失败")
                 return False
             if remarks:
-                adapter.append_remarks(resolved_record_id, "process", f"[{from_status} ➔ {to_status}] 流转说明: {remarks}")
+                adapter.append_remarks(resolved_record_id, "remarks", remarks)
         except Exception as e:
             logger.error(f"❌ 物理 API 调用抛出异常 ({e})，硬阻断！", extra=extra_log)
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"API 抛出异常: {e}")
