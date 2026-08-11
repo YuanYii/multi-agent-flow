@@ -8,8 +8,19 @@
         const defaultCardsData = [];
 
         let rawCardsData = [];
+        let kanbanMetaConfig = null;
+
+        async function fetchKanbanMetaConfig() {
+            try {
+                const res = await fetch('./json/kanban_meta.json?t=' + Date.now());
+                if (res.ok) {
+                    kanbanMetaConfig = await res.json();
+                }
+            } catch (err) {}
+        }
 
         async function loadStorageData() {
+            await fetchKanbanMetaConfig();
             await fetchBackgroundData();
         }
 

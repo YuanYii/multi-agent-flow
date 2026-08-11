@@ -1,6 +1,6 @@
 ---
 name: multi-agent-team-workflow
-description: 适用于 AI 多 Agent 与人类团队协同研发的多角色状态流转、质量审计、防错闭环与看板自动化工作流技能包。
+description: 适用于 AI 多 Agent 与人类团队协同研发的多角色状态流转、质量审计、防错闭环与看板自动化工作流技能包。支持多Agent协同、看板流转、代码审查门控、团队研发SOP与防错防越权控制。
 version: 1.0.0
 ---
 
@@ -31,7 +31,7 @@ version: 1.0.0
 > Agent 在启动初始化时，**必须第一时间在回复中显式输出以下提示**：
 > 1. **初始化声明**：“正在为您初始化 `multi-agent-flow` 工作流并识别当前项目技术架构...”
 > 2. **Token 消耗提示**：“💡 **提示**：初次初始化需要全面扫描与解析全局项目配置文件（如 `package.json`/`pyproject.toml`/`go.mod`/`Dockerfile` 等）并同步更新专家团队规则，**本次操作可能会消耗较多 Token**。初始化完成后配置将持久落盘，后续使用无需重新扫描。”
-> 3. **步骤清单展示**：向用户展示即将自动执行的 7 大初始化动作。
+> 3. **步骤清单展示**：向用户展示即将自动执行的 8 大初始化动作。
 
 ### 初始化自动执行步骤：
 
@@ -51,7 +51,7 @@ version: 1.0.0
    - 在目标项目 `.gitignore` 中确保排除 `.drafts/` 隔离区。
 6. **专家团队技术栈自动同步**：
    - 运行脚本 `python3 scripts/update_agent_tech_stacks.py`（或由 Agent 依据 `project_architecture.config.yaml` 直接修改 `agents/*.yaml`）。
-   - 将扫描到的真实语言、框架、单测框架与 CI/CD 工具自动落盘同步至 `agents/03-dev.yaml` ~ `07-devops.yaml`，完成专家团队技术栈的高精定制。
+   - 将扫描到的真实语言、框架、单测框架与 CI/CD 工具自动落盘同步至 `agents/01-pm.yaml` ~ `08-frontend.yaml` 全量 8 大角色，完成专家团队技术栈的高精定制。
 7. **唤起 PM 专家进行项目定位鉴定与显式响应契约**：
    - 自动加载 `agents/01-pm.yaml` 身份，扫描解析当前项目的 `README.md`、配置文件与源码入口。
    - 分析认定项目主要用途与核心功能，**强制在回复顶部输出标志行与官方查证凭据**：
@@ -79,7 +79,8 @@ version: 1.0.0
 
 - [`rules/`](rules/)：工作区核心规则与交互契约（`AGENTS.md` ~ `USER.md`）。
 - [`config/`](config/)：技术架构模板/ Schema（`project_architecture.schema.json`）与看板角色配置模板。
-- [`agents/`](agents/)：7 大角色 YAML 定义 (`01-pm.yaml` ~ `07-devops.yaml`)。
+- [`agents/`](agents/)：8 大角色 YAML 定义 (`01-pm.yaml` ~ `08-frontend.yaml`)。
 - [`references/`](references/)：6 大全量提炼参考规约（路由、流转规则、防错闭环、Git 规范、文档治理规范、交接协议）。
 - [`templates/`](templates/)：标准化开发/审查/测试任务报告与工程文档模板。
 - [`scripts/`](scripts/)：看板工厂适配器 (`board_adapter_factory.py`)、门控强校验 (`validate_transition.py`)、报告生成器 (`generate_report.py`)、凭证安全扫描 (`check_secrets.py`) 与动态 Prompt 上下文合成器 (`build_agent_context.py`)。
+

@@ -205,13 +205,14 @@ def transition_task_pipeline(
                 if not rem_ok:
                     logger.warning("⚠️ 结构化缺陷备注追加失败，准备执行物理原子补偿回滚...", extra=extra_log)
                     rollback_fields = {status_key: from_status, assignee_key: current_role}
-                    adapter.update_record(record_id, rollback_fields)
+                    # 回滚必须写回 resolved_record_id（auto-create 场景 record_id 为 None，原实现回滚静默失效）
+                    adapter.update_record(resolved_record_id, rollback_fields)
                     logger.error("🔄 状态已物理回滚还原至原状态，拒绝非原子性中间态落库！", extra=extra_log)
                     record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "追加备注失败触发状态原子补偿回滚")
                     return False
             except Exception as e:
                 logger.error(f"⚠️ 备注追加抛出异常 ({e})，执行物理原子补偿回滚...", extra=extra_log)
-                adapter.update_record(record_id, {status_key: from_status, assignee_key: current_role})
+                adapter.update_record(resolved_record_id, {status_key: from_status, assignee_key: current_role})
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"备注异常回滚: {e}")
                 return False
 

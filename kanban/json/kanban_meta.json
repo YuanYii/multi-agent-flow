@@ -1,0 +1,45 @@
+{
+  "version": "1.0.0",
+  "name": "Multi-Agent Flow Kanban Config",
+  "persons": [
+    { "name": "严经理", "role": "PM", "color": { "bg": "#e6f6eb", "text": "#248a3d" }, "theme": "pm" },
+    { "name": "钱架构", "role": "ARCHITECT", "color": { "bg": "#e1eaff", "text": "#3a5bdb" }, "theme": "arch" },
+    { "name": "李开发", "role": "DEV", "color": { "bg": "#fff0e0", "text": "#d97706" }, "theme": "dev" },
+    { "name": "前端开发", "role": "FRONTEND", "color": { "bg": "#e0e7ff", "text": "#4338ca" }, "theme": "indigo" },
+    { "name": "曹艾", "role": "DEV_AI", "color": { "bg": "#f3e8ff", "text": "#7c3aed" }, "theme": "purple" },
+    { "name": "周审查", "role": "REVIEWER", "color": { "bg": "#e0f2fe", "text": "#0284c7" }, "theme": "rev" },
+    { "name": "章测试", "role": "QA", "color": { "bg": "#fce8f8", "text": "#c21897" }, "theme": "qa" },
+    { "name": "李文通", "role": "DOCS", "color": { "bg": "#fff7e6", "text": "#b45309" }, "theme": "doc" },
+    { "name": "吕改特", "role": "DEVOPS", "color": { "bg": "#f0f0f0", "text": "#595959" }, "theme": "ops" }
+  ],
+  "statuses": [
+    { "name": "待开始", "color": { "bg": "#f2f3f5", "text": "#4e5969" }, "theme": "gray" },
+    { "name": "进行中", "color": { "bg": "#e8f0fe", "text": "#3370ff" }, "theme": "blue" },
+    { "name": "审查中", "color": { "bg": "#e8eaff", "text": "#3a5bdb" }, "theme": "orange" },
+    { "name": "测试中", "color": { "bg": "#e6fffb", "text": "#08979c" }, "theme": "pink" },
+    { "name": "已完成", "color": { "bg": "#e8ffea", "text": "#00a854" }, "theme": "pm" },
+    { "name": "已验收", "color": { "bg": "#e6fae8", "text": "#2f9e44" }, "theme": "green" },
+    { "name": "已退回", "color": { "bg": "#fff7e6", "text": "#d97706" }, "theme": "amber" },
+    { "name": "已阻塞", "color": { "bg": "#fff1f0", "text": "#f53f3f" }, "theme": "red" },
+    { "name": "已取消", "color": { "bg": "#f5f5f5", "text": "#8c8c8c" }, "theme": "dark" }
+  ],
+  "fields": [
+    { "key": "seq", "th": "序号", "label": "序号 (Seq)" },
+    { "key": "id", "th": "任务编号", "label": "任务编号 (ID)" },
+    { "key": "wbs", "th": "WBS编号", "label": "WBS 编号 (WBS)" },
+    { "key": "pretask", "th": "前置任务", "label": "前置任务 (Pretask)" },
+    { "key": "stage", "th": "阶段 / 工作包", "label": "阶段 / 工作包 (Stage / WP)" },
+    { "key": "name", "th": "任务名称", "label": "任务名称 (Task Name)" },
+    { "key": "status", "th": "状态", "label": "状态 (Status)" },
+    { "key": "assignee", "th": "负责人", "label": "负责人 (Assignee)" },
+    { "key": "handler", "th": "处理人", "label": "处理人 (Handler)" },
+    { "key": "est_hours", "th": "预估(h)", "label": "预估工时 (Est Hours)" },
+    { "key": "act_hours", "th": "实际(h)", "label": "实际工时 (Act Hours)" },
+    { "key": "start_date", "th": "开始时间", "label": "开始时间 (Start Date)" },
+    { "key": "end_date", "th": "结束时间", "label": "结束时间 (End Date)" },
+    { "key": "remarks", "th": "备注", "label": "备注 (Remarks)" },
+    { "key": "process", "th": "过程描述", "label": "过程描述 (Process)" }
+  ],
+  "stages": ["方案设计", "编码与测试", "界面开发", "代码审查", "功能测试", "文档归档", "部署交付"],
+  "workpackages": ["架构设计", "后端开发", "前端UI", "技术文档", "DevOps"]
+}

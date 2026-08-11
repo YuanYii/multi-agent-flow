@@ -7,7 +7,7 @@
 
         // Person Multi-Select State & Logic
         let selectedPersons = new Set();
-        const allPersons = ['严经理', '钱架构', '李开发', '曹艾', '周审查', '章测试', '李文通', '吕改特'];
+        const allPersons = ['严经理', '钱架构', '李开发', '前端开发', '曹艾', '周审查', '章测试', '李文通', '吕改特'];
 
         function renderPersonCheckboxList() {
             const container = document.getElementById('person-checkbox-list');
@@ -115,6 +115,7 @@
             { name: "严经理", theme: "pm" },
             { name: "钱架构", theme: "arch" },
             { name: "李开发", theme: "dev" },
+            { name: "前端开发", theme: "indigo" },
             { name: "曹艾", theme: "purple" },
             { name: "周审查", theme: "rev" },
             { name: "章测试", theme: "qa" },
@@ -784,33 +785,14 @@
             document.getElementById('search-box').value = '';
             document.getElementById('filter-status').value = '';
             document.getElementById('filter-assignee').value = '';
-            selectedPersons.clear();
-            renderPersonCheckboxList();
-            refreshUiSelects();
-            applyFilters();
-            closeAllCustomPopovers();
-        }
-
-        async function resetAllFiltersAndData() {
-            document.getElementById('search-box').value = '';
-            document.getElementById('filter-status').value = '';
-            document.getElementById('filter-assignee').value = '';
             document.getElementById('sort-field').value = 'seq';
             document.getElementById('sort-order').value = 'asc';
             selectedPersons.clear();
             renderPersonCheckboxList();
             refreshUiSelects();
-            closeAllCustomPopovers();
-
-            // 安全拉取与防消失保护：重置所有筛选视角
-            const snapshot = Array.isArray(rawCardsData) && rawCardsData.length > 0 ? [...rawCardsData] : null;
-            await fetchBackgroundData();
-            if ((!rawCardsData || rawCardsData.length === 0) && snapshot) {
-                rawCardsData = snapshot;
-                saveStorageData();
-            }
             applyFilters();
-            showToast('已重置所有筛选条件与视图！');
+            closeAllCustomPopovers();
+            showToast('已重置所有筛选条件！');
         }
 
         function applySort() {

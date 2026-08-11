@@ -54,7 +54,7 @@
         <!-- Batch Delete Button -->
         <button class="btn danger-btn sm" id="batch-delete-btn" style="display:none;" onclick="batchDeleteRecords()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 批量删除 (<span id="selected-count">0</span>)</button>
 
-        <button class="btn" onclick="resetAllFiltersAndData()" title="重置为初始示例数据"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> 重置</button>
+        <button class="btn" onclick="resetFilters()" title="重置所有筛选条件与排序"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> 重置</button>
         <button class="btn" id="theme-toggle-btn" onclick="toggleTheme()" title="切换浅色/深色主题（默认按日落自动）">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             <span id="theme-toggle-label">深色</span>
@@ -139,6 +139,7 @@
                     <option value="严经理">严经理</option>
                     <option value="钱架构">钱架构</option>
                     <option value="李开发">李开发</option>
+                    <option value="前端开发">前端开发</option>
                     <option value="曹艾">曹艾</option>
                     <option value="周审查">周审查</option>
                     <option value="章测试">章测试</option>

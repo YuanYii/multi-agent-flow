@@ -42,7 +42,7 @@ mkdir -p "${PROJECT_ROOT}/docs/01-architecture" \
 
 python3 "${SCRIPT_DIR}/migrate_legacy_docs.py"
 
-echo "🔄 [Step 6/7] 专家团队技术栈自动同步至 agents/*.yaml..."
+echo "🔄 [Step 6/7] 专家团队技术栈自动同步至 agents/*.yaml (全量 8 大角色)..."
 python3 "${SCRIPT_DIR}/update_agent_tech_stacks.py"
 
 echo "👑 [Step 7/7] 唤起 PM 专家确认项目鉴定定位..."

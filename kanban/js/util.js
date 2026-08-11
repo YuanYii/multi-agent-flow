@@ -33,7 +33,7 @@
            open panel can be styled and each option color-coded.
            ============================================================ */
         const STATUS_OPTIONS = ['待开始','进行中','审查中','测试中','已完成','已验收','已退回','已阻塞','已取消'];
-        const PERSON_OPTIONS = ['严经理','钱架构','李开发','曹艾','周审查','章测试','李文通','吕改特'];
+        const PERSON_OPTIONS = ['严经理','钱架构','李开发','前端开发','曹艾','周审查','章测试','李文通','吕改特'];
 
         // bg = light tint, text = saturated hue (mirrors table .tag aesthetic)
         const STATUS_COLORS = {
@@ -51,6 +51,7 @@
             '严经理': { bg:'#e6f6eb', text:'#248a3d' },
             '钱架构': { bg:'#e1eaff', text:'#3a5bdb' },
             '李开发': { bg:'#fff0e0', text:'#d97706' },
+            '前端开发': { bg:'#e0e7ff', text:'#4338ca' },
             '曹艾':   { bg:'#f3e8ff', text:'#7c3aed' },
             '周审查': { bg:'#e0f2fe', text:'#0284c7' },
             '章测试': { bg:'#fce8f8', text:'#c21897' },

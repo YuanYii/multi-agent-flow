@@ -158,13 +158,73 @@ def update_devops_role(arch_data):
     dump_yaml(devops_data, devops_path)
     print(f"[SUCCESS] 已更新 DevOps 专家配置: {devops_path}")
 
+def update_architect_role(arch_data):
+    architect_path = os.path.join(AGENTS_DIR, "02-architect.yaml")
+    if not os.path.exists(architect_path):
+        return
+
+    with open(architect_path, "r", encoding="utf-8") as f:
+        arch_role_data = yaml.safe_load(f)
+
+    tech = arch_data.get("tech_stack", {})
+    langs = [l.get("name") for l in tech.get("languages", []) if isinstance(l, dict)]
+    frameworks = [fw.get("name") for fw in tech.get("frameworks", []) if isinstance(fw, dict)]
+    lang_str = "/".join(langs) if langs else "通用语言"
+    fw_str = "/".join(frameworks) if frameworks else "通用架构模式"
+
+    arch_role_data["tech_stack"] = {
+        "architecture_pattern": arch_data.get("project_type", "Monolith / Microservices"),
+        "primary_languages": lang_str,
+        "frameworks": fw_str
+    }
+
+    arch_role_data["responsibilities"] = [
+        f"基于 {lang_str} 与 {fw_str} 进行系统总体架构设计与 ADR 编写",
+        "模块边界划分、API 契约定义与高可用方案审查",
+        "指导关键技术攻关与性能瓶颈建模"
+    ]
+
+    dump_yaml(arch_role_data, architect_path)
+    print(f"[SUCCESS] 已更新系统架构师专家配置: {architect_path}")
+
+def update_frontend_role(arch_data):
+    frontend_path = os.path.join(AGENTS_DIR, "08-frontend.yaml")
+    if not os.path.exists(frontend_path):
+        return
+
+    with open(frontend_path, "r", encoding="utf-8") as f:
+        frontend_data = yaml.safe_load(f)
+
+    tech = arch_data.get("tech_stack", {})
+    frameworks = [fw.get("name") for fw in tech.get("frameworks", []) if isinstance(fw, dict)]
+    fe_fw = [fw for fw in frameworks if any(k in fw.lower() for k in ["react", "vue", "next", "nuxt", "svelte", "html", "css", "ts", "js"])]
+    fw_str = "/".join(fe_fw) if fe_fw else "/".join(frameworks) if frameworks else "HTML/JavaScript/CSS"
+
+    frontend_data["tech_stack"] = {
+        "web_frameworks": fw_str,
+        "styling": "Vanilla CSS / CSS Modules",
+        "ui_principles": "Vanilla JS, Responsive, Function-Driven Design"
+    }
+
+    frontend_data["responsibilities"] = [
+        f"基于 {fw_str} 实现高质量现代 Web 用户界面与微交互",
+        "响应式布局、UI 交互体验与前端性能优化",
+        "前端组件模块化开发与界面质量自测"
+    ]
+
+    dump_yaml(frontend_data, frontend_path)
+    print(f"[SUCCESS] 已更新前端开发专家配置: {frontend_path}")
+
 def main():
     arch_data = load_architecture_config()
+    update_architect_role(arch_data)
     update_dev_role(arch_data)
     update_reviewer_role(arch_data)
     update_qa_role(arch_data)
     update_devops_role(arch_data)
+    update_frontend_role(arch_data)
     print("✨ 所有专家 Agent 的技术栈已成功同步！")
 
 if __name__ == "__main__":
     main()
+

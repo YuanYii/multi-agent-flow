@@ -223,7 +223,7 @@ def execute_universal_export():
 
             summary.append(f"  - `{meta['id']}` ➔ `{rel_file_path}`")
 
-        print(f"✨ [{spec['name']} 导出完成] 对应 7 大专家子代理已精准落盘：")
+        print(f"✨ [{spec['name']} 导出完成] 对应全量 8 大专家子代理已精准落盘：")
         for s in summary:
             print(s)
 

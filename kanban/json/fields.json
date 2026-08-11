@@ -1,0 +1,17 @@
+[
+  { "key": "seq", "th": "序号", "label": "序号 (Seq)" },
+  { "key": "id", "th": "任务编号", "label": "任务编号 (ID)" },
+  { "key": "wbs", "th": "WBS编号", "label": "WBS 编号 (WBS)" },
+  { "key": "pretask", "th": "前置任务", "label": "前置任务 (Pretask)" },
+  { "key": "stage", "th": "阶段 / 工作包", "label": "阶段 / 工作包 (Stage / WP)" },
+  { "key": "name", "th": "任务名称", "label": "任务名称 (Task Name)" },
+  { "key": "status", "th": "状态", "label": "状态 (Status)" },
+  { "key": "assignee", "th": "负责人", "label": "负责人 (Assignee)" },
+  { "key": "handler", "th": "处理人", "label": "处理人 (Handler)" },
+  { "key": "est_hours", "th": "预估(h)", "label": "预估工时 (Est Hours)" },
+  { "key": "act_hours", "th": "实际(h)", "label": "实际工时 (Act Hours)" },
+  { "key": "start_date", "th": "开始时间", "label": "开始时间 (Start Date)" },
+  { "key": "end_date", "th": "结束时间", "label": "结束时间 (End Date)" },
+  { "key": "remarks", "th": "备注", "label": "备注 (Remarks)" },
+  { "key": "process", "th": "过程描述", "label": "过程描述 (Process)" }
+]
