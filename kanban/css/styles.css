@@ -1204,13 +1204,28 @@
             color: var(--primary);
         }
 
+        .modal-box {
+            background-color: var(--card-bg) !important;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+            padding: 24px;
+            width: 520px;
+            max-width: 90vw;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
         /* Detail Modal & Audit Logs Timeline Styles */
         .detail-view-container {
             display: flex;
             flex-direction: column;
-            gap: 16px;
-            max-height: 70vh;
-            overflow-y: auto;
+            gap: 14px;
+            max-height: 75vh;
+            overflow: hidden;
             padding-right: 4px;
         }
 
@@ -1222,6 +1237,7 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+            flex-shrink: 0;
         }
 
         .detail-header-title {
@@ -1241,6 +1257,7 @@
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 14px;
+            flex-shrink: 0;
         }
 
         .detail-item {
@@ -1269,9 +1286,10 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            margin-top: 6px;
+            margin-top: 4px;
             padding-bottom: 6px;
             border-bottom: 1px dashed var(--border-color);
+            flex-shrink: 0;
         }
 
         .timeline-list {
@@ -1283,6 +1301,10 @@
             border-left: 2px solid var(--border-color);
             margin-left: 8px;
             margin-top: 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 8px;
+            scroll-behavior: smooth;
         }
 
         .timeline-item {
@@ -1295,6 +1317,7 @@
             flex-direction: column;
             gap: 4px;
             font-size: 12px;
+            flex-shrink: 0;
         }
 
         .timeline-item::before {

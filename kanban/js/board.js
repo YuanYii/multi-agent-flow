@@ -1278,6 +1278,14 @@
             // Default to Read Mode
             toggleTaskEditMode(false);
             document.getElementById('detail-modal').classList.add('show');
+
+            // 自动将 Timeline 流转记录滑至最底部，保证优先展示最新的流转与移交数据
+            setTimeout(() => {
+                const timelineList = document.getElementById('detail-timeline-list');
+                if (timelineList) {
+                    timelineList.scrollTop = timelineList.scrollHeight;
+                }
+            }, 60);
         }
 
         function closeDetailModal() {
