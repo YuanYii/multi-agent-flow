@@ -24,6 +24,8 @@
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
         }
+        const escapeHtml = esc;
+        window.escapeHtml = esc;
 
         /* ============================================================
            Custom Color-Coded Dropdown Engine

@@ -1085,14 +1085,14 @@
             if (headCard) {
                 headCard.innerHTML = `
                     <div class="detail-header-title">
-                        <span style="color:var(--primary); font-family:monospace;">[${escapeHtml(card.id)}]</span>
-                        <span>${escapeHtml(card.name || '未命名任务')}</span>
+                        <span style="color:var(--primary); font-family:monospace;">[${esc(card.id)}]</span>
+                        <span>${esc(card.name || '未命名任务')}</span>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <span class="tag tag-status">${escapeHtml(card.status || '待开始')}</span>
-                        <span class="tag tag-person">负责人: ${escapeHtml(card.assignee || '未分配')}</span>
-                        ${card.handler ? `<span class="tag tag-stage">当前处理人: ${escapeHtml(card.handler)}</span>` : ''}
-                        ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${escapeHtml(card.wbs)}</span>` : ''}
+                        <span class="tag tag-status">${esc(card.status || '待开始')}</span>
+                        <span class="tag tag-person">负责人: ${esc(card.assignee || '未分配')}</span>
+                        ${card.handler ? `<span class="tag tag-stage">当前处理人: ${esc(card.handler)}</span>` : ''}
+                        ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${esc(card.wbs)}</span>` : ''}
                     </div>
                 `;
             }
@@ -1102,11 +1102,11 @@
                 attrGrid.innerHTML = `
                     <div class="detail-item">
                         <span class="detail-label">阶段 / 工作包</span>
-                        <span class="detail-value">${escapeHtml(card.wp || card.stage || '-')}</span>
+                        <span class="detail-value">${esc(card.wp || card.stage || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">前置任务依赖</span>
-                        <span class="detail-value">${escapeHtml(card.pre_tasks || card.prerequisite || '无前置')}</span>
+                        <span class="detail-value">${esc(card.pre_tasks || card.prerequisite || '无前置')}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">工时消耗 (预估/实际)</span>
@@ -1114,11 +1114,11 @@
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">时间周期</span>
-                        <span class="detail-value">${escapeHtml(card.start_time || '-')} ~ ${escapeHtml(card.end_time || '-')}</span>
+                        <span class="detail-value">${esc(card.start_time || '-')} ~ ${esc(card.end_time || '-')}</span>
                     </div>
                     <div class="detail-item" style="grid-column: 1 / -1;">
                         <span class="detail-label">核心备注</span>
-                        <span class="detail-value" style="font-weight:400;">${escapeHtml(card.remarks || '暂无备注')}</span>
+                        <span class="detail-value" style="font-weight:400;">${esc(card.remarks || '暂无备注')}</span>
                     </div>
                 `;
             }
@@ -1157,8 +1157,8 @@
                     }
 
                     item.innerHTML = `
-                        ${timeStr ? `<div class="timeline-time">⏱️ ${escapeHtml(timeStr)}</div>` : ''}
-                        <div class="timeline-content">${escapeHtml(contentStr)}</div>
+                        ${timeStr ? `<div class="timeline-time">⏱️ ${esc(timeStr)}</div>` : ''}
+                        <div class="timeline-content">${esc(contentStr)}</div>
                     `;
                     timelineList.appendChild(item);
                 });
