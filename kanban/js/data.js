@@ -31,14 +31,16 @@
             if (stored) {
                 try {
                     const parsed = JSON.parse(stored);
-                    if (Array.isArray(parsed)) {
+                    if (Array.isArray(parsed) && parsed.length > 0) {
                         rawCardsData = parsed;
                         applyFilters();
                         return;
                     }
                 } catch (e) {}
             }
-            rawCardsData = [];
+            if (!Array.isArray(rawCardsData)) {
+                rawCardsData = [];
+            }
             applyFilters();
         }
 

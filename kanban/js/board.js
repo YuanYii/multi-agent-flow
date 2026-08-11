@@ -696,10 +696,16 @@
             renderPersonCheckboxList();
             refreshUiSelects();
             closeAllCustomPopovers();
-            // 清除本地缓存并重新从 board.json 加载最新物理数据
-            localStorage.removeItem('offline_board_cards_v3');
+
+            // 安全拉取与防消失保护：重置所有筛选视角
+            const snapshot = Array.isArray(rawCardsData) && rawCardsData.length > 0 ? [...rawCardsData] : null;
             await fetchBackgroundData();
-            showToast('已重置所有筛选与数据至最新状态！');
+            if ((!rawCardsData || rawCardsData.length === 0) && snapshot) {
+                rawCardsData = snapshot;
+                saveStorageData();
+            }
+            applyFilters();
+            showToast('已重置所有筛选条件与视图！');
         }
 
         function applySort() {
