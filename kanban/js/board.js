@@ -686,7 +686,7 @@
             closeAllCustomPopovers();
         }
 
-        function resetAllFiltersAndData() {
+        async function resetAllFiltersAndData() {
             document.getElementById('search-box').value = '';
             document.getElementById('filter-status').value = '';
             document.getElementById('filter-assignee').value = '';
@@ -696,11 +696,10 @@
             renderPersonCheckboxList();
             refreshUiSelects();
             closeAllCustomPopovers();
-            // Restore initial sample data and drop persisted storage
-            rawCardsData = JSON.parse(JSON.stringify(defaultCardsData));
+            // 清除本地缓存并重新从 board.json 加载最新物理数据
             localStorage.removeItem('offline_board_cards_v3');
-            applyFilters();
-            showToast('已重置所有筛选与数据至初始示例！');
+            await fetchBackgroundData();
+            showToast('已重置所有筛选与数据至最新状态！');
         }
 
         function applySort() {
