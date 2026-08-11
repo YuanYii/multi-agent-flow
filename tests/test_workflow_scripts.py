@@ -153,3 +153,11 @@ def test_transition_pipeline_concurrency_under_limit_passes():
         active_dev_count=2
     )
     assert ok is True
+
+
+def test_start_kanban_server_ip_and_import():
+    """验证 start_kanban_server.py 可正常加载并获取本机 IP"""
+    from start_kanban_server import get_local_ip, DEFAULT_PORT
+    assert DEFAULT_PORT == 32886
+    ip = get_local_ip()
+    assert isinstance(ip, str) and len(ip) > 0
