@@ -530,34 +530,32 @@
             showToast(`已移动 ${cardId} → ${colValue}`);
         }
 
-        // Render Table View with Summary Foot & Selection Checkboxes
-        function renderTable() {
-            const tbody = document.getElementById("table-body");
-            if (!tbody) return;
-            tbody.innerHTML = "";
-
-            if (currentCardsData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="17" style="text-align:center; color:var(--text-muted); padding:40px 0;">无匹配数据，请调整筛选 / 搜索条件</td></tr>`;
-                updateBatchDeleteBtn();
+        function onTableRowClick(event, cardId) {
+            // 若点击的是复选框或下拉选择面板触发器，不拦截其原生行为
+            if (event.target.closest('input[type="checkbox"]') || event.target.closest('.tag-select') || event.target.closest('.ui-select-trigger') || event.target.closest('.row-resizer')) {
                 return;
             }
+            openTaskDetail(cardId);
+        }
+
+        function renderTableBody(currentCardsData) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
 
             currentCardsData.forEach((card, idx) => {
                 const isSelected = selectedTaskIds.has(card.id);
                 const savedH = rowHeights[card.id];
-                // Replay a manual drag as row-scoped custom properties so the
-                // cell clamp is restored too (a bare inline height left the
-                // content clamped at the preset line count).
                 const trStyle = savedH ? rowHeightVars(savedH) : '';
 
                 const tr = `
-                    <tr data-id="${esc(card.id)}" style="${trStyle}"><td style="text-align:center;"><input type="checkbox" class="row-cb" value="${esc(card.id)}" ${isSelected ? 'checked' : ''} onchange="toggleSelectRow('${esc(card.id)}', this.checked)"></td>
+                    <tr data-id="${esc(card.id)}" style="${trStyle}; cursor:pointer;" class="clickable-row" onclick="onTableRowClick(event, '${esc(card.id)}')">
+                        <td style="text-align:center;"><input type="checkbox" class="row-cb" value="${esc(card.id)}" ${isSelected ? 'checked' : ''} onchange="toggleSelectRow('${esc(card.id)}', this.checked)"></td>
                         <td style="font-weight:600; color:var(--text-muted); position:relative;">${idx + 1}<div class="row-resizer" title="拖拽调节行高"></div></td>
-                        <td><strong style="color:var(--primary); cursor:pointer;" onclick="openTaskDetail('${esc(card.id)}')">${esc(card.id)}</strong></td>
+                        <td><strong style="color:var(--primary);">${esc(card.id)}</strong></td>
                         <td>${esc(card.wbs) || '-'}</td>
                         <td><small style="color:var(--text-muted);">${esc(card.pretask) || '-'}</small></td>
                         <td><div class="cell-content">${esc(card.stage)}<br><small style="color:var(--text-muted)">${esc(card.wp)}</small></div></td>
-                        <td><div class="cell-content" style="cursor:pointer;" onclick="openTaskDetail('${esc(card.id)}')">${esc(card.name)}</div></td>
+                        <td><div class="cell-content" style="font-weight:600;">${esc(card.name)}</div></td>
                         <td>
                             ${tagSelectTriggerHTML('status', card.status || '待开始', `data-card-id="${esc(card.id)}"`)}
                         </td>
@@ -571,7 +569,7 @@
                         <td><small style="color:#4e5969;">${esc(card.end_date) || '-'}</small></td>
                         <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${esc(card.remarks) || '-'}</div></td>
                         <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${esc(card.process) || '-'}</div></td>
-                        <td><button class="btn sm" onclick="openTaskDetail('${esc(card.id)}')">编辑</button></td>
+                        <td><button class="btn sm" onclick="openTaskDetail('${esc(card.id)}')">详情</button></td>
                     </tr>
                 `;
                 tbody.insertAdjacentHTML('beforeend', tr);

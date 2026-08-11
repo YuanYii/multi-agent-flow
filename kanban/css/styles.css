@@ -1318,8 +1318,7 @@
             font-size: 11px;
         }
 
-        .timeline-content {
-            color: var(--text-main);
-            line-height: 1.5;
-            white-space: pre-wrap;
+        .clickable-row:hover {
+            background-color: var(--primary-light) !important;
+            transition: background-color 0.15s ease;
         }
