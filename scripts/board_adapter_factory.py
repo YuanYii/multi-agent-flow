@@ -61,8 +61,13 @@ def get_board_adapter(config_file: str = CONFIG_PATH) -> Any:
     provider = board_cfg.get("provider", "feishu_base").lower()
 
     if provider == "local":
-        # 离线看板：数据存本地 JSON 文件，无网络依赖；多专家并发新建任务编号由 adapter 全局锁保证唯一
-        board_file = board_cfg.get("board_file", os.path.join(SCRIPT_DIR, "..", "kanban", "board.json"))
+        # 离线看板：物理数据 100% 保持在 Skill 自身的 kanban/ 目录下，绝不污染宿主工程
+        raw_board_file = board_cfg.get("board_file", "kanban/board.json")
+        if not os.path.isabs(raw_board_file):
+            skill_root = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+            board_file = os.path.abspath(os.path.join(skill_root, raw_board_file))
+        else:
+            board_file = raw_board_file
         return OfflineBoardAdapter(board_file=board_file, field_map=board_cfg.get("fields", {}))
 
     elif provider == "feishu_base":

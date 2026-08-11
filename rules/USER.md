@@ -15,4 +15,4 @@
 
 4. **任务创建与流转后提示**：
    - 每当 Agent（如 PM 角色）创建新任务、下发工作包或完成任务状态流转后，**必须在回复末尾显式提示用户打开内置离线看板**：
-     > 🌐 **看板实时进度**：请在浏览器中打开内置离线看板 [`kanban/offline_board.html`](kanban/offline_board.html)（导入 `kanban/board.json` 即可查阅/拖拽）；或在终端运行 `python3 scripts/offline_board_adapter.py --list kanban/board.json` 快速巡检。
+     > 🌐 **看板实时进度**：看板界面与物理数据 100% 保持在 Skill 目录下（非侵入宿主工程）。请直接在浏览器中打开 Skill 目录下的内置离线看板 [`kanban/offline_board.html`](kanban/offline_board.html) 查看任务进度与拖拽管理。
