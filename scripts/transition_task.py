@@ -159,6 +159,8 @@ def transition_task_pipeline(
         resolved_record_id = record_id or task_id
         existing = adapter.get_record(resolved_record_id) if resolved_record_id else None
         initial_status = to_status or "进行中"
+        import datetime
+        now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         if existing is None:
             create_fields = {
                 "task_id": task_id,
@@ -169,6 +171,7 @@ def transition_task_pipeline(
                 "stage": stage or "-",
                 "workpackage": wp or "-",
                 "wbs_id": wbs or "-",
+                "start_date": now_str,
                 "process": f"[用户需求指令] {remarks}" if remarks else None,
                 "remarks": remarks or None,
             }
