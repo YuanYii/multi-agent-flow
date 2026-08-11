@@ -34,4 +34,4 @@ created_date: "YYYY-MM-DD"
 ## 🚫 边界与约束 (Constraints)
 
 1. 每个开发任务并发领用上限为 **3 个**。
-2. 任务状态发生推导时，必须按 [references/02-State-Flow-Rules.md](file:///Users/yuanyi/MyProject/vibeP/skills-design/2_多专家协同研发工作流/multi-agent-flow/references/02-State-Flow-Rules.md) 规则更新状态与处理人。
+2. 任务状态发生推导时，必须按 [references/02-State-Flow-Rules.md](references/02-State-Flow-Rules.md) 规则更新状态与处理人。
