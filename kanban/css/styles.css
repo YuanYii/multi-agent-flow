@@ -1013,6 +1013,28 @@
             align-items: center;
         }
 
+        .close-btn {
+            background: transparent !important;
+            border: none !important;
+            color: var(--text-muted) !important;
+            cursor: pointer;
+            padding: 6px !important;
+            border-radius: 6px !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s ease, color 0.15s ease;
+            line-height: 1;
+        }
+        .close-btn:hover {
+            background: rgba(0, 0, 0, 0.06) !important;
+            color: var(--text-main) !important;
+        }
+        [data-theme="dark"] .close-btn:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: #ffffff !important;
+        }
+
         .modal-actions {
             display: flex;
             justify-content: flex-end;
