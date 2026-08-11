@@ -31,7 +31,9 @@ SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 SCRIPTS_DIR = os.path.join(PROJECT_ROOT, "scripts")
 KANBAN_DIR = os.path.join(PROJECT_ROOT, "kanban")
-CONFIG_REF = os.path.join(PROJECT_ROOT, "config", "workflow.config.yaml")
+_config_real = os.path.join(PROJECT_ROOT, "config", "workflow.config.yaml")
+_config_template = os.path.join(PROJECT_ROOT, "config", "workflow.config.template.yaml")
+CONFIG_REF = _config_real if os.path.exists(_config_real) else _config_template
 
 TRANSITION_SCRIPT = os.path.join(SCRIPTS_DIR, "transition_task.py")
 BOARD_ADAPTER_SCRIPT = os.path.join(SCRIPTS_DIR, "offline_board_adapter.py")
