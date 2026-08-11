@@ -545,17 +545,37 @@
             const colValue = column.getAttribute('data-col');
             const card = rawCardsData.find(c => c.id === cardId);
             if (!card || !groupField || colValue === '未分类') return;
+
             if (card[groupField] === colValue) return;
 
             const oldVal = card[groupField];
             card[groupField] = colValue;
 
-            const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责人' : '阶段');
-            appendProcessLog(card, `[看板拖拽] 将${fieldName}从【${oldVal || '未设定'}】调整移动至【${colValue}】`);
+            // 1. 负责人看板拖拽：负责人 (assignee) 与 当前处理人 (handler) 双向同步改动
+            if (groupField === 'assignee') {
+                card.handler = colValue;
+            }
+
+            // 2. 状态看板拖拽：按多专家协同标准流程，状态 (status) 改变时自动联动智能分配专家处理人
+            if (groupField === 'status') {
+                const statusRoleMap = {
+                    '审查中': '周审查',
+                    '测试中': '章测试',
+                    '进行中': '李开发',
+                    '处理中': '李开发',
+                    '已完成': '严经理'
+                };
+                if (statusRoleMap[colValue]) {
+                    card.handler = statusRoleMap[colValue];
+                }
+            }
+
+            const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责人与处理人' : '阶段');
+            appendProcessLog(card, `[看板拖拽联动] 将${fieldName}由【${oldVal || '未设定'}】成功更新至【${colValue}】${card.handler ? `(处理人移交至: ${card.handler})` : ''}`);
 
             saveStorageData();
             applyFilters();
-            showToast(`已移动 ${cardId} → ${colValue}`);
+            showToast(`已成功联动更新 ${cardId} → ${colValue}`);
         }
 
         function onTableRowClick(event, cardId) {
