@@ -3,7 +3,12 @@
     "name": "自动编号任务",
     "assignee": "李开发",
     "id": "T0001",
-    "status": "待开始",
+    "status": "进行中",
+    "wbs": "-",
+    "wp": "-",
+    "stage": "-",
+    "est_hours": "-",
+    "act_hours": 0,
     "seq": 1
   }
 ]

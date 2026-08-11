@@ -219,18 +219,43 @@ class OfflineBoardAdapter:
             cards = self._read_cards()
             for c in cards:
                 if str(c.get("id")) == str(record_id):
-                    c.update(self._translate(fields))
+                    translated = self._translate(fields)
+                    c.update(translated)
+                    # 若存在开始与结束时间，自动按 (结束-开始) 计算实际工时 (分钟)
+                    st = c.get("start_date") or c.get("start_time")
+                    et = c.get("end_date") or c.get("end_time")
+                    if st and et:
+                        mins = self._calc_minutes(st, et)
+                        if mins is not None:
+                            c["act_hours"] = f"{mins} min"
                     return self._write_cards(cards)
             return False
         finally:
             self._release_seq_lock(lock_f)
 
+    @staticmethod
+    def _calc_minutes(start_str: str, end_str: str) -> Optional[int]:
+        """计算开始与结束时间之间的分钟差值"""
+        from datetime import datetime
+        formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"]
+        s_dt, e_dt = None, None
+        for fmt in formats:
+            if not s_dt:
+                try: s_dt = datetime.strptime(str(start_str).strip(), fmt)
+                except Exception: pass
+            if not e_dt:
+                try: e_dt = datetime.strptime(str(end_str).strip(), fmt)
+                except Exception: pass
+        if s_dt and e_dt:
+            diff_sec = (e_dt - s_dt).total_seconds()
+            return max(1, int(diff_sec // 60))
+        return None
+
     def create_record(self, fields: Optional[Dict[str, Any]] = None, **kwargs) -> Optional[str]:
         r"""
         新建看板任务。
-        - 兼同字典传参 create_record({"name": "xxx"}) 与关键字传参 create_record(name="xxx", task_name="xxx")；
-        - 未提供 task_id / id 时，在全局锁内自动分配 max(T\d+)+1，并发创建编号不重复；
-        - 显式提供编号时校验唯一性，重复返回 None 拒绝创建；
+        - 自动补全默认规范字段：wbs 默认为 "-"，wp/stage 默认为 "-"，est_hours 默认为 "-"；
+        - 未提供 task_id / id 时，在全局锁内自动分配 max(T\d+)+1；
         - 成功返回任务编号 (record_id)，失败返回 None。
         """
         merged_fields = {}
@@ -253,7 +278,21 @@ class OfflineBoardAdapter:
 
             translated = self._translate(merged_fields)
             translated["id"] = task_id
-            translated.setdefault("status", "待开始")
+            translated.setdefault("status", "进行中")
+            translated.setdefault("wbs", "-")
+            translated.setdefault("wp", merged_fields.get("stage") or "-")
+            translated.setdefault("stage", merged_fields.get("stage") or "-")
+            translated.setdefault("est_hours", "-")
+            translated.setdefault("act_hours", 0)
+
+            # 时间计算
+            st = translated.get("start_date") or translated.get("start_time")
+            et = translated.get("end_date") or translated.get("end_time")
+            if st and et:
+                mins = self._calc_minutes(st, et)
+                if mins is not None:
+                    translated["act_hours"] = f"{mins} min"
+
             max_seq = max([int(c.get("seq") or 0) for c in cards] or [0])
             translated["seq"] = max_seq + 1
 

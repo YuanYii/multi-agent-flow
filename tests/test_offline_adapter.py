@@ -44,7 +44,7 @@ def test_create_record_auto_increments_id(tmpdir):
     assert tid == "T0124"
     rec = adapter.get_record("T0124")
     assert rec["fields"]["name"] == "新任务"
-    assert rec["fields"]["status"] == "待开始"
+    assert rec["fields"]["status"] == "进行中"
     assert rec["fields"]["handler"] == "严经理"  # owner → handler 翻译
 
 

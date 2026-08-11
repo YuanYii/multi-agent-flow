@@ -207,16 +207,16 @@ description: multi-agent-flow 中的 {name} 专家子代理 (针对 {spec['name'
 
 > ⚠️ **【最高强制断言】** 当你被唤起/调度执行任何项目任务时，**绝对禁止只修改代码/文档而遗漏看板落库**！你必须严格执行以下物理三步 SOP：
 
-1. **🔹 第一步 (任务启动/领单)**：在开始工作前，**必须首先调用 `run_command` 工具**运行 CLI 命令创建/更新看板至 `进行中`：
+1. **🔹 第一步 (任务启动/无任务即时建单)**：在开始工作前，**必须首先调用 `run_command` 工具**运行 CLI 命令。若看板中尚无任务，则直接创建工单并初始化为 `进行中`，填入默认字段(`--wbs "-"` `--wp "-"` `--est-hours "-"`)与用户原始需求指令：
    ```bash
-   python3 scripts/transition_task.py --role {role} --from-status 待开始 --to-status 进行中 --assignee "{name}" --type {t_info['type']} --task-name "<当前执行的具体任务简述>"
+   python3 scripts/transition_task.py --role {role} --from-status 待开始 --to-status 进行中 --assignee "{name}" --type {t_info['type']} --task-name "<当前任务名称>" --wbs "-" --wp "-" --est-hours "-" --remarks "[用户需求指令] <用户的具体要求>"
    ```
 
 2. **🔹 第二步 (领域工作执行)**：在工作区完成对应的代码开发、架构设计、文档撰写、代码审查或测试工作。
 
-3. **🔹 第三步 (任务完成/提交流转)**：工作完成后，**必须再次调用 `run_command` 工具**运行 CLI 命令推动看板至下一阶段：
+3. **🔹 第三步 (任务完成/提交流转 - 必填流转原因)**：工作完成后，**必须再次调用 `run_command` 工具**运行 CLI 命令推动看板至下一阶段，**必须传入 `--remarks` 填写具体的流转原因/变更说明/测试结论**（系统将自动计算 `act_hours` 分钟数）：
    ```bash
-   python3 scripts/transition_task.py --role {role} --from-status 进行中 --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type {t_info['type']} --end-time "$(date +'%Y-%m-%d %H:%M')"
+   python3 scripts/transition_task.py --role {role} --from-status 进行中 --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type {t_info['type']} --end-time "$(date +'%Y-%m-%d %H:%M')" --remarks "<流转原因/修改内容/测试或审查结论>"
    ```
 
 ## 🚫 行为边界与红线

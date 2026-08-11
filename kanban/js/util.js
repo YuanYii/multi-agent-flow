@@ -59,9 +59,22 @@
             '吕改特': { bg:'#f0f0f0', text:'#595959' }
         };
 
+        const STAGE_OPTIONS = ['Phase-1', 'Phase-2', 'Phase-3', 'WP1-需求', 'WP2-后端', 'WP2-前端', 'WP3-测试', 'WP4-运维', '-'];
+        const STAGE_COLORS = {
+            'Phase-1': { bg:'#e6f4ff', text:'#0958d9' },
+            'Phase-2': { bg:'#f6ffed', text:'#389e0d' },
+            'Phase-3': { bg:'#fff7e6', text:'#d46b08' },
+            'WP1-需求': { bg:'#f9f0ff', text:'#722ed1' },
+            'WP2-后端': { bg:'#fff0f6', text:'#c41d7f' },
+            'WP2-前端': { bg:'#e6fffb', text:'#08979c' },
+            'WP3-测试': { bg:'#feffe6', text:'#7cb305' },
+            'WP4-运维': { bg:'#e6f7ff', text:'#1890ff' },
+            '-':        { bg:'#f2f3f5', text:'#8c8c8c' }
+        };
+
         function getBadgeStyle(type, value) {
-            const map = type === 'status' ? STATUS_COLORS : PERSON_COLORS;
-            return map[value] || { bg:'#f2f3f5', text:'#4e5969' };
+            const map = type === 'status' ? STATUS_COLORS : (type === 'stage' ? STAGE_COLORS : PERSON_COLORS);
+            return map[value] || { bg:'#e8f0fe', text:'#3370ff' };
         }
 
         function badgeInner(type, value) {

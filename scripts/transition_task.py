@@ -158,15 +158,19 @@ def transition_task_pipeline(
 
         resolved_record_id = record_id or task_id
         existing = adapter.get_record(resolved_record_id) if resolved_record_id else None
+        initial_status = to_status or "进行中"
         if existing is None:
             create_fields = {
                 "task_id": task_id,
-                "task_name": task_name or "工作包开发任务",
+                "task_name": task_name or "工作包任务",
+                "status": initial_status,
                 "assignee": assignee,
                 "owner": owner or current_role,
-                "stage": stage,
-                "workpackage": wp,
-                "wbs_id": wbs,
+                "stage": stage or "-",
+                "workpackage": wp or "-",
+                "wbs_id": wbs or "-",
+                "process": f"[用户需求指令] {remarks}" if remarks else None,
+                "remarks": remarks or None,
             }
             created_id = adapter.create_record(create_fields)
             if not created_id:
@@ -177,8 +181,8 @@ def transition_task_pipeline(
                 task_id = created_id
             resolved_record_id = task_id
             extra_log = {"task_id": task_id}
-            logger.info(f"🆕 任务 {task_id} 在看板中不存在，已自动创建（初始状态：待开始）", extra=extra_log)
-            record_audit_event(task_id, current_role, "新建", "待开始", assignee, True, "任务自动创建")
+            logger.info(f"🆕 任务 {task_id} 在看板中不存在，已自动创建（初始状态：{initial_status}，记录用户需求）", extra=extra_log)
+            record_audit_event(task_id, current_role, "新建", initial_status, assignee, True, "任务自动创建并记录用户需求")
         else:
             resolved_record_id = existing.get("record_id") or resolved_record_id
 
@@ -192,6 +196,8 @@ def transition_task_pipeline(
                 logger.error("❌ 物理 API 写入失败，硬阻断流转！", extra=extra_log)
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "看板状态 API 写入失败")
                 return False
+            if remarks:
+                adapter.append_remarks(resolved_record_id, "process", f"[{from_status} ➔ {to_status}] 流转说明: {remarks}")
         except Exception as e:
             logger.error(f"❌ 物理 API 调用抛出异常 ({e})，硬阻断！", extra=extra_log)
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"API 抛出异常: {e}")
