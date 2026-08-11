@@ -43,11 +43,11 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 
 #### 1. 离线本地看板 (Local JSON) —— 默认配置，零依赖开箱即用
 
-无需任何 API 凭证与网络，数据存储于本地 JSON 文件（与 [multiagent-kanban](https://github.com/YuanYii/multiagent-kanban) 离线看板格式互通）：
+无需任何 API 凭证与网络，数据物理解算并 100% 隔离保存在 Skill 包自身的 `kanban/board.json` 目录下（零侵入、零污染宿主业务工程）：
 
 - **配置文件参数** (`config/workflow.config.yaml`)：
   - `board.provider`: `"local"` (默认)
-  - `board.board_file`: `"kanban/board.json"` (离线看板 JSON 文件路径)
+  - `board.board_file`: `"kanban/board.json"` (自动物理解算至 Skill 自身包目录)
   - `board.fields`: 字段名映射（完整示例见 [`config/workflow.config.template.yaml`](config/workflow.config.template.yaml)）
 - **无需任何环境变量凭证**
 
@@ -94,7 +94,9 @@ python3 scripts/offline_board_adapter.py --list kanban/board.json
 
 **并发安全编号分配**：多个专家并发新建任务时，任务编号（`T\d+` 取最大号 +1）由适配器**全局排他锁**（`board.json.seq.lock`）串行分配，**编号 100% 不重复**；文件写入采用临时文件 + 原子替换（`os.replace`），杜绝半写文件；显式指定编号重复时 Fail-Closed 拒绝创建。
 
-**Web 物理强同步交互**：直接在浏览器打开内置应用 [`kanban/offline_board.html`](kanban/offline_board.html)（或访问同目录软链接 [`kanban/index.html`](kanban/index.html)），页面将通过动态 Ajax 实时读取 `./board.json?t=...` 数据，确保界面状态与 `board.json` **物理 100% 强一致强同步**（彻底清除硬编码 Demo 卡片与浏览器缓存干涉）。亦可运行 `kanban/start.sh` 开启本地 Web HTTP 服务。
+**Web 物理强同步与 32886 服务**：直接在浏览器打开 Skill 目录下的内置应用 [`kanban/offline_board.html`](kanban/offline_board.html)（或访问软链接 [`kanban/index.html`](kanban/index.html)），页面将实时读取 `./board.json?t=...` 数据，确保界面状态与 `board.json` **物理 100% 强一致强同步**。亦可直接使用 `python3 scripts/start_kanban_server.py --port 32886` 在 32886 端口开启零依赖 HTTP 网页服务。
+
+**自动日落护眼主题算法**：看板内置 NOAA 日落计算引擎（白天切浅色、晚上切深色），**自动日落计算算法拥有最高优先级**，并配备 1 小时后台定时轮询计算器，自动为您无感平滑切换主题。
 
 ---
 
@@ -155,6 +157,14 @@ pytest tests/ --verbose
 → 检查结束时间强校验，状态更新为【已验收】，末处理人保持【PM】
 ```
 
+#### 5. 启动看板 Web 服务
+> **“启动看板”** （或 `/kanban`, `打开看板服务`, `启动看板界面`）
+
+```text
+→ 自动以后台任务形式运行脚本 python3 scripts/start_kanban_server.py --port 32886 启动零依赖 HTTP 服务
+→ 格式化回复 http://localhost:32886/ (或 http://127.0.0.1:32886/offline_board.html) 访问链接
+```
+
 ---
 
 ## 📜 核心契约与防错规则 (`rules/`)
@@ -165,8 +175,8 @@ pytest tests/ --verbose
 - 🎭 [`rules/IDENTITY.md`](rules/IDENTITY.md)：**专家团多面人设与身份契约** —— 定义 PM、ARCHITECT、DEV、FRONTEND、REVIEWER、QA、DOCS、DEVOPS 8 大专家身份及其提权代行规约。
 - ⚡ [`rules/SOUL.md`](rules/SOUL.md)：**行为原则与防错控制心脏** —— 规定事实高于推论、原子更新、缺陷溯源不切碎等安全控制核心。
 - 💓 [`rules/HEARTBEAT.md`](rules/HEARTBEAT.md)：**看板状态巡检与卡顿监控** —— 规定滞留任务、并发上限及状态处理人一致性等巡检 Checklist。
-- 🛠️ [`rules/TOOLS.md`](rules/TOOLS.md)：**看板与工程工具链指引** —— 描述 `init_field_mapping.py`、`feishu_base_adapter.py` 等脚本说明。
-- 🤝 [`rules/USER.md`](rules/USER.md)：**用户交互协议与协同契约** —— 规定自领取筛选规则、跨角色提权代行交互及打回确认流程。
+- 🛠️ [`rules/TOOLS.md`](rules/TOOLS.md)：**看板与工程工具链指引** —— 描述 `init_field_mapping.py`、`start_kanban_server.py` 等脚本说明。
+- 🤝 [`rules/USER.md`](rules/USER.md)：**用户交互协议与协同契约** —— 规定自领取筛选规则、跨角色提权代行交互及【启动看板】32886 服务引导规范。
 
 ---
 
@@ -271,7 +281,7 @@ graph TD
     │   ├── IDENTITY.md                # [角色] 8大专家 Agent 身份定义与多面人设
     │   ├── SOUL.md                    # [控制] 状态流转防错闭环心脏 (§九)
     │   ├── TOOLS.md                   # [工具] 看板工具与 CLI 适配层使用指引
-    │   ├── USER.md                    # [协议] 自领取规则与跨角色提权代行协议
+    │   ├── USER.md                    # [协议] 自领取规则与【启动看板】32886 服务协议
     │   └── HEARTBEAT.md               # [巡检] 看板巡检与状态不变量核验规则
     ├── agents/                        # 8 大专家 Agent YAML 描述 (01-pm.yaml ~ 08-frontend.yaml)
     ├── kanban/                        # 离线 Web 看板 (offline_board.html, board.json, js/)
@@ -285,7 +295,7 @@ graph TD
     │   ├── 05-Document-Management-Spec.md
     │   └── 06-Inter-Agent-Handover-Protocol.md
     ├── templates/                     # 开发/审查/测试报告与模块设计/排查文档模板
-    └── scripts/                       # 物理防错校验 (validate_transition)、状态流转 (transition_task)、动态 Agent 探针 (verify_and_export_agents) 与看板适配器 (board_adapter_factory / offline_board_adapter)
+    └── scripts/                       # 零依赖看板 Web 服务 (start_kanban_server.py)、物理防错校验 (validate_transition)、状态流转 (transition_task)、动态 Agent 探针 (verify_and_export_agents) 与看板适配器 (board_adapter_factory / offline_board_adapter)
 ```
 
 ---
