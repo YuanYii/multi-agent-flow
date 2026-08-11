@@ -225,25 +225,33 @@ class OfflineBoardAdapter:
         finally:
             self._release_seq_lock(lock_f)
 
-    def create_record(self, fields: Dict[str, Any]) -> Optional[str]:
-        """
+    def create_record(self, fields: Optional[Dict[str, Any]] = None, **kwargs) -> Optional[str]:
+        r"""
         新建看板任务。
-        - 未提供 task_id / id 时，在全局锁内自动分配 max(T\\d+)+1，并发创建编号不重复；
+        - 兼同字典传参 create_record({"name": "xxx"}) 与关键字传参 create_record(name="xxx", task_name="xxx")；
+        - 未提供 task_id / id 时，在全局锁内自动分配 max(T\d+)+1，并发创建编号不重复；
         - 显式提供编号时校验唯一性，重复返回 None 拒绝创建；
         - 成功返回任务编号 (record_id)，失败返回 None。
         """
+        merged_fields = {}
+        if isinstance(fields, dict):
+            merged_fields.update(fields)
+        merged_fields.update(kwargs)
+        if "task_name" in merged_fields and "name" not in merged_fields:
+            merged_fields["name"] = merged_fields["task_name"]
+
         lock_f = self._acquire_seq_lock()
         try:
             cards = self._read_cards()
 
-            task_id = str(fields.get("task_id") or fields.get("id") or "").strip()
+            task_id = str(merged_fields.get("task_id") or merged_fields.get("id") or "").strip()
             if not task_id:
                 task_id = self._next_task_id(cards)
             else:
                 if any(str(c.get("id")) == task_id for c in cards):
                     return None  # 编号已存在 → Fail-Closed 拒绝
 
-            translated = self._translate(fields)
+            translated = self._translate(merged_fields)
             translated["id"] = task_id
             translated.setdefault("status", "待开始")
             max_seq = max([int(c.get("seq") or 0) for c in cards] or [0])
