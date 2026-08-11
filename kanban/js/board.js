@@ -515,6 +515,24 @@
             }
         }
 
+        function appendProcessLog(card, logActionText) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const mins = String(now.getMinutes()).padStart(2, '0');
+            const secs = String(now.getSeconds()).padStart(2, '0');
+            const nowStr = `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
+            const logLine = `[${nowStr}] ${logActionText}`;
+
+            if (card.process) {
+                card.process = card.process.trim() + '\n' + logLine;
+            } else {
+                card.process = logLine;
+            }
+        }
+
         function drop(event) {
             event.preventDefault();
             const list = event.currentTarget;
@@ -528,7 +546,13 @@
             const card = rawCardsData.find(c => c.id === cardId);
             if (!card || !groupField || colValue === '未分类') return;
             if (card[groupField] === colValue) return;
+
+            const oldVal = card[groupField];
             card[groupField] = colValue;
+
+            const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责人' : '阶段');
+            appendProcessLog(card, `[看板拖拽] 将${fieldName}从【${oldVal || '未设定'}】调整移动至【${colValue}】`);
+
             saveStorageData();
             applyFilters();
             showToast(`已移动 ${cardId} → ${colValue}`);
@@ -742,8 +766,10 @@
         // Quick Inline Updates from Data Table
         function quickUpdateStatus(cardId, newStatus) {
             const card = rawCardsData.find(c => c.id === cardId);
-            if (card) {
+            if (card && card.status !== newStatus) {
+                const oldStatus = card.status;
                 card.status = newStatus;
+                appendProcessLog(card, `[快捷状态变更] 状态由【${oldStatus || '未设定'}】调整为【${newStatus}】`);
                 saveStorageData();
                 applyFilters();
                 showToast(`已更新 ${card.id} 状态为: ${newStatus}`);
@@ -752,8 +778,10 @@
 
         function quickUpdateAssignee(cardId, newAssignee) {
             const card = rawCardsData.find(c => c.id === cardId);
-            if (card) {
+            if (card && card.assignee !== newAssignee) {
+                const oldAssignee = card.assignee;
                 card.assignee = newAssignee;
+                appendProcessLog(card, `[快捷负责人变更] 负责人由【${oldAssignee || '未设定'}】变更为【${newAssignee}】`);
                 saveStorageData();
                 applyFilters();
                 showToast(`已更新 ${card.id} 负责人为: ${newAssignee}`);
