@@ -22,7 +22,8 @@ def load_role_yaml(role: str) -> Dict[str, Any]:
         "REVIEWER": "04-reviewer.yaml",
         "QA": "05-qa.yaml",
         "DOCS": "06-docs.yaml",
-        "DEVOPS": "07-devops.yaml"
+        "DEVOPS": "07-devops.yaml",
+        "FRONTEND": "08-frontend.yaml"
     }
     file_name = role_map.get(role.upper())
     if not file_name:
@@ -102,7 +103,7 @@ def build_context(role: str, action: str = "general") -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="动态角色 Prompt 上下文裁剪合成器")
-    parser.add_argument("--role", required=True, help="角色代码 (PM|ARCHITECT|DEV|REVIEWER|QA|DOCS|DEVOPS)")
+    parser.add_argument("--role", required=True, help="角色代码 (PM|ARCHITECT|DEV|FRONTEND|REVIEWER|QA|DOCS|DEVOPS)")
     parser.add_argument("--action", default="general", help="当前动作 (claim|submit|review|test|approve|general)")
 
     args = parser.parse_args()

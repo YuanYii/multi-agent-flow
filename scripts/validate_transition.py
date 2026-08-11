@@ -31,6 +31,13 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
         "进行中 -> 已阻塞",
         "已阻塞 -> 进行中"
     ],
+    "FRONTEND": [
+        "待开始 -> 进行中",
+        "进行中 -> 审查中",
+        "已退回 -> 进行中",
+        "进行中 -> 已阻塞",
+        "已阻塞 -> 进行中"
+    ],
     "REVIEWER": [
         "审查中 -> 测试中",
         "审查中 -> 已退回",
@@ -70,13 +77,13 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
     if role_upper == "PM" and type_upper == "F":
         allowed_list.append("进行中 -> 已完成")
 
-    # B(架构), C(文档), D(运维), G(环境搭建) 类任务: 解锁 DEV 直接推至 "已完成"
-    if role_upper == "DEV" and type_upper in ["B", "C", "D", "G"]:
+    # B(架构), C(文档), D(运维), G(环境搭建) 类任务: 解锁 DEV/FRONTEND 直接推至 "已完成"
+    if role_upper in ["DEV", "FRONTEND"] and type_upper in ["B", "C", "D", "G"]:
         allowed_list.append("进行中 -> 已完成")
 
-    # A 类 (常规代码开发) 任务 DEV 强行推已完成判断为违规越权
-    if role_upper == "DEV" and type_upper == "A" and transition_key == "进行中 -> 已完成":
-        print(f"[REJECT 越权拦截] DEV 角色在 A 类 (常规代码开发) 任务中禁止直接推动至 '已完成'！必须先提交审查 (审查中 ➔ 测试中)！")
+    # A 类 (常规代码开发) 任务 DEV/FRONTEND 强行推已完成判断为违规越权
+    if role_upper in ["DEV", "FRONTEND"] and type_upper == "A" and transition_key == "进行中 -> 已完成":
+        print(f"[REJECT 越权拦截] {role_upper} 角色在 A 类 (常规代码开发) 任务中禁止直接推动至 '已完成'！必须先提交审查 (审查中 ➔ 测试中)！")
         return False
 
     if not any(transition_key.startswith(allowed) for allowed in allowed_list):
@@ -97,7 +104,7 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
             return False
 
     # 4. 开发人员并发上限核验
-    if role_upper == "DEV" and to_status == "进行中" and active_dev_count >= 3:
+    if role_upper in ["DEV", "FRONTEND"] and to_status == "进行中" and active_dev_count >= 3:
         print(f"[REJECT 并发超限] 开发人员处于 '进行中' 任务数目前为 {active_dev_count}，超出并发上限 (≤3)！")
         return False
 

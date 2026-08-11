@@ -22,3 +22,6 @@ docs/.drafts/
 
 # Auto-generated task reports (regenerated on every run)
 docs/reports/
+
+# System Store Files
+.DS_Store

@@ -29,17 +29,27 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 您可以直接指令 Agent（如输入 `“使用 multi-agent-flow 初始化当前项目”`）为您完成所有初始配置，无需手动执行文件复制或系统架构分析操作。
 
 1. **技术架构自动识别与 Token 消耗提示**：当 Agent 初次在项目中调阅本 Skill 时，系统架构分析与识别工作可直接交由 Agent 自动执行。它将自动输出初始化通知及 Token 消耗提醒（说明全面扫描工程配置的过程**会消耗较多 Token**）。
-2. **Subagent 官方标准路径实时查证与挂载**：识别当前运行环境后，严格查阅对应 Agent 官方最新文档（如 Antigravity 的 `{workspace}/.agents/agents/{agent_name}/agent.md` 与 `subagent: true` 标头），运行 `python3 scripts/export_agent_adapters.py` 将 7 大专家精准挂载放置于官方原生支持的路径下。
+2. **Subagent 官方标准路径实时查证与挂载**：识别当前运行环境后，严格查阅对应 Agent 官方最新文档（如 Antigravity 的 `{workspace}/.agents/agents/{agent_name}/agent.md` 与 `subagent: true` 标头），运行 `python3 scripts/export_agent_adapters.py` 将 8 大专家精准挂载放置于官方原生支持的路径下。
 3. **读取模板生成配置**：读取 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 模板生成并落库 `config/project_architecture.config.yaml`。
 4. **项目工程文档骨架建立与原项目文档自动归档**：Agent 将自动在项目中校验/创建标准的 `docs/` 目录树骨架，自动运行 `python3 scripts/migrate_legacy_docs.py` 扫描原项目散落的历史文档，并在对应的分类下自动创建 **`原项目文档/`** 子目录进行拷贝归档与隔离，并在 `.gitignore` 中追加 `.drafts/` 隔离规约。
 5. **专家团队技术栈自动同步**：自动运行 `python3 scripts/update_agent_tech_stacks.py`，将扫描到的技术栈同步落盘至 `agents/*.yaml` 配置文件。
 6. **唤起 PM 鉴定项目并输出声明**：自动触发 PM 角色扫描当前项目 `README.md` 和源码，并在回复中显式输出：**`【已识别 xxxx 项目】`** 标识及使用指引。
 
-### 🔌 连接数据看板的必要信息与凭证指南（在线 / 离线）
+### 🔌 数据看板配置指南（离线默认 / 在线扩展）
 
-在将 Agent 与线上数据看板建立连接时，需在 [`config/workflow.config.yaml`](config/workflow.config.template.yaml) 及系统环境变量中配置以下必备 API 鉴权与连接参数：
+在配置文件 [`config/workflow.config.yaml`](config/workflow.config.yaml) 中，看板默认配置为**离线本地看板 (`local`)**，零依赖开箱即用；同时也支持配置扩展为线上数据看板（飞书 Base / Jira / GitHub Projects）。
 
-#### 1. 飞书多维表格 (Feishu Base) —— 推荐
+#### 1. 离线本地看板 (Local JSON) —— 默认配置，零依赖开箱即用
+
+无需任何 API 凭证与网络，数据存储于本地 JSON 文件（与 [multiagent-kanban](https://github.com/YuanYii/multiagent-kanban) 离线看板格式互通，支持浏览器拖拽流转）：
+
+- **配置文件参数** (`config/workflow.config.yaml`)：
+  - `board.provider`: `"local"` (默认)
+  - `board.board_file`: `"kanban/board.json"` (离线看板 JSON 文件路径)
+  - `board.fields`: 字段名映射（完整示例见 [`config/workflow.config.template.yaml`](config/workflow.config.template.yaml)）
+- **无需任何环境变量凭证**
+
+#### 2. 飞书多维表格 (Feishu Base) —— 可选在线扩展
 - **配置文件参数** (`config/workflow.config.yaml`)：
   - `board.provider`: `"feishu_base"`
   - `board.base_token`: **Base Token**（多维表格浏览器 URL `https://feishu.cn/base/【Base_Token】?table=...` 中 `base/` 后方的字符串）
@@ -48,7 +58,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
   - `FEISHU_APP_ID`: 飞书开放平台自建应用的 App ID（示例：`cli_a1b2c3d4e5`）
   - `FEISHU_APP_SECRET`: 飞书开放平台自建应用的 App Secret 密钥
 
-#### 2. Jira 看板
+#### 3. Jira 看板 —— 可选在线扩展
 - **配置文件参数**：
   - `board.provider`: `"jira"`
   - `board.domain`: Jira 实例域名（示例：`https://your-domain.atlassian.net`）
@@ -57,7 +67,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
   - `JIRA_USER_EMAIL`: Atlassian 账号邮箱
   - `JIRA_API_TOKEN`: Atlassian 账号后台生成的 API Token
 
-#### 3. GitHub Projects (v2)
+#### 4. GitHub Projects (v2) —— 可选在线扩展
 - **配置文件参数**：
   - `board.provider`: `"github_projects"`
   - `board.owner`: GitHub 组织名或用户名
@@ -65,17 +75,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 - **系统环境变量凭证**：
   - `GITHUB_TOKEN`: 具备 `repo` 和 `project` 读写权限的 Personal Access Token (PAT)
 
-#### 4. 离线本地看板 (Local JSON) —— 零依赖，开箱即用
-
-无需任何 API 凭证与网络，数据存储于本地 JSON 文件（与 [multiagent-kanban](https://github.com/YuanYii/multiagent-kanban) 离线看板格式互通，支持浏览器拖拽流转）：
-
-- **配置文件参数** (`config/workflow.config.yaml`)：
-  - `board.provider`: `"local"`
-  - `board.board_file`: 看板 JSON 文件路径（示例：`kanban/board.json`）
-  - `board.fields`: 字段名映射（完整示例见 [`config/workflow.config.template.yaml`](config/workflow.config.template.yaml)）
-- **无需任何环境变量凭证**
-
-**专家流转自动落卡**：调用 `transition_task.py` 执行流转时，若任务在看板中不存在将自动创建（初始状态「待开始」）后再流转，**7 大专家角色均可操作**：
+**专家流转自动落卡**：调用 `transition_task.py` 执行流转时，若任务在看板中不存在将自动创建（初始状态「待开始」）后再流转，**8 大专家角色均可操作**：
 
 ```bash
 # 首次使用：初始化空看板文件
@@ -92,7 +92,7 @@ python3 scripts/offline_board_adapter.py --list kanban/board.json
 
 **并发安全编号分配**：多个专家并发新建任务时，任务编号（`T\d+` 取最大号 +1）由适配器**全局排他锁**（`board.json.seq.lock`）串行分配，**编号 100% 不重复**；文件写入采用临时文件 + 原子替换（`os.replace`），杜绝半写文件；显式指定编号重复时 Fail-Closed 拒绝创建。
 
-**人工查看与拖拽**：使用配套离线看板 UI（[multiagent-kanban](https://github.com/YuanYii/multiagent-kanban)，零依赖 HTML 应用），通过「导入 JSON」加载 `kanban/board.json` 浏览与拖拽流转，操作后「导出 JSON」覆盖回文件，即可与 Agent 流转双向同步。
+**人工查看与拖拽**：使用技能包内置的离线看板应用 [`kanban/offline_board.html`](kanban/offline_board.html)，通过「导入 JSON」选择加载同目录下的 `kanban/board.json` 即可进行 4 种视图查阅与全功能卡片拖拽，操作后导出 JSON 覆盖保存即可与 Agent 双向同步。也可运行 `kanban/start.sh` 开启局域网分享服务。
 
 ---
 
@@ -139,7 +139,7 @@ python3 scripts/offline_board_adapter.py --list kanban/board.json
 技能包在 [`rules/`](rules/) 目录下内置了全套标准化交互契约与防错规则，在调用 Skill 时自动按需装载：
 
 - 🚩 [`rules/AGENTS.md`](rules/AGENTS.md)：**多专家团队协作契约** —— 规定 6 大协作红线、看板状态不变量与动态按需加载协议。
-- 🎭 [`rules/IDENTITY.md`](rules/IDENTITY.md)：**专家团多面人设与身份契约** —— 定义 PM、ARCHITECT、DEV、REVIEWER、QA、DOCS、DEVOPS 7 大专家身份及其提权代行规约。
+- 🎭 [`rules/IDENTITY.md`](rules/IDENTITY.md)：**专家团多面人设与身份契约** —— 定义 PM、ARCHITECT、DEV、FRONTEND、REVIEWER、QA、DOCS、DEVOPS 8 大专家身份及其提权代行规约。
 - ⚡ [`rules/SOUL.md`](rules/SOUL.md)：**行为原则与防错控制心脏** —— 规定事实高于推论、原子更新、缺陷溯源不切碎等安全控制核心。
 - 💓 [`rules/HEARTBEAT.md`](rules/HEARTBEAT.md)：**看板状态巡检与卡顿监控** —— 规定滞留任务、并发上限及状态处理人一致性等巡检 Checklist。
 - 🛠️ [`rules/TOOLS.md`](rules/TOOLS.md)：**看板与工程工具链指引** —— 描述 `init_field_mapping.py`、`feishu_base_adapter.py` 等脚本说明。
@@ -248,7 +248,7 @@ graph TD
     │   ├── TOOLS.md                   # [工具] 看板工具与 CLI 适配层使用指引
     │   ├── USER.md                    # [协议] 自领取规则与跨角色提权代行协议
     │   └── HEARTBEAT.md               # [巡检] 看板巡检与状态不变量核验规则
-    ├── agents/                        # 7 大专家 Agent YAML 描述 (01-pm.yaml ~ 07-devops.yaml)
+    ├── agents/                        # 8 大专家 Agent YAML 描述 (01-pm.yaml ~ 08-frontend.yaml)
     ├── config/                        # 零硬编码配置模板 (workflow.config & project_architecture)
     ├── references/                    # 6 大全量提炼参考规约 (路由/流转/防错/Git/文档管理/交接协议)
     │   ├── 01-AI-Team-Workflow-Index.md

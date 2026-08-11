@@ -60,6 +60,8 @@ def test_check_secrets_clean_file():
 
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config", "workflow.config.yaml")
+if not os.path.exists(CONFIG_PATH):
+    CONFIG_PATH = os.path.join(PROJECT_ROOT, "config", "workflow.config.template.yaml")
 
 
 def _report_out(tmpdir, rtype, task_id="T0001", assignee="李开发"):
@@ -92,10 +94,10 @@ def test_generate_report_review_alias_maps_to_reviewer():
         assert "李开发" in content
 
 
-def test_generate_report_all_7_types_accessible():
-    """7 大专家模板 (pm/arch/dev/reviewer/qa/docs/devops) CLI 全部可达"""
+def test_generate_report_all_8_types_accessible():
+    """8 大专家模板 (pm/arch/dev/frontend/reviewer/qa/docs/devops) CLI 全部可达"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        for rtype in ["pm", "arch", "dev", "reviewer", "qa", "docs", "devops"]:
+        for rtype in ["pm", "arch", "dev", "frontend", "reviewer", "qa", "docs", "devops"]:
             exit_code, output_file = _report_out(tmpdir, rtype)
             assert exit_code == 0, f"type={rtype} 应成功生成报告"
             assert os.path.exists(output_file), f"type={rtype} 报告文件应存在"

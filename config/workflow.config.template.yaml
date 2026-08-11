@@ -63,6 +63,11 @@ roles:
     assignee_value: ["Dev_User_1", "Dev_User_2"]
     max_parallel_tasks: 3
     can_self_claim: true
+  FRONTEND:
+    name: "前端开发工程师"
+    assignee_value: ["Frontend_User"]
+    max_parallel_tasks: 3
+    can_self_claim: true
   REVIEWER:
     name: "代码审查专家"
     assignee_value: "Reviewer_User"

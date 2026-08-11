@@ -15,6 +15,7 @@ REPORT_TEMPLATE_MAP = {
     "pm": "wbs_breakdown_template.md",
     "arch": "module_design_template.md",
     "dev": "dev_task_report_template.md",
+    "frontend": "dev_task_report_template.md",
     "reviewer": "code_review_template.md",
     "qa": "qa_test_report_template.md",
     "docs": "documentation_template.md",
@@ -92,7 +93,7 @@ def generate_report(report_type: str, task_id: str, task_name: str, assignee: st
 
 def main(args: list = None):
     parser = argparse.ArgumentParser(description="自动化任务报告生成器")
-    parser.add_argument("--type", required=True, help="报告类型 (pm|arch|dev|reviewer|qa|docs|devops，兼容别名 review)")
+    parser.add_argument("--type", required=True, help="报告类型 (pm|arch|dev|frontend|reviewer|qa|docs|devops，兼容别名 review)")
     parser.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
     parser.add_argument("--task-name", default="工作包开发任务", help="任务名称")
     parser.add_argument("--assignee", default="DEV", help="处理人")

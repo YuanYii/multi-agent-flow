@@ -12,3 +12,7 @@
 
 3. **打回确认**：
    - 审查或测试被打回时，Agent 自动格式化缺陷信息至「备注」，无需用户二次拼接命令行。
+
+4. **任务创建与流转后提示**：
+   - 每当 Agent（如 PM 角色）创建新任务、下发工作包或完成任务状态流转后，**必须在回复末尾显式提示用户打开内置离线看板**：
+     > 🌐 **看板实时进度**：请在浏览器中打开内置离线看板 [`kanban/offline_board.html`](kanban/offline_board.html)（导入 `kanban/board.json` 即可查阅/拖拽）；或在终端运行 `python3 scripts/offline_board_adapter.py --list kanban/board.json` 快速巡检。

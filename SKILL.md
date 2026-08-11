@@ -15,7 +15,7 @@ version: 1.0.0
 当 Agent 调用或执行本 Skill 时，必须加载并遵循 [`rules/`](rules/) 目录下的规则约束与交互协议：
 
 1. **团队协作红线与按需加载** ➔ 调阅 [`rules/AGENTS.md`](rules/AGENTS.md)
-2. **7 大专家身份与人设定义** ➔ 调阅 [`rules/IDENTITY.md`](rules/IDENTITY.md)
+2. **8 大专家身份与人设定义** ➔ 调阅 [`rules/IDENTITY.md`](rules/IDENTITY.md)
 3. **安全控制心脏与防错原则** ➔ 调阅 [`rules/SOUL.md`](rules/SOUL.md)
 4. **看板巡检与卡顿监控 CheckList** ➔ 调阅 [`rules/HEARTBEAT.md`](rules/HEARTBEAT.md)
 5. **工具链与 CLI 适配指引** ➔ 调阅 [`rules/TOOLS.md`](rules/TOOLS.md)
@@ -58,6 +58,7 @@ version: 1.0.0
      > **`【已识别 xxxx 项目】`**
      > 🔗 **官方 Subagent 规范查证凭据**：`https://antigravity.google/docs/...` (查证物理路径：`{workspace}/.agents/agents/{name}/agent.md`)
    - 输出子 Agent 语法调用提示（如 `当前 Agent 支持通过 @flow-dev 或 /flow-dev 直接调度开发专家...`）。
+   - **看板进度查看提示**：在创建任务或完成状态流转后，必须在回复末尾显式提示用户打开内置离线看板 [`kanban/offline_board.html`](kanban/offline_board.html) 导入 `kanban/board.json` 查看看板进度。
 
 ---
 

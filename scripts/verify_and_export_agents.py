@@ -67,6 +67,7 @@ ROLES_MAP = {
     "05-qa.yaml": {"id": "flow-qa", "role_code": "qa", "name": "章测试 (测试工程师)"},
     "06-docs.yaml": {"id": "flow-docs", "role_code": "docs", "name": "李文通 (文档工程师)"},
     "07-devops.yaml": {"id": "flow-devops", "role_code": "devops", "name": "吕改特 (运维管理员)"},
+    "08-frontend.yaml": {"id": "flow-frontend", "role_code": "frontend", "name": "前端开发 (前端开发工程师)"},
 }
 
 def detect_active_platforms():
