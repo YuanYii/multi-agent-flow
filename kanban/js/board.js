@@ -97,7 +97,11 @@
         function verifyFieldTableParity() {
             const ths = Array.from(document.querySelectorAll('#main-data-table thead th'));
             // skip the leading checkbox column and the trailing 操作 column
-            const dataThs = ths.slice(1, -1).map(th => (th.textContent || '').trim());
+            const dataThs = ths.slice(1, -1).map(th => {
+                const clone = th.cloneNode(true);
+                clone.querySelectorAll('.resizer, .row-resizer').forEach(el => el.remove());
+                return (clone.textContent || '').trim();
+            });
             const expected = BOARD_FIELDS.map(f => f.th);
             const ok = dataThs.length === expected.length && dataThs.every((t, i) => t === expected[i]);
             if (!ok) {

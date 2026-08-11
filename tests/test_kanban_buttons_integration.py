@@ -89,3 +89,13 @@ def test_js_syntax_integrity():
         # 简单语法断言：括号匹配
         assert content.count("{") == content.count("}"), f"❌ {os.path.basename(js_path)} 花括号数量不匹配"
         assert content.count("(") == content.count(")"), f"❌ {os.path.basename(js_path)} 圆括号数量不匹配"
+
+
+def test_no_undefined_global_function_calls():
+    """扫描所有 JS 文件，断言常调用的全局 helper 函数必须都在 JS 代码全集中定义"""
+    all_js_code = read_file(KANBAN_JS_BOARD) + read_file(KANBAN_JS_UTIL) + read_file(KANBAN_JS_DATA) + read_file(KANBAN_JS_LISTBOX)
+    
+    helpers = ["esc", "badgeInner", "getBadgeStyle", "showToast", "applyFilters", "openTaskDetail", "closeDetailModal", "toggleTaskEditMode", "saveTaskDetails", "refreshUiSelects"]
+    for fn_name in helpers:
+        pattern = r'function\s+' + fn_name + r'\b|const\s+' + fn_name + r'\b|let\s+' + fn_name + r'\b|var\s+' + fn_name + r'\b'
+        assert re.search(pattern, all_js_code) is not None, f"❌ JS 核心辅助函数 '{fn_name}' 未在 JS 代码全集中定义！"
