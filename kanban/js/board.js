@@ -888,13 +888,46 @@
             document.getElementById('batch-delete-btn').style.display = count > 0 ? 'inline-flex' : 'none';
         }
 
+        let pendingConfirmAction = null;
+
+        function openCustomConfirm(title, message, onConfirm) {
+            const titleEl = document.getElementById('confirm-modal-title');
+            const msgEl = document.getElementById('confirm-modal-msg');
+            const okBtn = document.getElementById('confirm-modal-ok-btn');
+
+            if (titleEl) {
+                titleEl.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    ${esc(title || '操作确认')}
+                `;
+            }
+            if (msgEl) msgEl.innerHTML = esc(message);
+
+            pendingConfirmAction = onConfirm;
+            if (okBtn) {
+                okBtn.onclick = () => {
+                    if (pendingConfirmAction) pendingConfirmAction();
+                    closeConfirmModal();
+                };
+            }
+
+            document.getElementById('confirm-modal').classList.add('show');
+        }
+
+        function closeConfirmModal() {
+            pendingConfirmAction = null;
+            document.getElementById('confirm-modal').classList.remove('show');
+        }
+
         function batchDeleteRecords() {
-            if (!confirm(`确定要批量删除选中的 ${selectedTaskIds.size} 条任务记录吗？`)) return;
-            rawCardsData = rawCardsData.filter(c => !selectedTaskIds.has(c.id));
-            selectedTaskIds.clear();
-            saveStorageData();
-            applyFilters();
-            showToast('已完成批量删除操作！');
+            if (selectedTaskIds.size === 0) return;
+            openCustomConfirm('批量删除确认', `确定要批量删除选中的 ${selectedTaskIds.size} 条任务记录吗？删除后无法恢复。`, () => {
+                rawCardsData = rawCardsData.filter(c => !selectedTaskIds.has(c.id));
+                selectedTaskIds.clear();
+                saveStorageData();
+                applyFilters();
+                showToast('已完成批量删除操作！');
+            });
         }
 
         // Field Config Listener
@@ -1117,7 +1150,7 @@
             const id = document.getElementById('new-id').value.trim();
             const name = document.getElementById('new-name').value.trim();
             if (!id || !name) {
-                alert('请填写任务编号和任务名称！');
+                showToast('⚠️ 请填写任务编号和任务名称！');
                 return;
             }
             const newCard = {
@@ -1329,13 +1362,13 @@
 
         function deleteCurrentTask() {
             const cardId = document.getElementById('edit-original-id').value;
-            if (confirm(`确认删除任务 ${cardId} 吗？删除后不可恢复。`)) {
+            openCustomConfirm('删除任务确认', `确认要永久删除任务 [${cardId}] 吗？删除后不可恢复。`, () => {
                 rawCardsData = rawCardsData.filter(c => c.id !== cardId);
                 saveStorageData();
                 applyFilters();
                 closeDetailModal();
                 showToast(`已删除任务 ${cardId}`);
-            }
+            });
         }
 
                 // Column & Row Resizable Drag Event Handlers

@@ -402,6 +402,26 @@
         </div>
     </div>
 
+    <!-- 看板风格统一确认对话框 -->
+    <div class="modal-overlay" id="confirm-modal">
+        <div class="modal-box" style="background:#ffffff; max-width: 440px;">
+            <div class="modal-header">
+                <h3 id="confirm-modal-title" style="display:flex; align-items:center; gap:6px; color:var(--text-main);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    操作确认
+                </h3>
+                <button class="close-btn" onclick="closeConfirmModal()">&times;</button>
+            </div>
+            <div id="confirm-modal-msg" style="padding:16px 0; font-size:14px; color:var(--text-main); line-height:1.6;">
+                <!-- 动态插入提示语 -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeConfirmModal()">取消</button>
+                <button class="btn danger-btn" id="confirm-modal-ok-btn">确认执行</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div class="toast-container" id="toast-container"></div>
     <script src="js/util.js"></script>
