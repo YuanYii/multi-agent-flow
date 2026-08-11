@@ -1033,11 +1033,42 @@
             showToast(`成功创建任务 ${id}！`);
         }
 
-        // Task Detail & Editing Modal Controls
+        let isTaskEditMode = false;
+
+        function toggleTaskEditMode(forceEdit) {
+            if (typeof forceEdit === 'boolean') {
+                isTaskEditMode = forceEdit;
+            } else {
+                isTaskEditMode = !isTaskEditMode;
+            }
+
+            const readBox = document.getElementById('detail-read-container');
+            const editBox = document.getElementById('detail-edit-container');
+            const toggleBtn = document.getElementById('toggle-detail-edit-btn');
+            const saveBtn = document.getElementById('detail-save-btn');
+            const deleteBtn = document.getElementById('detail-delete-btn');
+
+            if (isTaskEditMode) {
+                if (readBox) readBox.style.display = 'none';
+                if (editBox) editBox.style.display = 'flex';
+                if (toggleBtn) toggleBtn.textContent = '👁️ 切换为查看详情';
+                if (saveBtn) saveBtn.style.display = 'inline-flex';
+                if (deleteBtn) deleteBtn.style.display = 'inline-flex';
+            } else {
+                if (readBox) readBox.style.display = 'flex';
+                if (editBox) editBox.style.display = 'none';
+                if (toggleBtn) toggleBtn.textContent = '✏️ 切换为编辑模式';
+                if (saveBtn) saveBtn.style.display = 'none';
+                if (deleteBtn) deleteBtn.style.display = 'none';
+            }
+        }
+
+        // Task Detail & Audit Logs Traceability Modal Controls
         function openTaskDetail(cardId) {
             const card = rawCardsData.find(c => c.id === cardId);
             if (!card) return;
 
+            // 1. Populate Edit Mode Inputs
             document.getElementById('edit-original-id').value = card.id;
             document.getElementById('edit-id').value = card.id;
             document.getElementById('edit-seq').value = '#' + (card.seq || '-');
@@ -1049,10 +1080,75 @@
             document.getElementById('edit-est').value = card.est_hours || 0;
             document.getElementById('edit-act').value = card.act_hours || 0;
             document.getElementById('edit-process').value = card.process || card.remarks || '';
-
             refreshModalTagSelectors();
+
+            // 2. Populate Read Mode View (Header Card & Attributes Grid)
+            const headCard = document.getElementById('detail-header-card');
+            if (headCard) {
+                headCard.innerHTML = `
+                    <div class="detail-header-title">
+                        <span style="color:var(--primary); font-family:monospace;">[${escapeHtml(card.id)}]</span>
+                        <span>${escapeHtml(card.name || '未命名任务')}</span>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <span class="tag tag-status">${escapeHtml(card.status || '待开始')}</span>
+                        <span class="tag tag-person">负责人: ${escapeHtml(card.assignee || '未分配')}</span>
+                        ${card.handler ? `<span class="tag tag-stage">当前处理人: ${escapeHtml(card.handler)}</span>` : ''}
+                        ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${escapeHtml(card.wbs)}</span>` : ''}
+                    </div>
+                `;
+            }
+
+            const attrGrid = document.getElementById('detail-attr-grid');
+            if (attrGrid) {
+                attrGrid.innerHTML = `
+                    <div class="detail-item">
+                        <span class="detail-label">阶段 / 工作包</span>
+                        <span class="detail-value">${escapeHtml(card.wp || card.stage || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">前置任务依赖</span>
+                        <span class="detail-value">${escapeHtml(card.pre_tasks || card.prerequisite || '无前置')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">工时消耗 (预估/实际)</span>
+                        <span class="detail-value">${card.est_hours || 0}h / ${card.act_hours || 0}h</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">时间周期</span>
+                        <span class="detail-value">${escapeHtml(card.start_time || '-')} ~ ${escapeHtml(card.end_time || '-')}</span>
+                    </div>
+                    <div class="detail-item" style="grid-column: 1 / -1;">
+                        <span class="detail-label">核心备注</span>
+                        <span class="detail-value" style="font-weight:400;">${escapeHtml(card.remarks || '暂无备注')}</span>
+                    </div>
+                `;
+            }
+
+            // 3. Populate Timeline Audit Logs & Defect Trace
+            const timelineList = document.getElementById('detail-timeline-list');
+            if (timelineList) {
+                timelineList.innerHTML = '';
+                const fullText = card.process || card.remarks || '';
+                const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
+                if (lines.length === 0) {
+                    timelineList.innerHTML = `<div style="color:var(--text-muted); font-size:12px; padding:10px 0;">暂无全流程流转历史记录。</div>`;
+                } else {
+                    lines.forEach(line => {
+                        const item = document.createElement('div');
+                        const isDefect = line.includes('DEF-') || line.includes('DEFECT') || line.includes('退回') || line.includes('阻塞');
+                        item.className = `timeline-item ${isDefect ? 'defect' : ''}`;
+                        item.innerHTML = `
+                            <div class="timeline-content">${escapeHtml(line)}</div>
+                        `;
+                        timelineList.appendChild(item);
+                    });
+                }
+            }
+
+            // Default to Read Mode
+            toggleTaskEditMode(false);
             document.getElementById('detail-modal').classList.add('show');
-            setTimeout(() => { const el = document.getElementById('edit-name'); if (el) el.focus(); }, 50);
         }
 
         function closeDetailModal() {

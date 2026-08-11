@@ -283,69 +283,97 @@
         </div>
     </div>
 
-    <!-- Modal for Task Details & Editing -->
+    <!-- Modal for Task Details & Audit Log Traceability -->
     <div class="modal-overlay" id="detail-modal">
-        <div class="modal">
+        <div class="modal" style="max-width: 680px; width: 90%;">
             <div class="modal-header">
-                <span id="detail-modal-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 任务详情编辑</span>
-                <span style="cursor:pointer;" onclick="closeDetailModal()">✕</span>
+                <span id="detail-modal-title" style="font-weight:700; display:flex; align-items:center; gap:6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    任务详情与全流程追溯
+                </span>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <button class="btn sm" id="toggle-detail-edit-btn" onclick="toggleTaskEditMode()" title="切换为可编辑模式">✏️ 切换为编辑模式</button>
+                    <span style="cursor:pointer; font-size:18px; color:var(--text-muted);" onclick="closeDetailModal()">✕</span>
+                </div>
             </div>
             <input type="hidden" id="edit-original-id">
-            <div style="display:flex; gap:10px;">
-                <div class="form-item" style="flex:1;">
-                    <label>任务编号</label>
-                    <input type="text" id="edit-id" readonly style="background:#f4f5f7;">
+
+            <!-- View Mode Container: Key Attributes & Timeline Audit Logs -->
+            <div id="detail-read-container" class="detail-view-container">
+                <!-- Head Meta Card (Populated by JS) -->
+                <div class="detail-header-card" id="detail-header-card"></div>
+
+                <!-- Key Attributes Grid (Populated by JS) -->
+                <div class="detail-grid" id="detail-attr-grid"></div>
+
+                <!-- Timeline Audit Log Traceability -->
+                <div class="timeline-section-title">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    全生命周期流转记录与缺陷追溯
                 </div>
-                <div class="form-item" style="flex:1;">
-                    <label>序号</label>
-                    <input type="text" id="edit-seq" readonly style="background:#f4f5f7;">
+                <div class="timeline-list" id="detail-timeline-list"></div>
+            </div>
+
+            <!-- Edit Mode Form Container (Hidden by Default) -->
+            <div id="detail-edit-container" style="display:none; flex-direction:column; gap:10px;">
+                <div style="display:flex; gap:10px;">
+                    <div class="form-item" style="flex:1;">
+                        <label>任务编号</label>
+                        <input type="text" id="edit-id" readonly style="background:#f4f5f7;">
+                    </div>
+                    <div class="form-item" style="flex:1;">
+                        <label>序号</label>
+                        <input type="text" id="edit-seq" readonly style="background:#f4f5f7;">
+                    </div>
+                </div>
+                <div class="form-item">
+                    <label>任务名称 *</label>
+                    <input type="text" id="edit-name">
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-item" style="flex:1;">
+                        <label>阶段名称 / 工作包</label>
+                        <input type="text" id="edit-wp">
+                    </div>
+                    <div class="form-item" style="flex:1;">
+                        <label>WBS 编号</label>
+                        <input type="text" id="edit-wbs">
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-item" style="flex:1;">
+                        <label>负责人</label>
+                        <input type="hidden" id="edit-assignee" value="李开发">
+                        <div class="tag-select" data-type="person" data-target="edit-assignee" data-value="李开发"></div>
+                    </div>
+                    <div class="form-item" style="flex:1;">
+                        <label>当前状态</label>
+                        <input type="hidden" id="edit-status" value="待开始">
+                        <div class="tag-select" data-type="status" data-target="edit-status" data-value="待开始"></div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-item" style="flex:1;">
+                        <label>预估工时(h)</label>
+                        <input type="number" step="0.5" id="edit-est">
+                    </div>
+                    <div class="form-item" style="flex:1;">
+                        <label>实际工时(h)</label>
+                        <input type="number" step="0.5" id="edit-act">
+                    </div>
+                </div>
+                <div class="form-item">
+                    <label>过程描述 / 备注 / 验证结论</label>
+                    <textarea id="edit-process" rows="4"></textarea>
                 </div>
             </div>
-            <div class="form-item">
-                <label>任务名称 *</label>
-                <input type="text" id="edit-name">
-            </div>
-            <div style="display:flex; gap:10px;">
-                <div class="form-item" style="flex:1;">
-                    <label>阶段名称 / 工作包</label>
-                    <input type="text" id="edit-wp">
-                </div>
-                <div class="form-item" style="flex:1;">
-                    <label>WBS 编号</label>
-                    <input type="text" id="edit-wbs">
-                </div>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <div class="form-item" style="flex:1;">
-                    <label>负责人</label>
-                    <input type="hidden" id="edit-assignee" value="李开发">
-                    <div class="tag-select" data-type="person" data-target="edit-assignee" data-value="李开发"></div>
-                </div>
-                <div class="form-item" style="flex:1;">
-                    <label>当前状态</label>
-                    <input type="hidden" id="edit-status" value="待开始">
-                    <div class="tag-select" data-type="status" data-target="edit-status" data-value="待开始"></div>
-                </div>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <div class="form-item" style="flex:1;">
-                    <label>预估工时(h)</label>
-                    <input type="number" step="0.5" id="edit-est">
-                </div>
-                <div class="form-item" style="flex:1;">
-                    <label>实际工时(h)</label>
-                    <input type="number" step="0.5" id="edit-act">
-                </div>
-            </div>
-            <div class="form-item">
-                <label>过程描述 / 备注 / 验证结论</label>
-                <textarea id="edit-process" rows="4"></textarea>
-            </div>
+
+            <!-- Modal Footer Actions -->
             <div class="modal-actions">
-                <button class="btn danger-btn" onclick="deleteCurrentTask()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 删除该任务</button>
+                <button class="btn danger-btn sm" id="detail-delete-btn" onclick="deleteCurrentTask()" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 删除任务</button>
                 <div style="margin-left:auto; display:flex; gap:10px;">
-                    <button class="btn" onclick="closeDetailModal()">取消</button>
-                    <button class="btn primary-btn" onclick="saveTaskDetails()">保存更新</button>
+                    <button class="btn" onclick="closeDetailModal()">关闭</button>
+                    <button class="btn primary-btn" id="detail-save-btn" onclick="saveTaskDetails()" style="display:none;">保存更新</button>
                 </div>
             </div>
         </div>
