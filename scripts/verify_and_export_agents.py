@@ -173,6 +173,18 @@ def generate_agent_content(data, meta, platform_key, proof_url):
 
     subagent_line = "subagent: true\n" if spec["frontmatter_subagent"] else ""
 
+    role_task_map = {
+        "PM": {"type": "E", "next_status": "已验收", "next_assignee": name},
+        "ARCHITECT": {"type": "B", "next_status": "已完成", "next_assignee": "严经理"},
+        "DEV": {"type": "A", "next_status": "审查中", "next_assignee": "周审查"},
+        "FRONTEND": {"type": "A", "next_status": "审查中", "next_assignee": "周审查"},
+        "REVIEWER": {"type": "A", "next_status": "测试中", "next_assignee": "章测试"},
+        "QA": {"type": "A", "next_status": "已完成", "next_assignee": "严经理"},
+        "DOCS": {"type": "C", "next_status": "已完成", "next_assignee": "严经理"},
+        "DEVOPS": {"type": "D", "next_status": "已完成", "next_assignee": "严经理"}
+    }
+    t_info = role_task_map.get(role, {"type": "A", "next_status": "已完成", "next_assignee": "严经理"})
+
     content = f"""---
 name: {agent_id}
 role: {role}
@@ -190,6 +202,22 @@ description: multi-agent-flow 中的 {name} 专家子代理 (针对 {spec['name'
 
 ## ⚡ 允许推导的状态流转矩阵
 {trans_str}
+
+## 📋 看板自动化 CLI 命令强执行 SOP (Hard Automation Rules)
+
+> ⚠️ **【最高强制断言】** 当你被唤起/调度执行任何项目任务时，**绝对禁止只修改代码/文档而遗漏看板落库**！你必须严格执行以下物理三步 SOP：
+
+1. **🔹 第一步 (任务启动/领单)**：在开始工作前，**必须首先调用 `run_command` 工具**运行 CLI 命令创建/更新看板至 `进行中`：
+   ```bash
+   python3 scripts/transition_task.py --role {role} --from-status 待开始 --to-status 进行中 --assignee "{name}" --type {t_info['type']} --task-name "<当前执行的具体任务简述>"
+   ```
+
+2. **🔹 第二步 (领域工作执行)**：在工作区完成对应的代码开发、架构设计、文档撰写、代码审查或测试工作。
+
+3. **🔹 第三步 (任务完成/提交流转)**：工作完成后，**必须再次调用 `run_command` 工具**运行 CLI 命令推动看板至下一阶段：
+   ```bash
+   python3 scripts/transition_task.py --role {role} --from-status 进行中 --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type {t_info['type']} --end-time "$(date +'%Y-%m-%d %H:%M')"
+   ```
 
 ## 🚫 行为边界与红线
 - 允许编码 (can_code): {boundaries.get('can_code', False)}
