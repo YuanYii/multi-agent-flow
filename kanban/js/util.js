@@ -160,14 +160,9 @@
         }
 
         function initTheme() {
-            let theme = 'light';
-            try {
-                const saved = localStorage.getItem(THEME_KEY);
-                if (saved === 'light' || saved === 'dark') {
-                    theme = saved;
-                }
-            } catch (e) {}
-            applyTheme(theme);
+            // 彻底清除历史残留深色缓存干涉，绝对强制默认以纯正浅色 (Light Mode) 初始化
+            try { localStorage.removeItem(THEME_KEY); } catch (e) {}
+            applyTheme('light');
         }
 
         function toggleTheme() {
