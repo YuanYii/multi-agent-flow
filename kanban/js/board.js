@@ -542,6 +542,10 @@
             openTaskDetail(cardId);
         }
 
+        function renderTable() {
+            renderTableBody(currentCardsData);
+        }
+
         function renderTableBody(currentCardsData) {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
