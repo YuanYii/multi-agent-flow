@@ -38,10 +38,10 @@
 
         * { box-sizing: border-box; }
 
-        body {
+        html, body {
             margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: #ffffff;
+            background-color: var(--bg-color) !important;
             color: var(--text-main);
             display: flex;
             flex-direction: column;
@@ -575,7 +575,7 @@
             overflow-x: auto;
             overflow-y: hidden;
             padding: 14px 20px;
-            background: #ffffff;
+            background: var(--bg-color) !important;
             box-sizing: border-box;
         }
 
@@ -761,7 +761,7 @@
             box-sizing: border-box;
             display: block;
             position: relative;
-            background: #ffffff;
+            background: var(--card-bg) !important;
         }
         
         .data-table {
@@ -1078,7 +1078,18 @@
             --col-ops-bg: #262a31;
         }
 
-        [data-theme="dark"] body { background-color: var(--bg-color); color: var(--text-main); }
+        [data-theme="dark"],
+[data-theme="dark"] html,
+[data-theme="dark"] body,
+[data-theme="dark"] .view {
+    background-color: var(--bg-color) !important;
+    background: var(--bg-color) !important;
+    color: var(--text-main);
+}
+[data-theme="dark"] .table-container {
+    background-color: var(--card-bg) !important;
+    background: var(--card-bg) !important;
+}
         [data-theme="dark"] .header { background: var(--card-bg); }
         [data-theme="dark"] .toolbar { background: #1c1f23; }
         [data-theme="dark"] .board-title:focus { background: var(--card-bg); }
