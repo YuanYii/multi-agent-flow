@@ -101,7 +101,7 @@
             <div class="popover-title">卡片显示字段配置</div>
             <div class="checkbox-group">
                 <label class="checkbox-label" style="font-weight:600; padding-bottom:6px; margin-bottom:4px; border-bottom:1px dashed var(--border-color); color:var(--primary);">
-                    <input type="checkbox" checked data-field="showLabels" onchange="updateFieldConfig()"> 🏷️ 显示字段名称前缀 (Label)
+                    <input type="checkbox" checked data-field="showLabels" onchange="updateFieldConfig()"> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px; vertical-align:-1px;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>显示字段名称前缀 (Label)
                 </label>
                 <div style="display:flex; gap:8px; padding:2px 0 6px;">
                     <span style="cursor:pointer; color:var(--primary); font-size:12px;" onclick="setAllCardFields(true)">全选</span>
@@ -292,7 +292,7 @@
                     任务详情与全流程追溯
                 </span>
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <button class="btn sm" id="toggle-detail-edit-btn" onclick="toggleTaskEditMode()" title="切换为可编辑模式">✏️ 切换为编辑模式</button>
+                    <button class="btn sm" id="toggle-detail-edit-btn" onclick="toggleTaskEditMode()" title="切换为可编辑模式"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px; vertical-align:-1px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>切换为编辑模式</button>
                     <span style="cursor:pointer; font-size:18px; color:var(--text-muted);" onclick="closeDetailModal()">✕</span>
                 </div>
             </div>
@@ -383,7 +383,7 @@
     <div class="modal-overlay" id="transition-modal">
         <div class="modal-box" style="background:#ffffff; max-width: 520px;">
             <div class="modal-header">
-                <h3>📝 填写状态流转说明</h3>
+                <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:-2px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>填写状态流转说明</h3>
                 <button class="close-btn" onclick="cancelTransition()">&times;</button>
             </div>
             <div style="padding: 16px 0;">

@@ -1160,13 +1160,13 @@
             if (isTaskEditMode) {
                 if (readBox) readBox.style.display = 'none';
                 if (editBox) editBox.style.display = 'flex';
-                if (toggleBtn) toggleBtn.textContent = '👁️ 切换为查看详情';
+                if (toggleBtn) toggleBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px; vertical-align:-1px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>切换为查看详情';
                 if (saveBtn) saveBtn.style.display = 'inline-flex';
                 if (deleteBtn) deleteBtn.style.display = 'inline-flex';
             } else {
                 if (readBox) readBox.style.display = 'flex';
                 if (editBox) editBox.style.display = 'none';
-                if (toggleBtn) toggleBtn.textContent = '✏️ 切换为编辑模式';
+                if (toggleBtn) toggleBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px; vertical-align:-1px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>切换为编辑模式';
                 if (saveBtn) saveBtn.style.display = 'none';
                 if (deleteBtn) deleteBtn.style.display = 'none';
             }
@@ -1178,17 +1178,32 @@
             if (!card) return;
 
             // 1. Populate Edit Mode Inputs
-            document.getElementById('edit-original-id').value = card.id;
-            document.getElementById('edit-id').value = card.id;
-            document.getElementById('edit-seq').value = '#' + (card.seq || '-');
-            document.getElementById('edit-name').value = card.name || '';
-            document.getElementById('edit-wp').value = card.wp || '';
-            document.getElementById('edit-wbs').value = card.wbs || '';
-            document.getElementById('edit-assignee').value = card.assignee || '李开发';
-            document.getElementById('edit-status').value = card.status || '待开始';
-            document.getElementById('edit-est').value = card.est_hours || 0;
-            document.getElementById('edit-act').value = card.act_hours || 0;
-            document.getElementById('edit-process').value = card.process || card.remarks || '';
+            const editId = document.getElementById('edit-id');
+            const editSeq = document.getElementById('edit-seq');
+            const editName = document.getElementById('edit-name');
+            const editWp = document.getElementById('edit-wp');
+            const editWbs = document.getElementById('edit-wbs');
+            const editEst = document.getElementById('edit-est');
+            const editAct = document.getElementById('edit-act');
+            const editProcess = document.getElementById('edit-process');
+            const editOriginalId = document.getElementById('edit-original-id');
+
+            if (editId) editId.value = card.id;
+            if (editSeq) editSeq.value = card.seq;
+            if (editName) editName.value = card.name;
+            if (editWp) editWp.value = card.wp || card.stage || '';
+            if (editWbs) editWbs.value = card.wbs || '';
+            if (editEst) editEst.value = card.est_hours || 0;
+            if (editAct) editAct.value = card.act_hours || 0;
+            if (editProcess) editProcess.value = card.process || card.remarks || '';
+            if (editOriginalId) editOriginalId.value = card.id;
+
+            const editAssigneeInput = document.getElementById('edit-assignee');
+            if (editAssigneeInput) editAssigneeInput.value = card.assignee || '李开发';
+
+            const editStatusInput = document.getElementById('edit-status');
+            if (editStatusInput) editStatusInput.value = card.status || '待开始';
+
             refreshModalTagSelectors();
 
             // 2. Populate Read Mode View (Header Card & Attributes Grid)
@@ -1268,7 +1283,7 @@
                     }
 
                     item.innerHTML = `
-                        ${timeStr ? `<div class="timeline-time">⏱️ ${esc(timeStr)}</div>` : ''}
+                        ${timeStr ? `<div class="timeline-time"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${esc(timeStr)}</div>` : ''}
                         <div class="timeline-content">${esc(contentStr)}</div>
                     `;
                     timelineList.appendChild(item);
