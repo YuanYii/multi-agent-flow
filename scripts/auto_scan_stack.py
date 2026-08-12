@@ -91,7 +91,69 @@ def scan_project_stack(target_dir: str = PROJECT_ROOT) -> dict:
     return info
 
 
+def sync_stack_to_config(info: dict, target_project_dir: str = PROJECT_ROOT) -> bool:
+    """将扫描到的语言、框架、单测映射写回 project_architecture.config.yaml，并触发 update_agent_tech_stacks.py"""
+    import yaml
+    import shutil
+    import subprocess
+
+    config_dir = os.path.join(target_project_dir, "config")
+    config_path = os.path.join(config_dir, "project_architecture.config.yaml")
+
+    if not os.path.exists(config_path):
+        template_path = os.path.join(config_dir, "project_architecture.template.yaml")
+        if os.path.exists(template_path):
+            shutil.copy2(template_path, config_path)
+        else:
+            print(f"⚠️ 未找到架构配置文件: {config_path}")
+            return False
+
+    # 生成物理备份 .bak
+    bak_path = config_path + ".bak"
+    try:
+        shutil.copy2(config_path, bak_path)
+    except Exception:
+        pass
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+
+        if "tech_stack" not in cfg:
+            cfg["tech_stack"] = {}
+
+        langs = info.get("languages") or ["Python"]
+        fws = info.get("frameworks") or ["Pydantic / Web Framework"]
+        test_fw = info.get("testing_framework") or "pytest"
+
+        cfg["tech_stack"]["languages"] = [{"name": l, "version": "latest"} for l in langs]
+        cfg["tech_stack"]["frameworks"] = [{"name": fw, "type": "backend/frontend"} for fw in fws]
+        cfg["tech_stack"]["testing"] = {"framework": test_fw, "min_coverage_percent": 80}
+
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
+        print(f"💾 [配置同步] 已成功将识别出的技术栈写回 {config_path} (备份: {bak_path})")
+
+        # 联动触发 update_agent_tech_stacks.py 同步更新 agents/*.yaml
+        update_script = os.path.join(SCRIPT_DIR, "update_agent_tech_stacks.py")
+        if os.path.exists(update_script):
+            res = subprocess.run([sys.executable, update_script], capture_output=True, text=True)
+            if res.returncode == 0:
+                print("✨ [闭环同步完成] 已自动触发 update_agent_tech_stacks.py 完成全量 agents/*.yaml 同步！")
+            else:
+                print(f"⚠️ [警告] 触发 agents/*.yaml 同步失败: {res.stderr}")
+        return True
+    except Exception as e:
+        print(f"❌ [写回失败] 同步技术栈配置抛出异常: {e}")
+        return False
+
+
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="自动物理扫描项目依赖与 README 工具")
+    parser.add_argument("--write", action="store_true", help="自动将扫描到的技术栈同步落盘至 config 与 agents/*.yaml")
+    args = parser.parse_args()
+
     print("🔎 [auto_scan_stack] 正在物理代码扫描工程依赖与 README.md...")
     info = scan_project_stack()
 
@@ -102,6 +164,9 @@ def main():
     print(f"  - 识别核心框架: {', '.join(info['frameworks']) or 'Pydantic / Web Framework'}")
     print(f"  - 识别单测工具: {info['testing_framework']}")
     print("==============================================================================")
+
+    if args.write:
+        sync_stack_to_config(info)
 
 
 if __name__ == "__main__":

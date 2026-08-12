@@ -97,7 +97,7 @@ class GitHubProjectsAdapter:
 
     def update_record(self, record_id: str, fields: Dict[str, Any]) -> bool:
         """物理级 GraphQL 状态更新，贯彻 Fail-Closed：若缺少参数或 Mutation 失败严格 return False"""
-        project_id = fields.get("project_id")
+        project_id = fields.get("project_id") or os.environ.get("GITHUB_PROJECT_ID", "")
         status_field_id = fields.get("status_field_id")
         status_option_id = fields.get("status_option_id")
 

@@ -32,8 +32,24 @@ logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
 
+import time
+
+def cleanup_stale_locks(ttl_seconds: int = 300):
+    """自动清理超过 ttl_seconds (默认5分钟) 的旧垃圾锁文件"""
+    now = time.time()
+    for entry in os.listdir(SCRIPT_DIR):
+        if entry.startswith(".lock_") and entry.endswith(".lock"):
+            full_p = os.path.join(SCRIPT_DIR, entry)
+            try:
+                if os.path.isfile(full_p) and (now - os.path.getmtime(full_p)) > ttl_seconds:
+                    os.remove(full_p)
+            except Exception:
+                pass
+
+
 def acquire_concurrency_lock(task_id: str):
     """获取物理排他并发锁 (Fail-Closed：冲突则直接返回 None, None 阻断)"""
+    cleanup_stale_locks(300)
     lock_file = os.path.join(SCRIPT_DIR, f".lock_{task_id}.lock")
     try:
         f = open(lock_file, "w")
@@ -94,15 +110,13 @@ def transition_task_pipeline(
     logger.info(f"🔒 触发防错门控校验 ({from_status} ➔ {to_status}, 模式: {'DRY-RUN' if dry_run else 'REAL'})...", extra=extra_log)
 
     # 1. 尝试获取并发独占锁 (Fail-Closed 硬拦截)
-    #    自动编号场景 (task_id 为空) 不取 per-task 锁：编号分配由 OfflineBoardAdapter 内部
-    #    全局阻塞锁 (board.json.seq.lock) 串行化保证唯一，多个专家并发新建任务全部可成功。
-    lock_tuple = None
-    if resolved_task_id != "AUTO":
-        lock_tuple = acquire_concurrency_lock(resolved_task_id)
-        if not lock_tuple or not lock_tuple[0]:
-            logger.error(f"❌ [并发锁排他硬拦截] 任务 {resolved_task_id} 当前正被另一个进程独占写卡中，物理阻断！", extra=extra_log)
-            record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "物理并发排他锁硬拦截")
-            return False
+    #    AUTO 场景使用全局建单锁，特定 task_id 使用 per-task 锁
+    lock_key = resolved_task_id if resolved_task_id != "AUTO" else "auto_create_global"
+    lock_tuple = acquire_concurrency_lock(lock_key)
+    if not lock_tuple or not lock_tuple[0]:
+        logger.error(f"❌ [并发锁排他硬拦截] 任务 {resolved_task_id} (锁标识: {lock_key}) 当前正被另一个进程独占写卡中，物理阻断！", extra=extra_log)
+        record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "物理并发排他锁硬拦截")
+        return False
 
     try:
         # 2. 完整加载看板 Adapter 与配置文件格式断言 (dry-run 模式下也不跳过校验)
@@ -122,15 +136,50 @@ def transition_task_pipeline(
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "适配器缺失")
             return False
 
-        # 3. 强制运行防护门控 (并发上限透传，未通过则直接抛错中断！)
+        # 从配置与现有工单解析 task_name 与 max_parallel_tasks
+        role_cfg = cfg_data.get("roles", {}).get(current_role.upper(), {})
+        max_parallel = role_cfg.get("max_parallel_tasks", 3)
+
+        effective_task_name = task_name or ""
+        if resolved_task_id != "AUTO":
+            existing_rec = adapter.get_record(resolved_task_id)
+            if existing_rec:
+                f_data = existing_rec.get("fields", {})
+                board_task_name = f_data.get("task_name") or f_data.get("name") or ""
+                # 针对已存在看板卡片，防 CLI 伪造 [HOTFIX]，校验强制以看板记录的真实名称为准
+                if board_task_name:
+                    effective_task_name = board_task_name
+
+        # 动态解析活跃进行中任务数，防隐式逃逸并发限制
+        effective_active_dev_count = active_dev_count
+        if to_status == "进行中" and current_role.upper() in ["DEV", "FRONTEND"]:
+            try:
+                status_k = field_mapping.get("status", "status")
+                assignee_k = field_mapping.get("assignee", "assignee")
+                recs = adapter.list_records(limit=1000)
+                board_active_count = 0
+                for r in recs:
+                    f = r.get("fields", {})
+                    st_val = str(f.get(status_k) or f.get("status") or "")
+                    as_val = str(f.get(assignee_k) or f.get("assignee") or "")
+                    if st_val == "进行中" and (as_val == assignee or as_val == current_role):
+                        board_active_count += 1
+                effective_active_dev_count = max(active_dev_count, board_active_count)
+            except Exception:
+                pass
+
+        # 3. 强制运行防护门控 (并发上限与 HOTFIX 特权透传，未通过则直接抛错中断！)
         is_valid = validate(
             role=current_role,
             from_status=from_status,
             to_status=to_status,
             assignee=assignee,
             end_time=end_time or "",
-            active_dev_count=active_dev_count,
-            task_type=task_type
+            active_dev_count=effective_active_dev_count,
+            task_type=task_type,
+            task_name=effective_task_name,
+            max_parallel=max_parallel,
+            remarks=remarks or ""
         )
 
         if not is_valid:
@@ -208,6 +257,12 @@ def transition_task_pipeline(
         # 6. 执行物理原子写入
         update_fields = {status_key: to_status, assignee_key: assignee}
         if end_time: update_fields[end_time_key] = end_time
+        if stage: update_fields[field_mapping.get("stage", "stage")] = stage
+        if wp: update_fields[field_mapping.get("workpackage", "workpackage")] = wp
+        if wbs: update_fields[field_mapping.get("wbs_id", "wbs_id")] = wbs
+        if task_name: update_fields[field_mapping.get("task_name", "task_name")] = task_name
+
+        orig_assignee = (existing.get("fields", {}).get(assignee_key) if existing else None) or current_role
 
         try:
             success = adapter.update_record(resolved_record_id, update_fields)
@@ -229,7 +284,7 @@ def transition_task_pipeline(
                 rem_ok = adapter.append_remarks(resolved_record_id, remarks_key, remarks)
                 if not rem_ok:
                     logger.warning("⚠️ 结构化缺陷备注追加失败，准备执行物理原子补偿回滚...", extra=extra_log)
-                    rollback_fields = {status_key: from_status, assignee_key: current_role}
+                    rollback_fields = {status_key: from_status, assignee_key: orig_assignee}
                     # 回滚必须写回 resolved_record_id（auto-create 场景 record_id 为 None，原实现回滚静默失效）
                     adapter.update_record(resolved_record_id, rollback_fields)
                     logger.error("🔄 状态已物理回滚还原至原状态，拒绝非原子性中间态落库！", extra=extra_log)
@@ -237,7 +292,7 @@ def transition_task_pipeline(
                     return False
             except Exception as e:
                 logger.error(f"⚠️ 备注追加抛出异常 ({e})，执行物理原子补偿回滚...", extra=extra_log)
-                adapter.update_record(resolved_record_id, {status_key: from_status, assignee_key: current_role})
+                adapter.update_record(resolved_record_id, {status_key: from_status, assignee_key: orig_assignee})
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"备注异常回滚: {e}")
                 return False
 

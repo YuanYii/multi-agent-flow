@@ -204,3 +204,20 @@ def test_st31_to_st36_gateways_and_concurrency_limits():
     adapter = OfflineBoardAdapter(BOARD_FILE)
     rec_id = adapter.create_record({"name": "自动编号任务", "assignee": "李开发"})
     assert rec_id is not None and rec_id.startswith("T")
+
+
+def test_transition_existing_card_updates_extended_fields():
+    """测试流转已存在卡片时，传入的 stage, wp, wbs 扩展字段能被正确落库更新"""
+    ok = transition_task_pipeline(CONFIG_PATH, "T0099", "T0099", "PM", "待开始", "进行中", "李开发", "A", task_name="扩展字段测试", dry_run=False)
+    assert ok is True
+
+    # 更新流转并带入 stage 与 wp
+    ok = transition_task_pipeline(CONFIG_PATH, "T0099", "T0099", "DEV", "进行中", "审查中", "周审查", "A", stage="编码与测试", wp="后端开发", wbs="1.2.3", dry_run=False)
+    assert ok is True
+
+    adapter = OfflineBoardAdapter(BOARD_FILE)
+    rec = adapter.get_record("T0099")
+    assert rec["fields"]["stage"] == "编码与测试"
+    assert rec["fields"]["wp"] == "后端开发"
+    assert rec["fields"]["wbs"] == "1.2.3"
+

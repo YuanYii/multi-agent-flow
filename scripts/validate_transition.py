@@ -67,25 +67,39 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
 }
 
 
-def validate(role: str, from_status: str, to_status: str, assignee: str, end_time: str, active_dev_count: int, task_type: str = "A") -> bool:
+SPECIAL_DIRECT_COMPLETE_TYPES = ["B", "C", "D", "G"]
+
+
+def validate(role: str, from_status: str, to_status: str, assignee: str, end_time: str, active_dev_count: int, task_type: str = "A", task_name: str = "", max_parallel: int = 3, remarks: str = "", special_types: List[str] = None) -> bool:
     transition_key = f"{from_status} -> {to_status}"
     role_upper = role.upper()
     type_upper = task_type.upper()
+    direct_types = [t.upper() for t in (special_types or SPECIAL_DIRECT_COMPLETE_TYPES)]
 
     allowed_list = list(ROLE_BASE_PERMISSIONS.get(role_upper, []))
+    is_hotfix = bool(task_name and "[HOTFIX]" in task_name.upper())
 
     # 1. 任务类型特权解锁
+    # [HOTFIX] 紧急修复通道: 放行 DEV/FRONTEND 直接从 "进行中 -> 已完成"
+    if is_hotfix and role_upper in ["DEV", "FRONTEND"]:
+        allowed_list.append("进行中 -> 已完成")
+
     # F 类 (阶段总结): 解锁 PM 从 "进行中 -> 已完成"
     if role_upper == "PM" and type_upper == "F":
         allowed_list.append("进行中 -> 已完成")
 
-    # B(架构), C(文档), D(运维), G(环境搭建) 类任务: 解锁 DEV/FRONTEND 直接推至 "已完成"
-    if role_upper in ["DEV", "FRONTEND"] and type_upper in ["B", "C", "D", "G"]:
+    # 特权类任务 (默认 B 架构, C 文档, D 运维, G 环境搭建): 解锁 DEV/FRONTEND 直接推至 "已完成"
+    if role_upper in ["DEV", "FRONTEND"] and type_upper in direct_types:
         allowed_list.append("进行中 -> 已完成")
 
-    # A 类 (常规代码开发) 任务 DEV/FRONTEND 强行推已完成判断为违规越权
-    if role_upper in ["DEV", "FRONTEND"] and type_upper == "A" and transition_key == "进行中 -> 已完成":
+    # A 类 (常规代码开发) 任务 DEV/FRONTEND 强行推已完成判断为违规越权 (HOTFIX 豁免)
+    if role_upper in ["DEV", "FRONTEND"] and type_upper == "A" and transition_key == "进行中 -> 已完成" and not is_hotfix:
         print(f"[REJECT 越权拦截] {role_upper} 角色在 A 类 (常规代码开发) 任务中禁止直接推动至 '已完成'！必须先提交审查 (审查中 ➔ 测试中)！")
+        return False
+
+    # A 类 (常规代码开发) 任务 PM 强行推进行中 ➔ 已验收 判断为违规越权 (跳过 Review 与 QA)
+    if role_upper == "PM" and type_upper == "A" and transition_key == "进行中 -> 已验收":
+        print(f"[REJECT 越权拦截] PM 角色在 A 类 (常规代码开发) 任务中禁止直接由 '进行中' 推动至 '已验收'！必须经过代码审查与测试流程！")
         return False
 
     if not any(transition_key.startswith(allowed) for allowed in allowed_list):
@@ -97,6 +111,18 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
         print(f"[REJECT 原子更新拦截] 变更状态至 '{to_status}' 时必须同步指定处理人 (Assignee)！")
         return False
 
+    # 2.1 打回处理人定向核验：审查者/测试者打回时禁止将 Assignee 设为自身
+    if to_status == "已退回":
+        ROLE_SELF_NAMES = {
+            "REVIEWER": ["REVIEWER", "周审查", "REVIEWER_USER"],
+            "QA": ["QA", "章测试", "QA_USER"],
+            "PM": ["PM", "严经理", "PM_USER"]
+        }
+        forbidden_names = ROLE_SELF_NAMES.get(role_upper, [role_upper])
+        if assignee.strip().upper() in [f.upper() for f in forbidden_names]:
+            print(f"[REJECT 打回处理人拦截] 角色 {role_upper} 执行打回操作时，禁止将处理人 (Assignee) 设置为自身 ({assignee})！必须精确退回原开发负责人！")
+            return False
+
     # 3. 终态结束时间强校验 (E 类用户自执行任务豁免 end_time 强校验)
     if to_status in ["已完成", "已验收"] and not end_time:
         if type_upper == "E":
@@ -106,8 +132,8 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
             return False
 
     # 4. 开发人员并发上限核验
-    if role_upper in ["DEV", "FRONTEND"] and to_status == "进行中" and active_dev_count >= 3:
-        print(f"[REJECT 并发超限] 开发人员处于 '进行中' 任务数目前为 {active_dev_count}，超出并发上限 (≤3)！")
+    if role_upper in ["DEV", "FRONTEND"] and to_status == "进行中" and active_dev_count >= max_parallel:
+        print(f"[REJECT 并发超限] 开发人员处于 '进行中' 任务数目前为 {active_dev_count}，超出并发上限 (≤{max_parallel})！")
         return False
 
     print(f"[PASS 校验通过] 角色 {role_upper} (任务类型 {type_upper}) 推动 '{transition_key}' 满足所有五层防错门控。")
@@ -121,8 +147,11 @@ def main():
     parser.add_argument("--to-status", required=True, help="目标状态")
     parser.add_argument("--assignee", required=True, help="同步更新的处理人")
     parser.add_argument("--type", default="A", help="任务类型 (A-G)")
+    parser.add_argument("--task-name", default="", help="任务名称 (包含 [HOTFIX] 可触发极简通道)")
     parser.add_argument("--end-time", default="", help="结束时间 (终态必填)")
+    parser.add_argument("--remarks", default="", help="备注 (打回或补充信息)")
     parser.add_argument("--active-dev-count", type=int, default=1, help="当前开发人员进行中任务数")
+    parser.add_argument("--max-parallel", type=int, default=3, help="角色允许的最大并发上限")
 
     args = parser.parse_args()
 
@@ -133,7 +162,10 @@ def main():
         assignee=args.assignee,
         end_time=args.end_time,
         active_dev_count=args.active_dev_count,
-        task_type=args.type
+        task_type=args.type,
+        task_name=args.task_name,
+        max_parallel=args.max_parallel,
+        remarks=args.remarks
     )
 
     if not success:

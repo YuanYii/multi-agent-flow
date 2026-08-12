@@ -66,6 +66,11 @@ def generate_report(report_type: str, task_id: str, task_name: str, assignee: st
     content = content.replace("${TASK_NAME}", task_name)
     content = content.replace("${DEV_NAME}", assignee)
     content = content.replace("${QA_NAME}", assignee)
+    content = content.replace("${REVIEWER_NAME}", assignee)
+    content = content.replace("${ARCHITECT_NAME}", assignee)
+    content = content.replace("${DOCS_NAME}", assignee)
+    content = content.replace("${DEVOPS_NAME}", assignee)
+    content = content.replace("${PM_NAME}", assignee)
     content = content.replace("${DATE}", now_str)
     content = content.replace("${END_DATE}", now_str)
     content = content.replace("【填写任务名称】", task_name)
@@ -77,18 +82,21 @@ def generate_report(report_type: str, task_id: str, task_name: str, assignee: st
     if summary_content:
         content += f"\n\n### 📝 过程执行明细与补充记录 ({now_str})\n\n{summary_content}\n"
 
-    # 若报告文件已存在，则作为复验/复测结论追加模式（确保不产生孤儿报告）
-    mode = "a" if os.path.exists(output_path) else "w"
+    # 若报告文件已存在，则作为复验/复测结论追加模式（仅当带有非空文本时追加，避免空分隔线污染）
+    if os.path.exists(output_path):
+        if summary_content and summary_content.strip():
+            with open(output_path, "a", encoding="utf-8") as f:
+                f.write(f"\n\n---\n## 🔄 追加复验/复测记录 ({now_str})\n\n{summary_content}\n")
+            print(f"[SUCCESS] 已成功追加更新任务报告: {output_path}")
+        else:
+            print(f"[INFO] 任务报告已存在且无新增摘要文本，保持现有文件不变: {output_path}")
+        return True
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-    with open(output_path, mode, encoding="utf-8") as f:
-        if mode == "a":
-            f.write(f"\n\n---\n## 🔄 追加复验/复测记录 ({now_str})\n\n{summary_content}\n")
-        else:
-            f.write(content)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(content)
 
-    action = "追加更新" if mode == "a" else "创建生成"
-    print(f"[SUCCESS] 已成功{action}任务报告: {output_path}")
+    print(f"[SUCCESS] 已成功创建生成任务报告: {output_path}")
     return True
 
 def main(args: list = None):

@@ -213,13 +213,19 @@ class OfflineBoardAdapter:
             self._release_seq_lock(lock_f)
 
     def update_record(self, record_id: str, fields: Dict[str, Any]) -> bool:
-        """更新指定任务的状态/处理人/描述等字段；记录不存在返回 False。"""
+        """更新指定任务的状态/处理人/描述等字段；记录不存在或企图篡改已验收终态核心状态时返回 False。"""
         lock_f = self._acquire_seq_lock()
         try:
             cards = self._read_cards()
             for c in cards:
                 if str(c.get("id")) == str(record_id):
+                    # 防篡改硬拦截：在终态【已验收】时，禁止将其跨跃更新至非已验收状态
                     translated = self._translate(fields)
+                    if c.get("status") == "已验收":
+                        new_st = translated.get("status")
+                        if new_st and new_st != "已验收":
+                            print(f"[REJECT 终态防篡改] 任务 {record_id} 已处于最终【已验收】状态，绝对禁止将其修改为【{new_st}】！")
+                            return False
                     c.update(translated)
                     # 若存在开始与结束时间，自动按 (结束-开始) 计算实际工时 (分钟)
                     st = c.get("start_date") or c.get("start_time")
@@ -235,17 +241,35 @@ class OfflineBoardAdapter:
 
     @staticmethod
     def _calc_minutes(start_str: str, end_str: str) -> Optional[int]:
-        """计算开始与结束时间之间的分钟差值"""
+        """计算开始与结束时间之间的分钟差值（支持 ISO 8601 时区串与多种时间格式）"""
         from datetime import datetime
-        formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"]
-        s_dt, e_dt = None, None
-        for fmt in formats:
-            if not s_dt:
-                try: s_dt = datetime.strptime(str(start_str).strip(), fmt)
-                except Exception: pass
-            if not e_dt:
-                try: e_dt = datetime.strptime(str(end_str).strip(), fmt)
-                except Exception: pass
+        def parse_dt(s: Any) -> Optional[datetime]:
+            if not s:
+                return None
+            s_clean = str(s).strip()
+            # 优先使用 fromisoformat 解析 ISO 字符串 (例如 2026-08-11T23:00:00+08:00 或 Z)
+            try:
+                iso_str = s_clean.replace("Z", "+00:00")
+                return datetime.fromisoformat(iso_str)
+            except Exception:
+                pass
+            formats = [
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%d %H:%M",
+                "%Y-%m-%dT%H:%M:%S",
+                "%Y-%m-%d",
+                "%Y-%m-%d %H:%M:%S%z",
+                "%Y-%m-%dT%H:%M:%S%z",
+            ]
+            for fmt in formats:
+                try:
+                    return datetime.strptime(s_clean, fmt)
+                except Exception:
+                    pass
+            return None
+
+        s_dt = parse_dt(start_str)
+        e_dt = parse_dt(end_str)
         if s_dt and e_dt:
             diff_sec = (e_dt - s_dt).total_seconds()
             return max(1, int(diff_sec // 60))
@@ -280,7 +304,7 @@ class OfflineBoardAdapter:
             translated["id"] = task_id
             translated.setdefault("status", "进行中")
             translated.setdefault("wbs", "-")
-            translated.setdefault("wp", merged_fields.get("stage") or "-")
+            translated.setdefault("wp", "-")
             translated.setdefault("stage", merged_fields.get("stage") or "-")
             translated.setdefault("est_hours", "-")
             translated.setdefault("act_hours", 0)

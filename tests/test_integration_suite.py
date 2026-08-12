@@ -282,14 +282,11 @@ class IntegrationFlowTests(IsolatedBoardCase):
             self.assertEqual(r.returncode, 0, f"{tid} {r.stderr}")
             self.assertEqual(status_of(self.board_file, tid), STATUS_DONE)
 
-    @unittest.expectedFailure
     def test_it07_hotfix_fast_track_channel(self):
         """IT-07: [HOTFIX] 极简通道免审免测直达完成
 
-        已知缺陷 K1：rules/AGENTS.md 声明 [HOTFIX]/[DOCS]/ASS 极简通道（免审免测），
-        但 validate_transition.py 物理门控层未实现 —— DEV 在 A 类任务
-        "进行中 -> 已完成" 被硬拦截（越权防护）。文档契约与代码实现不一致。
-        修复方向：validate_transition.py 增加 HOTFIX 标签放行逻辑（待用户决策）。
+         validate_transition.py 已支持 [HOTFIX] 标签放行，
+        DEV 在 [HOTFIX] 任务中可直接将状态推至 "进行中 -> 已完成"。
         """
         r = transition(self.cfg_path, "T0015", "PM", STATUS_TODO, STATUS_IP, "Dev_User_1",
                        task_name="[HOTFIX] 紧急配置修复", task_type="A")

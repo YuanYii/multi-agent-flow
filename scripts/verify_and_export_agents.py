@@ -174,16 +174,81 @@ def generate_agent_content(data, meta, platform_key, proof_url):
     subagent_line = "subagent: true\n" if spec["frontmatter_subagent"] else ""
 
     role_task_map = {
-        "PM": {"type": "E", "next_status": "已验收", "next_assignee": name},
-        "ARCHITECT": {"type": "B", "next_status": "已完成", "next_assignee": "严经理"},
-        "DEV": {"type": "A", "next_status": "审查中", "next_assignee": "周审查"},
-        "FRONTEND": {"type": "A", "next_status": "审查中", "next_assignee": "周审查"},
-        "REVIEWER": {"type": "A", "next_status": "测试中", "next_assignee": "章测试"},
-        "QA": {"type": "A", "next_status": "已完成", "next_assignee": "严经理"},
-        "DOCS": {"type": "C", "next_status": "已完成", "next_assignee": "严经理"},
-        "DEVOPS": {"type": "D", "next_status": "已完成", "next_assignee": "严经理"}
+        "PM": {
+            "type": "E",
+            "next_status": "已验收",
+            "next_assignee": name,
+            "reject_status": "已退回",
+            "reject_assignee": "<原任务负责人>"
+        },
+        "ARCHITECT": {
+            "type": "B",
+            "next_status": "已完成",
+            "next_assignee": "严经理"
+        },
+        "DEV": {
+            "type": "A (常规开发) / G (环境搭建)",
+            "next_status": "审查中 (A类) / 已完成 (G类)",
+            "next_assignee": "周审查 (A类) / 严经理 (G类)"
+        },
+        "FRONTEND": {
+            "type": "A (常规开发) / G (环境搭建)",
+            "next_status": "审查中 (A类) / 已完成 (G类)",
+            "next_assignee": "周审查 (A类) / 严经理 (G类)"
+        },
+        "REVIEWER": {
+            "type": "A",
+            "next_status": "测试中",
+            "next_assignee": "章测试",
+            "reject_status": "已退回",
+            "reject_assignee": "李开发"
+        },
+        "QA": {
+            "type": "A",
+            "next_status": "已完成",
+            "next_assignee": "严经理",
+            "reject_status": "已退回",
+            "reject_assignee": "李开发"
+        },
+        "DOCS": {
+            "type": "C",
+            "next_status": "已完成",
+            "next_assignee": "严经理"
+        },
+        "DEVOPS": {
+            "type": "D",
+            "next_status": "已完成",
+            "next_assignee": "严经理"
+        }
     }
     t_info = role_task_map.get(role, {"type": "A", "next_status": "已完成", "next_assignee": "严经理"})
+
+    # 构造更完善的 SOP 指引段落
+    if "reject_status" in t_info:
+        third_step_str = f"""3. **🔹 第三步 (任务完成/流转/打回)**：
+   - **正常通过流转**：
+     ```bash
+     python3 scripts/transition_task.py --role {role} --from-status <当前状态> --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type A --end-time "$(date +'%Y-%m-%d %H:%M')"
+     ```
+   - **打回/驳回不通过**：
+     ```bash
+     python3 scripts/transition_task.py --role {role} --from-status <当前状态> --to-status {t_info['reject_status']} --assignee "{t_info['reject_assignee']}" --type A --remarks "DEF-TXXX-N: <结构化缺陷说明>"
+     ```"""
+    elif role in ["DEV", "FRONTEND"]:
+        third_step_str = f"""3. **🔹 第三步 (任务完成/提交审查)**：
+   - **A类常规开发提交审查**：
+     ```bash
+     python3 scripts/transition_task.py --role {role} --from-status 进行中 --to-status 审查中 --assignee "周审查" --type A
+     ```
+   - **G类环境搭建/独立任务直接完成**：
+     ```bash
+     python3 scripts/transition_task.py --role {role} --from-status 进行中 --to-status 已完成 --assignee "严经理" --type G --end-time "$(date +'%Y-%m-%d %H:%M')"
+     ```"""
+    else:
+        third_step_str = f"""3. **🔹 第三步 (任务完成/提交流转)**：
+   ```bash
+   python3 scripts/transition_task.py --role {role} --from-status 进行中 --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type {t_info['type']} --end-time "$(date +'%Y-%m-%d %H:%M')"
+   ```"""
 
     content = f"""---
 name: {agent_id}
@@ -207,17 +272,14 @@ description: multi-agent-flow 中的 {name} 专家子代理 (针对 {spec['name'
 
 > 🔴 **【物理硬拦截红线】** 当你被唤起/调度执行任何项目任务时，**必须且只能分物理两步运行 CLI 命令**！若看板中无工单，**绝对禁止在最后一步直接新建已完成工单**（物理系统将直接阻断抛错）！你必须严格执行以下物理三步 SOP：
 
-1. **🔹 第一步 (任务接收/即时建单为进行中)**：在刚接收任务、开始编码/撰写前，**必须首先调用 `run_command` 工具**运行 CLI 命令初始化建单为 `进行中`。负责人填写中文名（如 `"{name}"`），默认字段填 `-`：
+1. **🔹 第一步 (任务接收/即时建单为进行中)**：在刚接收任务、开始编码/撰写前，**必须首先调用 `run_command` 工具**运行 CLI 命令初始化建单为 `进行中`（从 `待开始` 或打回后的 `已退回` 均置为 `进行中`）。负责人填写中文名（如 `"{name}"`），默认字段填 `-`：
    ```bash
-   python3 scripts/transition_task.py --role {role} --from-status 待开始 --to-status 进行中 --assignee "{name}" --type {t_info['type']} --task-name "<当前任务名称>" --wbs "-" --wp "-" --est-hours "-"
+   python3 scripts/transition_task.py --role {role} --from-status <待开始|已退回> --to-status 进行中 --assignee "{name}" --type <A|B|C|D|E|F|G> --task-name "<当前任务名称>" --wbs "-" --wp "-" --est-hours "-"
    ```
 
 2. **🔹 第二步 (领域工作执行)**：在工作区完成对应的代码开发、架构设计、文档撰写、代码审查或测试工作。
 
-3. **🔹 第三步 (任务完成/提交流转)**：工作完成后，**必须再次调用 `run_command` 工具**运行 CLI 命令推动看板至下一阶段（系统自动按分钟计算 `act_hours`）。**仅在用户显式说明备注时才添加 `--remarks` 参数**：
-   ```bash
-   python3 scripts/transition_task.py --role {role} --from-status 进行中 --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type {t_info['type']} --end-time "$(date +'%Y-%m-%d %H:%M')"
-   ```
+{third_step_str}
 
 ## 🚫 行为边界与红线
 - 允许编码 (can_code): {boundaries.get('can_code', False)}

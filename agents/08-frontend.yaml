@@ -30,6 +30,6 @@ tools:
   - python3 scripts/transition_task.py
   - python3 scripts/generate_report.py
 tech_stack:
-  web_frameworks: Pydantic
+  web_frameworks: Vanilla JS / Web Standards
   styling: Vanilla CSS / CSS Modules
   ui_principles: Vanilla JS, Responsive, Function-Driven Design

@@ -128,3 +128,22 @@ def test_init_board_file_no_overwrite(tmpdir):
     init_board_file(board_file)
     with open(board_file, encoding="utf-8") as f:
         assert json.load(f) == []
+
+
+def test_create_record_workpackage_default_dash(tmpdir):
+    """建单时未提供 workpackage 不得被错填为 stage 字段值，默认为 '-'"""
+    adapter, _ = _make_adapter(tmpdir)
+    tid = adapter.create_record({"task_name": "阶段与工作包隔离测试", "stage": "界面开发"})
+    rec = adapter.get_record(tid)
+    assert rec["fields"]["stage"] == "界面开发"
+    assert rec["fields"]["wp"] == "-"
+
+
+def test_update_record_accepted_terminal_protection(tmpdir):
+    """对于已处于【已验收】终态的卡片，硬阻断篡改其核心状态为非已验收状态"""
+    adapter, _ = _make_adapter(tmpdir, seed=[{"id": "T0088", "name": "已验收卡片", "status": "已验收"}])
+    res = adapter.update_record("T0088", {"status": "进行中"})
+    assert res is False
+    rec = adapter.get_record("T0088")
+    assert rec["fields"]["status"] == "已验收"
+

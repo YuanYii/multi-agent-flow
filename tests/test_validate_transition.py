@@ -104,3 +104,50 @@ def test_assignee_required_for_transition():
         task_type="A"
     )
     assert res is False
+
+
+def test_pm_cannot_directly_accept_a_type_task():
+    """测试 PM 角色禁止将 A 类 (常规代码开发) 任务直接从进行中拉升至已验收"""
+    res = validate(
+        role="PM",
+        from_status="进行中",
+        to_status="已验收",
+        assignee="严经理",
+        end_time="2026-08-11 12:00",
+        active_dev_count=1,
+        task_type="A"
+    )
+    assert res is False
+
+
+def test_reviewer_cannot_reject_to_self_assignee():
+    """测试 REVIEWER / QA 打回时禁止将 Assignee 设为自身"""
+    res = validate(
+        role="REVIEWER",
+        from_status="审查中",
+        to_status="已退回",
+        assignee="周审查",
+        end_time="",
+        active_dev_count=1,
+        task_type="A"
+    )
+    assert res is False
+
+    res_ok = validate(
+        role="REVIEWER",
+        from_status="审查中",
+        to_status="已退回",
+        assignee="李开发",
+        end_time="",
+        active_dev_count=1,
+        task_type="A"
+    )
+    assert res_ok is True
+
+
+def test_iso8601_timezone_calc_minutes():
+    """测试 ISO 8601 带时区戳计算分钟差值"""
+    from offline_board_adapter import OfflineBoardAdapter
+    res = OfflineBoardAdapter._calc_minutes("2026-08-11T23:00:00+08:00", "2026-08-11T23:15:00+08:00")
+    assert res == 15
+

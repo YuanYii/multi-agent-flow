@@ -27,11 +27,17 @@ def scan_file(file_path: str) -> List[Tuple[int, str, str]]:
     try:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             for line_num, line in enumerate(f, 1):
-                if line.strip().startswith('#') or '${' in line:
+                clean_line = line.strip()
+                if clean_line.startswith('#'):
                     continue
                 for pattern, desc in SECRET_PATTERNS:
-                    if pattern.search(line):
-                        findings.append((line_num, desc, line.strip()))
+                    match = pattern.search(line)
+                    if match:
+                        matched_str = match.group(0)
+                        # 如果匹配内容纯粹且完全是规范的变量占位符如 ${FEISHU_BASE_TOKEN}，则视为符合规范
+                        if re.match(r'^\$\{[A-Za-z0-9_:-]+\}$', matched_str.strip()):
+                            continue
+                        findings.append((line_num, desc, clean_line))
     except Exception as e:
         print(f"[WARN] 无法读取文件 {file_path}: {e}")
     return findings
@@ -43,8 +49,7 @@ def main():
 
     total_issues = 0
     scan_dirs = [
-        os.path.join(WORKFLOW_ROOT, "config"),
-        os.path.join(WORKFLOW_ROOT, "scripts")
+        os.path.join(WORKFLOW_ROOT, d) for d in ["config", "scripts", "agents", "docs", "kanban"]
     ]
 
     for s_dir in scan_dirs:

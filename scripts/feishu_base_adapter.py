@@ -79,11 +79,23 @@ class FeishuBaseAdapter:
             "--table-id", self.table_id,
             "--record-id", record_id,
             "--json", task_json,
-            "--as", "user"
+            "--as", "user",
+            "--format", "json"
         ]
         try:
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
-            return res.returncode == 0 and '"updated": true' in res.stdout.lower()
+            if res.returncode != 0:
+                return False
+            # 优先进行结构化 JSON 响应断言
+            try:
+                data = json.loads(res.stdout)
+                if isinstance(data, dict):
+                    if data.get("code") == 0 or data.get("data", {}).get("updated") is True:
+                        return True
+            except Exception:
+                pass
+            # 结构解析失败降级为包含匹配
+            return '"updated": true' in res.stdout.lower() or '"record_id"' in res.stdout.lower()
         except Exception:
             return False
 

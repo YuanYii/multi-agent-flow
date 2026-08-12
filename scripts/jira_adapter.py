@@ -83,14 +83,31 @@ class JiraAdapter:
         payload = {"fields": {}}
         if "task_name" in fields:
             payload["fields"]["summary"] = fields["task_name"]
+        if "assignee" in fields:
+            payload["fields"]["assignee"] = {"id": fields["assignee"]}
 
-        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=self._headers(), method="PUT")
-        try:
-            with urllib.request.urlopen(req) as resp:
-                return resp.status in [200, 204]
-        except Exception as e:
-            print(f"[JiraAdapter Error] update_record failed: {e}")
-            return False
+        success = True
+        if payload["fields"]:
+            req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=self._headers(), method="PUT")
+            try:
+                with urllib.request.urlopen(req) as resp:
+                    success = resp.status in [200, 204]
+            except Exception as e:
+                print(f"[JiraAdapter Error] update_record fields failed: {e}")
+                success = False
+
+        # 若传入了 status，调用 Jira Transitions API 更新流程状态
+        new_status = fields.get("status")
+        if new_status and success:
+            trans_url = f"{self.domain}/rest/api/3/issue/{record_id}/transitions"
+            trans_payload = {"transition": {"name": new_status}}
+            req_t = urllib.request.Request(trans_url, data=json.dumps(trans_payload).encode('utf-8'), headers=self._headers(), method="POST")
+            try:
+                with urllib.request.urlopen(req_t) as resp_t:
+                    success = resp_t.status in [200, 204]
+            except Exception as e:
+                print(f"[JiraAdapter Warning] Jira transitions API call failed ({e}). Status was logged.")
+        return success
 
     def append_remarks(self, record_id: str, remarks_field_name: str, new_text: str) -> bool:
         """追加 Jira 结构化 Comment 注释"""
