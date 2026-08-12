@@ -1345,7 +1345,24 @@
             scroll-behavior: smooth;
         }
 
+        .timeline-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            width: 100%;
+        }
+
+        .timeline-node {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+
         .timeline-item {
+            flex: 1;
             position: relative;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -1355,19 +1372,10 @@
             flex-direction: column;
             gap: 4px;
             font-size: 12px;
-            flex-shrink: 0;
         }
 
         .timeline-item::before {
-            content: "";
-            position: absolute;
-            left: -25px;
-            top: 14px;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--primary);
-            box-shadow: 0 0 0 3px var(--card-bg);
+            display: none;
         }
 
         .timeline-item.defect::before {
@@ -1377,6 +1385,48 @@
         .timeline-time {
             color: var(--text-muted);
             font-size: 11px;
+        }
+
+        .timeline-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 2px;
+        }
+
+        .timeline-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.2;
+            margin-left: auto;
+        }
+
+        .timeline-status-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.3;
+            border: 1px solid rgba(0,0,0,0.06);
+            white-space: nowrap;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .timeline-status-tag .ts-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
         }
 
         .clickable-row:hover {

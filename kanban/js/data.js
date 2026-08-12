@@ -29,7 +29,7 @@
                 const res = await fetch('./board.json?t=' + Date.now());
                 if (res.ok) {
                     const fileData = await res.json();
-                    if (Array.isArray(fileData)) {
+                    if (Array.isArray(fileData) && fileData.length > 0) {
                         rawCardsData = fileData;
                         localStorage.setItem('offline_board_cards_v3', JSON.stringify(rawCardsData));
                         applyFilters();

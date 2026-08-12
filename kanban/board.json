@@ -1,12 +1,14 @@
 [
   {
-    "name": "自动编号任务",
-    "assignee": "李开发",
-    "id": "T0001",
-    "status": "进行中",
-    "wbs": "-",
-    "wp": "-",
-    "stage": "-",
+    "id": "T0099",
+    "name": "扩展字段测试",
+    "status": "审查中",
+    "assignee": "周审查",
+    "handler": "PM",
+    "stage": "编码与测试",
+    "wp": "后端开发",
+    "wbs": "1.2.3",
+    "start_date": "2026-08-12 10:13:39",
     "est_hours": "-",
     "act_hours": 0,
     "seq": 1

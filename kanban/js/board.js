@@ -1240,6 +1240,10 @@
 
             const attrGrid = document.getElementById('detail-attr-grid');
             if (attrGrid) {
+                let cleanRemarks = (card.remarks || '暂无备注').replace(/\\n/g, '\n');
+                let remarkLines = cleanRemarks.split('\n').map(l => l.trim()).filter(Boolean);
+                let uniqueRemarks = Array.from(new Set(remarkLines)).join('\n');
+
                 attrGrid.innerHTML = `
                     <div class="detail-item">
                         <span class="detail-label">阶段 / 工作包</span>
@@ -1255,11 +1259,11 @@
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">时间周期</span>
-                        <span class="detail-value">${esc(card.start_time || '-')} ~ ${esc(card.end_time || '-')}</span>
+                        <span class="detail-value">${esc(card.start_date || card.start_time || '-')} ~ ${esc(card.end_date || card.end_time || '-')}</span>
                     </div>
                     <div class="detail-item" style="grid-column: 1 / -1;">
                         <span class="detail-label">核心备注</span>
-                        <span class="detail-value" style="font-weight:400;">${esc(card.remarks || '暂无备注')}</span>
+                        <span class="detail-value" style="font-weight:400; white-space: pre-wrap; word-break: break-word;">${esc(uniqueRemarks)}</span>
                     </div>
                 `;
             }
@@ -1274,34 +1278,79 @@
                 if (card.history && card.history !== card.process) rawLogs.push(card.history);
                 if (card.remarks && !card.process) rawLogs.push(`[备注记录] ${card.remarks}`);
 
-                let lines = rawLogs.join('\n').split('\n').map(l => l.trim()).filter(Boolean);
+                let rawStr = rawLogs.join('\n').replace(/\\n/g, '\n');
+                let lines = rawStr.split('\n').map(l => l.trim()).filter(Boolean);
                 
                 // 智能保底推演：若没有任何显式日志行，自动基于元数据推导首条初始化流转记录
                 if (lines.length === 0) {
                     lines = [
-                        `[系统初始化] 任务 [${card.id}] 已推入看板，当前状态【${card.status || '待开始'}】，负责人: ${card.assignee || '未分配'}`
+                        `[${card.start_date || '系统初始化'}] [待开始] 任务 [${card.id}] 已推入看板，当前状态【${card.status || '待开始'}】，负责人: ${card.assignee || '未分配'}`
                     ];
-                    if (card.remarks) lines.push(`[说明/备注] ${card.remarks}`);
+                    if (card.status === '进行中' || card.status === '审查中' || card.status === '测试中' || card.status === '已完成' || card.status === '已验收') {
+                        lines.push(`[${card.start_date || '执行阶段'}] [进行中] 开始排查与执行任务`);
+                    }
+                    if (card.status === '已完成' || card.status === '已验收') {
+                        lines.push(`[${card.end_date || '完成阶段'}] [${card.status}] ${card.remarks || '完成任务规范排查与归档'}`);
+                    }
                 }
 
-                lines.forEach(line => {
-                    const item = document.createElement('div');
+                let uniqueLines = Array.from(new Set(lines));
+
+                uniqueLines.forEach(line => {
+                    const row = document.createElement('div');
+                    row.className = 'timeline-row';
+
                     const isDefect = line.includes('DEF-') || line.includes('DEFECT') || line.includes('退回') || line.includes('阻塞');
-                    item.className = `timeline-item ${isDefect ? 'defect' : ''}`;
                     
                     let timeStr = '';
                     let contentStr = line;
+                    let statusTag = '';
+
+                    // 1. 时间提取
                     const timeMatch = line.match(/^\[(\d{4}-\d{2}-\d{2}[^\]]*)\]\s*(.*)$/);
                     if (timeMatch) {
                         timeStr = timeMatch[1];
                         contentStr = timeMatch[2];
                     }
 
-                    item.innerHTML = `
-                        ${timeStr ? `<div class="timeline-time"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${esc(timeStr)}</div>` : ''}
-                        <div class="timeline-content">${esc(contentStr)}</div>
+                    // 2. 状态标签提取与扣除
+                    const statusMatch = contentStr.match(/^\[(进行中|已完成|待开始|审查中|测试中|已退回|已阻塞|已验收)\]\s*(.*)$/);
+                    if (statusMatch) {
+                        statusTag = statusMatch[1];
+                        contentStr = statusMatch[2];
+                    } else {
+                        const midMatch = contentStr.match(/\[(进行中|已完成|待开始|审查中|测试中|已退回|已阻塞|已验收)\]/);
+                        if (midMatch) {
+                            statusTag = midMatch[1];
+                            contentStr = contentStr.replace(midMatch[0], '').trim();
+                        } else {
+                            if (contentStr.includes('进行中') || contentStr.includes('开始排查') || contentStr.includes('处理中')) statusTag = '进行中';
+                            else if (contentStr.includes('已完成') || contentStr.includes('完成')) statusTag = '已完成';
+                            else if (contentStr.includes('已验收') || contentStr.includes('验收')) statusTag = '已验收';
+                            else if (contentStr.includes('审查')) statusTag = '审查中';
+                            else if (contentStr.includes('测试')) statusTag = '测试中';
+                            else if (contentStr.includes('退回') || contentStr.includes('打回')) statusTag = '已退回';
+                            else if (contentStr.includes('阻塞')) statusTag = '已阻塞';
+                            else if (contentStr.includes('待开始') || contentStr.includes('接收') || contentStr.includes('初始化')) statusTag = '待开始';
+                        }
+                    }
+
+                    let statusBadgeHTML = '';
+                    if (statusTag) {
+                        const st = getBadgeStyle('status', statusTag);
+                        statusBadgeHTML = `<span class="timeline-status-tag" style="background:${st.bg};color:${st.text};"><span class="ts-dot" style="background:${st.text}"></span><span class="ts-label">${esc(statusTag)}</span></span>`;
+                    }
+
+                    row.innerHTML = `
+                        <div class="timeline-node">
+                            ${statusBadgeHTML}
+                        </div>
+                        <div class="timeline-item ${isDefect ? 'defect' : ''}">
+                            ${timeStr ? `<div class="timeline-time"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${esc(timeStr)}</div>` : ''}
+                            <div class="timeline-content" style="word-break:break-word; line-height:1.4; color:var(--text-color);">${esc(contentStr)}</div>
+                        </div>
                     `;
-                    timelineList.appendChild(item);
+                    timelineList.appendChild(row);
                 });
             }
 
