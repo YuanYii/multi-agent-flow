@@ -7,6 +7,8 @@ Multi-Agent Flow · 零依赖简易 HTTP 看板 Web 服务
 
 import sys
 import os
+import json
+import tempfile
 import argparse
 import socket
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -39,6 +41,17 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=KANBAN_DIR, **kwargs)
 
+    def end_headers(self):
+        # 统一追加跨域与无缓存控制头
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        super().end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.end_headers()
+
     def do_GET(self):
         # 1. 根路径重定向
         if self.path in ("/", "/index.html", "/offline_board"):
@@ -67,6 +80,43 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 return
 
         return super().do_GET()
+
+    def do_POST(self):
+        clean_path = self.path.split("?")[0]
+        if clean_path in ("/board.json", "/user_data/board.json", "/api/save_board"):
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                if content_length <= 0:
+                    self.send_error(400, "Empty payload")
+                    return
+
+                post_body = self.rfile.read(content_length).decode("utf-8")
+                cards_data = json.loads(post_body)
+                if not isinstance(cards_data, list):
+                    self.send_error(400, "Payload must be a JSON array of cards")
+                    return
+
+                # 原子写入 user_data/board.json
+                os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
+                target_dir = os.path.dirname(USER_DATA_BOARD)
+                with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
+                    json.dump(cards_data, tf, indent=2, ensure_ascii=False)
+                    tmp_name = tf.name
+
+                os.replace(tmp_name, USER_DATA_BOARD)
+
+                resp_payload = json.dumps({"status": "ok", "message": "Saved successfully", "count": len(cards_data)}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(resp_payload)))
+                self.end_headers()
+                self.wfile.write(resp_payload)
+                return
+            except Exception as e:
+                self.send_error(500, f"Failed to save board data: {e}")
+                return
+
+        self.send_error(404, "Not Found")
 
     def log_message(self, format, *args):
         # 保持控制台日志简洁
