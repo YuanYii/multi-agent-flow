@@ -312,9 +312,34 @@ async function syncBoardDataToServer() {
 }
 
 /**
- * 纯静态客户端导出: 将当前看板全量卡片生成 board.json 并触发浏览器文件下载
+ * 纯静态客户端导出: 唤起导出确认与说明模态弹窗
  */
 function exportBoardJSON() {
+    openExportModal();
+}
+
+function openExportModal() {
+    const countEl = document.getElementById('export-task-count');
+    if (countEl) {
+        countEl.innerText = rawCardsData.length;
+    }
+    const modal = document.getElementById('export-modal');
+    if (modal) {
+        modal.classList.add('show');
+    }
+}
+
+function closeExportModal() {
+    const modal = document.getElementById('export-modal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+}
+
+/**
+ * 用户在弹窗确认后执行真正的文件下载
+ */
+function confirmAndExecuteExport() {
     try {
         const dataStr = JSON.stringify(rawCardsData, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
@@ -326,7 +351,8 @@ function exportBoardJSON() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showToast('已成功导出 board.json 文件！');
+        closeExportModal();
+        showToast(`已成功导出 ${rawCardsData.length} 项任务至 board.json 文件！`);
     } catch (err) {
         alert('导出 JSON 失败: ' + err.message);
     }

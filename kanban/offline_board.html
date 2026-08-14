@@ -410,6 +410,40 @@
         </div>
     </div>
 
+    <!-- 导出数据确认与说明对话框 -->
+    <div class="modal-overlay" id="export-modal">
+        <div class="modal-box" style="background:#ffffff; max-width: 480px;">
+            <div class="modal-header">
+                <h3 style="display:flex; align-items:center; gap:8px; color:var(--text-main); font-size:16px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    导出 board.json 任务工单
+                </h3>
+                <button class="close-btn" onclick="closeExportModal()" title="关闭"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div style="padding:16px 0; font-size:13px; color:var(--text-main); line-height:1.6; display:flex; flex-direction:column; gap:12px;">
+                <div style="background:var(--col-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                    <div style="font-weight:600; margin-bottom:4px; color:var(--text-main);">[数据统计] 导出数据概览</div>
+                    <div style="color:var(--text-muted);">
+                        当前看板共有 <strong style="color:var(--primary);" id="export-task-count">0</strong> 项任务工单（包含完整属性、历史流转追溯与缺陷日志）。
+                    </div>
+                </div>
+                <div>
+                    <div style="font-weight:600; margin-bottom:6px; color:var(--text-main);">[使用说明] 导出文件用途与指引：</div>
+                    <ul style="margin:0; padding-left:18px; color:var(--text-muted); display:flex; flex-direction:column; gap:4px;">
+                        <li>导出的文件为标准 JSON 格式，默认命名为 <code>board.json</code>；</li>
+                        <li>可用于跨工程迁移、离线环境备份或团队流转存档；</li>
+                        <li>将导出的文件放置于项目的 <code>user_data/board.json</code> 可直接作为运行态数据源；</li>
+                        <li>支持在任意时刻通过顶部工具栏的 <strong>【导入 JSON】</strong> 重新载入。</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-actions" style="border-top:1px solid var(--border-color); padding-top:12px; margin-top:0;">
+                <button class="btn" onclick="closeExportModal()">取消</button>
+                <button class="btn primary-btn" onclick="confirmAndExecuteExport()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 确认导出并下载</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 看板风格统一确认对话框 -->
     <div class="modal-overlay" id="confirm-modal">
         <div class="modal-box" style="background:#ffffff; max-width: 440px;">
