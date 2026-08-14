@@ -7,7 +7,7 @@
 
         // Person Multi-Select State & Logic
         let selectedPersons = new Set();
-        const allPersons = ['严经理', '钱架构', '李开发', '前端开发', '曹艾', '周审查', '章测试', '李文通', '吕改特'];
+        const allPersons = ['严经理', '钱架构', '李开发', '马前端', '周审查', '章测试', '李文通', '吕改特'];
 
         function renderPersonCheckboxList() {
             const container = document.getElementById('person-checkbox-list');
@@ -116,7 +116,6 @@
             { name: "钱架构" },
             { name: "李开发" },
             { name: "马前端" },
-            { name: "曹艾" },
             { name: "周审查" },
             { name: "章测试" },
             { name: "李文通" },
@@ -1350,7 +1349,7 @@
 
                     // 2. 多维智能标签提取 (状态 / 负责人移交 / 阶段工作包 / 记录保底)
                     const validStatuses = ['待开始', '进行中', '审查中', '测试中', '已完成', '已验收', '已退回', '已阻塞', '已取消'];
-                    const validPersons = ['严经理', '钱架构', '李开发', '马前端', '前端开发', '周审查', '章测试', '李文通', '吕改特', '曹艾'];
+                    const validPersons = ['严经理', '钱架构', '李开发', '马前端', '前端开发', '周审查', '章测试', '李文通', '吕改特'];
                     const validStages = ['Phase-1', 'Phase-2', 'Phase-3', 'WP1-需求', 'WP2-后端', 'WP2-前端', 'WP3-测试', 'WP4-运维'];
 
                     let tagType = '';
