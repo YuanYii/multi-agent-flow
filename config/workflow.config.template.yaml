@@ -9,10 +9,10 @@ project:
   root_dir: "./"
 
 # 看板配置 (支持 feishu_base, jira, github_projects, local)
-# 离线模式示例 (无需任何凭证/网络, 数据存本地 kanban/board.json):
+# 离线模式示例 (无需任何凭证/网络, 数据存本地 user_data/board.json):
 #   board:
 #     provider: "local"
-#     board_file: "kanban/board.json"   # 离线看板 JSON 文件路径
+#     board_file: "user_data/board.json"   # 离线看板 JSON 文件路径
 #     fields:
 #       task_id: "task_id"
 #       task_name: "task_name"
@@ -24,7 +24,7 @@ project:
 # 看板配置 (默认: local 离线看板；支持配置为 feishu_base, jira, github_projects)
 board:
   provider: "local"
-  board_file: "kanban/board.json"   # 离线看板 JSON 文件路径
+  board_file: "user_data/board.json"   # 离线看板 JSON 文件路径
   
   # 看板字段 ID 或 字段名映射 (可通过 scripts/init_field_mapping.py 自动生成)
   fields:

@@ -458,8 +458,9 @@ class IntegrationPipelineTests(IsolatedBoardCase):
         self.assertNotEqual(r.returncode, 0)
 
     def test_it24_audit_trail_logged_for_each_transition(self):
-        """IT-24: 每次流转写审计日志（logs/audit_trail.log 结构化事件）"""
-        audit_file = os.path.join(PROJECT_ROOT, "logs", "audit_trail.log")
+        """IT-24: 每次流转写审计日志（audit_trail.log 结构化事件）"""
+        from audit_logger import get_audit_log_file
+        audit_file = get_audit_log_file()
         before_count = 0
         if os.path.exists(audit_file):
             with open(audit_file, "r", encoding="utf-8") as f:
@@ -533,7 +534,9 @@ class IntegrationKanbanTests(unittest.TestCase):
         """IT-26: HTTP 拉取 board.json 与本地文件物理一致"""
         status, body = self.http_get("/board.json")
         self.assertEqual(status, 200)
-        disk = open(os.path.join(KANBAN_DIR, "board.json"), "r", encoding="utf-8").read()
+        user_board = os.path.join(PROJECT_ROOT, "user_data", "board.json")
+        target_file = user_board if os.path.exists(user_board) else os.path.join(KANBAN_DIR, "board.json")
+        disk = open(target_file, "r", encoding="utf-8").read()
         self.assertEqual(json.loads(body), json.loads(disk), "服务数据与磁盘数据不一致")
 
     def test_it27_static_assets_all_resolvable(self):

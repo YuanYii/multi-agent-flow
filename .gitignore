@@ -9,10 +9,16 @@ __pycache__/
 *.swp
 *.swo
 
-# Local runtime configs, logs, and agent outputs
+# Local runtime configs, logs, lock files, and agent outputs
 config/workflow.config.yaml
 config/project_architecture.config.yaml
+user_data/workflow.config.yaml
+user_data/project_architecture.config.yaml
+user_data/logs/
 logs/
+*.lock
+user_data/*.lock
+.lock_*
 .drafts/
 docs/.drafts/
 .agents/

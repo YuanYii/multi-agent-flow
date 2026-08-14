@@ -24,12 +24,26 @@ python3 "${SCRIPT_DIR}/verify_and_export_agents.py"
 echo "🔎 [Step 3/7] 自动代码物理扫描工程基础设施、依赖文件与语言技术栈配置..."
 python3 "${SCRIPT_DIR}/auto_scan_stack.py"
 
-echo "📝 [Step 4/7] 复制模板并落库生成 project_architecture.config.yaml..."
-if [ ! -f "${PROJECT_ROOT}/config/project_architecture.config.yaml" ]; then
-    cp "${PROJECT_ROOT}/config/project_architecture.template.yaml" "${PROJECT_ROOT}/config/project_architecture.config.yaml"
-    echo "  - 已成功生成 config/project_architecture.config.yaml 物理配置"
+echo "📝 [Step 4/7] 初始化宿主数据资产目录 user_data/ 并生成工作流与架构配置..."
+mkdir -p "${PROJECT_ROOT}/user_data" "${PROJECT_ROOT}/user_data/logs"
+
+if [ ! -f "${PROJECT_ROOT}/user_data/workflow.config.yaml" ]; then
+    cp "${PROJECT_ROOT}/config/workflow.config.template.yaml" "${PROJECT_ROOT}/user_data/workflow.config.yaml"
+    echo "  - 已成功生成 user_data/workflow.config.yaml 物理配置"
 else
-    echo "  - 已存在配置文件，保持原有技术架构配置。"
+    echo "  - 已存在工作流配置 user_data/workflow.config.yaml，保持原状。"
+fi
+
+if [ ! -f "${PROJECT_ROOT}/user_data/project_architecture.config.yaml" ]; then
+    cp "${PROJECT_ROOT}/config/project_architecture.template.yaml" "${PROJECT_ROOT}/user_data/project_architecture.config.yaml"
+    echo "  - 已成功生成 user_data/project_architecture.config.yaml 物理配置"
+else
+    echo "  - 已存在架构配置，保持原有技术架构配置。"
+fi
+
+if [ ! -f "${PROJECT_ROOT}/user_data/board.json" ]; then
+    echo "[]" > "${PROJECT_ROOT}/user_data/board.json"
+    echo "  - 已成功初始化空看板工单 user_data/board.json"
 fi
 
 echo "📂 [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..."

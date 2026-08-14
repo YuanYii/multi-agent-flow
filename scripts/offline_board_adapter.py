@@ -57,6 +57,7 @@ class OfflineBoardAdapter:
         :param field_map: workflow.config.yaml 的 board.fields 配置 (key=skill 逻辑字段名, value=看板字段 ID/名)
         """
         self.board_file = os.path.abspath(board_file)
+        os.makedirs(os.path.dirname(self.board_file), exist_ok=True)
         self.seq_lock_file = self.board_file + ".seq.lock"
         self.field_map = field_map or {}
 

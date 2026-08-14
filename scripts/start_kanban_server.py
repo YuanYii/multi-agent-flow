@@ -30,15 +30,42 @@ def get_local_ip() -> str:
         return "127.0.0.1"
 
 
+USER_DATA_BOARD = os.path.join(SKILL_ROOT, "user_data", "board.json")
+
+
 class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
-    """自定义 HTTP 请求处理类：将根目录请求默认重定向至 index.html / offline_board.html"""
+    """自定义 HTTP 请求处理类：将根目录请求默认重定向至 offline_board.html，/board.json 代理至 user_data/board.json"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=KANBAN_DIR, **kwargs)
 
     def do_GET(self):
+        # 1. 根路径重定向
         if self.path in ("/", "/index.html", "/offline_board"):
             self.path = "/offline_board.html"
+            return super().do_GET()
+
+        # 2. 路由白名单代理: /board.json 映射至 user_data/board.json
+        clean_path = self.path.split("?")[0]
+        if clean_path in ("/board.json", "/user_data/board.json"):
+            if not os.path.exists(USER_DATA_BOARD):
+                os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
+                with open(USER_DATA_BOARD, "w", encoding="utf-8") as f:
+                    f.write("[]")
+            try:
+                with open(USER_DATA_BOARD, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.end_headers()
+                self.wfile.write(content)
+                return
+            except Exception as e:
+                self.send_error(500, f"Failed to read board data: {e}")
+                return
+
         return super().do_GET()
 
     def log_message(self, format, *args):

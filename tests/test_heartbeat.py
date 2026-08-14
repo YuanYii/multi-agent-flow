@@ -161,9 +161,11 @@ def test_heartbeat_thresholds_override():
 
 def test_heartbeat_real_local_board_no_crash():
     """对真实本地 board.json 跑巡检,不崩溃即可(数据可能 0~N 条)"""
-    board_file = os.path.join(PROJECT_ROOT, "kanban", "board.json")
+    board_file = os.path.join(PROJECT_ROOT, "user_data", "board.json")
     if not os.path.exists(board_file):
-        pytest.skip("本地 kanban/board.json 不存在")
+        board_file = os.path.join(PROJECT_ROOT, "kanban", "board.json")
+    if not os.path.exists(board_file):
+        pytest.skip("本地 board.json 不存在")
     adapter = OfflineBoardAdapter(board_file=board_file)
     result = run_heartbeat(adapter, now=_now())
     assert "summary" in result

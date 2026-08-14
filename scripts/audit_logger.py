@@ -22,9 +22,19 @@ from typing import Any, Dict, List, Optional
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
-LOGS_DIR = os.path.join(PROJECT_ROOT, "logs")
-AUDIT_LOG_FILE = os.path.join(LOGS_DIR, "audit_trail.log")
-ARCHIVE_DIR = os.path.join(LOGS_DIR, "archive")
+
+def get_logs_dir() -> str:
+    return os.environ.get("AUDIT_LOG_DIR") or os.path.join(PROJECT_ROOT, "user_data", "logs")
+
+def get_audit_log_file() -> str:
+    return os.path.join(get_logs_dir(), "audit_trail.log")
+
+def get_archive_dir() -> str:
+    return os.path.join(get_logs_dir(), "archive")
+
+LOGS_DIR = get_logs_dir()
+AUDIT_LOG_FILE = get_audit_log_file()
+ARCHIVE_DIR = get_archive_dir()
 
 
 def record_audit_event(
@@ -38,7 +48,9 @@ def record_audit_event(
     delegated_by: str = "",
     delegation_reason: str = ""
 ):
-    os.makedirs(LOGS_DIR, exist_ok=True)
+    current_logs_dir = get_logs_dir()
+    current_audit_file = get_audit_log_file()
+    os.makedirs(current_logs_dir, exist_ok=True)
 
     event = {
         "timestamp": datetime.now().isoformat(),
@@ -56,7 +68,7 @@ def record_audit_event(
     import time
     for attempt in range(1, 4):
         try:
-            with open(AUDIT_LOG_FILE, "a", encoding="utf-8") as f:
+            with open(current_audit_file, "a", encoding="utf-8") as f:
                 if sys.platform == "win32":
                     import msvcrt
                     msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
@@ -162,9 +174,9 @@ def query_events(
             return False
         return True
 
-    events = _read_ndjson(AUDIT_LOG_FILE)
+    events = _read_ndjson(get_audit_log_file())
     if include_archive:
-        events.extend(_read_archive_ndjson(os.path.join(ARCHIVE_DIR, "audit_trail-*.log.gz")))
+        events.extend(_read_archive_ndjson(os.path.join(get_archive_dir(), "audit_trail-*.log.gz")))
 
     matched = [e for e in events if _match(e)]
     matched.sort(key=lambda e: e.get("timestamp", ""))

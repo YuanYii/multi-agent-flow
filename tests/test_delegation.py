@@ -20,10 +20,9 @@ SCRIPTS_DIR = os.path.join(PROJECT_ROOT, "scripts")
 CONFIG = os.path.join(PROJECT_ROOT, "config", "workflow.config.yaml")
 if not os.path.exists(CONFIG):
     CONFIG = os.path.join(PROJECT_ROOT, "config", "workflow.config.template.yaml")
-LOGS_DIR = os.path.join(PROJECT_ROOT, "logs")
-AUDIT_LOG = os.path.join(LOGS_DIR, "audit_trail.log")
-
 sys.path.insert(0, SCRIPTS_DIR)
+from audit_logger import AUDIT_LOG_FILE, LOGS_DIR
+AUDIT_LOG = AUDIT_LOG_FILE
 from validate_transition import validate_delegation_authority, validate, DELEGATION_ALLOW_MATRIX  # noqa: E402
 
 
@@ -158,9 +157,11 @@ def test_cli_user_delegation_highest_priority():
 
 def _read_last_audit_event():
     """读取 audit_trail.log 最后一行 JSON 事件"""
-    if not os.path.exists(AUDIT_LOG):
+    from audit_logger import get_audit_log_file
+    target_log = get_audit_log_file()
+    if not os.path.exists(target_log):
         return None
-    with open(AUDIT_LOG, "r", encoding="utf-8") as f:
+    with open(target_log, "r", encoding="utf-8") as f:
         lines = [ln for ln in f.readlines() if ln.strip()]
     if not lines:
         return None
