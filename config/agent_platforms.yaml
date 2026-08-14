@@ -1,0 +1,94 @@
+# ==============================================================================
+# Multi-Agent Flow 跨平台 Agent 技能与子代理挂载声明式配置 (权威终版)
+# 严格遵循各平台官方最新标准与开放规约 (Zero-Speculation Verified)
+# ==============================================================================
+
+version: "1.0.0"
+default_skill_name: "yy-flow"
+
+platforms:
+  # 1. Google Antigravity (AGY)
+  antigravity:
+    name: "Google Antigravity"
+    detect_dirs: [".agents", ".agent"]
+    mount_type: "symlink"
+    skill_target: ".agents/skills/{skill_name}"
+    global_skill_target: "~/.gemini/config/skills/{skill_name}"
+    subagent_export:
+      pattern: ".agents/agents/{agent_id}/agent.md"
+      format: "markdown_frontmatter"
+      frontmatter_subagent: true
+
+  # 2. Anthropic Claude Code
+  claude_code:
+    name: "Anthropic Claude Code"
+    detect_dirs: [".claude"]
+    mount_type: "symlink"
+    skill_target: ".claude/skills/{skill_name}"
+    global_skill_target: "~/.claude/skills/{skill_name}"
+    subagent_export:
+      pattern: ".claude/agents/{agent_id}.md"
+      format: "markdown_frontmatter"
+      frontmatter_subagent: true
+
+  # 3. Cursor IDE
+  cursor:
+    name: "Cursor IDE"
+    detect_dirs: [".cursor"]
+    mount_type: "cursor_mdc"
+    rule_target: ".cursor/rules/{skill_name}.mdc"
+    subagent_export:
+      pattern: ".cursor/agents/{agent_id}.md"
+      format: "markdown_frontmatter"
+      frontmatter_subagent: true
+
+  # 4. OpenAI Codex
+  codex:
+    name: "OpenAI Codex"
+    detect_dirs: [".codex"]
+    mount_type: "symlink"
+    skill_target: ".agents/skills/{skill_name}"
+    global_skill_target: "~/.codex/skills/{skill_name}"
+    subagent_export:
+      pattern: ".codex/agents/{agent_id}.toml"
+      format: "codex_toml"
+      frontmatter_subagent: false
+
+  # 5. OpenCode
+  opencode:
+    name: "OpenCode"
+    detect_dirs: [".opencode"]
+    mount_type: "symlink"
+    skill_target: ".opencode/skills/{skill_name}"
+    subagent_export:
+      pattern: ".opencode/agents/{agent_id}.md"
+      format: "markdown_frontmatter"
+      frontmatter_subagent: true
+
+  # 6. ZCode IDE (支持项目级与用户级 ~/.zcode/agents/)
+  zcode:
+    name: "ZCode IDE"
+    detect_dirs: [".zcode"]
+    mount_type: "symlink"
+    skill_target: ".zcode/skills/{skill_name}"
+    subagent_export:
+      pattern: ".zcode/agents/{agent_id}.md"
+      user_pattern: "~/.zcode/agents/{agent_id}.md"
+      format: "markdown_frontmatter"
+      frontmatter_subagent: true
+
+  # 7. Pi Coding Agent
+  pi:
+    name: "Pi Coding Agent"
+    detect_dirs: [".pi"]
+    mount_type: "symlink"
+    skill_target: ".pi/skills/{skill_name}"
+    subagent_export: null
+
+  # 8. Universal 开放规范 (Agent Skills agentskills.io)
+  universal:
+    name: "Agent Skills 开放标准 (agentskills.io)"
+    detect_dirs: [".agents"]
+    mount_type: "symlink"
+    skill_target: ".agents/skills/{skill_name}"
+    subagent_export: null
