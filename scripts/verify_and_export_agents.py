@@ -67,7 +67,7 @@ ROLES_MAP = {
     "05-qa.yaml": {"id": "flow-qa", "role_code": "qa", "name": "章测试 (测试工程师)"},
     "06-docs.yaml": {"id": "flow-docs", "role_code": "docs", "name": "李文通 (文档工程师)"},
     "07-devops.yaml": {"id": "flow-devops", "role_code": "devops", "name": "吕改特 (运维管理员)"},
-    "08-frontend.yaml": {"id": "flow-frontend", "role_code": "frontend", "name": "前端开发 (前端开发工程师)"},
+    "08-frontend.yaml": {"id": "flow-frontend", "role_code": "frontend", "name": "马前端 (前端开发工程师)"},
 }
 
 def detect_active_platforms():
@@ -171,7 +171,19 @@ def generate_agent_content(data, meta, platform_key, proof_url):
     tech_str = "\n".join([f"- **{k}**: {v}" for k, v in tech_stack.items()])
     trans_str = "\n".join([f"- `{t}`" for t in allowed_transitions])
 
-    subagent_line = "subagent: true\n" if spec["frontmatter_subagent"] else ""
+    subagent_block = ""
+    if spec["frontmatter_subagent"]:
+        subagent_block = """subagent: true
+enable_write_tools: true
+tools:
+  - run_command
+  - write_to_file
+  - replace_file_content
+  - view_file
+  - list_dir
+  - grep_search
+  - find_by_name
+"""
 
     role_task_map = {
         "PM": {
@@ -250,10 +262,12 @@ def generate_agent_content(data, meta, platform_key, proof_url):
    python3 scripts/transition_task.py --role {role} --from-status 进行中 --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type {t_info['type']} --end-time "$(date +'%Y-%m-%d %H:%M')"
    ```"""
 
+    can_modify_code = boundaries.get('can_modify_business_code', role in ['DEV', 'FRONTEND'])
+
     content = f"""---
 name: {agent_id}
 role: {role}
-{subagent_line}verified_from: {proof_url}
+{subagent_block}verified_from: {proof_url}
 description: multi-agent-flow 中的 {name} 专家子代理 (针对 {spec['name']} 官方适配)
 ---
 
@@ -281,8 +295,10 @@ description: multi-agent-flow 中的 {name} 专家子代理 (针对 {spec['name'
 
 {third_step_str}
 
-## 🚫 行为边界与红线
-- 允许编码 (can_code): {boundaries.get('can_code', False)}
+## 🚫 行为边界与权限
+- 允许运行工作流与看板 CLI (can_run_cli): True
+- 允许创建与编辑领域文件 (can_write_domain_files): True
+- 允许修改业务核心代码 (can_modify_business_code): {can_modify_code}
 - 允许直接审批终态 (can_approve): {boundaries.get('can_approve', False)}
 - 遵守项目通用规范：路径深度≤3，Markdown 附带 Frontmatter 标头，过程草稿存入 `.drafts/`。
 """
@@ -297,6 +313,7 @@ def execute_universal_export():
         proof_url = verify_platform_doc_online(p_key)
 
         summary = []
+        matrix_rows = []
         for yaml_file, meta in ROLES_MAP.items():
             data = load_agent_yaml(yaml_file)
             if not data:
@@ -312,10 +329,25 @@ def execute_universal_export():
                 f.write(content)
 
             summary.append(f"  - `{meta['id']}` ➔ `{rel_file_path}`")
+            matrix_rows.append({
+                "id": f"@{meta['id']}",
+                "name": data.get("name", meta["name"]),
+                "role": data.get("role", meta["role_code"].upper()),
+                "duty": data.get("description", ""),
+                "tools": "完整读写 + run_command",
+            })
 
-        print(f"✨ [{spec['name']} 导出完成] 对应全量 8 大专家子代理已精准落盘：")
+        print(f"\n✨ [{spec['name']} 导出完成] 对应全量 8 大专家子代理已精准落盘：")
         for s in summary:
             print(s)
+
+        print("\n📋 【8 大专家子 Agent 权限与工具矩阵】")
+        print("-" * 90)
+        print(f"{'子代理标识':<18} | {'角色名称':<20} | {'工具权限':<22} | {'核心职责'}")
+        print("-" * 90)
+        for r in matrix_rows:
+            print(f"{r['id']:<18} | {r['name']:<20} | {r['tools']:<22} | {r['duty']}")
+        print("-" * 90 + "\n")
 
 if __name__ == "__main__":
     execute_universal_export()

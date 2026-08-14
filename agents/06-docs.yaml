@@ -22,7 +22,9 @@ allowed_transitions:
   - "进行中 -> 已完成 (编写完成，提交PM验收)"
 
 boundaries:
-  can_code: false
+  can_run_cli: true
+  can_write_domain_files: true
+  can_modify_business_code: false
   can_approve: false
   can_self_claim: true
   max_parallel_tasks: 99

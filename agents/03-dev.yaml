@@ -23,7 +23,9 @@ allowed_transitions:
   - 进行中 -> 已阻塞 (遭遇依赖阻塞)
   - 已阻塞 -> 进行中 (解除阻塞恢复执行)
 boundaries:
-  can_code: true
+  can_run_cli: true
+  can_write_domain_files: true
+  can_modify_business_code: true
   can_approve: false
   can_self_claim: true
   max_parallel_tasks: 3

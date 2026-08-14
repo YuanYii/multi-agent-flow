@@ -483,23 +483,25 @@ class IntegrationKanbanTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls._server = None
-        # 探测 32886 是否已有看板服务在运行
-        try:
-            with urllib.request.urlopen("http://127.0.0.1:32886/", timeout=2) as resp:
-                cls.server_url = "http://127.0.0.1:32886"
-        except Exception:
-            cls.server_url = None
-            if os.path.exists(SERVER_SCRIPT):
-                cls._server = subprocess.Popen(
-                    [sys.executable, SERVER_SCRIPT, "--port", "32886"],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=PROJECT_ROOT)
-                for _ in range(10):
-                    try:
-                        with urllib.request.urlopen("http://127.0.0.1:32886/", timeout=1):
-                            cls.server_url = "http://127.0.0.1:32886"
-                            break
-                    except Exception:
-                        time.sleep(0.5)
+        cls.server_url = None
+        # 动态分配空闲测试端口，启动隔离的看板服务
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(("", 0))
+        test_port = s.getsockname()[1]
+        s.close()
+
+        if os.path.exists(SERVER_SCRIPT):
+            cls._server = subprocess.Popen(
+                [sys.executable, SERVER_SCRIPT, "--port", str(test_port)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=PROJECT_ROOT)
+            for _ in range(10):
+                try:
+                    with urllib.request.urlopen(f"http://127.0.0.1:{test_port}/", timeout=1):
+                        cls.server_url = f"http://127.0.0.1:{test_port}"
+                        break
+                except Exception:
+                    time.sleep(0.5)
 
     @classmethod
     def tearDownClass(cls):

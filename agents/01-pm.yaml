@@ -24,7 +24,9 @@ allowed_transitions:
   - "已完成 -> 已退回 (验收不通过打回原负责人)"
 
 boundaries:
-  can_code: false
+  can_run_cli: true
+  can_write_domain_files: true
+  can_modify_business_code: false
   can_approve: true
   can_self_claim: false
   max_parallel_tasks: 99

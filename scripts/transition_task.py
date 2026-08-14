@@ -218,7 +218,7 @@ def transition_task_pipeline(
 
         ROLE_NAME_MAP = {
             "PM": "严经理", "ARCHITECT": "钱架构", "DEV": "李开发",
-            "FRONTEND": "前端开发", "REVIEWER": "周审查", "QA": "章测试",
+            "FRONTEND": "马前端", "REVIEWER": "周审查", "QA": "章测试",
             "DOCS": "李文通", "DEVOPS": "吕改特"
         }
         assignee = ROLE_NAME_MAP.get(assignee, assignee)

@@ -16,7 +16,9 @@ allowed_transitions:
   - 待开始 -> 进行中 (运维/Git任务领用)
   - 进行中 -> 已完成 (运维动作完成，提交PM)
 boundaries:
-  can_code: true
+  can_run_cli: true
+  can_write_domain_files: true
+  can_modify_business_code: true
   can_approve: false
   can_self_claim: false
   max_parallel_tasks: 99

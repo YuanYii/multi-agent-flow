@@ -16,7 +16,9 @@ allowed_transitions:
   - 审查中 -> 测试中 (审查通过交QA)
   - 审查中 -> 已退回 (审查不通过打回原DEV)
 boundaries:
-  can_code: false
+  can_run_cli: true
+  can_write_domain_files: true
+  can_modify_business_code: false
   can_approve: false
   can_self_claim: false
   max_parallel_tasks: 99
