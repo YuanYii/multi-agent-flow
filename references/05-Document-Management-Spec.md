@@ -37,6 +37,9 @@ docs/
 │   ├── {module-A}/                    # 业务模块 A（例如：log-parser）
 │   │   ├── README.md                  # 模块功能概述
 │   │   ├── design.md                  # 模块详细设计规格
+│   │   ├── frontend/                  # [FRONTEND 角色专属] UI/组件/微交互产出
+│   │   │   ├── components.md          # 组件清单与接口契约
+│   │   │   └── ux-spec.md             # UX 交互规格与可访问性约束
 │   │   └── troubleshooting.md         # 模块专属踩坑与排查记录
 ├── 03-operations/                     # 研发过程管理与交付产出
 │   ├── 原项目文档/                     # 原工程历史任务/部署/报告归档区
@@ -91,5 +94,6 @@ tags: [架构, 日志处理, 解析器]
 | :--- | :--- | :--- |
 | **整体架构/选型变更** | 架构师 (ARCHITECT) | 24 小时内更新 `01-architecture/` 下对应文档，同步修改相关 Frontmatter 版本。 |
 | **模块内部设计变更** | 开发工程师 (DEV) | 同步更新 `02-modules/{module-name}/design.md`。 |
+| **前端 UI/组件变更** | 前端工程师 (FRONTEND) | 同步更新 `02-modules/{module-name}/frontend/components.md` 与 `ux-spec.md`。 |
 | **阶段/里程碑完成** | 运维/质量/PM | 在 `03-operations/reports/` 集中输出阶段报告，清理 `.drafts/` 中的临时草稿。 |
 | **文档生态维护与治理** | 文档工程师 (DOCS) | 负责全局术语标准化、Frontmatter 校验与导航入口 (`README.md`) 维护。 |

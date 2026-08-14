@@ -70,7 +70,46 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
 SPECIAL_DIRECT_COMPLETE_TYPES = ["B", "C", "D", "G"]
 
 
-def validate(role: str, from_status: str, to_status: str, assignee: str, end_time: str, active_dev_count: int, task_type: str = "A", task_name: str = "", max_parallel: int = 3, remarks: str = "", special_types: List[str] = None) -> bool:
+# 代行白名单:当前 role (即"被代行目标角色") → 哪些"代行来源角色"是合法的
+# 设计原则:
+#   - PM 是收口角色(验收/分配),任何角色可代行 PM(常见:任何角色代为验收)
+#   - 其他 7 角色(执行类)只接受 PM 代行(典型:PM 兼任审查/测试/文档)与 USER 授权
+#   - 同级互代行(DEV↔FRONTEND)被禁止(防止隐性越权——代码任务不可互换代写)
+#   - USER 标识表示"人类用户授权代行",优先级最高,任何目标角色都接受
+DELEGATION_ALLOW_MATRIX: Dict[str, List[str]] = {
+    "PM":        ["PM", "ARCHITECT", "DEV", "FRONTEND", "REVIEWER", "QA", "DOCS", "DEVOPS", "USER"],
+    "REVIEWER":  ["PM", "USER"],
+    "QA":        ["PM", "USER"],
+    "ARCHITECT": ["PM", "USER"],
+    "DEV":       ["PM", "USER"],
+    "FRONTEND":  ["PM", "USER"],
+    "DOCS":      ["PM", "USER"],
+    "DEVOPS":    ["PM", "USER"],
+}
+
+
+def validate_delegation_authority(current_role: str, delegated_by: str) -> bool:
+    """
+    提权代行白名单校验:校验 "delegated_by 代行 current_role" 是否在白名单内。
+    返回 True=合法代行, False=非法代行(阻断)。
+    当 delegated_by 为空/None 时,直接返回 True(无代行声明,交给 validate 的常规权限矩阵处理)。
+    """
+    if not delegated_by or not str(delegated_by).strip():
+        return True
+    role_upper = str(current_role).upper().strip()
+    by_upper = str(delegated_by).upper().strip()
+    allowed = DELEGATION_ALLOW_MATRIX.get(role_upper, [])
+    if by_upper in [a.upper() for a in allowed]:
+        return True
+    print(f"[REJECT 代行未授权] 角色 {role_upper} 不接受来自 {by_upper} 的代行授权 (白名单: {allowed})")
+    return False
+
+
+def validate(role: str, from_status: str, to_status: str, assignee: str, end_time: str, active_dev_count: int, task_type: str = "A", task_name: str = "", max_parallel: int = 3, remarks: str = "", special_types: List[str] = None, delegated_by: str = "", delegation_reason: str = "") -> bool:
+    # 0. 提权代行白名单硬校验 (Fail-Closed)
+    if not validate_delegation_authority(role, delegated_by):
+        return False
+
     transition_key = f"{from_status} -> {to_status}"
     role_upper = role.upper()
     type_upper = task_type.upper()
@@ -136,7 +175,10 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
         print(f"[REJECT 并发超限] 开发人员处于 '进行中' 任务数目前为 {active_dev_count}，超出并发上限 (≤{max_parallel})！")
         return False
 
-    print(f"[PASS 校验通过] 角色 {role_upper} (任务类型 {type_upper}) 推动 '{transition_key}' 满足所有五层防错门控。")
+    delegation_suffix = ""
+    if delegated_by and str(delegated_by).strip():
+        delegation_suffix = f" | 代行声明: {delegated_by} 代行 {role_upper} (理由: {delegation_reason or '未提供'})"
+    print(f"[PASS 校验通过] 角色 {role_upper} (任务类型 {type_upper}) 推动 '{transition_key}' 满足所有五层防错门控。{delegation_suffix}")
     return True
 
 
@@ -152,6 +194,8 @@ def main():
     parser.add_argument("--remarks", default="", help="备注 (打回或补充信息)")
     parser.add_argument("--active-dev-count", type=int, default=1, help="当前开发人员进行中任务数")
     parser.add_argument("--max-parallel", type=int, default=3, help="角色允许的最大并发上限")
+    parser.add_argument("--delegated-by", default="", help="提权代行来源角色 (如 PM/USER)")
+    parser.add_argument("--delegation-reason", default="", help="提权代行理由")
 
     args = parser.parse_args()
 
@@ -165,7 +209,9 @@ def main():
         task_type=args.type,
         task_name=args.task_name,
         max_parallel=args.max_parallel,
-        remarks=args.remarks
+        remarks=args.remarks,
+        delegated_by=args.delegated_by,
+        delegation_reason=args.delegation_reason,
     )
 
     if not success:

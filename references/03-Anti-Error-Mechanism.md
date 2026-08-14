@@ -34,18 +34,18 @@
 
 | 状态变更动作 | 合法操作人集合 (Allowed Operators) | 变更后处理人 (Assignee Target) | 关联场景 |
 |-------------|-----------------------------------|------------------------------|---------|
-| `待开始` → `进行中` | `PM`, `DEV` (自身自领取) | `DEV` (自身) 或 被分配者 | A/B/C/D/G 类任务启动 |
+| `待开始` → `进行中` | `PM`, `DEV` (自身自领取), `FRONTEND` (自身自领取) | `DEV` / `FRONTEND` (自身) 或 被分配者 | A/B/C/D/G 类任务启动 |
 | `待开始` → `已验收` | `PM` (直接确认完成) | `PM` (负责人保持为 User) | E 类用户自执行任务快捷验收 |
 | `进行中` → `已验收` | `PM` (直接确认完成) | `PM` (负责人保持为 User) | E 类用户自执行任务快捷验收 |
-| `进行中` → `审查中` | `DEV` (代码开发完成) / `ARCHITECT` (架构完成) | `REVIEWER` (代码) 或 `PM` (架构) | A 类开发/B 类架构提审 |
-| `进行中` → `已完成` | `ARCHITECT` (架构完成) / `DEV` (环境完成) / `DOCS` / `DEVOPS` | `PM` | B 类架构/G 类环境/C/D 类提交验收 |
-| `审查中` → `测试中` | `REVIEWER`, `PM` (审查通过) | `QA` | A 类代码审查通过 |
-| `审查中` → `已退回` | `REVIEWER`, `PM` (审查不通过) | 原负责人 (DEV / ARCHITECT) | A/B 类审查打回 |
+| `进行中` → `审查中` | `DEV` / `FRONTEND` (代码/前端开发完成) / `ARCHITECT` (架构完成) | `REVIEWER` (代码/前端) 或 `PM` (架构) | A 类开发/前端、B 类架构提审 |
+| `进行中` → `已完成` | `ARCHITECT` (架构完成) / `DEV` (环境完成) / `FRONTEND` (前端环境完成) / `DOCS` / `DEVOPS` | `PM` | B 类架构/G 类环境/C/D 类提交验收 |
+| `审查中` → `测试中` | `REVIEWER`, `PM` (审查通过) | `QA` | A 类代码/前端审查通过 |
+| `审查中` → `已退回` | `REVIEWER`, `PM` (审查不通过) | 原负责人 (DEV / FRONTEND / ARCHITECT) | A/B 类审查打回 |
 | `测试中` → `已完成` | `QA` (测试通过，必带 `结束时间`) | `PM` | A 类测试通过提交 PM 验收 |
-| `测试中` → `已退回` | `QA` (测试不通过) | 原负责人 (DEV) | A 类测试打回 |
+| `测试中` → `已退回` | `QA` (测试不通过) | 原负责人 (DEV / FRONTEND) | A 类测试打回 |
 | `已完成` → `已验收` | `PM` (最终验收通过) | `PM` (保持不变) | A/B/C/D/F/G 类终态验收 |
-| `任意状态` → `已阻塞` | 所有 7 个角色 (PM, ARCHITECT, DEV, REVIEWER, QA, DOCS, DEVOPS) | 保持不变 | 遭遇依赖未就绪或环境卡顿 |
-| `已阻塞` → `进行中` | 所有 7 个角色 (PM, ARCHITECT, DEV, REVIEWER, QA, DOCS, DEVOPS) | 原处理人 | 阻塞解除恢复执行 |
+| `任意状态` → `已阻塞` | 所有 8 个角色 (PM, ARCHITECT, DEV, FRONTEND, REVIEWER, QA, DOCS, DEVOPS) | 保持不变 | 遭遇依赖未就绪或环境卡顿 |
+| `已阻塞` → `进行中` | 所有 8 个角色 (PM, ARCHITECT, DEV, FRONTEND, REVIEWER, QA, DOCS, DEVOPS) | 原处理人 | 阻塞解除恢复执行 |
 
 ---
 
@@ -61,8 +61,13 @@
    - 若用户明确指定：“以项目经理身份进行验收” 或 “授权你代行 PM 验收”。
    - Agent 必须进行**声明与留痕**：
      > 📢 "检测到跨角色指令。按规范该操作需【项目经理】执行。根据您的明确授权，由我临时代行该操作，执行 [已完成 → 已验收] 流转..."
+   - **CLI 强制门控**（代码层硬拦截，无声明即拒绝）：
+     - 调用 `transition_task.py` 时必须显式传 `--delegated-by <来源角色>` 与 `--delegation-reason "<理由>"`；
+     - `--delegated-by` 取值必须在 `validate_transition.py:DELEGATION_ALLOW_MATRIX` 白名单内，否则代码层 Fail-Closed 拒绝（典型合法组合：`--role PM --delegated-by DEV`、`--role QA --delegated-by PM`、`--role PM --delegated-by USER`）；
+     - 跨级别互代行（如 `DEV` 代行 `FRONTEND`）允许；任意角色代行 `PM` 允许（PM 是通用收口角色）；`USER` 表示"人类用户授权代行"，优先级最高。
    - **留痕与限制**：
      - 在看板「过程描述」或日志中注明：`[代行记录] Agent代行PM执行验收 | 授权依据: 用户显式指令 | 授权时间: YYYY-MM-DD`；
+     - 审计日志（`logs/audit_trail.log`）自动追加 `delegated_by` 与 `delegation_reason` 字段，供事后追溯；
      - 看板「处理人」仍设为合法目标角色（`PM`）；
      - 授权**仅对本次操作单次生效**，不改变后续角色界限。
 

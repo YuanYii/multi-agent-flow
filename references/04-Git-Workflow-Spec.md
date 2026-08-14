@@ -22,7 +22,8 @@ feature/S<阶段>-<功能> ──功能负责人开发提交
 |---------|----------|----------|-----------|
 | **主分支** | `main` | 永久保护 | 禁止直接 push，仅限 DevOps 阶段发布合并 |
 | **阶段分支** | `stage/S<阶段号>` (如 `stage/S1`) | 阶段结束后保留 | 仅限 DevOps 合并 |
-| **功能分支** | `feature/S<阶段号>-<功能>` (如 `feature/S1-event-router`) | 合并后保留作为历史 | 开发专家自由提交 |
+| **功能分支** | `feature/S<阶段号>-<功能>` (如 `feature/S1-event-router`) | 合并后保留作为历史 | 开发专家 (DEV/FRONTEND) 自由提交 |
+| **前端功能分支** | `feature/fe-S<阶段号>-<功能>` (如 `feature/fe-S1-kanban-board`) | 合并后保留作为历史 | 前端专家 (FRONTEND) 自由提交 |
 | **热修复** | `hotfix/<问题描述>` (如 `hotfix/fix-token-leak`) | 临时，修复后合并 | 仅限 DevOps 合并 |
 
 ---
@@ -39,7 +40,9 @@ feature/S<阶段>-<功能> ──功能负责人开发提交
 | Type 类型 | 含义 | 示例 |
 |-----------|------|------|
 | `feat` | 新功能/新特性 | `feat(api): 新增事件路由 HTTP endpoint` |
+| `feat(fe)` | 前端新功能/UI 组件 | `feat(fe): 新增看板任务详情 Modal` |
 | `fix` | Bug 修复 | `fix(parser): 修复空日志行反序列化异常` |
+| `fix(fe)` | 前端 Bug 修复 | `fix(fe): 修复看板筛选条件持久化丢失` |
 | `test` | 单元测试/集成测试 | `test(w1): 新增风暴检测单元测试` |
 | `docs` | 技术文档/报告更新 | `docs: 更新 S1 阶段技术方案` |
 | `refactor` | 代码重构 (不改变外部行为) | `refactor(schema): 简化 Pydantic v2 模型` |

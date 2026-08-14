@@ -151,3 +151,34 @@ def test_iso8601_timezone_calc_minutes():
     res = OfflineBoardAdapter._calc_minutes("2026-08-11T23:00:00+08:00", "2026-08-11T23:15:00+08:00")
     assert res == 15
 
+
+def test_validate_delegation_direct_call():
+    """测试直调 validate() 函数时，代行白名单硬拦截生效"""
+    # 非法代行 (DEV 尝试代行 FRONTEND) 应该被拒绝
+    res_illegal = validate(
+        role="FRONTEND",
+        from_status="待开始",
+        to_status="进行中",
+        assignee="前端开发",
+        end_time="",
+        active_dev_count=1,
+        task_type="A",
+        delegated_by="DEV",
+        delegation_reason="代行前端编码"
+    )
+    assert res_illegal is False
+
+    # 合法代行 (USER 授权代行 PM 验收) 应该通过
+    res_legal = validate(
+        role="PM",
+        from_status="已完成",
+        to_status="已验收",
+        assignee="严经理",
+        end_time="2026-08-14 12:00",
+        active_dev_count=1,
+        task_type="A",
+        delegated_by="USER",
+        delegation_reason="用户明确授权"
+    )
+    assert res_legal is True
+
