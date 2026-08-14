@@ -148,29 +148,29 @@ class TerminalRenderer:
     def render_terminal_dashboard(cls, summary: Dict[str, Any], workload: Dict[str, Dict[str, int]], bottlenecks: List[Dict[str, Any]]) -> str:
         lines = []
         lines.append("=" * 72)
-        lines.append("📊  【看板效能度量与流转诊断仪表盘】")
+        lines.append("  【看板效能度量与流转诊断仪表盘】")
         lines.append("=" * 72)
         lines.append(f"• 任务总数: {summary['total_tasks']:<6} • 完成任务: {summary['completed_tasks']:<6} • 进行中: {summary['in_progress_tasks']:<6}")
         lines.append(f"• 总体完成率: {cls.render_ascii_bar(summary['completion_rate_percent'])}")
         lines.append(f"• 平均交付周期: {summary['avg_lead_time_hours']} 小时")
         lines.append("-" * 72)
-        lines.append("👥 角色工作负荷分布:")
+        lines.append(" 角色工作负荷分布:")
         for role, stats in sorted(workload.items()):
             lines.append(f"  - {role:<12}: 进行中={stats['in_progress']:<2} 已完成={stats['completed']:<2} (总计: {stats['total']})")
         lines.append("-" * 72)
         if bottlenecks:
-            lines.append(f"⚠️  检测到 {len(bottlenecks)} 个潜在流转卡点:")
+            lines.append(f"[WARN]   检测到 {len(bottlenecks)} 个潜在流转卡点:")
             for b in bottlenecks:
-                lines.append(f"  🔴 [{b['task_id']}] {b['task_name']} ({b['status']}) - 滞留 {b['elapsed_hours']}h / 阈值 {b['threshold_hours']}h (处理人: {b['assignee']})")
+                lines.append(f"  [CRITICAL]  [{b['task_id']}] {b['task_name']} ({b['status']}) - 滞留 {b['elapsed_hours']}h / 阈值 {b['threshold_hours']}h (处理人: {b['assignee']})")
         else:
-            lines.append("✅ 状态流转健康，未检测到超时滞留卡点。")
+            lines.append("[SUCCESS]  状态流转健康，未检测到超时滞留卡点。")
         lines.append("=" * 72)
         return "\n".join(lines)
 
     @classmethod
     def render_markdown_report(cls, summary: Dict[str, Any], workload: Dict[str, Dict[str, int]], bottlenecks: List[Dict[str, Any]]) -> str:
         md = []
-        md.append("# 📈 看板效能度量与诊断报告\n")
+        md.append("#  看板效能度量与诊断报告\n")
         md.append("## 1. 核心效能概览\n")
         md.append(f"| 指标项 | 统计值 |")
         md.append(f"| :--- | :--- |")
@@ -190,7 +190,7 @@ class TerminalRenderer:
             for b in bottlenecks:
                 md.append(f"| {b['task_id']} | {b['task_name']} | {b['status']} | {b['assignee']} | {b['elapsed_hours']}h | {b['threshold_hours']}h |")
         else:
-            md.append("> ✅ 当前所有任务流转顺畅，无滞留卡点。")
+            md.append("> [SUCCESS]  当前所有任务流转顺畅，无滞留卡点。")
         return "\n".join(md)
 
 
@@ -231,7 +231,7 @@ def main():
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(content)
-        print(f"✅ 度量报告已成功导出至: {args.output}")
+        print(f"[SUCCESS]  度量报告已成功导出至: {args.output}")
     else:
         print(content)
 

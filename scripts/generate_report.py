@@ -80,13 +80,13 @@ def generate_report(report_type: str, task_id: str, task_name: str, assignee: st
         content = content.replace(placeholder, value)
 
     if summary_content:
-        content += f"\n\n### 📝 过程执行明细与补充记录 ({now_str})\n\n{summary_content}\n"
+        content += f"\n\n### [CONFIG]  过程执行明细与补充记录 ({now_str})\n\n{summary_content}\n"
 
     # 若报告文件已存在，则作为复验/复测结论追加模式（仅当带有非空文本时追加，避免空分隔线污染）
     if os.path.exists(output_path):
         if summary_content and summary_content.strip():
             with open(output_path, "a", encoding="utf-8") as f:
-                f.write(f"\n\n---\n## 🔄 追加复验/复测记录 ({now_str})\n\n{summary_content}\n")
+                f.write(f"\n\n---\n## [SYNC]  追加复验/复测记录 ({now_str})\n\n{summary_content}\n")
             print(f"[SUCCESS] 已成功追加更新任务报告: {output_path}")
         else:
             print(f"[INFO] 任务报告已存在且无新增摘要文本，保持现有文件不变: {output_path}")

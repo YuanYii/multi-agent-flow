@@ -109,12 +109,12 @@ def transition_task_pipeline(
 ) -> bool:
     resolved_task_id = task_id or "AUTO"
     extra_log = {"task_id": resolved_task_id}
-    logger.info(f"🔒 触发防错门控校验 ({from_status} ➔ {to_status}, 模式: {'DRY-RUN' if dry_run else 'REAL'})...", extra=extra_log)
+    logger.info(f"[SECURITY]  触发防错门控校验 ({from_status} ➔ {to_status}, 模式: {'DRY-RUN' if dry_run else 'REAL'})...", extra=extra_log)
 
     # 0. 提权代行白名单预检(Fail-Closed):在 validate 前阻断非法代行
     #    无代行声明(delegated_by 为空)时直接跳过,交由原 validate 权限矩阵处理
     if not validate_delegation_authority(current_role, delegated_by):
-        logger.error(f"❌ [代行未授权] 角色 {current_role} 不接受来自 {delegated_by} 的代行授权,硬阻断！", extra=extra_log)
+        logger.error(f"[FAILED]  [代行未授权] 角色 {current_role} 不接受来自 {delegated_by} 的代行授权,硬阻断！", extra=extra_log)
         record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"代行未授权阻断: {delegated_by} 代行 {current_role}", delegated_by=delegated_by, delegation_reason=delegation_reason)
         return False
 
@@ -123,7 +123,7 @@ def transition_task_pipeline(
     lock_key = resolved_task_id if resolved_task_id != "AUTO" else "auto_create_global"
     lock_tuple = acquire_concurrency_lock(lock_key)
     if not lock_tuple or not lock_tuple[0]:
-        logger.error(f"❌ [并发锁排他硬拦截] 任务 {resolved_task_id} (锁标识: {lock_key}) 当前正被另一个进程独占写卡中，物理阻断！", extra=extra_log)
+        logger.error(f"[FAILED]  [并发锁排他硬拦截] 任务 {resolved_task_id} (锁标识: {lock_key}) 当前正被另一个进程独占写卡中，物理阻断！", extra=extra_log)
         record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "物理并发排他锁硬拦截", delegated_by=delegated_by, delegation_reason=delegation_reason)
         return False
 
@@ -136,12 +136,12 @@ def transition_task_pipeline(
                 cfg_data = yaml.safe_load(cfg_f)
                 field_mapping = cfg_data.get("board", {}).get("fields", {})
         except Exception as e:
-            logger.error(f"❌ 看板配置文件/Schema 校验断言失败: {e}，硬阻断！", extra=extra_log)
+            logger.error(f"[FAILED]  看板配置文件/Schema 校验断言失败: {e}，硬阻断！", extra=extra_log)
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"配置文件校验失败: {e}", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return False
 
         if not adapter:
-            logger.error("❌ 适配器未正确初始化，拦截落库", extra=extra_log)
+            logger.error("[FAILED]  适配器未正确初始化，拦截落库", extra=extra_log)
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "适配器缺失", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return False
 
@@ -194,15 +194,15 @@ def transition_task_pipeline(
         )
 
         if not is_valid:
-            logger.error("❌ 门控物理拦截失败！阻止落库更新", extra=extra_log)
+            logger.error("[FAILED]  门控物理拦截失败！阻止落库更新", extra=extra_log)
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "门控规则校验未通过", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return False
 
-        logger.info("✅ 防错规则核验成功", extra=extra_log)
+        logger.info("[SUCCESS]  防错规则核验成功", extra=extra_log)
 
         # 物理硬阻断: 若执行状态流转（from_status 不是待开始/新建），强制要求必须提供 --task-id
         if not task_id and from_status not in ["待开始", "新建"]:
-            logger.error(f"❌ [Fail-Closed 物理硬拦截] 执行状态流转 ({from_status} ➔ {to_status}) 时必须通过 --task-id 提供原任务编号，严禁无任务 ID 隐式创建新卡片！", extra=extra_log)
+            logger.error(f"[FAILED]  [Fail-Closed 物理硬拦截] 执行状态流转 ({from_status} ➔ {to_status}) 时必须通过 --task-id 提供原任务编号，严禁无任务 ID 隐式创建新卡片！", extra=extra_log)
             record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "流转缺失task_id", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return False
 
@@ -217,8 +217,8 @@ def transition_task_pipeline(
             if task_id:
                 existing = adapter.get_record(task_id)
                 if existing is None:
-                    logger.info(f"ℹ️ [DRY-RUN] 任务 {task_id} 在看板中不存在，正式执行时将自动创建后再流转", extra=extra_log)
-            logger.info("🧪 [DRY-RUN] 配置文件与 Schema 检验完全通过！模拟预检不触发物理网络写卡", extra=extra_log)
+                    logger.info(f"ℹ [DRY-RUN] 任务 {task_id} 在看板中不存在，正式执行时将自动创建后再流转", extra=extra_log)
+            logger.info(" [DRY-RUN] 配置文件与 Schema 检验完全通过！模拟预检不触发物理网络写卡", extra=extra_log)
             record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, True, "DRY-RUN 完整校验测试通过", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return True
 
@@ -237,7 +237,7 @@ def transition_task_pipeline(
         if existing is None:
             is_valid_creation = (from_status in ["待开始", "新建"]) or (to_status == "进行中") or (task_type in ["B", "C", "D", "E", "F", "G"])
             if not is_valid_creation:
-                logger.error(f"❌ [物理硬阻断] 看板中尚无此任务，绝对禁止直接新建为【{to_status}】！你必须首先在任务开始时调用 CLI 初始化建单为【进行中】！", extra=extra_log)
+                logger.error(f"[FAILED]  [物理硬阻断] 看板中尚无此任务，绝对禁止直接新建为【{to_status}】！你必须首先在任务开始时调用 CLI 初始化建单为【进行中】！", extra=extra_log)
                 record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"拒绝直接新建为{to_status}", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
 
@@ -259,14 +259,14 @@ def transition_task_pipeline(
             }
             created_id = adapter.create_record(create_fields)
             if not created_id:
-                logger.error(f"❌ 任务自动创建失败（编号冲突或写入失败），硬阻断流转！", extra=extra_log)
+                logger.error(f"[FAILED]  任务自动创建失败（编号冲突或写入失败），硬阻断流转！", extra=extra_log)
                 record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "任务自动创建失败", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
             if not task_id:
                 task_id = created_id
             resolved_record_id = task_id
             extra_log = {"task_id": task_id}
-            logger.info(f"🆕 任务 {task_id} 在看板中不存在，已成功初始化建单为【{initial_status}】(负责人: {assignee})", extra=extra_log)
+            logger.info(f" 任务 {task_id} 在看板中不存在，已成功初始化建单为【{initial_status}】(负责人: {assignee})", extra=extra_log)
             record_audit_event(task_id, current_role, "新建", initial_status, assignee, True, "任务自动初始化建单", delegated_by=delegated_by, delegation_reason=delegation_reason)
         else:
             resolved_record_id = existing.get("record_id") or resolved_record_id
@@ -284,13 +284,13 @@ def transition_task_pipeline(
         try:
             success = adapter.update_record(resolved_record_id, update_fields)
             if not success:
-                logger.error("❌ 物理 API 写入失败，硬阻断流转！", extra=extra_log)
+                logger.error("[FAILED]  物理 API 写入失败，硬阻断流转！", extra=extra_log)
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "看板状态 API 写入失败", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
             if remarks:
                 adapter.append_remarks(resolved_record_id, "remarks", remarks)
         except Exception as e:
-            logger.error(f"❌ 物理 API 调用抛出异常 ({e})，硬阻断！", extra=extra_log)
+            logger.error(f"[FAILED]  物理 API 调用抛出异常 ({e})，硬阻断！", extra=extra_log)
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"API 抛出异常: {e}", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return False
 
@@ -300,20 +300,20 @@ def transition_task_pipeline(
             try:
                 rem_ok = adapter.append_remarks(resolved_record_id, remarks_key, remarks)
                 if not rem_ok:
-                    logger.warning("⚠️ 结构化缺陷备注追加失败，准备执行物理原子补偿回滚...", extra=extra_log)
+                    logger.warning("[WARN]  结构化缺陷备注追加失败，准备执行物理原子补偿回滚...", extra=extra_log)
                     rollback_fields = {status_key: from_status, assignee_key: orig_assignee}
                     # 回滚必须写回 resolved_record_id（auto-create 场景 record_id 为 None，原实现回滚静默失效）
                     adapter.update_record(resolved_record_id, rollback_fields)
-                    logger.error("🔄 状态已物理回滚还原至原状态，拒绝非原子性中间态落库！", extra=extra_log)
+                    logger.error("[SYNC]  状态已物理回滚还原至原状态，拒绝非原子性中间态落库！", extra=extra_log)
                     record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "追加备注失败触发状态原子补偿回滚", delegated_by=delegated_by, delegation_reason=delegation_reason)
                     return False
             except Exception as e:
-                logger.error(f"⚠️ 备注追加抛出异常 ({e})，执行物理原子补偿回滚...", extra=extra_log)
+                logger.error(f"[WARN]  备注追加抛出异常 ({e})，执行物理原子补偿回滚...", extra=extra_log)
                 adapter.update_record(resolved_record_id, {status_key: from_status, assignee_key: orig_assignee})
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"备注异常回滚: {e}", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
 
-        logger.info(f"🎉 看板 {task_id} 已成功推至【{to_status}】，处理人: {assignee}", extra=extra_log)
+        logger.info(f" 看板 {task_id} 已成功推至【{to_status}】，处理人: {assignee}", extra=extra_log)
         record_audit_event(task_id, current_role, from_status, to_status, assignee, True, "流转全量物理落库成功", delegated_by=delegated_by, delegation_reason=delegation_reason)
         return True
 

@@ -1,6 +1,6 @@
 # HEARTBEAT.md - 看板状态巡检与卡顿任务监控
 
-## 💓 巡检任务清单 (Heartbeat Checklist)
+## 巡检任务清单 (Heartbeat Checklist)
 
 当运行心跳巡检（Heartbeat Poll）时，Agent 自动执行以下检查：
 
@@ -16,7 +16,7 @@
 4. **结束时间必填强校验**：
    - 检查处于 `已完成` 或 `已验收` 的任务是否遗漏了 `结束时间`。
 
-## 🛠️ 巡检脚本使用 (heartbeat.py)
+## 巡检脚本使用 (heartbeat.py)
 
 上述 4 项已代码化为 `scripts/heartbeat.py`,只读扫描不写盘,支持阈值可配置：
 
@@ -38,7 +38,7 @@ python3 scripts/heartbeat.py --json
 
 阈值覆盖规则:CLI 传入 > `workflow.config.yaml` 的 `heartbeat` 段 > 脚本默认 24h/12h。
 
-## 📊 审计日志配套工具 (audit_query.py / audit_rotate.py)
+## 审计日志配套工具 (audit_query.py / audit_rotate.py)
 
 巡检只是"现状扫描",**历史追溯**还需审计日志:
 

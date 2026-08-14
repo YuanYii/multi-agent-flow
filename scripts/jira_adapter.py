@@ -118,7 +118,7 @@ class JiraAdapter:
                 "version": 1,
                 "content": [{
                     "type": "paragraph",
-                    "content": [{"type": "text", "text": f"🔄 [多专家工作流追加] {new_text}"}]
+                    "content": [{"type": "text", "text": f"[SYNC]  [多专家工作流追加] {new_text}"}]
                 }]
             }
         }

@@ -10,7 +10,7 @@ if (-not (Test-Path $ConfigFile)) {
 }
 
 Write-Host "========================================================================" -ForegroundColor Cyan
-Write-Host "          🤖 Multi-Agent Team Workflow · 状态巡检面板 (Windows)" -ForegroundColor Cyan
+Write-Host "           Multi-Agent Team Workflow · 状态巡检面板 (Windows)" -ForegroundColor Cyan
 Write-Host "========================================================================" -ForegroundColor Cyan
 
 if (Test-Path $ConfigFile) {

@@ -11,7 +11,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
 fi
 
 echo "========================================================================"
-echo "          🤖 Multi-Agent Team Workflow · 状态巡检面板"
+echo "           Multi-Agent Team Workflow · 状态巡检面板"
 echo "========================================================================"
 
 if command -v python3 &> /dev/null; then

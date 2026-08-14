@@ -4,13 +4,13 @@ description: 适用于 AI 多 Agent 与人类团队协同研发的多角色状�
 version: 1.0.0
 ---
 
-# 🤖 Multi-Agent Team Workflow Skill (YY-Flow)
+# Multi-Agent Team Workflow Skill (YY-Flow)
 
 > 契约驱动的多角色 Agent 协同研发技能包 —— 消除越权、打回碎片化与状态悬挂。
 
 ---
 
-## 🚀 快捷唤醒指令 (Slash Commands)
+## 快捷唤醒指令 (Slash Commands)
 
 本 Skill 注册了专有零冲突快捷唤醒指令 **`/yy-flow`**，输入即可 100% 确定性触发对应行为：
 
@@ -23,7 +23,7 @@ version: 1.0.0
 
 ---
 
-## 📜 核心契约与全局规则 (Global Rules & Contracts)
+## 核心契约与全局规则 (Global Rules & Contracts)
 
 当 Agent 调用或执行本 Skill 时，必须加载并遵循 [`rules/`](rules/) 目录下的规则约束与交互协议：
 
@@ -36,14 +36,14 @@ version: 1.0.0
 
 ---
 
-## 🔍 初次加载：技术架构自动识别 SOP (Architecture Discovery)
+## 初次加载：技术架构自动识别 SOP (Architecture Discovery)
 
 当 Agent **初次在此工作区调阅/加载本 Skill**（检测到 `config/project_architecture.config.yaml` 不存在）时，必须自动执行以下操作并遵循响应契约：
 
-> 📢 **【显式响应与 Token 预警契约】**
+> [NOTICE] **【显式响应与 Token 预警契约】**
 > Agent 在启动初始化时，**必须第一时间在回复中显式输出以下提示**：
 > 1. **初始化声明**：“正在为您初始化 `multi-agent-flow` 工作流并识别当前项目技术架构...”
-> 2. **Token 消耗提示**：“💡 **提示**：初次初始化需要全面扫描与解析全局项目配置文件（如 `package.json`/`pyproject.toml`/`go.mod`/`Dockerfile` 等）并同步更新专家团队规则，**本次操作可能会消耗较多 Token**。初始化完成后配置将持久落盘，后续使用无需重新扫描。”
+> 2. **Token 消耗提示**：“[NOTE] **提示**：初次初始化需要全面扫描与解析全局项目配置文件（如 `package.json`/`pyproject.toml`/`go.mod`/`Dockerfile` 等）并同步更新专家团队规则，**本次操作可能会消耗较多 Token**。初始化完成后配置将持久落盘，后续使用无需重新扫描。”
 > 3. **步骤清单展示**：向用户展示即将自动执行的 8 大初始化动作。
 
 ### 初始化自动执行步骤：
@@ -69,7 +69,7 @@ version: 1.0.0
    - 自动加载 `agents/01-pm.yaml` 身份，扫描解析当前项目的 `README.md`、配置文件与源码入口。
    - 分析认定项目主要用途与核心功能，**强制在回复顶部输出标志行与官方查证凭据**：
      > **`【已识别 xxxx 项目】`**
-     > 🔗 **官方 Subagent 规范查证凭据**：`https://antigravity.google/docs/...` (查证物理路径：`{workspace}/.agents/agents/{name}/agent.md`)
+     >  **官方 Subagent 规范查证凭据**：`https://antigravity.google/docs/...` (查证物理路径：`{workspace}/.agents/agents/{name}/agent.md`)
    - **显式输出 8 大专家子 Agent 列表与完整写权限矩阵**：
      强制在回复中输出 Markdown 表格，清晰呈现所有子 Agent 标识、角色名称（前端专家【马前端】）、工具权限（已装配完整读写与 `run_command`）与合法状态流转区间：
      | 子代理标识 | 角色名称 | 核心职责 | 工具权限 | 合法状态流转区间 |
@@ -86,7 +86,7 @@ version: 1.0.0
 
 ---
 
-## ⚡ 动态流转协议 (Dynamic Routing Protocol)
+## 动态流转协议 (Dynamic Routing Protocol)
 
 当 Agent 收到任务流转、领单、审查、测试或提权指令时，按需调阅 [`references/`](references/) 目录下的规约文档：
 
@@ -99,7 +99,7 @@ version: 1.0.0
 
 ---
 
-## 📂 模块索引与工具链
+## 模块索引与工具链
 
 - [`rules/`](rules/)：工作区核心规则与交互契约（`AGENTS.md` ~ `USER.md`）。
 - [`config/`](config/)：技术架构模板/ Schema（`project_architecture.schema.json`）与看板角色配置模板。

@@ -85,7 +85,7 @@ def detect_active_platforms():
     custom_agent = env.get("AGENT_NAME") or env.get("CUSTOM_AGENT")
     if custom_agent and custom_agent.lower() not in PLATFORM_SPECS:
         c_key = custom_agent.lower()
-        print(f"💡 [未知 Agent 探针] 感知到未显式枚举的 Agent 平台: [{custom_agent}]")
+        print(f"[NOTE]  [未知 Agent 探针] 感知到未显式枚举的 Agent 平台: [{custom_agent}]")
         PLATFORM_SPECS[c_key] = {
             "name": f"Custom Agent ({custom_agent})",
             "env_keys": [f"{c_key.upper()}_ENV"],
@@ -121,7 +121,7 @@ def verify_platform_doc_online(platform_key):
     url = spec["official_doc_url"]
     keyword = spec["keyword_assert"]
 
-    print(f"🔒 [代码物理强校验] 正在为平台 [{spec['name']}] 发起 HTTP 访问官方规范页面: {url}...")
+    print(f"[SECURITY]  [代码物理强校验] 正在为平台 [{spec['name']}] 发起 HTTP 访问官方规范页面: {url}...")
     
     req = urllib.request.Request(
         url,
@@ -140,13 +140,13 @@ def verify_platform_doc_online(platform_key):
             html_content = raw_data.decode("utf-8", errors="ignore")
             
             if keyword and keyword.lower() not in html_content.lower():
-                print(f"❌ [硬校验失败] 无法在 [{spec['name']}] 官方响应中验证关键字 '{keyword}'！")
+                print(f"[FAILED]  [硬校验失败] 无法在 [{spec['name']}] 官方响应中验证关键字 '{keyword}'！")
                 sys.exit(1)
                 
-            print(f"✅ [代码物理强校验成功] [{spec['name']}] 官方 Subagent 规范连通并断言通过！")
+            print(f"[SUCCESS]  [代码物理强校验成功] [{spec['name']}] 官方 Subagent 规范连通并断言通过！")
             return url
     except Exception as e:
-        print(f"⚠️ [{spec['name']} 网络校验降级警告] HTTP 链接异常 ({e})，启用备用本地断言校验模式...")
+        print(f"[WARN]  [{spec['name']} 网络校验降级警告] HTTP 链接异常 ({e})，启用备用本地断言校验模式...")
         return f"Offline-Assertion-Verified-{platform_key}"
 
 def load_agent_yaml(filename):
@@ -237,8 +237,8 @@ tools:
 
     # 构造更完善的 SOP 指引段落
     if "reject_status" in t_info:
-        third_step_str = f"""3. **🔹 第三步 (任务完成/流转/打回)**：
-   > 🔴 **【流转参数红线】** 执行流转时**必须传入 `--task-id`** 指定第一步生成的原任务编号（如 `--task-id T0100`），严禁遗漏！
+        third_step_str = f"""3. **-  第三步 (任务完成/流转/打回)**：
+   > [CRITICAL]  **【流转参数红线】** 执行流转时**必须传入 `--task-id`** 指定第一步生成的原任务编号（如 `--task-id T0100`），严禁遗漏！
    - **正常通过流转**：
      ```bash
      python3 scripts/transition_task.py --role {role} --task-id <第一步生成的任务ID> --from-status <当前状态> --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type A --end-time "$(date +'%Y-%m-%d %H:%M')"
@@ -248,8 +248,8 @@ tools:
      python3 scripts/transition_task.py --role {role} --task-id <第一步生成的任务ID> --from-status <当前状态> --to-status {t_info['reject_status']} --assignee "{t_info['reject_assignee']}" --type A --remarks "DEF-TXXX-N: <结构化缺陷说明>"
      ```"""
     elif role in ["DEV", "FRONTEND"]:
-        third_step_str = f"""3. **🔹 第三步 (任务完成/提交审查)**：
-   > 🔴 **【流转参数红线】** 执行流转时**必须传入 `--task-id`** 指定第一步生成的原任务编号（如 `--task-id T0100`），严禁遗漏！
+        third_step_str = f"""3. **-  第三步 (任务完成/提交审查)**：
+   > [CRITICAL]  **【流转参数红线】** 执行流转时**必须传入 `--task-id`** 指定第一步生成的原任务编号（如 `--task-id T0100`），严禁遗漏！
    - **A类常规开发提交审查**：
      ```bash
      python3 scripts/transition_task.py --role {role} --task-id <第一步生成的任务ID> --from-status 进行中 --to-status 审查中 --assignee "周审查" --type A
@@ -259,8 +259,8 @@ tools:
      python3 scripts/transition_task.py --role {role} --task-id <第一步生成的任务ID> --from-status 进行中 --to-status 已完成 --assignee "严经理" --type G --end-time "$(date +'%Y-%m-%d %H:%M')"
      ```"""
     else:
-        third_step_str = f"""3. **🔹 第三步 (任务完成/提交流转)**：
-   > 🔴 **【流转参数红线】** 执行流转时**必须传入 `--task-id`** 指定第一步生成的原任务编号（如 `--task-id T0100`），严禁遗漏！
+        third_step_str = f"""3. **-  第三步 (任务完成/提交流转)**：
+   > [CRITICAL]  **【流转参数红线】** 执行流转时**必须传入 `--task-id`** 指定第一步生成的原任务编号（如 `--task-id T0100`），严禁遗漏！
    ```bash
    python3 scripts/transition_task.py --role {role} --task-id <第一步生成的任务ID> --from-status 进行中 --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type {t_info['type']} --end-time "$(date +'%Y-%m-%d %H:%M')"
    ```"""
@@ -274,31 +274,31 @@ role: {role}
 description: multi-agent-flow 中的 {name} 专家子代理 (针对 {spec['name']} 官方适配)
 ---
 
-# 🤖 {spec['name']} 专家 Agent 角色：{name} ({agent_id})
+#  {spec['name']} 专家 Agent 角色：{name} ({agent_id})
 
-## 🎯 核心职责
+##  核心职责
 {resp_str}
 
-## 🛠️ 当前技术栈配置
+##  当前技术栈配置
 {tech_str}
 
-## ⚡ 允许推导的状态流转矩阵
+##  允许推导的状态流转矩阵
 {trans_str}
 
-## 📋 看板自动化 CLI 命令强执行 SOP (Hard Automation Rules)
+##  看板自动化 CLI 命令强执行 SOP (Hard Automation Rules)
 
-> 🔴 **【物理硬拦截红线】** 当你被唤起/调度执行任何项目任务时，**必须且只能分物理两步运行 CLI 命令**！若看板中无工单，**绝对禁止在最后一步直接新建已完成工单**（物理系统将直接阻断抛错）！你必须严格执行以下物理三步 SOP：
+> [CRITICAL]  **【物理硬拦截红线】** 当你被唤起/调度执行任何项目任务时，**必须且只能分物理两步运行 CLI 命令**！若看板中无工单，**绝对禁止在最后一步直接新建已完成工单**（物理系统将直接阻断抛错）！你必须严格执行以下物理三步 SOP：
 
-1. **🔹 第一步 (任务接收/即时建单为进行中)**：在刚接收任务、开始编码/撰写前，**必须首先调用 `run_command` 工具**运行 CLI 命令初始化建单为 `进行中`（从 `待开始` 或打回后的 `已退回` 均置为 `进行中`）。负责人填写中文名（如 `"{name}"`），默认字段填 `-`：
+1. **-  第一步 (任务接收/即时建单为进行中)**：在刚接收任务、开始编码/撰写前，**必须首先调用 `run_command` 工具**运行 CLI 命令初始化建单为 `进行中`（从 `待开始` 或打回后的 `已退回` 均置为 `进行中`）。负责人填写中文名（如 `"{name}"`），默认字段填 `-`：
    ```bash
    python3 scripts/transition_task.py --role {role} --from-status <待开始|已退回> --to-status 进行中 --assignee "{name}" --type <A|B|C|D|E|F|G> --task-name "<当前任务名称>" --wbs "-" --wp "-" --est-hours "-"
    ```
 
-2. **🔹 第二步 (领域工作执行)**：在工作区完成对应的代码开发、架构设计、文档撰写、代码审查或测试工作。
+2. **-  第二步 (领域工作执行)**：在工作区完成对应的代码开发、架构设计、文档撰写、代码审查或测试工作。
 
 {third_step_str}
 
-## 🚫 行为边界与权限
+##  行为边界与权限
 - 允许运行工作流与看板 CLI (can_run_cli): True
 - 允许创建与编辑领域文件 (can_write_domain_files): True
 - 允许修改业务核心代码 (can_modify_business_code): {can_modify_code}
@@ -309,7 +309,7 @@ description: multi-agent-flow 中的 {name} 专家子代理 (针对 {spec['name'
 
 def execute_universal_export():
     active_platforms = detect_active_platforms()
-    print(f"🔍 [通用 Agent 探针] 已自动侦测到当前激活平台: {active_platforms}")
+    print(f"[SCAN]  [通用 Agent 探针] 已自动侦测到当前激活平台: {active_platforms}")
 
     for p_key in active_platforms:
         spec = PLATFORM_SPECS[p_key]
@@ -340,11 +340,11 @@ def execute_universal_export():
                 "tools": "完整读写 + run_command",
             })
 
-        print(f"\n✨ [{spec['name']} 导出完成] 对应全量 8 大专家子代理已精准落盘：")
+        print(f"\n [{spec['name']} 导出完成] 对应全量 8 大专家子代理已精准落盘：")
         for s in summary:
             print(s)
 
-        print("\n📋 【8 大专家子 Agent 权限与工具矩阵】")
+        print("\n 【8 大专家子 Agent 权限与工具矩阵】")
         print("-" * 90)
         print(f"{'子代理标识':<18} | {'角色名称':<20} | {'工具权限':<22} | {'核心职责'}")
         print("-" * 90)

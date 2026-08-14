@@ -80,7 +80,7 @@ def classify_document(filepath: str) -> str:
 
 
 def scan_and_migrate_legacy_docs(target_project_dir: str = PROJECT_ROOT):
-    print("🔍 [原项目文档识别] 正在结合目录语义扫描工程中散落的历史文档...")
+    print("[SCAN]  [原项目文档识别] 正在结合目录语义扫描工程中散落的历史文档...")
 
     migrated_files: List[Tuple[str, str]] = []
 
@@ -104,13 +104,13 @@ def scan_and_migrate_legacy_docs(target_project_dir: str = PROJECT_ROOT):
                 migrated_files.append((src_path, dest_path))
 
     if migrated_files:
-        print(f"✅ [原项目文档归档完成] 已以只读方式分类镜像拷贝 {len(migrated_files)} 份历史文档：")
+        print(f"[SUCCESS]  [原项目文档归档完成] 已以只读方式分类镜像拷贝 {len(migrated_files)} 份历史文档：")
         for src, dest in migrated_files:
             rel_src = os.path.relpath(src, target_project_dir)
             rel_dest = os.path.relpath(dest, target_project_dir)
             print(f"  - [{rel_src}] ➔ [{rel_dest}]")
     else:
-        print("💡 [未发现散落旧文档] 当前项目根路径下无新增需要迁移的历史文档。")
+        print("[NOTE]  [未发现散落旧文档] 当前项目根路径下无新增需要迁移的历史文档。")
 
 
 if __name__ == "__main__":

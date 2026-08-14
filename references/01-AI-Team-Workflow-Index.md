@@ -1,11 +1,11 @@
 # 01 - AI Team Workflow 协同主索引
 
 > **核心规约交叉索引**：
-> - 状态推导与打回规则：👉 [`02-State-Flow-Rules.md`](02-State-Flow-Rules.md)
-> - 防错门控与守护机制：👉 [`03-Anti-Error-Mechanism.md`](03-Anti-Error-Mechanism.md)
-> - Git 分支与版本模型：👉 [`04-Git-Workflow-Spec.md`](04-Git-Workflow-Spec.md)
-> - 工程文档管理规范标准：👉 [`05-Document-Management-Spec.md`](05-Document-Management-Spec.md)
-> - Agent 间交接与提权协议：👉 [`06-Inter-Agent-Handover-Protocol.md`](06-Inter-Agent-Handover-Protocol.md)
+> - 状态推导与打回规则：->  [`02-State-Flow-Rules.md`](02-State-Flow-Rules.md)
+> - 防错门控与守护机制：->  [`03-Anti-Error-Mechanism.md`](03-Anti-Error-Mechanism.md)
+> - Git 分支与版本模型：->  [`04-Git-Workflow-Spec.md`](04-Git-Workflow-Spec.md)
+> - 工程文档管理规范标准：->  [`05-Document-Management-Spec.md`](05-Document-Management-Spec.md)
+> - Agent 间交接与提权协议：->  [`06-Inter-Agent-Handover-Protocol.md`](06-Inter-Agent-Handover-Protocol.md)
 
 ---
 
@@ -32,7 +32,7 @@
 
 ### 1. 项目经理 (PM)
 - **职责**：WBS 维护、工作包拆解、任务派发、进度风险预警、F 类阶段管理总结主笔、最终阶段验收。
-- **红线**：❌ 不编写业务代码、不做技术架构设计、不亲自跑单测/集成测试。
+- **红线**：[FAILED] 不编写业务代码、不做技术架构设计、不亲自跑单测/集成测试。
 
 ### 2. 系统架构师 (ARCHITECT)
 - **职责**：系统架构设计、技术选型、ADR（架构决策记录）编写、架构评估、F 类阶段技术总结主笔。
@@ -41,18 +41,18 @@
 ### 3. 开发工程师 (DEV)
 - **职责**：Schema 定义、Workflow/API/数据库编码实现、编写单元测试（ coverage > 80% ）、产出开发任务报告、G 类环境搭建与运维治理。
 - **约束规则**：
-  - ⚠️ 并发上限：最多同时 3 个任务处于 `进行中`；
-  - ⚠️ 顺序限制：严格按任务编号从小到大依次处理；
-  - ⚠️ 自领取限制：自领取时必须**先改状态为进行中确认落库后再开始编码**（严禁先干后补）。
+  - [WARN] 并发上限：最多同时 3 个任务处于 `进行中`；
+  - [WARN] 顺序限制：严格按任务编号从小到大依次处理；
+  - [WARN] 自领取限制：自领取时必须**先改状态为进行中确认落库后再开始编码**（严禁先干后补）。
 
 ### 3.5 前端开发工程师 (FRONTEND)
 - **职责**：现代 Web 界面与组件开发、响应式布局与微交互实现、前端性能与可访问性自测、前端开发报告产出。
 - **约束规则**：
-  - ⚠️ 并发上限：与 DEV 一致，最多同时 3 个任务处于 `进行中`；
-  - ⚠️ 顺序限制：与 DEV 一致，按任务编号从小到大依次处理；
-  - ⚠️ 自领取限制：与 DEV 一致，**先改状态为进行中确认落库后再开始编码**（严禁先干后补）；
-  - ⚠️ 提交流转：与 DEV 镜像 — 提交审查 `进行中 → 审查中`（处理人=REVIEWER）；G 类前端环境任务可走 `进行中 → 已完成` 直跳；
-  - ⚠️ A 类前端任务的红线：禁止 `进行中 → 已完成` / `进行中 → 已验收` 直跳（须经审查+测试链路），与 DEV 同约束。
+  - [WARN] 并发上限：与 DEV 一致，最多同时 3 个任务处于 `进行中`；
+  - [WARN] 顺序限制：与 DEV 一致，按任务编号从小到大依次处理；
+  - [WARN] 自领取限制：与 DEV 一致，**先改状态为进行中确认落库后再开始编码**（严禁先干后补）；
+  - [WARN] 提交流转：与 DEV 镜像 — 提交审查 `进行中 → 审查中`（处理人=REVIEWER）；G 类前端环境任务可走 `进行中 → 已完成` 直跳；
+  - [WARN] A 类前端任务的红线：禁止 `进行中 → 已完成` / `进行中 → 已验收` 直跳（须经审查+测试链路），与 DEV 同约束。
 
 ### 4. 代码审查员 (REVIEWER)
 - **职责**：代码规范 (PEP8 / Clean Code)、安全漏洞扫描 (SQLi/XSS/Token泄露)、性能评估、Pydantic v2 规范。

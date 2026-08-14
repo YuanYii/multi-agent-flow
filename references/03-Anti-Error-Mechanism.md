@@ -60,7 +60,7 @@
 2. **显式提权授权协议**：
    - 若用户明确指定：“以项目经理身份进行验收” 或 “授权你代行 PM 验收”。
    - Agent 必须进行**声明与留痕**：
-     > 📢 "检测到跨角色指令。按规范该操作需【项目经理】执行。根据您的明确授权，由我临时代行该操作，执行 [已完成 → 已验收] 流转..."
+     > [NOTICE] "检测到跨角色指令。按规范该操作需【项目经理】执行。根据您的明确授权，由我临时代行该操作，执行 [已完成 → 已验收] 流转..."
    - **CLI 强制门控**（代码层硬拦截，无声明即拒绝）：
      - 调用 `transition_task.py` 时必须显式传 `--delegated-by <来源角色>` 与 `--delegation-reason "<理由>"`；
      - `--delegated-by` 取值必须在 `validate_transition.py:DELEGATION_ALLOW_MATRIX` 白名单内，否则代码层 Fail-Closed 拒绝（典型合法组合：`--role PM --delegated-by DEV`、`--role QA --delegated-by PM`、`--role PM --delegated-by USER`）；
@@ -79,7 +79,7 @@
 
 ### 结构化转交输出格式
 ```markdown
-### ⚠️ 权限拦截与任务转交清单
+### [WARN] 权限拦截与任务转交清单
 
 以下任务超越当前角色权限，已自动生成转交记录，需对应角色处理：
 

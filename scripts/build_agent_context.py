@@ -46,7 +46,7 @@ def build_context(role: str, action: str = "general") -> str:
     role_data = load_role_yaml(role_upper)
 
     context_output = []
-    context_output.append(f"# 🤖 动态 Agent 裁剪上下文 (Role: {role_upper} | Action: {action})\n")
+    context_output.append(f"#  动态 Agent 裁剪上下文 (Role: {role_upper} | Action: {action})\n")
 
     # 1. 专家角色专有规则
     if role_data:

@@ -70,13 +70,13 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         # 保持控制台日志简洁
-        sys.stderr.write(f"🌐 [Kanban HTTP 32886] {self.address_string()} - {format % args}\n")
+        sys.stderr.write(f" [Kanban HTTP 32886] {self.address_string()} - {format % args}\n")
 
 
 def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0"):
     """启动简易 HTTP 看板服务"""
     if not os.path.exists(KANBAN_DIR):
-        print(f"❌ [ERROR] 无法找到看板目录: {KANBAN_DIR}")
+        print(f"[FAILED]  [ERROR] 无法找到看板目录: {KANBAN_DIR}")
         sys.exit(1)
 
     server_address = (host, port)
@@ -84,12 +84,12 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0"):
         httpd = HTTPServer(server_address, KanbanHTTPRequestHandler)
     except OSError as e:
         if e.errno == 48 or "Address already in use" in str(e):
-            print(f"⚠️ [NOTICE] 端口 {port} 已被看板服务或其他进程占用，服务已处于运行状态！")
+            print(f"[WARN]  [NOTICE] 端口 {port} 已被看板服务或其他进程占用，服务已处于运行状态！")
             local_ip = get_local_ip()
             print_kanban_urls(port, local_ip)
             return
         else:
-            print(f"❌ [ERROR] 启动 HTTP 服务失败: {e}")
+            print(f"[FAILED]  [ERROR] 启动 HTTP 服务失败: {e}")
             sys.exit(1)
 
     local_ip = get_local_ip()
@@ -98,18 +98,18 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0"):
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\n🛑 收到终止信号，正在关闭看板 HTTP 服务...")
+        print("\n[STOP]  收到终止信号，正在关闭看板 HTTP 服务...")
         httpd.server_close()
 
 
 def print_kanban_urls(port: int, local_ip: str):
     print("\n" + "=" * 70)
-    print(f"🚀 Multi-Agent Flow 看板 Web 服务已就绪 (端口: {port})")
+    print(f"[START]  Multi-Agent Flow 看板 Web 服务已就绪 (端口: {port})")
     print("=" * 70)
-    print(f"🌐 本地访问地址  : http://localhost:{port}/")
-    print(f"🌐 替代本地链接  : http://127.0.0.1:{port}/offline_board.html")
+    print(f" 本地访问地址  : http://localhost:{port}/")
+    print(f" 替代本地链接  : http://127.0.0.1:{port}/offline_board.html")
     if local_ip != "127.0.0.1":
-        print(f"📱 局域网访问地址: http://{local_ip}:{port}/")
+        print(f" 局域网访问地址: http://{local_ip}:{port}/")
     print("=" * 70 + "\n")
 
 

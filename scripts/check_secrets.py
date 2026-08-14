@@ -44,7 +44,7 @@ def scan_file(file_path: str) -> List[Tuple[int, str, str]]:
 
 def main():
     print("========================================================================")
-    print("        🛡️  Multi-Agent Workflow · 敏感凭证与硬编码密钥安全扫描")
+    print("        [GUARD]   Multi-Agent Workflow · 敏感凭证与硬编码密钥安全扫描")
     print("========================================================================")
 
     total_issues = 0
@@ -62,17 +62,17 @@ def main():
                     rel_path = os.path.relpath(f_path, WORKFLOW_ROOT)
                     findings = scan_file(f_path)
                     if findings:
-                        print(f"\n❌ 在 [{rel_path}] 中发现高风险硬编码凭证:")
+                        print(f"\n[FAILED]  在 [{rel_path}] 中发现高风险硬编码凭证:")
                         for line_num, desc, line_content in findings:
                             print(f"   - 行 {line_num} [{desc}]: {line_content[:60]}...")
                             total_issues += 1
 
     print("\n========================================================================")
     if total_issues > 0:
-        print(f"⚠️ 扫描完成: 共发现 {total_issues} 处明文凭证风险！请使用 ${{ENV_VAR}} 替代敏感信息。")
+        print(f"[WARN]  扫描完成: 共发现 {total_issues} 处明文凭证风险！请使用 ${{ENV_VAR}} 替代敏感信息。")
         sys.exit(1)
     else:
-        print("✅ 安全扫描完成: 未发现硬编码明文凭证与密钥泄露风险！")
+        print("[SUCCESS]  安全扫描完成: 未发现硬编码明文凭证与密钥泄露风险！")
         sys.exit(0)
 
 if __name__ == "__main__":

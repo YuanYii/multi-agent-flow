@@ -93,7 +93,7 @@ def record_audit_event(
 
 if __name__ == "__main__":
     record_audit_event("T0000", "TEST", "待开始", "进行中", "TESTER", True, "审计日志测试事件")
-    print(f"✅ [AuditLogger] 测试审计日志已写入: {AUDIT_LOG_FILE}")
+    print(f"[SUCCESS]  [AuditLogger] 测试审计日志已写入: {AUDIT_LOG_FILE}")
 
 
 # =============================================================================

@@ -57,18 +57,18 @@ subagent: true
 description: multi-agent-flow 中的 {name} 专家子代理
 ---
 
-# 🤖 Antigravity 官方专家 Agent 角色：{name} ({agent_id})
+#  Antigravity 官方专家 Agent 角色：{name} ({agent_id})
 
-## 🎯 核心职责
+##  核心职责
 {resp_str}
 
-## 🛠️ 当前技术栈配置
+##  当前技术栈配置
 {tech_str}
 
-## ⚡ 允许推导的状态流转矩阵
+##  允许推导的状态流转矩阵
 {trans_str}
 
-## 🚫 行为边界与红线
+##  行为边界与红线
 - 允许编码 (can_code): {boundaries.get('can_code', False)}
 - 允许直接审批终态 (can_approve): {boundaries.get('can_approve', False)}
 - 遵守项目通用规范：路径深度≤3，Markdown 附带 Frontmatter 标头，过程草稿存入 `.drafts/`。
@@ -84,7 +84,7 @@ def export_official_subagents(global_mode=False):
         base_agents_dir = os.path.join(TARGET_PROJECT_DIR, ".agents", "agents")
         mode_str = "项目工作区级别 ({workspace}/.agents/agents/)"
 
-    print(f"🔍 [Antigravity 官方 Subagent 导出器] 导出至 {mode_str}...")
+    print(f"[SCAN]  [Antigravity 官方 Subagent 导出器] 导出至 {mode_str}...")
 
     os.makedirs(base_agents_dir, exist_ok=True)
     summary = []
@@ -105,7 +105,7 @@ def export_official_subagents(global_mode=False):
 
         summary.append(f"  - 子代理 `{meta['id']}` ➔ 写出至 `{os.path.relpath(agent_file, TARGET_PROJECT_DIR)}` (标头已声明 subagent: true)")
 
-    print("✅ [Antigravity 官方规范导出完成] 包含 subagent: true 标头的 7 大专家已全量就绪：")
+    print("[SUCCESS]  [Antigravity 官方规范导出完成] 包含 subagent: true 标头的 7 大专家已全量就绪：")
     for s in summary:
         print(s)
 

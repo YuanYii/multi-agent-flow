@@ -4,7 +4,7 @@
 
 ---
 
-## ⚡ 核心原则 (Core Tenets)
+## 核心原则 (Core Tenets)
 
 1. **事实高于推论 (Fact > Impression)**：
    反驳或判断状态必须以代码、单测输出、日志或看板真实 API 返回为依据，严禁凭印象乱判断。
@@ -17,7 +17,7 @@
 
 ---
 
-## 🛡️ 状态防错矩阵
+## [GUARD] 状态防错矩阵
 
 完整的防错门控、拦截处理与提权代行逻辑详见指引：
-👉 [`../references/03-Anti-Error-Mechanism.md`](../references/03-Anti-Error-Mechanism.md)
+->  [`../references/03-Anti-Error-Mechanism.md`](../references/03-Anti-Error-Mechanism.md)

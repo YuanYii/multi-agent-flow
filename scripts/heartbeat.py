@@ -227,7 +227,7 @@ def main():
     try:
         adapter = get_board_adapter(args.config)
     except Exception as e:
-        sys.stderr.write(f"❌ [Heartbeat] 加载看板适配器失败: {e}\n")
+        sys.stderr.write(f"[FAILED]  [Heartbeat] 加载看板适配器失败: {e}\n")
         sys.exit(2)
 
     result = run_heartbeat(adapter, thresholds=thresholds)
@@ -236,15 +236,15 @@ def main():
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         print("=" * 80)
-        print(f"💓 [Heartbeat] 巡检时间: {result['checked_at']}")
-        print(f"📊 扫描任务数: {result['total_tasks']}")
-        print(f"⚠️  告警统计: critical={result['summary']['critical']}  warning={result['summary']['warning']}  info={result['summary']['info']}")
+        print(f" [Heartbeat] 巡检时间: {result['checked_at']}")
+        print(f" 扫描任务数: {result['total_tasks']}")
+        print(f"[WARN]   告警统计: critical={result['summary']['critical']}  warning={result['summary']['warning']}  info={result['summary']['info']}")
         print("-" * 80)
         if not result["alerts"]:
-            print("✅ 全部通过,无告警")
+            print("[SUCCESS]  全部通过,无告警")
         else:
             for a in result["alerts"]:
-                icon = {"critical": "🔴", "warning": "🟡", "info": "🔵"}.get(a["severity"], "⚪")
+                icon = {"critical": "[CRITICAL] ", "warning": "[WARN] ", "info": ""}.get(a["severity"], "")
                 print(f"  {icon} [{a['code']}] {a['message']}")
         print("=" * 80)
 

@@ -1132,7 +1132,7 @@
             const id = document.getElementById('new-id').value.trim();
             const name = document.getElementById('new-name').value.trim();
             if (!id || !name) {
-                showToast('⚠️ 请填写任务编号和任务名称！');
+                showToast('[WARN]  请填写任务编号和任务名称！');
                 return;
             }
             const newCard = {

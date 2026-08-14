@@ -1192,7 +1192,7 @@
             font-weight: 600;
         }
         .rh-option.active::after {
-            content: "✓";
+            content: "";
             font-size: 12px;
             font-weight: 700;
         }

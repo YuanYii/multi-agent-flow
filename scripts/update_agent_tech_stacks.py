@@ -223,7 +223,7 @@ def main():
     update_qa_role(arch_data)
     update_devops_role(arch_data)
     update_frontend_role(arch_data)
-    print("✨ 所有专家 Agent 的技术栈已成功同步！")
+    print(" 所有专家 Agent 的技术栈已成功同步！")
 
 if __name__ == "__main__":
     main()

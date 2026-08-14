@@ -69,14 +69,14 @@ def main():
     if not events:
         print("(无匹配事件)")
         return
-    print(f"📋 共 {len(events)} 条审计事件")
+    print(f" 共 {len(events)} 条审计事件")
     print("-" * 110)
     for e in events:
         ts = e.get("timestamp", "?")
         tid = e.get("task_id", "?")
         role = e.get("role", "?")
         transition = f"{e.get('from_status', '?')} -> {e.get('to_status', '?')}"
-        ok = "✅" if e.get("success") else "❌"
+        ok = "[SUCCESS] " if e.get("success") else "[FAILED] "
         who = e.get("assignee", "-")
         delegated = ""
         if e.get("delegated_by"):

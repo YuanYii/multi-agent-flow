@@ -27,7 +27,7 @@ def exponential_backoff_retry(max_retries: int = 3, initial_delay: float = 1.0):
                 except Exception as e:
                     if attempt == max_retries:
                         raise e
-                    print(f"⚠️ [网络重试退避] 第 {attempt} 次请求失败 ({e})，将在 {delay} 秒后发起重试...")
+                    print(f"[WARN]  [网络重试退避] 第 {attempt} 次请求失败 ({e})，将在 {delay} 秒后发起重试...")
                     time.sleep(delay)
                     delay *= 2
         return wrapper
@@ -37,7 +37,7 @@ def get_board_adapter(config_file: str = CONFIG_PATH) -> Any:
     """根据 workflow.config.yaml 自动创建并返回适配器实例"""
     if not os.path.exists(config_file):
         raise FileNotFoundError(
-            f"❌ [Fail-Closed 物理拦截] 无法找到指定的看板配置文件: '{config_file}'！\n"
+            f"[FAILED]  [Fail-Closed 物理拦截] 无法找到指定的看板配置文件: '{config_file}'！\n"
             f"请核验路径是否正确，或先从 config/workflow.config.template.yaml 复制生成对应配置。"
         )
 
@@ -55,7 +55,7 @@ def get_board_adapter(config_file: str = CONFIG_PATH) -> Any:
         except ImportError:
             pass
         except Exception as se:
-            raise ValueError(f"❌ [Schema 物理断言拦截] 看板配置违反 config.schema.json 规范: {se}")
+            raise ValueError(f"[FAILED]  [Schema 物理断言拦截] 看板配置违反 config.schema.json 规范: {se}")
 
     board_cfg = config.get("board", {})
     provider = board_cfg.get("provider", "feishu_base").lower()

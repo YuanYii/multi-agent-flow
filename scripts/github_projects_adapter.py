@@ -155,7 +155,7 @@ class GitHubProjectsAdapter:
             "projectId": project_id,
             "itemId": record_id,
             "fieldId": remarks_field_id,
-            "value": {"text": f"🔄 [多专家工作流追加] {new_text}"}
+            "value": {"text": f"[SYNC]  [多专家工作流追加] {new_text}"}
         }
         res = self._graphql_query(query, variables)
         success = "updateProjectV2ItemFieldValue" in res

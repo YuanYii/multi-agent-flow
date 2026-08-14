@@ -105,7 +105,7 @@ def sync_stack_to_config(info: dict, target_project_dir: str = PROJECT_ROOT) -> 
         if os.path.exists(template_path):
             shutil.copy2(template_path, config_path)
         else:
-            print(f"⚠️ 未找到架构配置文件: {config_path}")
+            print(f"[WARN]  未找到架构配置文件: {config_path}")
             return False
 
     # 生成物理备份 .bak
@@ -132,19 +132,19 @@ def sync_stack_to_config(info: dict, target_project_dir: str = PROJECT_ROOT) -> 
 
         with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
-        print(f"💾 [配置同步] 已成功将识别出的技术栈写回 {config_path} (备份: {bak_path})")
+        print(f" [配置同步] 已成功将识别出的技术栈写回 {config_path} (备份: {bak_path})")
 
         # 联动触发 update_agent_tech_stacks.py 同步更新 agents/*.yaml
         update_script = os.path.join(SCRIPT_DIR, "update_agent_tech_stacks.py")
         if os.path.exists(update_script):
             res = subprocess.run([sys.executable, update_script], capture_output=True, text=True)
             if res.returncode == 0:
-                print("✨ [闭环同步完成] 已自动触发 update_agent_tech_stacks.py 完成全量 agents/*.yaml 同步！")
+                print(" [闭环同步完成] 已自动触发 update_agent_tech_stacks.py 完成全量 agents/*.yaml 同步！")
             else:
-                print(f"⚠️ [警告] 触发 agents/*.yaml 同步失败: {res.stderr}")
+                print(f"[WARN]  [警告] 触发 agents/*.yaml 同步失败: {res.stderr}")
         return True
     except Exception as e:
-        print(f"❌ [写回失败] 同步技术栈配置抛出异常: {e}")
+        print(f"[FAILED]  [写回失败] 同步技术栈配置抛出异常: {e}")
         return False
 
 
@@ -154,12 +154,12 @@ def main():
     parser.add_argument("--write", action="store_true", help="自动将扫描到的技术栈同步落盘至 config 与 agents/*.yaml")
     args = parser.parse_args()
 
-    print("🔎 [auto_scan_stack] 正在物理代码扫描工程依赖与 README.md...")
+    print("[SCAN]  [auto_scan_stack] 正在物理代码扫描工程依赖与 README.md...")
     info = scan_project_stack()
 
     title = info["readme_title"] or info["project_name"]
     print("==============================================================================")
-    print(f"👑 【已识别 {title} 项目】")
+    print(f"[PM]  【已识别 {title} 项目】")
     print(f"  - 识别编程语言: {', '.join(info['languages']) or 'Python'}")
     print(f"  - 识别核心框架: {', '.join(info['frameworks']) or 'Pydantic / Web Framework'}")
     print(f"  - 识别单测工具: {info['testing_framework']}")

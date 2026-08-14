@@ -6,7 +6,7 @@
 
 ---
 
-## 🚀 快捷唤醒指令 (Slash Commands)
+## 快捷唤醒指令 (Slash Commands)
 
 您可以在任意对话中直接输入 **`/yy-flow`** 快捷指令快速操作：
 
@@ -50,7 +50,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 
 ---
 
-### 🔌 数据看板配置指南（离线默认 / 在线扩展）
+### 数据看板配置指南（离线默认 / 在线扩展）
 
 在配置文件 [`config/workflow.config.yaml`](config/workflow.config.yaml) 中，看板默认配置为**离线本地看板 (`local`)**，零依赖开箱即用；同时也支持配置扩展为线上数据看板（飞书 Base / Jira / GitHub Projects）。
 
@@ -113,7 +113,7 @@ python3 scripts/offline_board_adapter.py --list kanban/board.json
 
 ---
 
-## 🧪 自动化测试与质量门控
+## 自动化测试与质量门控
 
 项目内置了完备的物理级质量防错与自动化回归测试套件：
 
@@ -180,16 +180,16 @@ pytest tests/ --verbose
 
 ---
 
-## 📜 核心契约与防错规则 (`rules/`)
+## 核心契约与防错规则 (`rules/`)
 
 技能包在 [`rules/`](rules/) 目录下内置了全套标准化交互契约与防错规则，在调用 Skill 时自动按需装载：
 
-- 🚩 [`rules/AGENTS.md`](rules/AGENTS.md)：**多专家团队协作契约** —— 规定 6 大协作红线、看板状态不变量与动态按需加载协议。
-- 🎭 [`rules/IDENTITY.md`](rules/IDENTITY.md)：**专家团多面人设与身份契约** —— 定义 PM、ARCHITECT、DEV、FRONTEND、REVIEWER、QA、DOCS、DEVOPS 8 大专家身份及其提权代行规约。
-- ⚡ [`rules/SOUL.md`](rules/SOUL.md)：**行为原则与防错控制心脏** —— 规定事实高于推论、原子更新、缺陷溯源不切碎等安全控制核心。
-- 💓 [`rules/HEARTBEAT.md`](rules/HEARTBEAT.md)：**看板状态巡检与卡顿监控** —— 规定滞留任务、并发上限及状态处理人一致性等巡检 Checklist。
-- 🛠️ [`rules/TOOLS.md`](rules/TOOLS.md)：**看板与工程工具链指引** —— 描述 `init_field_mapping.py`、`start_kanban_server.py` 等脚本说明。
-- 🤝 [`rules/USER.md`](rules/USER.md)：**用户交互协议与协同契约** —— 规定自领取筛选规则、跨角色提权代行交互及【启动看板】32886 服务引导规范。
+-  [`rules/AGENTS.md`](rules/AGENTS.md)：**多专家团队协作契约** —— 规定 6 大协作红线、看板状态不变量与动态按需加载协议。
+-  [`rules/IDENTITY.md`](rules/IDENTITY.md)：**专家团多面人设与身份契约** —— 定义 PM、ARCHITECT、DEV、FRONTEND、REVIEWER、QA、DOCS、DEVOPS 8 大专家身份及其提权代行规约。
+-  [`rules/SOUL.md`](rules/SOUL.md)：**行为原则与防错控制心脏** —— 规定事实高于推论、原子更新、缺陷溯源不切碎等安全控制核心。
+-  [`rules/HEARTBEAT.md`](rules/HEARTBEAT.md)：**看板状态巡检与卡顿监控** —— 规定滞留任务、并发上限及状态处理人一致性等巡检 Checklist。
+-  [`rules/TOOLS.md`](rules/TOOLS.md)：**看板与工程工具链指引** —— 描述 `init_field_mapping.py`、`start_kanban_server.py` 等脚本说明。
+-  [`rules/USER.md`](rules/USER.md)：**用户交互协议与协同契约** —— 规定自领取筛选规则、跨角色提权代行交互及【启动看板】32886 服务引导规范。
 
 ---
 
@@ -269,10 +269,10 @@ graph TD
 
 ---
 
-## 🛡️ 防错闭环机制 (§九 守护原则)
+## [GUARD] 防错闭环机制 (§九 守护原则)
 
 完整五层防错门控、拦截处理与提权代行逻辑详见：
-👉 [`references/03-Anti-Error-Mechanism.md`](references/03-Anti-Error-Mechanism.md)
+->  [`references/03-Anti-Error-Mechanism.md`](references/03-Anti-Error-Mechanism.md)
 
 1. **状态与处理人原子绑定 (Atomic Update)**：修改状态必须同步修改处理人。
 2. **打回不拆单原则 (Non-Fragmented Defect)**：打回一律在原任务上置为 `已退回` 并追加 `DEF-TXXX-N`。
@@ -282,7 +282,7 @@ graph TD
 
 ---
 
-## 📂 目录结构与规范
+## 目录结构与规范
 
 ```text
 2_多专家协同研发工作流/

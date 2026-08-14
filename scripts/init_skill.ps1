@@ -5,19 +5,19 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ProjectRoot = Resolve-Path "$ScriptDir\.."
 
 Write-Host "==============================================================================" -ForegroundColor Cyan
-Write-Host "🚀 开始执行 multi-agent-flow 标准 SOP 初始化流程 (PowerShell)..." -ForegroundColor Cyan
+Write-Host "[START]  开始执行 multi-agent-flow 标准 SOP 初始化流程 (PowerShell)..." -ForegroundColor Cyan
 Write-Host "==============================================================================" -ForegroundColor Cyan
 
-Write-Host "🔒 [Step 1/7] 强执行敏感凭据泄露安全扫描 (check_secrets.py)..." -ForegroundColor Yellow
+Write-Host "[SECURITY]  [Step 1/7] 强执行敏感凭据泄露安全扫描 (check_secrets.py)..." -ForegroundColor Yellow
 python "$ScriptDir\check_secrets.py"
 
-Write-Host "🔒 [Step 2/7] 动态 Agent 环境探测、官方文档实时查证与 Subagent 强规范落盘..." -ForegroundColor Yellow
+Write-Host "[SECURITY]  [Step 2/7] 动态 Agent 环境探测、官方文档实时查证与 Subagent 强规范落盘..." -ForegroundColor Yellow
 python "$ScriptDir\verify_and_export_agents.py"
 
-Write-Host "🔎 [Step 3/7] 自动代码物理扫描工程基础设施、依赖文件与语言技术栈配置..." -ForegroundColor Yellow
+Write-Host "[SCAN]  [Step 3/7] 自动代码物理扫描工程基础设施、依赖文件与语言技术栈配置..." -ForegroundColor Yellow
 python "$ScriptDir\auto_scan_stack.py"
 
-Write-Host "📝 [Step 4/7] 初始化宿主数据资产目录 user_data/ 并生成工作流与架构配置..." -ForegroundColor Yellow
+Write-Host "[CONFIG]  [Step 4/7] 初始化宿主数据资产目录 user_data/ 并生成工作流与架构配置..." -ForegroundColor Yellow
 $UserDataDir = "$ProjectRoot\user_data"
 $UserDataLogs = "$ProjectRoot\user_data\logs"
 if (-not (Test-Path $UserDataDir)) { New-Item -ItemType Directory -Path $UserDataDir | Out-Null }
@@ -47,7 +47,7 @@ if (-not (Test-Path $BoardJson)) {
     Write-Host "  - 已成功初始化空看板工单 user_data\board.json" -ForegroundColor Green
 }
 
-# 🧹 宿主环境纯净化：清理 Skill 目录内部残留的 .git 目录和 .gitignore 文件
+# [CLEAN]  宿主环境纯净化：清理 Skill 目录内部残留的 .git 目录和 .gitignore 文件
 if (Test-Path "$ProjectRoot\.git") {
     Remove-Item "$ProjectRoot\.git" -Recurse -Force
     Write-Host "  - 已自动清理 Skill 目录内部残留的 .git 仓库目录" -ForegroundColor Green
@@ -57,7 +57,7 @@ if (Test-Path "$ProjectRoot\.gitignore") {
     Write-Host "  - 已自动清理 Skill 目录内部的 .gitignore 文件" -ForegroundColor Green
 }
 
-Write-Host "📂 [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..." -ForegroundColor Yellow
+Write-Host "[DOCS]  [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..." -ForegroundColor Yellow
 $DocsDirs = @(
     "$ProjectRoot\docs\01-architecture",
     "$ProjectRoot\docs\02-modules",
@@ -74,12 +74,12 @@ foreach ($dir in $DocsDirs) {
 
 python "$ScriptDir\migrate_legacy_docs.py"
 
-Write-Host "🔄 [Step 6/7] 专家团队技术栈自动同步至 agents/*.yaml (全量 8 大角色)..." -ForegroundColor Yellow
+Write-Host "[SYNC]  [Step 6/7] 专家团队技术栈自动同步至 agents/*.yaml (全量 8 大角色)..." -ForegroundColor Yellow
 python "$ScriptDir\update_agent_tech_stacks.py"
 
-Write-Host "👑 [Step 7/7] 唤起 PM 专家确认项目鉴定定位..." -ForegroundColor Yellow
+Write-Host "[PM]  [Step 7/7] 唤起 PM 专家确认项目鉴定定位..." -ForegroundColor Yellow
 Write-Host "  - PM 专家已完成项目范围核验，随时准备响应任务编排。" -ForegroundColor Green
 
 Write-Host "==============================================================================" -ForegroundColor Cyan
-Write-Host "✅ [SOP 7 步全量就绪] multi-agent-flow 物理初始化顺利完成！" -ForegroundColor Cyan
+Write-Host "[SUCCESS]  [SOP 7 步全量就绪] multi-agent-flow 物理初始化顺利完成！" -ForegroundColor Cyan
 Write-Host "==============================================================================" -ForegroundColor Cyan

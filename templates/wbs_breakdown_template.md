@@ -6,14 +6,14 @@ owner: "严经理 (PM)"
 created_date: "YYYY-MM-DD"
 ---
 
-# 📋 WBS 工作包拆解规范与任务清单
+# WBS 工作包拆解规范与任务清单
 
-## 🎯 工作包目标
+## 工作包目标
 说明本工作包核心解决的业务功能、系统模块或基础设施构建目标。
 
 ---
 
-## 🗂️ 任务拆解矩阵 (WBS Task Breakdown Table)
+## 任务拆解矩阵 (WBS Task Breakdown Table)
 
 | 任务编号 | WBS 编号 | 任务名称与要求 | 优先级 | 负责角色 | 领用模式 | 预估工时(h) | 交付物格式 |
 |---------|---------|---------------|-------|---------|---------|------------|-----------|
@@ -23,7 +23,7 @@ created_date: "YYYY-MM-DD"
 
 ---
 
-## 🚩 阶段里程碑与验收标准 (Milestones & Acceptance Gate)
+## 阶段里程碑与验收标准 (Milestones & Acceptance Gate)
 
 - [ ] **M1 (架构基线上线)**: 完成核心数据结构定义，并通过架构师与 PM 双向审议。
 - [ ] **M2 (开发与单测达标)**: 所有 P0/P1 任务单测覆盖率达到 **80%+**，代码审查漏洞级别为 0。
@@ -31,7 +31,7 @@ created_date: "YYYY-MM-DD"
 
 ---
 
-## 🚫 边界与约束 (Constraints)
+## 边界与约束 (Constraints)
 
 1. 每个开发任务并发领用上限为 **3 个**。
 2. 任务状态发生推导时，必须按 [references/02-State-Flow-Rules.md](references/02-State-Flow-Rules.md) 规则更新状态与处理人。

@@ -13,7 +13,7 @@
 |------|-----|
 | 执行人 | ${DEV_NAME} |
 | 日期 | ${DATE} |
-| 状态 | 🟢 文档已完成 · 待 PM 验收 |
+| 状态 | [OK] 文档已完成 · 待 PM 验收 |
 | 关联任务 ID | ${TASK_ID} |
 
 ### 1. 文档产出清单
@@ -22,9 +22,9 @@
 - **存放位置**：${DOC_LOCATION}
 
 ### 2. 文档结构合规性校验
-- **Frontmatter 元数据**：✅ 已包含（title / status / updated_at）
-- **目录深度**：✅ ≤ 3 级（遵循 docs/ 目录规范）
-- **术语一致性**：✅ 已统一（${TERMINOLOGY_NOTES}）
+- **Frontmatter 元数据**：[SUCCESS] 已包含（title / status / updated_at）
+- **目录深度**：[SUCCESS] ≤ 3 级（遵循 docs/ 目录规范）
+- **术语一致性**：[SUCCESS] 已统一（${TERMINOLOGY_NOTES}）
 
 ### 3. 关联引用与交叉链接
 - **引用文档**：${REFERENCED_DOCS}
