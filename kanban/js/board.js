@@ -1313,25 +1313,36 @@
                         contentStr = timeMatch[2];
                     }
 
-                    // 2. 状态标签提取与扣除
-                    const statusMatch = contentStr.match(/^\[(进行中|已完成|待开始|审查中|测试中|已退回|已阻塞|已验收)\]\s*(.*)$/);
-                    if (statusMatch) {
-                        statusTag = statusMatch[1];
-                        contentStr = statusMatch[2];
+                    // 2. 状态标签精准提取
+                    const validStatuses = ['待开始', '进行中', '审查中', '测试中', '已完成', '已验收', '已退回', '已阻塞'];
+                    const statusPatternStr = validStatuses.join('|');
+
+                    // 优先模式 A: 匹配明确的流转目标状态 (如: 更新至【待开始】/ ➔【已完成】/ -> 待开始)
+                    const targetTransitionMatch = contentStr.match(new RegExp(`(?:更新至|流转至|推至|置为|移交至|->|➔)\\s*[【\\[]?(${statusPatternStr})[】\\]]?`));
+                    if (targetTransitionMatch) {
+                        statusTag = targetTransitionMatch[1];
                     } else {
-                        const midMatch = contentStr.match(/\[(进行中|已完成|待开始|审查中|测试中|已退回|已阻塞|已验收)\]/);
-                        if (midMatch) {
-                            statusTag = midMatch[1];
-                            contentStr = contentStr.replace(midMatch[0], '').trim();
+                        // 模式 B: 开头前缀声明 (如: [审查中] xxx 或 【进行中】 xxx)
+                        const prefixMatch = contentStr.match(new RegExp(`^[\\[【](${statusPatternStr})[\\]】]\\s*(.*)$`));
+                        if (prefixMatch) {
+                            statusTag = prefixMatch[1];
+                            contentStr = prefixMatch[2];
                         } else {
-                            if (contentStr.includes('进行中') || contentStr.includes('开始排查') || contentStr.includes('处理中')) statusTag = '进行中';
-                            else if (contentStr.includes('已完成') || contentStr.includes('完成')) statusTag = '已完成';
-                            else if (contentStr.includes('已验收') || contentStr.includes('验收')) statusTag = '已验收';
-                            else if (contentStr.includes('审查')) statusTag = '审查中';
-                            else if (contentStr.includes('测试')) statusTag = '测试中';
-                            else if (contentStr.includes('退回') || contentStr.includes('打回')) statusTag = '已退回';
-                            else if (contentStr.includes('阻塞')) statusTag = '已阻塞';
-                            else if (contentStr.includes('待开始') || contentStr.includes('接收') || contentStr.includes('初始化')) statusTag = '待开始';
+                            // 模式 C: 文本中包含的所有括号状态，优先取最后一个 (终态优先)
+                            const allBrackets = Array.from(contentStr.matchAll(new RegExp(`[\\[【](${statusPatternStr})[\\]】]`, 'g')));
+                            if (allBrackets.length > 0) {
+                                statusTag = allBrackets[allBrackets.length - 1][1];
+                            } else {
+                                // 模式 D: 模糊关键词匹配 (按终态/回退/推进权重先后判断)
+                                if (contentStr.includes('已验收') || contentStr.includes('验收')) statusTag = '已验收';
+                                else if (contentStr.includes('已完成') || contentStr.includes('完成')) statusTag = '已完成';
+                                else if (contentStr.includes('测试')) statusTag = '测试中';
+                                else if (contentStr.includes('审查')) statusTag = '审查中';
+                                else if (contentStr.includes('退回') || contentStr.includes('打回') || contentStr.includes('驳回')) statusTag = '已退回';
+                                else if (contentStr.includes('阻塞')) statusTag = '已阻塞';
+                                else if (contentStr.includes('待开始') || contentStr.includes('初始化') || contentStr.includes('建单')) statusTag = '待开始';
+                                else if (contentStr.includes('进行中') || contentStr.includes('开始') || contentStr.includes('处理中')) statusTag = '进行中';
+                            }
                         }
                     }
 

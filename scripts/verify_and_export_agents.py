@@ -238,28 +238,31 @@ tools:
     # 构造更完善的 SOP 指引段落
     if "reject_status" in t_info:
         third_step_str = f"""3. **🔹 第三步 (任务完成/流转/打回)**：
+   > 🔴 **【流转参数红线】** 执行流转时**必须传入 `--task-id`** 指定第一步生成的原任务编号（如 `--task-id T0100`），严禁遗漏！
    - **正常通过流转**：
      ```bash
-     python3 scripts/transition_task.py --role {role} --from-status <当前状态> --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type A --end-time "$(date +'%Y-%m-%d %H:%M')"
+     python3 scripts/transition_task.py --role {role} --task-id <第一步生成的任务ID> --from-status <当前状态> --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type A --end-time "$(date +'%Y-%m-%d %H:%M')"
      ```
    - **打回/驳回不通过**：
      ```bash
-     python3 scripts/transition_task.py --role {role} --from-status <当前状态> --to-status {t_info['reject_status']} --assignee "{t_info['reject_assignee']}" --type A --remarks "DEF-TXXX-N: <结构化缺陷说明>"
+     python3 scripts/transition_task.py --role {role} --task-id <第一步生成的任务ID> --from-status <当前状态> --to-status {t_info['reject_status']} --assignee "{t_info['reject_assignee']}" --type A --remarks "DEF-TXXX-N: <结构化缺陷说明>"
      ```"""
     elif role in ["DEV", "FRONTEND"]:
         third_step_str = f"""3. **🔹 第三步 (任务完成/提交审查)**：
+   > 🔴 **【流转参数红线】** 执行流转时**必须传入 `--task-id`** 指定第一步生成的原任务编号（如 `--task-id T0100`），严禁遗漏！
    - **A类常规开发提交审查**：
      ```bash
-     python3 scripts/transition_task.py --role {role} --from-status 进行中 --to-status 审查中 --assignee "周审查" --type A
+     python3 scripts/transition_task.py --role {role} --task-id <第一步生成的任务ID> --from-status 进行中 --to-status 审查中 --assignee "周审查" --type A
      ```
    - **G类环境搭建/独立任务直接完成**：
      ```bash
-     python3 scripts/transition_task.py --role {role} --from-status 进行中 --to-status 已完成 --assignee "严经理" --type G --end-time "$(date +'%Y-%m-%d %H:%M')"
+     python3 scripts/transition_task.py --role {role} --task-id <第一步生成的任务ID> --from-status 进行中 --to-status 已完成 --assignee "严经理" --type G --end-time "$(date +'%Y-%m-%d %H:%M')"
      ```"""
     else:
         third_step_str = f"""3. **🔹 第三步 (任务完成/提交流转)**：
+   > 🔴 **【流转参数红线】** 执行流转时**必须传入 `--task-id`** 指定第一步生成的原任务编号（如 `--task-id T0100`），严禁遗漏！
    ```bash
-   python3 scripts/transition_task.py --role {role} --from-status 进行中 --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type {t_info['type']} --end-time "$(date +'%Y-%m-%d %H:%M')"
+   python3 scripts/transition_task.py --role {role} --task-id <第一步生成的任务ID> --from-status 进行中 --to-status {t_info['next_status']} --assignee "{t_info['next_assignee']}" --type {t_info['type']} --end-time "$(date +'%Y-%m-%d %H:%M')"
    ```"""
 
     can_modify_code = boundaries.get('can_modify_business_code', role in ['DEV', 'FRONTEND'])

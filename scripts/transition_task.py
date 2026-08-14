@@ -200,6 +200,12 @@ def transition_task_pipeline(
 
         logger.info("✅ 防错规则核验成功", extra=extra_log)
 
+        # 物理硬阻断: 若执行状态流转（from_status 不是待开始/新建），强制要求必须提供 --task-id
+        if not task_id and from_status not in ["待开始", "新建"]:
+            logger.error(f"❌ [Fail-Closed 物理硬拦截] 执行状态流转 ({from_status} ➔ {to_status}) 时必须通过 --task-id 提供原任务编号，严禁无任务 ID 隐式创建新卡片！", extra=extra_log)
+            record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "流转缺失task_id", delegated_by=delegated_by, delegation_reason=delegation_reason)
+            return False
+
         # 4. 动态读取 Key 映射
         status_key = field_mapping.get("status", "status")
         assignee_key = field_mapping.get("assignee", "assignee")
@@ -229,7 +235,7 @@ def transition_task_pipeline(
         # 物理硬阻断：对于 A 类常规开发任务，若看板中尚无此任务，绝对禁止直接新建为【已完成/审查中】！
         # 强迫 A 类开发任务必须分两步执行：任务开始时先调 CLI 初始化建单为【进行中】，完成后再提交！
         if existing is None:
-            is_valid_creation = (from_status == "待开始") or (to_status == "进行中") or (task_type in ["B", "C", "D", "E", "F", "G"])
+            is_valid_creation = (from_status in ["待开始", "新建"]) or (to_status == "进行中") or (task_type in ["B", "C", "D", "E", "F", "G"])
             if not is_valid_creation:
                 logger.error(f"❌ [物理硬阻断] 看板中尚无此任务，绝对禁止直接新建为【{to_status}】！你必须首先在任务开始时调用 CLI 初始化建单为【进行中】！", extra=extra_log)
                 record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"拒绝直接新建为{to_status}", delegated_by=delegated_by, delegation_reason=delegation_reason)

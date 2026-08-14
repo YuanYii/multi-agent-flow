@@ -1340,9 +1340,30 @@
             margin-left: 8px;
             margin-top: 8px;
             max-height: 250px;
-            overflow-y: auto;
+            overflow-y: scroll;
             padding-right: 8px;
             scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f8fafc;
+        }
+
+        .timeline-list::-webkit-scrollbar {
+            width: 6px;
+            display: block;
+        }
+
+        .timeline-list::-webkit-scrollbar-track {
+            background: #f8fafc;
+            border-radius: 4px;
+        }
+
+        .timeline-list::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .timeline-list::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
 
         .timeline-row {

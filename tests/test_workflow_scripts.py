@@ -161,3 +161,39 @@ def test_start_kanban_server_ip_and_import():
     assert DEFAULT_PORT == 32886
     ip = get_local_ip()
     assert isinstance(ip, str) and len(ip) > 0
+
+
+def test_transition_pipeline_missing_task_id_on_flow_rejected():
+    """状态流转 (from_status!=待开始) 若未提供 task_id 必须被 Fail-Closed 拦截"""
+    from transition_task import transition_task_pipeline
+    ok = transition_task_pipeline(
+        config_path=CONFIG_PATH,
+        task_id="",
+        record_id="",
+        current_role="DOCS",
+        from_status="进行中",
+        to_status="已完成",
+        assignee="严经理",
+        task_type="C",
+        end_time="2026-08-14 13:50:00",
+        dry_run=True
+    )
+    assert ok is False
+
+
+def test_transition_pipeline_with_task_id_flow_passes():
+    """状态流转正常提供 task_id 时应允许通过 DRY-RUN"""
+    from transition_task import transition_task_pipeline
+    ok = transition_task_pipeline(
+        config_path=CONFIG_PATH,
+        task_id="T0100",
+        record_id="",
+        current_role="DOCS",
+        from_status="进行中",
+        to_status="已完成",
+        assignee="严经理",
+        task_type="C",
+        end_time="2026-08-14 13:50:00",
+        dry_run=True
+    )
+    assert ok is True
