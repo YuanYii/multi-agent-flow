@@ -23,6 +23,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest pyyaml
 
+      - name: Prepare Workflow Configuration
+        run: |
+          cp config/workflow.config.template.yaml config/workflow.config.yaml
+
       - name: Run Secret Scanner Check
         run: |
           python scripts/check_secrets.py

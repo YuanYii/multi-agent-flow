@@ -18,6 +18,8 @@ SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 SCRIPTS_DIR = os.path.join(PROJECT_ROOT, "scripts")
 CONFIG = os.path.join(PROJECT_ROOT, "config", "workflow.config.yaml")
+if not os.path.exists(CONFIG):
+    CONFIG = os.path.join(PROJECT_ROOT, "config", "workflow.config.template.yaml")
 LOGS_DIR = os.path.join(PROJECT_ROOT, "logs")
 AUDIT_LOG = os.path.join(LOGS_DIR, "audit_trail.log")
 
