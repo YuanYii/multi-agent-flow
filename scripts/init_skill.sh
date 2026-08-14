@@ -46,6 +46,16 @@ if [ ! -f "${PROJECT_ROOT}/user_data/board.json" ]; then
     echo "  - 已成功初始化空看板工单 user_data/board.json"
 fi
 
+# 🧹 宿主环境纯净化：清理 Skill 目录内部残留的 .git 目录和 .gitignore 文件
+if [ -d "${PROJECT_ROOT}/.git" ]; then
+    rm -rf "${PROJECT_ROOT}/.git"
+    echo "  - 已自动清理 Skill 目录内部残留的 .git 仓库目录"
+fi
+if [ -f "${PROJECT_ROOT}/.gitignore" ]; then
+    rm -f "${PROJECT_ROOT}/.gitignore"
+    echo "  - 已自动清理 Skill 目录内部的 .gitignore 文件"
+fi
+
 echo "📂 [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..."
 mkdir -p "${PROJECT_ROOT}/docs/01-architecture" \
          "${PROJECT_ROOT}/docs/02-modules" \

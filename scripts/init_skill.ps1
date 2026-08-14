@@ -17,15 +17,44 @@ python "$ScriptDir\verify_and_export_agents.py"
 Write-Host "🔎 [Step 3/7] 自动代码物理扫描工程基础设施、依赖文件与语言技术栈配置..." -ForegroundColor Yellow
 python "$ScriptDir\auto_scan_stack.py"
 
-Write-Host "📝 [Step 4/7] 复制模板并落库生成 project_architecture.config.yaml..." -ForegroundColor Yellow
-$ConfigPath = "$ProjectRoot\config\project_architecture.config.yaml"
-$TemplatePath = "$ProjectRoot\config\project_architecture.template.yaml"
+Write-Host "📝 [Step 4/7] 初始化宿主数据资产目录 user_data/ 并生成工作流与架构配置..." -ForegroundColor Yellow
+$UserDataDir = "$ProjectRoot\user_data"
+$UserDataLogs = "$ProjectRoot\user_data\logs"
+if (-not (Test-Path $UserDataDir)) { New-Item -ItemType Directory -Path $UserDataDir | Out-Null }
+if (-not (Test-Path $UserDataLogs)) { New-Item -ItemType Directory -Path $UserDataLogs | Out-Null }
 
-if (-not (Test-Path $ConfigPath)) {
-    Copy-Item $TemplatePath $ConfigPath
-    Write-Host "  - 已成功生成 config\project_architecture.config.yaml 物理配置" -ForegroundColor Green
+$WorkflowConfig = "$UserDataDir\workflow.config.yaml"
+$WorkflowTpl = "$ProjectRoot\config\workflow.config.template.yaml"
+if (-not (Test-Path $WorkflowConfig)) {
+    Copy-Item $WorkflowTpl $WorkflowConfig
+    Write-Host "  - 已成功生成 user_data\workflow.config.yaml 物理配置" -ForegroundColor Green
 } else {
-    Write-Host "  - 已存在配置文件，保持原有技术架构配置。" -ForegroundColor Gray
+    Write-Host "  - 已存在工作流配置 user_data\workflow.config.yaml，保持原状。" -ForegroundColor Gray
+}
+
+$ArchConfig = "$UserDataDir\project_architecture.config.yaml"
+$ArchTpl = "$ProjectRoot\config\project_architecture.template.yaml"
+if (-not (Test-Path $ArchConfig)) {
+    Copy-Item $ArchTpl $ArchConfig
+    Write-Host "  - 已成功生成 user_data\project_architecture.config.yaml 物理配置" -ForegroundColor Green
+} else {
+    Write-Host "  - 已存在架构配置，保持原有技术架构配置。" -ForegroundColor Gray
+}
+
+$BoardJson = "$UserDataDir\board.json"
+if (-not (Test-Path $BoardJson)) {
+    "[]" | Out-File -FilePath $BoardJson -Encoding utf8
+    Write-Host "  - 已成功初始化空看板工单 user_data\board.json" -ForegroundColor Green
+}
+
+# 🧹 宿主环境纯净化：清理 Skill 目录内部残留的 .git 目录和 .gitignore 文件
+if (Test-Path "$ProjectRoot\.git") {
+    Remove-Item "$ProjectRoot\.git" -Recurse -Force
+    Write-Host "  - 已自动清理 Skill 目录内部残留的 .git 仓库目录" -ForegroundColor Green
+}
+if (Test-Path "$ProjectRoot\.gitignore") {
+    Remove-Item "$ProjectRoot\.gitignore" -Force
+    Write-Host "  - 已自动清理 Skill 目录内部的 .gitignore 文件" -ForegroundColor Green
 }
 
 Write-Host "📂 [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..." -ForegroundColor Yellow
