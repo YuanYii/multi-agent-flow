@@ -15,6 +15,7 @@ config/project_architecture.config.yaml
 user_data/
 docs/
 logs/
+tests/
 *.lock
 */*.lock
 .lock_*
