@@ -567,6 +567,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 class ReusableHTTPServer(HTTPServer):
     allow_reuse_address = True
 
+    def server_bind(self):
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if hasattr(socket, "SO_REUSEPORT"):
+            try:
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            except Exception:
+                pass
+        super().server_bind()
+
 
 def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0"):
     """启动简易 HTTP 看板服务"""
