@@ -62,30 +62,39 @@ bash skills/multi-agent-flow/scripts/init_skill.sh
 
 ---
 
-### 数据看板配置指南（离线默认 / 在线扩展）
+### 数据看板配置指南（双模支持：纯静态离线 MVP / HTTP RESTful API）
 
-在配置文件 [`user_data/workflow.config.yaml`](config/workflow.config.template.yaml) 中，看板默认配置为**离线本地看板 (`local`)**，零依赖开箱即用；同时也支持配置扩展为线上数据看板（飞书 Base / Jira / GitHub Projects）。
+看板支持 **“纯静态文件双击即用 (Pure Static MVP)”** 与 **“本地 HTTP 32886 端口服务”** 两种运行模式：
 
-#### 1. 离线本地看板 (Local JSON) —— 默认宿主资产化管理
+#### 1. 模式 A：纯静态离线模式 (Pure Static MVP) —— 零服务依赖、双击即开即用
+- **使用方式**：直接用任意浏览器双击打开 [`kanban/offline_board.html`](kanban/offline_board.html)；
+- **纯前端持久化**：
+  - **自动缓存**：界面操作自动持久化在浏览器 `localStorage` 中；
+  - **【导出 JSON】确认弹窗**：点击顶部工具栏【导出 JSON】，弹出专属确认对话框，展示当前工单统计与使用指引，点击【确认导出并下载】一键下载生成标准的 `board.json`；
+  - **【导入 JSON】秒级载入**：点击顶部工具栏【导入 JSON】，选择本地 `board.json` 即可无缝切换工单；
+- **全量视觉能力**：内置常驻高对比度细滚动条、终态优先流转标签解析、4 大视图与 NOAA 日落自适应深浅主题。
 
-数据 100% 保存在宿主项目的 `user_data/board.json` 中，由宿主 Git 跟踪管理，Skill 升级时完全免受覆盖影响：
+#### 2. 模式 B：本地 HTTP RESTful API 服务 (端口: 32886)
+- **启动方式**：在终端运行 `python3 scripts/start_kanban_server.py --port 32886`（或在对话中输入 `/yy-flow kanban`）；
+- **实时强一致**：服务动态代理 `/board.json` 与 `/api/cards`、`/api/board/meta` 等 RESTful 接口，双向实时强同步写入宿主项目的 `user_data/board.json`；
+- **端口保护**：内置 `SO_REUSEPORT` 与 `SO_REUSEADDR` 双重 Socket 保护，杜绝 macOS 下进程重启时的 `Address already in use` 端口挂死。
 
-- **配置文件参数** (`user_data/workflow.config.yaml`)：
-  - `board.provider`: `"local"` (默认)
-  - `board.board_file`: `"user_data/board.json"` (宿主项目物理数据文件)
-  - `board.fields`: 字段名映射（完整示例见 [`config/workflow.config.template.yaml`](config/workflow.config.template.yaml)）
-- **无需任何环境变量凭证**
+---
 
-#### 2. 飞书多维表格 (Feishu Base) —— 可选在线扩展
+### 在线看板扩展配置（可选）
+
+在配置文件 [`user_data/workflow.config.yaml`](config/workflow.config.template.yaml) 中，看板默认配置为**离线本地看板 (`local`)**；同时也支持配置扩展为飞书 Base、Jira 或 GitHub Projects：
+
+#### 1. 飞书多维表格 (Feishu Base) —— 可选在线扩展
 - **配置文件参数** (`user_data/workflow.config.yaml`)：
   - `board.provider`: `"feishu_base"`
-  - `board.base_token`: **Base Token**（多维表格浏览器 URL `https://feishu.cn/base/【Base_Token】?table=...` 中 `base/` 后方的字符串）
+  - `board.base_token`: **Base Token**（多维表格 URL `https://feishu.cn/base/【Base_Token】?table=...` 中 `base/` 后方的字符串）
   - `board.table_id`: **Table ID**（多维表格 URL `...table=【tbl_ID】` 中 `table=` 后方的字符串）
 - **系统环境变量凭证**（API 授权使用）：
   - `FEISHU_APP_ID`: 飞书开放平台自建应用的 App ID（示例：`cli_a1b2c3d4e5`）
   - `FEISHU_APP_SECRET`: 飞书开放平台自建应用的 App Secret 密钥
 
-#### 3. Jira 看板 —— 可选在线扩展
+#### 2. Jira 看板 —— 可选在线扩展
 - **配置文件参数**：
   - `board.provider`: `"jira"`
   - `board.domain`: Jira 实例域名（示例：`https://your-domain.atlassian.net`）
@@ -94,7 +103,7 @@ bash skills/multi-agent-flow/scripts/init_skill.sh
   - `JIRA_USER_EMAIL`: Atlassian 账号邮箱
   - `JIRA_API_TOKEN`: Atlassian 账号后台生成的 API Token
 
-#### 4. GitHub Projects (v2) —— 可选在线扩展
+#### 3. GitHub Projects (v2) —— 可选在线扩展
 - **配置文件参数**：
   - `board.provider`: `"github_projects"`
   - `board.owner`: GitHub 组织名或用户名
@@ -316,8 +325,16 @@ skills/
     │   ├── USER.md                    # [协议] 自领取规则与【启动看板】32886 服务协议
     │   └── HEARTBEAT.md               # [巡检] 看板巡检与状态不变量核验规则
     ├── agents/                        # 8 大专家 Agent YAML 描述 (01-pm.yaml ~ 08-frontend.yaml)
-    ├── kanban/                        # 离线 Web 看板静态资源 (offline_board.html, js/, css/, json/)
-    ├── config/                        # 零硬编码配置模板 (workflow.config.template & project_architecture.template)
+    ├── kanban/                        # 离线 Web 看板静态资源 (纯前端 MVP 与双模支持)
+    │   ├── README.md                  # 纯静态离线看板快速上手指南
+    │   ├── offline_board.html         # 核心看板入口 (双击即用 / HTTP 托管)
+    │   ├── js/                        # 前端脚本 (data.js 导入导出, board.js, util.js, listbox.js)
+    │   ├── css/                       # 样式表 (styles.css 细滚动条、自适应深浅主题)
+    │   └── json/                      # kanban_meta.json 等元数据配置
+    ├── config/                        # 声明式平台与工程配置模板
+    │   ├── agent_platforms.yaml       # 声明式 7 大 Agent 平台 Subagent 导出与加载规范
+    │   ├── workflow.config.template.yaml
+    │   └── project_architecture.template.yaml
     ├── references/                    # 6 大全量提炼参考规约 (路由/流转/防错/Git/文档管理/交接协议)
     │   ├── 01-AI-Team-Workflow-Index.md
     │   ├── 02-State-Flow-Rules.md
