@@ -1313,35 +1313,41 @@
                         contentStr = timeMatch[2];
                     }
 
-                    // 2. 状态标签精准提取
+                    // 2. 状态标签精准提取 (Target-State First Algorithm)
                     const validStatuses = ['待开始', '进行中', '审查中', '测试中', '已完成', '已验收', '已退回', '已阻塞'];
                     const statusPatternStr = validStatuses.join('|');
 
-                    // 优先模式 A: 匹配明确的流转目标状态 (如: 更新至【待开始】/ ➔【已完成】/ -> 待开始)
-                    const targetTransitionMatch = contentStr.match(new RegExp(`(?:更新至|流转至|推至|置为|移交至|->|➔)\\s*[【\\[]?(${statusPatternStr})[】\\]]?`));
+                    // 优先模式 A: 匹配明确的流转目标状态 (支持：更新至、更新为、流转至、流转到、变更为、调整为、推至、置为、移交至、退回到、退回至、重置为、切换至、回到、->、➔、=>、to 等全部动词)
+                    const transitionTargetRegex = new RegExp(`(?:更新至|更新为|流转至|流转到|变更为|调整为|推至|置为|移交至|退回到|退回至|重置为|切换至|回到|->|➔|=>|to)\\s*[【\\[]?(${statusPatternStr})[】\\]]?`, 'i');
+                    const targetTransitionMatch = contentStr.match(transitionTargetRegex);
+
                     if (targetTransitionMatch) {
                         statusTag = targetTransitionMatch[1];
                     } else {
-                        // 模式 B: 开头前缀声明 (如: [审查中] xxx 或 【进行中】 xxx)
-                        const prefixMatch = contentStr.match(new RegExp(`^[\\[【](${statusPatternStr})[\\]】]\\s*(.*)$`));
-                        if (prefixMatch) {
-                            statusTag = prefixMatch[1];
-                            contentStr = prefixMatch[2];
+                        // 模式 B: 提取文本中出现的所有括号状态，在流转语句中永远取物理位置处于最后的终态
+                        const allBrackets = Array.from(contentStr.matchAll(new RegExp(`[\\[【](${statusPatternStr})[\\]】]`, 'g')));
+                        if (allBrackets.length > 0) {
+                            statusTag = allBrackets[allBrackets.length - 1][1];
                         } else {
-                            // 模式 C: 文本中包含的所有括号状态，优先取最后一个 (终态优先)
-                            const allBrackets = Array.from(contentStr.matchAll(new RegExp(`[\\[【](${statusPatternStr})[\\]】]`, 'g')));
-                            if (allBrackets.length > 0) {
-                                statusTag = allBrackets[allBrackets.length - 1][1];
+                            // 模式 C: 开头前缀声明 (如: [审查中] xxx 或 【进行中】 xxx)
+                            const prefixMatch = contentStr.match(new RegExp(`^[\\[【](${statusPatternStr})[\\]】]\\s*(.*)$`));
+                            if (prefixMatch) {
+                                statusTag = prefixMatch[1];
+                                contentStr = prefixMatch[2];
                             } else {
-                                // 模式 D: 模糊关键词匹配 (按终态/回退/推进权重先后判断)
-                                if (contentStr.includes('已验收') || contentStr.includes('验收')) statusTag = '已验收';
-                                else if (contentStr.includes('已完成') || contentStr.includes('完成')) statusTag = '已完成';
-                                else if (contentStr.includes('测试')) statusTag = '测试中';
-                                else if (contentStr.includes('审查')) statusTag = '审查中';
-                                else if (contentStr.includes('退回') || contentStr.includes('打回') || contentStr.includes('驳回')) statusTag = '已退回';
-                                else if (contentStr.includes('阻塞')) statusTag = '已阻塞';
-                                else if (contentStr.includes('待开始') || contentStr.includes('初始化') || contentStr.includes('建单')) statusTag = '待开始';
-                                else if (contentStr.includes('进行中') || contentStr.includes('开始') || contentStr.includes('处理中')) statusTag = '进行中';
+                                // 模式 D: 终态优先的全文反向关键词扫描 (按在文本中出现的最后物理位置匹配，杜绝旧状态抢占)
+                                let lastFoundIndex = -1;
+                                let lastFoundStatus = '';
+                                validStatuses.forEach(st => {
+                                    const idx = contentStr.lastIndexOf(st);
+                                    if (idx > lastFoundIndex) {
+                                        lastFoundIndex = idx;
+                                        lastFoundStatus = st;
+                                    }
+                                });
+                                if (lastFoundStatus) {
+                                    statusTag = lastFoundStatus;
+                                }
                             }
                         }
                     }
