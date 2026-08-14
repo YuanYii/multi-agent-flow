@@ -1159,6 +1159,17 @@
                 showToast('[WARN]  请填写任务编号和任务名称！');
                 return;
             }
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const mins = String(now.getMinutes()).padStart(2, '0');
+            const secs = String(now.getSeconds()).padStart(2, '0');
+            const nowStr = `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
+            const initStatus = document.getElementById('new-status').value || '待开始';
+            const initAssignee = document.getElementById('new-assignee').value || '严经理';
+
             const newCard = {
                 seq: rawCardsData.length + 1,
                 id: id,
@@ -1166,13 +1177,13 @@
                 stage: 'S6 工作流集成测试',
                 wp: document.getElementById('new-wp').value.trim() || 'WP-自定义',
                 wbs: document.getElementById('new-wbs').value.trim() || '',
-                assignee: document.getElementById('new-assignee').value,
-                status: document.getElementById('new-status').value,
+                assignee: initAssignee,
+                status: initStatus,
                 handler: '严经理',
                 est_hours: document.getElementById('new-est').value || '2',
                 act_hours: document.getElementById('new-act').value || '0',
                 remarks: document.getElementById('new-desc').value,
-                process: '手动新增任务'
+                process: `[${nowStr}] [${initStatus}] 手动创建任务 [${id}]，初始状态【${initStatus}】，负责人: ${initAssignee}`
             };
             rawCardsData.push(newCard);
             saveStorageData();
@@ -1436,6 +1447,9 @@
                         if (isDefect) {
                             tagType = 'status';
                             tagLabel = '已退回';
+                        } else if (contentStr.includes('手动新增') || contentStr.includes('新增任务') || contentStr.includes('创建任务') || contentStr.includes('初始化') || contentStr.includes('建单')) {
+                            tagType = 'status';
+                            tagLabel = '待开始';
                         } else if (contentStr.includes('负责人') || contentStr.includes('处理人') || contentStr.includes('移交')) {
                             tagType = 'generic';
                             tagLabel = '移交';
