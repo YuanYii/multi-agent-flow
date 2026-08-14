@@ -110,29 +110,29 @@
             return { ok, tableColumns: dataThs, fields: expected };
         }
 
-        // Column Configurations
+        // Column Configurations (Color-coded dynamically via getBadgeStyle)
         const assigneeColsConfig = [
-            { name: "严经理", theme: "pm" },
-            { name: "钱架构", theme: "arch" },
-            { name: "李开发", theme: "dev" },
-            { name: "前端开发", theme: "indigo" },
-            { name: "曹艾", theme: "purple" },
-            { name: "周审查", theme: "rev" },
-            { name: "章测试", theme: "qa" },
-            { name: "李文通", theme: "doc" },
-            { name: "吕改特", theme: "ops" }
+            { name: "严经理" },
+            { name: "钱架构" },
+            { name: "李开发" },
+            { name: "马前端" },
+            { name: "曹艾" },
+            { name: "周审查" },
+            { name: "章测试" },
+            { name: "李文通" },
+            { name: "吕改特" }
         ];
 
         const statusColsConfig = [
-            { name: "待开始", theme: "gray" },
-            { name: "进行中", theme: "blue" },
-            { name: "审查中", theme: "orange" },
-            { name: "测试中", theme: "pink" },
-            { name: "已完成", theme: "pm" },
-            { name: "已验收", theme: "pm" },
-            { name: "已退回", theme: "orange" },
-            { name: "已阻塞", theme: "gray" },
-            { name: "已取消", theme: "gray" }
+            { name: "待开始" },
+            { name: "进行中" },
+            { name: "审查中" },
+            { name: "测试中" },
+            { name: "已完成" },
+            { name: "已验收" },
+            { name: "已退回" },
+            { name: "已阻塞" },
+            { name: "已取消" }
         ];
 
         /* ==========================================================
@@ -395,14 +395,26 @@
 
             // --- Tag row ---
             let tagsList = [];
-            if (cardFieldConfig.status && card.status) tagsList.push(`<span class="tag tag-status">${lbl ? '状态: ' : ''}${esc(card.status)}</span>`);
-            if (cardFieldConfig.assignee && card.assignee) tagsList.push(`<span class="tag tag-person">${lbl ? '负责人: ' : ''}${esc(card.assignee)}</span>`);
+            if (cardFieldConfig.status && card.status) {
+                const st = getBadgeStyle('status', card.status);
+                tagsList.push(`<span class="tag tag-status" style="background:${st.bg}; color:${st.text}; border:1px solid rgba(0,0,0,0.06);">${lbl ? '状态: ' : ''}${esc(card.status)}</span>`);
+            }
+            if (cardFieldConfig.assignee && card.assignee) {
+                const normRole = normalizeRoleName(card.assignee);
+                const st = getBadgeStyle('person', normRole);
+                tagsList.push(`<span class="tag tag-person" style="background:${st.bg}; color:${st.text}; border:1px solid rgba(0,0,0,0.06);">${lbl ? '负责人: ' : ''}${esc(normRole)}</span>`);
+            }
             // 阶段 / 工作包 — mirrors the single "阶段 / 工作包" table column
             if (cardFieldConfig.stage && (card.stage || card.wp)) {
                 const stageText = [card.stage, card.wp].filter(Boolean).join(' · ');
-                tagsList.push(`<span class="tag tag-stage">${lbl ? '阶段: ' : ''}${esc(stageText)}</span>`);
+                const st = getBadgeStyle('stage', card.stage || card.wp);
+                tagsList.push(`<span class="tag tag-stage" style="background:${st.bg}; color:${st.text}; border:1px solid rgba(0,0,0,0.06);">${lbl ? '阶段: ' : ''}${esc(stageText)}</span>`);
             }
-            if (cardFieldConfig.handler && card.handler) tagsList.push(`<span class="tag tag-stage">${lbl ? '处理人: ' : ''}${esc(card.handler)}</span>`);
+            if (cardFieldConfig.handler && card.handler) {
+                const normHandler = normalizeRoleName(card.handler);
+                const st = getBadgeStyle('person', normHandler);
+                tagsList.push(`<span class="tag tag-stage" style="background:${st.bg}; color:${st.text}; border:1px solid rgba(0,0,0,0.06);">${lbl ? '处理人: ' : ''}${esc(normHandler)}</span>`);
+            }
             if (cardFieldConfig.pretask && card.pretask) tagsList.push(`<span class="tag tag-stage">${lbl ? '前置: ' : ''}${esc(card.pretask)}</span>`);
 
             let tagsHtml = tagsList.length > 0 ? `<div class="card-tags">${tagsList.join('')}</div>` : '';
@@ -448,7 +460,7 @@
             `;
         }
 
-        // Render Kanban View
+        // Render Kanban View (Unified with table dropdown colors)
         function renderKanban(containerId, columnsConfig, groupByField) {
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -457,7 +469,8 @@
             const existingColNames = new Set(columnsConfig.map(c => c.name));
             const extraNames = new Set();
             currentCardsData.forEach(c => {
-                const val = c[groupByField] || '未分类';
+                const rawVal = c[groupByField];
+                const val = groupByField === 'assignee' ? normalizeRoleName(rawVal) : (rawVal || '未分类');
                 if (!existingColNames.has(val)) {
                     extraNames.add(val);
                 }
@@ -465,16 +478,27 @@
 
             const fullConfig = [...columnsConfig];
             extraNames.forEach(name => {
-                fullConfig.push({ name: name, theme: "gray" });
+                fullConfig.push({ name: name });
             });
 
             fullConfig.forEach(col => {
-                const colCards = currentCardsData.filter(c => (c[groupByField] || '未分类') === col.name);
+                const colCards = currentCardsData.filter(c => {
+                    const rawVal = c[groupByField];
+                    const val = groupByField === 'assignee' ? normalizeRoleName(rawVal) : (rawVal || '未分类');
+                    return val === col.name;
+                });
                 
+                const typeMap = groupByField === 'assignee' ? 'person' : (groupByField === 'status' ? 'status' : 'stage');
+                const st = getBadgeStyle(typeMap, col.name);
+
                 const colHTML = `
-                    <div class="column" data-col="${col.name}" data-groupfield="${groupByField}">
-                        <div class="col-header theme-${col.theme}">
-                            <div class="col-title">${col.name} <span class="col-count">${colCards.length}</span></div>
+                    <div class="column" data-col="${esc(col.name)}" data-groupfield="${groupByField}" style="border-top: 3px solid ${st.text};">
+                        <div class="col-header" style="background:${st.bg}; color:${st.text};">
+                            <div class="col-title" style="color:${st.text}; font-weight:600;">
+                                <span class="ts-dot" style="background:${st.text}; width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; flex-shrink:0;"></span>
+                                ${esc(col.name)}
+                                <span class="col-count" style="background:rgba(0,0,0,0.06); color:${st.text}; font-weight:700; border-radius:10px; padding:2px 8px; font-size:12px; margin-left:6px;">${colCards.length}</span>
+                            </div>
                         </div>
                         <div class="card-list" ondrop="drop(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
                             ${colCards.map(c => createCardHTML(c)).join('')}
@@ -1313,50 +1337,127 @@
                         contentStr = timeMatch[2];
                     }
 
-                    // 2. 状态标签精准提取 (Target-State First Algorithm)
-                    const validStatuses = ['待开始', '进行中', '审查中', '测试中', '已完成', '已验收', '已退回', '已阻塞'];
-                    const statusPatternStr = validStatuses.join('|');
+                    // 2. 多维智能标签提取 (状态 / 负责人移交 / 阶段工作包 / 记录保底)
+                    const validStatuses = ['待开始', '进行中', '审查中', '测试中', '已完成', '已验收', '已退回', '已阻塞', '已取消'];
+                    const validPersons = ['严经理', '钱架构', '李开发', '马前端', '前端开发', '周审查', '章测试', '李文通', '吕改特', '曹艾'];
+                    const validStages = ['Phase-1', 'Phase-2', 'Phase-3', 'WP1-需求', 'WP2-后端', 'WP2-前端', 'WP3-测试', 'WP4-运维'];
 
-                    // 优先模式 A: 匹配明确的流转目标状态 (支持：更新至、更新为、流转至、流转到、变更为、调整为、推至、置为、移交至、退回到、退回至、重置为、切换至、回到、->、->、=>、to 等全部动词)
-                    const transitionTargetRegex = new RegExp(`(?:更新至|更新为|流转至|流转到|变更为|调整为|推至|置为|移交至|退回到|退回至|重置为|切换至|回到|->|->|=>|to)\\s*[【\\[]?(${statusPatternStr})[】\\]]?`, 'i');
-                    const targetTransitionMatch = contentStr.match(transitionTargetRegex);
+                    let tagType = '';
+                    let tagLabel = '';
 
-                    if (targetTransitionMatch) {
-                        statusTag = targetTransitionMatch[1];
-                    } else {
-                        // 模式 B: 提取文本中出现的所有括号状态，在流转语句中永远取物理位置处于最后的终态
-                        const allBrackets = Array.from(contentStr.matchAll(new RegExp(`[\\[【](${statusPatternStr})[\\]】]`, 'g')));
-                        if (allBrackets.length > 0) {
-                            statusTag = allBrackets[allBrackets.length - 1][1];
+                    // 优先模式 A: 匹配明确的流转目标动词 (更新至、更新为、流转至、移交至、变更为、调整为、置为、退回到、回到、-> 等)
+                    const transitionVerbRegex = /(?:更新至|更新为|流转至|流转到|变更为|调整为|推至|置为|移交至|退回到|退回至|重置为|切换至|回到|->|=>|to)\s*[【\\[]?([^】\\]\s]+)[】\\]?/i;
+                    const verbMatch = contentStr.match(transitionVerbRegex);
+                    if (verbMatch) {
+                        const rawTarget = verbMatch[1].trim();
+                        if (validStatuses.includes(rawTarget)) {
+                            tagType = 'status';
+                            tagLabel = rawTarget;
                         } else {
-                            // 模式 C: 开头前缀声明 (如: [审查中] xxx 或 【进行中】 xxx)
-                            const prefixMatch = contentStr.match(new RegExp(`^[\\[【](${statusPatternStr})[\\]】]\\s*(.*)$`));
-                            if (prefixMatch) {
-                                statusTag = prefixMatch[1];
-                                contentStr = prefixMatch[2];
-                            } else {
-                                // 模式 D: 终态优先的全文反向关键词扫描 (按在文本中出现的最后物理位置匹配，杜绝旧状态抢占)
-                                let lastFoundIndex = -1;
-                                let lastFoundStatus = '';
-                                validStatuses.forEach(st => {
-                                    const idx = contentStr.lastIndexOf(st);
-                                    if (idx > lastFoundIndex) {
-                                        lastFoundIndex = idx;
-                                        lastFoundStatus = st;
-                                    }
-                                });
-                                if (lastFoundStatus) {
-                                    statusTag = lastFoundStatus;
-                                }
+                            const normP = normalizeRoleName(rawTarget);
+                            if (validPersons.includes(normP) || validPersons.includes(rawTarget)) {
+                                tagType = 'person';
+                                tagLabel = normP;
+                            } else if (validStages.some(stg => rawTarget.includes(stg) || stg.includes(rawTarget))) {
+                                tagType = 'stage';
+                                tagLabel = rawTarget;
                             }
                         }
                     }
 
-                    let statusBadgeHTML = '';
-                    if (statusTag) {
-                        const st = getBadgeStyle('status', statusTag);
-                        statusBadgeHTML = `<span class="timeline-status-tag" style="background:${st.bg};color:${st.text};"><span class="ts-dot" style="background:${st.text}"></span><span class="ts-label">${esc(statusTag)}</span></span>`;
+                    // 优先模式 B: 从右向左扫描所有括号提取终态实体
+                    if (!tagLabel) {
+                        const allBrackets = Array.from(contentStr.matchAll(/[\\[【]([^\\]】]+)[\\]】]/g)).map(m => m[1].trim());
+                        for (let i = allBrackets.length - 1; i >= 0; i--) {
+                            const item = allBrackets[i];
+                            if (validStatuses.includes(item)) {
+                                tagType = 'status';
+                                tagLabel = item;
+                                break;
+                            }
+                            const normP = normalizeRoleName(item);
+                            if (validPersons.includes(normP) || validPersons.includes(item)) {
+                                tagType = 'person';
+                                tagLabel = normP;
+                                break;
+                            }
+                            if (validStages.some(stg => item.includes(stg))) {
+                                tagType = 'stage';
+                                tagLabel = item;
+                                break;
+                            }
+                            if (item === '系统初始化' || item === '待开始' || item === '初始化') {
+                                tagType = 'status';
+                                tagLabel = '待开始';
+                                break;
+                            }
+                            if (item === '备注记录' || item === '备注') {
+                                tagType = 'generic';
+                                tagLabel = '备注';
+                                break;
+                            }
+                        }
                     }
+
+                    // 优先模式 C: 全文关键词倒序扫描
+                    if (!tagLabel) {
+                        let lastIdx = -1;
+                        let foundSt = '';
+                        validStatuses.forEach(st => {
+                            const idx = contentStr.lastIndexOf(st);
+                            if (idx > lastIdx) {
+                                lastIdx = idx;
+                                foundSt = st;
+                            }
+                        });
+                        if (foundSt) {
+                            tagType = 'status';
+                            tagLabel = foundSt;
+                        }
+                    }
+                    if (!tagLabel) {
+                        let lastIdx = -1;
+                        let foundP = '';
+                        validPersons.forEach(p => {
+                            const idx = contentStr.lastIndexOf(p);
+                            if (idx > lastIdx) {
+                                lastIdx = idx;
+                                foundP = p;
+                            }
+                        });
+                        if (foundP) {
+                            tagType = 'person';
+                            tagLabel = normalizeRoleName(foundP);
+                        }
+                    }
+
+                    // 兜底模式 D: 语义分类兜底
+                    if (!tagLabel) {
+                        if (isDefect) {
+                            tagType = 'status';
+                            tagLabel = '已退回';
+                        } else if (contentStr.includes('负责人') || contentStr.includes('处理人') || contentStr.includes('移交')) {
+                            tagType = 'generic';
+                            tagLabel = '移交';
+                        } else {
+                            tagType = 'generic';
+                            tagLabel = '记录';
+                        }
+                    }
+
+                    // 渲染对应色彩徽标
+                    let st;
+                    if (tagType === 'status') {
+                        st = getBadgeStyle('status', tagLabel);
+                    } else if (tagType === 'person') {
+                        st = getBadgeStyle('person', tagLabel);
+                    } else if (tagType === 'stage') {
+                        st = getBadgeStyle('stage', tagLabel);
+                    } else {
+                        st = { bg: '#f1f5f9', text: '#475569' };
+                    }
+
+                    const statusBadgeHTML = `<span class="timeline-status-tag" style="background:${st.bg};color:${st.text};border:1px solid rgba(0,0,0,0.06);"><span class="ts-dot" style="background:${st.text}"></span><span class="ts-label">${esc(tagLabel)}</span></span>`;
 
                     row.innerHTML = `
                         <div class="timeline-node">

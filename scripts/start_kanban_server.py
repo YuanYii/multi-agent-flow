@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 """
-Multi-Agent Flow · 零依赖简易 HTTP 看板 Web 服务
+Multi-Agent Flow · 零依赖简易 HTTP 看板 Web 服务 (增强 RESTful API 引擎)
 固定服务端口：32886
-提供技能包内置离线看板 (kanban/offline_board.html) 的 HTTP 访问服务
+提供技能包内置离线看板 (kanban/offline_board.html) 与全量看板操作 REST 接口支持
 """
 
 import sys
 import os
+import re
+import json
+import time
+import tempfile
 import argparse
 import socket
+from datetime import datetime
+from urllib.parse import urlparse, parse_qs, unquote
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -31,42 +37,527 @@ def get_local_ip() -> str:
 
 
 USER_DATA_BOARD = os.path.join(SKILL_ROOT, "user_data", "board.json")
+USER_DATA_PREFERENCES = os.path.join(SKILL_ROOT, "user_data", "preferences.json")
+AUDIT_LOG_FILE = os.path.join(SKILL_ROOT, "user_data", "logs", "audit_trail.log")
+LOCK_FILE = USER_DATA_BOARD + ".seq.lock"
+
+
+def _acquire_lock(f):
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+            msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+    except Exception:
+        pass
+
+
+def _release_lock(f):
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+    except Exception:
+        pass
+
+
+def read_board_data() -> list:
+    """安全读取 board.json，若不存在则初始化为空列表"""
+    os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
+    if not os.path.exists(USER_DATA_BOARD):
+        with open(USER_DATA_BOARD, "w", encoding="utf-8") as f:
+            f.write("[]")
+        return []
+
+    try:
+        with open(USER_DATA_BOARD, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                return data
+            return []
+    except Exception:
+        return []
+
+
+def atomic_write_board_data(cards: list) -> bool:
+    """持有排他锁 + Temp 文件原子替换写入 board.json"""
+    os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
+    target_dir = os.path.dirname(USER_DATA_BOARD)
+
+    # 规范化 seq 序号
+    for idx, card in enumerate(cards, start=1):
+        card["seq"] = idx
+
+    lock_f = open(LOCK_FILE, "w")
+    try:
+        _acquire_lock(lock_f)
+        with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
+            json.dump(cards, tf, indent=2, ensure_ascii=False)
+            tmp_name = tf.name
+        os.replace(tmp_name, USER_DATA_BOARD)
+        return True
+    except Exception as e:
+        sys.stderr.write(f"[ERROR] atomic_write_board_data failed: {e}\n")
+        return False
+    finally:
+        _release_lock(lock_f)
+        lock_f.close()
+
+
+def read_preferences_data() -> dict:
+    """读取看板布局与偏好配置"""
+    if not os.path.exists(USER_DATA_PREFERENCES):
+        return {
+            "title": "多专家Agent协作任务看板",
+            "theme": "light",
+            "row_height": 55,
+            "card_visible_fields": ["id", "name", "assignee", "est_hours", "status"],
+            "column_widths": {}
+        }
+    try:
+        with open(USER_DATA_PREFERENCES, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
+
+
+def atomic_write_preferences_data(pref: dict) -> bool:
+    """原子写入 preferences.json"""
+    os.makedirs(os.path.dirname(USER_DATA_PREFERENCES), exist_ok=True)
+    target_dir = os.path.dirname(USER_DATA_PREFERENCES)
+    try:
+        with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
+            json.dump(pref, tf, indent=2, ensure_ascii=False)
+            tmp_name = tf.name
+        os.replace(tmp_name, USER_DATA_PREFERENCES)
+        return True
+    except Exception as e:
+        sys.stderr.write(f"[ERROR] atomic_write_preferences_data failed: {e}\n")
+        return False
+
+
+def allocate_next_task_id(cards: list) -> str:
+    r"""分配连续未占用的 T\d+ 编号 (如 T0001 -> T0002)"""
+    max_id = 0
+    for c in cards:
+        cid = str(c.get("id", ""))
+        m = re.match(r"^T(\d+)$", cid)
+        if m:
+            max_id = max(max_id, int(m.group(1)))
+    return f"T{max_id + 1:04d}"
+
+
+def append_audit_log(task_id: str, role: str, from_status: str, to_status: str, operator: str, comment: str = ""):
+    """记录结构化审计事件"""
+    os.makedirs(os.path.dirname(AUDIT_LOG_FILE), exist_ok=True)
+    event = {
+        "timestamp": datetime.now().isoformat(),
+        "task_id": task_id,
+        "role": role,
+        "from_status": from_status,
+        "to_status": to_status,
+        "operator": operator,
+        "comment": comment
+    }
+    try:
+        with open(AUDIT_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(event, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
 
 
 class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
-    """自定义 HTTP 请求处理类：将根目录请求默认重定向至 offline_board.html，/board.json 代理至 user_data/board.json"""
+    """看板 HTTP 请求分发引擎：支持静态资源与看板 RESTful API"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=KANBAN_DIR, **kwargs)
 
+    def end_headers(self):
+        # 统一追加跨域与防强缓存响应头
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        super().end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.end_headers()
+
+    def _send_json_resp(self, code: int = 200, message: str = "success", data=None, http_status: int = 200):
+        """格式化发送统一响应结构体"""
+        payload = {
+            "code": code,
+            "message": message,
+            "data": data if data is not None else {},
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(http_status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _parse_request_json(self):
+        """解析 HTTP 请求体 JSON 载荷"""
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length <= 0:
+            return None
+        raw_body = self.rfile.read(content_length).decode("utf-8")
+        return json.loads(raw_body)
+
+    # -------------------------------------------------------------
+    # GET 路由分发
+    # -------------------------------------------------------------
     def do_GET(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        query = parse_qs(parsed.query)
+
         # 1. 根路径重定向
-        if self.path in ("/", "/index.html", "/offline_board"):
+        if path in ("/", "/index.html", "/offline_board"):
             self.path = "/offline_board.html"
             return super().do_GET()
 
-        # 2. 路由白名单代理: /board.json 映射至 user_data/board.json
-        clean_path = self.path.split("?")[0]
-        if clean_path in ("/board.json", "/user_data/board.json"):
-            if not os.path.exists(USER_DATA_BOARD):
-                os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
-                with open(USER_DATA_BOARD, "w", encoding="utf-8") as f:
-                    f.write("[]")
-            try:
-                with open(USER_DATA_BOARD, "rb") as f:
-                    content = f.read()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.send_header("Content-Length", str(len(content)))
-                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-                self.end_headers()
-                self.wfile.write(content)
+        # 2. 原生/向后兼容路由：/board.json
+        if path in ("/board.json", "/user_data/board.json"):
+            cards = read_board_data()
+            content = json.dumps(cards, indent=2, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        # 3. REST API: GET /api/tasks (任务列表与组合筛选)
+        if path == "/api/tasks":
+            cards = read_board_data()
+            status_filter = query.get("status", [None])[0]
+            assignee_filter = query.get("assignee", [None])[0]
+            stage_filter = query.get("stage", [None])[0]
+            keyword = query.get("keyword", [None])[0]
+
+            filtered = cards
+            if status_filter:
+                filtered = [c for c in filtered if c.get("status") == status_filter]
+            if assignee_filter:
+                filtered = [c for c in filtered if c.get("assignee") == assignee_filter]
+            if stage_filter:
+                filtered = [c for c in filtered if c.get("stage") == stage_filter or c.get("wp") == stage_filter]
+            if keyword:
+                kw = keyword.lower()
+                filtered = [
+                    c for c in filtered
+                    if kw in str(c.get("id", "")).lower()
+                    or kw in str(c.get("name", "")).lower()
+                    or kw in str(c.get("assignee", "")).lower()
+                    or kw in str(c.get("remarks", "")).lower()
+                    or kw in str(c.get("wbs", "")).lower()
+                ]
+
+            self._send_json_resp(200, "success", {"total": len(filtered), "items": filtered})
+            return
+
+        # 4. REST API: GET /api/tasks/{task_id} (单任务详情)
+        m_task = re.match(r"^/api/tasks/([A-Za-z0-9_\-]+)$", path)
+        if m_task:
+            task_id = m_task.group(1)
+            cards = read_board_data()
+            found = next((c for c in cards if c.get("id") == task_id), None)
+            if found:
+                self._send_json_resp(200, "success", found)
+            else:
+                self._send_json_resp(404, f"未找到任务 [{task_id}]", None, http_status=404)
+            return
+
+        # 5. REST API: GET /api/board/meta 或 /api/preferences (偏好与标题配置)
+        if path in ("/api/board/meta", "/api/preferences"):
+            pref = read_preferences_data()
+            self._send_json_resp(200, "success", pref)
+            return
+
+        # 静态资源请求
+        return super().do_GET()
+
+    # -------------------------------------------------------------
+    # POST 路由分发
+    # -------------------------------------------------------------
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        try:
+            body_data = self._parse_request_json()
+        except Exception as e:
+            self._send_json_resp(400, f"JSON 载荷解析失败: {e}", None, http_status=400)
+            return
+
+        # 1. 向后兼容：POST /board.json (全量数组落盘)
+        if path in ("/board.json", "/user_data/board.json", "/api/save_board"):
+            if not isinstance(body_data, list):
+                self._send_json_resp(400, "载荷必须为任务卡片数组", None, http_status=400)
                 return
-            except Exception as e:
-                self.send_error(500, f"Failed to read board data: {e}")
+            if atomic_write_board_data(body_data):
+                self._send_json_resp(200, "保存成功", {"count": len(body_data)})
+            else:
+                self._send_json_resp(500, "数据写入磁盘失败", None, http_status=500)
+            return
+
+        # 2. REST API: POST /api/tasks (创建新任务，支持排他锁自增 ID)
+        if path == "/api/tasks":
+            if not isinstance(body_data, dict):
+                self._send_json_resp(400, "请求体必须为 JSON 对象", None, http_status=400)
                 return
 
-        return super().do_GET()
+            name = str(body_data.get("name", "")).strip()
+            if not name:
+                self._send_json_resp(400, "任务名称 (name) 不能为空", None, http_status=400)
+                return
+
+            cards = read_board_data()
+            req_id = str(body_data.get("id", "")).strip()
+            if req_id:
+                # 检查 ID 是否冲突
+                if any(c.get("id") == req_id for c in cards):
+                    self._send_json_resp(409, f"任务编号 [{req_id}] 已存在", None, http_status=409)
+                    return
+                new_id = req_id
+            else:
+                new_id = allocate_next_task_id(cards)
+
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            status = body_data.get("status") or "待开始"
+            assignee = body_data.get("assignee") or "李开发"
+            remarks = body_data.get("remarks", "")
+            init_process = body_data.get("process") or f"[{now_str}] [{status}] 手动新增任务{f' — {remarks}' if remarks else ''}"
+
+            new_card = {
+                "id": new_id,
+                "seq": len(cards) + 1,
+                "name": name,
+                "stage": body_data.get("stage", "S6 工作流集成测试"),
+                "wp": body_data.get("wp", "WP-自定义"),
+                "wbs": body_data.get("wbs", ""),
+                "assignee": assignee,
+                "status": status,
+                "handler": body_data.get("handler", assignee),
+                "est_hours": body_data.get("est_hours", 2),
+                "act_hours": body_data.get("act_hours", 0),
+                "start_date": body_data.get("start_date", now_str),
+                "end_date": body_data.get("end_date", ""),
+                "remarks": remarks,
+                "process": init_process
+            }
+
+            cards.append(new_card)
+            if atomic_write_board_data(cards):
+                append_audit_log(new_id, "PM", "无", status, assignee, f"创建任务: {name}")
+                self._send_json_resp(200, f"成功创建任务 {new_id}", new_card)
+            else:
+                self._send_json_resp(500, "写入磁盘失败", None, http_status=500)
+            return
+
+        # 3. REST API: POST /api/tasks/batch-delete (批量删除)
+        if path == "/api/tasks/batch-delete":
+            if not isinstance(body_data, dict) or "task_ids" not in body_data:
+                self._send_json_resp(400, "缺少 task_ids 列表", None, http_status=400)
+                return
+
+            task_ids_to_del = set(body_data.get("task_ids", []))
+            cards = read_board_data()
+            remaining = [c for c in cards if c.get("id") not in task_ids_to_del]
+            deleted_count = len(cards) - len(remaining)
+
+            if atomic_write_board_data(remaining):
+                self._send_json_resp(200, f"成功删除 {deleted_count} 条任务", {
+                    "deleted_count": deleted_count,
+                    "remaining_total": len(remaining)
+                })
+            else:
+                self._send_json_resp(500, "删除操作落盘失败", None, http_status=500)
+            return
+
+        # 4. REST API: POST /api/tasks/{task_id}/transition (状态流转与审计落盘)
+        m_trans = re.match(r"^/api/tasks/([A-Za-z0-9_\-]+)/transition$", path)
+        if m_trans:
+            task_id = m_trans.group(1)
+            if not isinstance(body_data, dict):
+                self._send_json_resp(400, "请求体格式不正确", None, http_status=400)
+                return
+
+            target_status = body_data.get("target_status")
+            if not target_status:
+                self._send_json_resp(400, "缺少 target_status 目标状态", None, http_status=400)
+                return
+
+            operator_name = body_data.get("operator_name") or "李开发"
+            operator_role = body_data.get("operator_role") or "DEV"
+            comment = body_data.get("comment", "").strip()
+
+            cards = read_board_data()
+            card = next((c for c in cards if c.get("id") == task_id), None)
+            if not card:
+                self._send_json_resp(404, f"未找到任务 [{task_id}]", None, http_status=404)
+                return
+
+            from_status = card.get("status", "待开始")
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # 更新卡片状态
+            card["status"] = target_status
+            if target_status in ("已完成", "已验收"):
+                card["end_date"] = now_str
+
+            # 追加流转记录
+            log_text = f"[{now_str}] [{operator_name}] 将状态由【{from_status}】更新至【{target_status}】"
+            if comment:
+                log_text += f" (说明: {comment})"
+
+            current_process = card.get("process", "")
+            card["process"] = f"{current_process}\n{log_text}".strip()
+
+            if atomic_write_board_data(cards):
+                append_audit_log(task_id, operator_role, from_status, target_status, operator_name, comment)
+                self._send_json_resp(200, "状态流转成功", {
+                    "id": task_id,
+                    "from_status": from_status,
+                    "to_status": target_status,
+                    "history_entry": log_text
+                })
+            else:
+                self._send_json_resp(500, "状态流转落盘失败", None, http_status=500)
+            return
+
+        self._send_json_resp(404, "Not Found", None, http_status=404)
+
+    # -------------------------------------------------------------
+    # PUT 路由分发
+    # -------------------------------------------------------------
+    def do_PUT(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        try:
+            body_data = self._parse_request_json()
+        except Exception as e:
+            self._send_json_resp(400, f"JSON 载荷解析失败: {e}", None, http_status=400)
+            return
+
+        # 1. REST API: PUT /api/tasks/reorder (拖拽卡片重排序)
+        if path == "/api/tasks/reorder":
+            if not isinstance(body_data, dict) or "ordered_task_ids" not in body_data:
+                self._send_json_resp(400, "缺少 ordered_task_ids", None, http_status=400)
+                return
+
+            ordered_ids = body_data.get("ordered_task_ids", [])
+            cards = read_board_data()
+            cards_map = {c.get("id"): c for c in cards}
+
+            new_ordered_cards = []
+            for tid in ordered_ids:
+                if tid in cards_map:
+                    new_ordered_cards.append(cards_map.pop(tid))
+            # 补齐未在排序列表中的剩余任务
+            new_ordered_cards.extend(cards_map.values())
+
+            if atomic_write_board_data(new_ordered_cards):
+                self._send_json_resp(200, "排序保存成功", {"count": len(new_ordered_cards)})
+            else:
+                self._send_json_resp(500, "重排序落盘失败", None, http_status=500)
+            return
+
+        # 2. REST API: PUT /api/board/meta 或 /api/preferences (更新偏好配置与标题)
+        if path in ("/api/board/meta", "/api/preferences"):
+            if not isinstance(body_data, dict):
+                self._send_json_resp(400, "请求体必须为 JSON 对象", None, http_status=400)
+                return
+
+            current_pref = read_preferences_data()
+            current_pref.update(body_data)
+            if atomic_write_preferences_data(current_pref):
+                self._send_json_resp(200, "看板偏好与标题保存成功", current_pref)
+            else:
+                self._send_json_resp(500, "偏好设置落盘失败", None, http_status=500)
+            return
+
+        # 3. REST API: PUT /api/tasks/{task_id} (编辑更新单条任务)
+        m_task = re.match(r"^/api/tasks/([A-Za-z0-9_\-]+)$", path)
+        if m_task:
+            task_id = m_task.group(1)
+            if not isinstance(body_data, dict):
+                self._send_json_resp(400, "请求体必须为 JSON 对象", None, http_status=400)
+                return
+
+            cards = read_board_data()
+            card = next((c for c in cards if c.get("id") == task_id), None)
+            if not card:
+                self._send_json_resp(404, f"未找到任务 [{task_id}]", None, http_status=404)
+                return
+
+            # 可修改字段白名单
+            updatable_fields = [
+                "name", "stage", "wp", "wbs", "assignee", "handler",
+                "status", "est_hours", "act_hours", "start_date",
+                "end_date", "remarks", "process"
+            ]
+            updated_keys = []
+            for k in updatable_fields:
+                if k in body_data:
+                    card[k] = body_data[k]
+                    updated_keys.append(k)
+
+            if atomic_write_board_data(cards):
+                self._send_json_resp(200, f"任务 {task_id} 更新成功", {
+                    "id": task_id,
+                    "updated_fields": updated_keys
+                })
+            else:
+                self._send_json_resp(500, "更新落盘失败", None, http_status=500)
+            return
+
+        self._send_json_resp(404, "Not Found", None, http_status=404)
+
+    # -------------------------------------------------------------
+    # DELETE 路由分发
+    # -------------------------------------------------------------
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        # REST API: DELETE /api/tasks/{task_id}
+        m_task = re.match(r"^/api/tasks/([A-Za-z0-9_\-]+)$", path)
+        if m_task:
+            task_id = m_task.group(1)
+            cards = read_board_data()
+            initial_len = len(cards)
+            cards = [c for c in cards if c.get("id") != task_id]
+
+            if len(cards) == initial_len:
+                self._send_json_resp(404, f"未找到待删除任务 [{task_id}]", None, http_status=404)
+                return
+
+            if atomic_write_board_data(cards):
+                append_audit_log(task_id, "PM", "-", "已删除", "用户", f"删除任务: {task_id}")
+                self._send_json_resp(200, f"成功删除任务 {task_id}", {"deleted_id": task_id})
+            else:
+                self._send_json_resp(500, "删除落盘失败", None, http_status=500)
+            return
+
+        self._send_json_resp(404, "Not Found", None, http_status=404)
 
     def log_message(self, format, *args):
         # 保持控制台日志简洁

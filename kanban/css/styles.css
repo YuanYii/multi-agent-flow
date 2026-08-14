@@ -999,15 +999,30 @@
             background: #fff;
             width: 520px;
             max-width: 90vw;
-            max-height: 85vh;
-            overflow-y: auto;
+            max-height: 92vh;
             border-radius: 10px;
-            padding: 24px;
+            padding: 22px 24px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.25);
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 14px;
             margin: auto;
+            overflow: hidden !important;
+            box-sizing: border-box;
+        }
+
+        .modal::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+
+        #detail-modal .modal {
+            max-width: 720px;
+            width: 90%;
+            max-height: 92vh;
+            overflow: hidden !important;
+            padding: 20px 24px;
         }
 
         .modal-header {
@@ -1261,23 +1276,24 @@
         .detail-view-container {
             display: flex;
             flex-direction: column;
-            gap: 14px;
-            padding-right: 2px;
+            gap: 10px;
+            padding-right: 0;
+            overflow: hidden;
         }
 
         .detail-header-card {
             background: var(--col-bg);
             border-radius: 8px;
-            padding: 14px;
+            padding: 12px 14px;
             border: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
             flex-shrink: 0;
         }
 
         .detail-header-title {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 700;
             color: var(--text-main);
             display: flex;
@@ -1287,23 +1303,23 @@
 
         .detail-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 8px 12px;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 14px;
+            padding: 10px 14px;
             flex-shrink: 0;
         }
 
         .detail-item {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 3px;
         }
 
         .detail-label {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-muted);
             font-weight: 500;
         }
@@ -1316,14 +1332,14 @@
         }
 
         .timeline-section-title {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
             color: var(--text-main);
             display: flex;
             align-items: center;
             gap: 6px;
-            margin-top: 4px;
-            padding-bottom: 6px;
+            margin-top: 2px;
+            padding-bottom: 4px;
             border-bottom: 1px dashed var(--border-color);
             flex-shrink: 0;
         }
@@ -1331,7 +1347,7 @@
         .timeline-list {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
             position: relative;
             padding-left: 14px;
             padding-right: 8px;
@@ -1339,50 +1355,56 @@
             padding-bottom: 8px;
             border-left: 2px solid var(--border-color);
             margin-left: 4px;
-            margin-top: 8px;
-            height: 220px;
-            min-height: 180px;
-            max-height: 260px;
+            margin-top: 4px;
+            height: 180px;
+            min-height: 140px;
+            max-height: 210px;
             overflow-y: scroll !important;
+            overflow-x: hidden !important;
             scroll-behavior: smooth;
             background: rgba(0, 0, 0, 0.015);
             border-radius: 6px;
-            scrollbar-width: thin;
-            scrollbar-color: #94a3b8 #f1f5f9;
         }
 
         .timeline-list::-webkit-scrollbar {
-            width: 8px !important;
+            width: 12px !important;
             display: block !important;
+            background: #f1f5f9 !important;
         }
 
         .timeline-list::-webkit-scrollbar-track {
-            background: #f1f5f9 !important;
-            border-radius: 4px;
+            background: #e2e8f0 !important;
+            border-radius: 6px;
         }
 
         .timeline-list::-webkit-scrollbar-thumb {
-            background: #94a3b8 !important;
-            border-radius: 4px;
-            border: 1px solid #f1f5f9;
+            background: #64748b !important;
+            border-radius: 6px;
+            border: 2px solid #e2e8f0;
         }
 
         .timeline-list::-webkit-scrollbar-thumb:hover {
-            background: #64748b !important;
+            background: #475569 !important;
         }
 
         [data-theme="dark"] .timeline-list {
             background: rgba(255, 255, 255, 0.02);
-            scrollbar-color: #64748b #1e293b;
+        }
+
+        [data-theme="dark"] .timeline-list::-webkit-scrollbar {
+            width: 12px !important;
+            background: #0f172a !important;
         }
 
         [data-theme="dark"] .timeline-list::-webkit-scrollbar-track {
             background: #1e293b !important;
+            border-radius: 6px;
         }
 
         [data-theme="dark"] .timeline-list::-webkit-scrollbar-thumb {
             background: #64748b !important;
-            border: 1px solid #1e293b;
+            border-radius: 6px;
+            border: 2px solid #1e293b;
         }
 
         [data-theme="dark"] .timeline-list::-webkit-scrollbar-thumb:hover {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>多专家Agent协作任务看板</title><link rel="stylesheet" href="css/styles.css">
+    <title>多专家Agent协作任务看板</title><link rel="stylesheet" href="css/styles.css?v=20260814_v4">
 </head>
 <body>
 
@@ -55,6 +55,13 @@
         <button class="btn danger-btn sm" id="batch-delete-btn" style="display:none;" onclick="batchDeleteRecords()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 批量删除 (<span id="selected-count">0</span>)</button>
 
         <button class="btn" onclick="resetFilters()" title="重置所有筛选条件与排序"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> 重置</button>
+
+        <!-- Pure Static MVP JSON Import / Export -->
+        <span class="toolbar-divider" role="separator" aria-orientation="vertical"></span>
+        <button class="btn" id="import-json-btn" onclick="triggerImportJSON()" title="选择并载入本地 board.json 文件"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> 导入 JSON</button>
+        <button class="btn" id="export-json-btn" onclick="exportBoardJSON()" title="将当前任务数据导出下载为 board.json 文件"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导出 JSON</button>
+        <input type="file" id="import-json-file-input" style="display:none;" accept=".json,application/json" onchange="handleImportJSON(event)">
+
         <button class="btn" id="theme-toggle-btn" onclick="toggleTheme()" title="切换浅色/深色主题（默认按日落自动）">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             <span id="theme-toggle-label">深色</span>
@@ -425,10 +432,10 @@
 
     <!-- Toast Notifications Container -->
     <div class="toast-container" id="toast-container"></div>
-    <script src="js/util.js"></script>
-    <script src="js/data.js"></script>
-    <script src="js/listbox.js"></script>
-    <script src="js/board.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/util.js?v=1.1.5"></script>
+    <script src="js/data.js?v=1.1.5"></script>
+    <script src="js/listbox.js?v=1.1.5"></script>
+    <script src="js/board.js?v=1.1.5"></script>
+    <script src="js/app.js?v=1.1.5"></script>
 </body>
 </html>
