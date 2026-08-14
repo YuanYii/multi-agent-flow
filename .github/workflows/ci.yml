@@ -25,7 +25,10 @@ jobs:
 
       - name: Prepare Workflow Configuration
         run: |
+          mkdir -p user_data user_data/logs
+          echo "[]" > user_data/board.json
           cp config/workflow.config.template.yaml config/workflow.config.yaml
+          cp config/workflow.config.template.yaml user_data/workflow.config.yaml
 
       - name: Run Secret Scanner Check
         run: |

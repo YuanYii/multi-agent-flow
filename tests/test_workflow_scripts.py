@@ -39,8 +39,9 @@ def test_generate_report_main_dev():
 
 def test_audit_logger_record():
     """测试 audit_logger 记录事件不抛出异常"""
+    from audit_logger import get_audit_log_file
     record_audit_event("T_TEST", "DEV", "待开始", "进行中", "DEV_USER", True, "测试事件")
-    log_file = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "logs", "audit_trail.log"))
+    log_file = get_audit_log_file()
     assert os.path.exists(log_file)
 
 
