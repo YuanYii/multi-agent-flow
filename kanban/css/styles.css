@@ -1262,9 +1262,7 @@
             display: flex;
             flex-direction: column;
             gap: 14px;
-            max-height: 75vh;
-            overflow: hidden;
-            padding-right: 4px;
+            padding-right: 2px;
         }
 
         .detail-header-card {
@@ -1335,35 +1333,60 @@
             flex-direction: column;
             gap: 10px;
             position: relative;
-            padding-left: 18px;
-            border-left: 2px solid var(--border-color);
-            margin-left: 8px;
-            margin-top: 8px;
-            max-height: 250px;
-            overflow-y: scroll;
+            padding-left: 14px;
             padding-right: 8px;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            border-left: 2px solid var(--border-color);
+            margin-left: 4px;
+            margin-top: 8px;
+            height: 220px;
+            min-height: 180px;
+            max-height: 260px;
+            overflow-y: scroll !important;
             scroll-behavior: smooth;
+            background: rgba(0, 0, 0, 0.015);
+            border-radius: 6px;
             scrollbar-width: thin;
-            scrollbar-color: #cbd5e1 #f8fafc;
+            scrollbar-color: #94a3b8 #f1f5f9;
         }
 
         .timeline-list::-webkit-scrollbar {
-            width: 6px;
-            display: block;
+            width: 8px !important;
+            display: block !important;
         }
 
         .timeline-list::-webkit-scrollbar-track {
-            background: #f8fafc;
+            background: #f1f5f9 !important;
             border-radius: 4px;
         }
 
         .timeline-list::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
+            background: #94a3b8 !important;
             border-radius: 4px;
+            border: 1px solid #f1f5f9;
         }
 
         .timeline-list::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
+            background: #64748b !important;
+        }
+
+        [data-theme="dark"] .timeline-list {
+            background: rgba(255, 255, 255, 0.02);
+            scrollbar-color: #64748b #1e293b;
+        }
+
+        [data-theme="dark"] .timeline-list::-webkit-scrollbar-track {
+            background: #1e293b !important;
+        }
+
+        [data-theme="dark"] .timeline-list::-webkit-scrollbar-thumb {
+            background: #64748b !important;
+            border: 1px solid #1e293b;
+        }
+
+        [data-theme="dark"] .timeline-list::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8 !important;
         }
 
         .timeline-row {
