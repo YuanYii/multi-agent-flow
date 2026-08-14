@@ -1,6 +1,16 @@
 # AGENTS.md - 多专家团队协同研发工作区
 
-欢迎来到 **多专家协同研发工作流 (Multi-Agent Team Workflow)** 工作区。本文档定义了 AI Agent 在多角色研发环境下的交互契约与协作红线。
+欢迎来到 **多专家协同研发工作流 (Multi-Agent Team Workflow · YY-Flow)** 工作区。本文档定义了 AI Agent 在多角色研发环境下的交互契约与协作红线。
+
+---
+
+## 🚀 快捷指令响应契约 (/yy-flow)
+
+当收到以 `/yy-flow` 开头的用户指令时，Agent 必须直接触发对应的确定性动作：
+- `/yy-flow` 或 `/yy-flow start` ➔ 立即执行初始化 7 步 SOP 并拉起 PM 严经理；
+- `/yy-flow status` ➔ 运行 `heartbeat.py` 巡检脚本并格式化输出在手任务与告警；
+- `/yy-flow kanban` ➔ 启动 `start_kanban_server.py` 并在回复中展示访问链接；
+- `/yy-flow metrics` ➔ 运行 `metrics_analyzer.py` 并呈现效能报告。
 
 ---
 

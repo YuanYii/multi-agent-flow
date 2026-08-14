@@ -1,12 +1,25 @@
 ---
 name: multi-agent-team-workflow
-description: 适用于 AI 多 Agent 与人类团队协同研发的多角色状态流转、质量审计、防错闭环与看板自动化工作流技能包。支持多Agent协同、看板流转、代码审查门控、团队研发SOP与防错防越权控制。
+description: 适用于 AI 多 Agent 与人类团队协同研发的多角色状态流转、质量审计、防错闭环与看板自动化工作流技能包。可通过 /yy-flow、/yy-flow start、/yy-flow status、/yy-flow kanban、/yy-flow metrics 快捷指令或自然语言唤醒。
 version: 1.0.0
 ---
 
-# 🤖 Multi-Agent Team Workflow Skill
+# 🤖 Multi-Agent Team Workflow Skill (YY-Flow)
 
 > 契约驱动的多角色 Agent 协同研发技能包 —— 消除越权、打回碎片化与状态悬挂。
+
+---
+
+## 🚀 快捷唤醒指令 (Slash Commands)
+
+本 Skill 注册了专有零冲突快捷唤醒指令 **`/yy-flow`**，输入即可 100% 确定性触发对应行为：
+
+| 快捷指令 | 触发行为与职责 | 核心联动 |
+| :--- | :--- | :--- |
+| **`/yy-flow`** 或 **`/yy-flow start`** | **一键激活工作流**：自动执行初始化 7 步 SOP 并唤起 PM 严经理进行项目鉴定与任务编排 | 运行 `init_skill.sh`，生成 `user_data/` 并导出 8 大专家 |
+| **`/yy-flow status`** | **心跳巡检与看板状态**：输出当前所有工单流转、在手任务与卡点滞留分析 | 运行 `heartbeat.py`，检测超时滞留与并发超限 |
+| **`/yy-flow kanban`** | **看板 Web 服务就绪**：启动内置离线看板 HTTP 服务并提供本地访问链接 | 运行 `start_kanban_server.py` (端口 32886) |
+| **`/yy-flow metrics`** | **效能度量报告**：一键计算并输出前置交付周期 (Lead Time)、吞吐量与卡点分析 | 运行 `metrics_analyzer.py` |
 
 ---
 
