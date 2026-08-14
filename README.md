@@ -26,46 +26,58 @@
 - 任一 AI Agent：Antigravity CLI / Codex / Claude Code / Cursor / 或其他支持加载 Markdown 规范的 Agent
 - (可选) 在线看板凭证：飞书 Base / Jira / GitHub Projects（使用**离线本地看板**则完全无需任何凭证）
 
-### 安装
+### 安装与一键初始化
 
 将本 Skill 包克隆或复制到项目或 AI Agent 技能目录下：
 
 ```bash
 cd /path/to/your-project
 
-# 克隆技能包到 skills 目录
-git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi-agent-flow && rm -rf skills/multi-agent-flow/.git
+# 1. 克隆技能包到 skills/ 目录 (或直接解压)
+git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi-agent-flow
+
+# 2. 一键执行标准初始化 (自动检测并清理 Skill 内部残留 .git 与 .gitignore，生成宿主专属 user_data/ 资产)
+bash skills/multi-agent-flow/scripts/init_skill.sh
 ```
+
+*(Windows 环境可执行 `powershell -ExecutionPolicy Bypass -File skills\multi-agent-flow\scripts\init_skill.ps1`)*
+
+---
 
 ### 项目初始化与架构识别
 
-您可以直接指令 Agent（如输入 `“使用 multi-agent-flow 初始化当前项目”`）为您完成所有初始配置，无需手动执行文件复制或系统架构分析操作。
+您也可以直接在与 Agent 对话时输入 **`/yy-flow`**（或 `“使用 multi-agent-flow 初始化当前项目”`），Agent 将自动为您完成全套 7 步标准初始化流程：
 
-1. **技术架构自动识别与 Token 消耗提示**：当 Agent 初次在项目中调阅本 Skill 时，系统架构分析与识别工作可直接交由 Agent 自动执行。它将自动输出初始化通知及 Token 消耗提醒（说明全面扫描工程配置的过程**会消耗较多 Token**）。
-2. **Subagent 官方标准路径实时查证与挂载**：识别当前运行环境后，严格查阅对应 Agent 官方最新文档（如 Antigravity 的 `{workspace}/.agents/agents/{agent_name}/agent.md` 与 `subagent: true` 标头），运行 `python3 scripts/export_agent_adapters.py` 将 8 大专家精准挂载放置于官方原生支持的路径下。
-3. **读取模板生成配置**：读取 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 模板生成并落库 `config/project_architecture.config.yaml`。
-4. **项目工程文档骨架建立与原项目文档自动归档**：Agent 将自动在项目中校验/创建标准的 `docs/` 目录树骨架，自动运行 `python3 scripts/migrate_legacy_docs.py` 扫描原项目散落的历史文档，并在对应的分类下自动创建 **`原项目文档/`** 子目录进行拷贝归档与隔离，并在 `.gitignore` 中追加 `.drafts/` 隔离规约。
-5. **专家团队技术栈自动同步**：自动运行 `python3 scripts/update_agent_tech_stacks.py`，将扫描到的技术栈同步落盘至 `agents/*.yaml` 配置文件。
-6. **唤起 PM 鉴定项目并输出声明**：自动触发 PM 角色扫描当前项目 `README.md` 和源码，并在回复中显式输出：**`【已识别 xxxx 项目】`** 标识及使用指引。
+1. **敏感凭据扫描**：运行 `check_secrets.py` 扫描并确保零密钥泄露。
+2. **Subagent 官方标准路径查证与导出**：运行 `verify_and_export_agents.py`，根据宿主 Agent 规范将 8 大专家子代理自动导出至 `.agents/agents/{agent_name}/agent.md`。
+3. **技术架构物理扫描**：运行 `auto_scan_stack.py` 自动扫描分析宿主项目的语言、依赖与框架架构。
+4. **生成宿主专属数据资产目录 (`user_data/`)**：
+   - 生成 `user_data/workflow.config.yaml` 工作流配置；
+   - 生成 `user_data/project_architecture.config.yaml` 架构配置；
+   - 初始化空看板工单 `user_data/board.json` 与日志目录 `user_data/logs/`；
+   - 自动清理 Skill 内部残留的 `.git` 与 `.gitignore`，实现与宿主 Git 规则的无缝共存。
+5. **项目工程文档骨架建立与原项目文档自动归档**：建立标准 `docs/` 规范目录，运行 `migrate_legacy_docs.py` 自动将历史散落文档只读镜像归档至 `docs/*/原项目文档/`。
+6. **专家团队技术栈自动同步**：运行 `update_agent_tech_stacks.py` 将技术栈同步更新至 `agents/*.yaml`。
+7. **唤起 PM 专家输出项目鉴定声明**：PM 严经理接管并输出 `【已识别 xxxx 项目】` 及 8 大专家权限矩阵。
 
 ---
 
 ### 数据看板配置指南（离线默认 / 在线扩展）
 
-在配置文件 [`config/workflow.config.yaml`](config/workflow.config.yaml) 中，看板默认配置为**离线本地看板 (`local`)**，零依赖开箱即用；同时也支持配置扩展为线上数据看板（飞书 Base / Jira / GitHub Projects）。
+在配置文件 [`user_data/workflow.config.yaml`](config/workflow.config.template.yaml) 中，看板默认配置为**离线本地看板 (`local`)**，零依赖开箱即用；同时也支持配置扩展为线上数据看板（飞书 Base / Jira / GitHub Projects）。
 
-#### 1. 离线本地看板 (Local JSON) —— 默认配置，零依赖开箱即用
+#### 1. 离线本地看板 (Local JSON) —— 默认宿主资产化管理
 
-无需任何 API 凭证与网络，数据物理解算并 100% 隔离保存在 Skill 包自身的 `kanban/board.json` 目录下（零侵入、零污染宿主业务工程）：
+数据 100% 保存在宿主项目的 `user_data/board.json` 中，由宿主 Git 跟踪管理，Skill 升级时完全免受覆盖影响：
 
-- **配置文件参数** (`config/workflow.config.yaml`)：
+- **配置文件参数** (`user_data/workflow.config.yaml`)：
   - `board.provider`: `"local"` (默认)
-  - `board.board_file`: `"kanban/board.json"` (自动物理解算至 Skill 自身包目录)
+  - `board.board_file`: `"user_data/board.json"` (宿主项目物理数据文件)
   - `board.fields`: 字段名映射（完整示例见 [`config/workflow.config.template.yaml`](config/workflow.config.template.yaml)）
 - **无需任何环境变量凭证**
 
 #### 2. 飞书多维表格 (Feishu Base) —— 可选在线扩展
-- **配置文件参数** (`config/workflow.config.yaml`)：
+- **配置文件参数** (`user_data/workflow.config.yaml`)：
   - `board.provider`: `"feishu_base"`
   - `board.base_token`: **Base Token**（多维表格浏览器 URL `https://feishu.cn/base/【Base_Token】?table=...` 中 `base/` 后方的字符串）
   - `board.table_id`: **Table ID**（多维表格 URL `...table=【tbl_ID】` 中 `table=` 后方的字符串）
@@ -93,42 +105,49 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 **专家流转自动落卡**：调用 `transition_task.py` 执行流转时，若任务在看板中不存在将自动创建（初始状态「待开始」）后再流转，**8 大专家角色均可操作**：
 
 ```bash
-# 首次使用：初始化空看板文件
-python3 scripts/offline_board_adapter.py --init kanban/board.json
-
 # 专家流转：任务不存在自动创建；省略 --task-id 时自动分配最大编号+1
-python3 scripts/transition_task.py --config config/workflow.config.yaml \
+python3 scripts/transition_task.py --config user_data/workflow.config.yaml \
   --role PM --from-status 待开始 --to-status 进行中 --assignee Dev_User_1 \
   --task-name "新任务" --stage "S1" --wp "WP-1"
 
 # 查看看板任务
-python3 scripts/offline_board_adapter.py --list kanban/board.json
+python3 scripts/offline_board_adapter.py --list user_data/board.json
 ```
 
-**并发安全编号分配**：多个专家并发新建任务时，任务编号（`T\d+` 取最大号 +1）由适配器**全局排他锁**（`board.json.seq.lock`）串行分配，**编号 100% 不重复**；文件写入采用临时文件 + 原子替换（`os.replace`），杜绝半写文件；显式指定编号重复时 Fail-Closed 拒绝创建。
+**并发安全编号分配**：多个专家并发新建任务时，任务编号（`T\d+` 取最大号 +1）由适配器**全局排他锁**（`user_data/board.json.seq.lock`）串行分配，**编号 100% 不重复**；文件写入采用临时文件 + 原子替换（`os.replace`），杜绝半写文件；显式指定编号重复时 Fail-Closed 拒绝创建。
 
-**Web 物理强同步与 32886 服务**：直接在浏览器打开 Skill 目录下的内置应用 [`kanban/offline_board.html`](kanban/offline_board.html)（或访问软链接 [`kanban/index.html`](kanban/index.html)），页面将实时读取 `./board.json?t=...` 数据，确保界面状态与 `board.json` **物理 100% 强一致强同步**。亦可直接使用 `python3 scripts/start_kanban_server.py --port 32886` 在 32886 端口开启零依赖 HTTP 网页服务。
+**Web 物理强同步与 32886 服务**：在终端运行 `python3 scripts/start_kanban_server.py --port 32886`（或输入指令 `/yy-flow kanban`），服务将代理 `/board.json` 并映射读取 `user_data/board.json`，确保前端界面状态与工单数据 **物理 100% 强一致强同步**。
 
 **自动日落护眼主题算法**：看板内置 NOAA 日落计算引擎（白天切浅色、晚上切深色），**自动日落计算算法拥有最高优先级**，并配备 1 小时后台定时轮询计算器，自动为您无感平滑切换主题。
 
 ---
 
-## 自动化测试与质量门控
+## 研发效能度量与卡点分析
 
-项目内置了完备的物理级质量防错与自动化回归测试套件：
+项目内置了标准化的工程效能分析引擎（`scripts/metrics_analyzer.py`），可通过指令 **`/yy-flow metrics`** 或直接运行脚本进行全局度量：
 
-- **36 个状态流转场景测试套件** ([`tests/test_full_workflow_suite.py`](tests/test_full_workflow_suite.py))：
-  - **正向流转**（ST-01 ~ ST-09）：覆盖 7 类任务（A-G）的标准正向流转与特权短链完成。
-  - **缺陷打回与复核**（ST-10 ~ ST-15）：验证审查/测试/验收打回精准将 Assignee 回退给原 DEV/DOCS/DEVOPS，追加 `[DEFECT-xxx]` 日志且**不派生孤儿任务**。
-  - **阻塞挂起与解阻**（ST-16 ~ ST-21）：验证全阶段的挂起与解阻状态转换。
-  - **防越权物理拦截**（ST-22 ~ ST-30）：物理断言拦截 DEV 自自我验收、未审直推测试、终态二次篡改等违规行为。
-  - **门控与环境护栏**（ST-31 ~ ST-36）：断言缺失 `assignee`、缺失 `end_time`、DEV 在手并发数 ≥3 等拦截规则。
-- **排他锁与并发测试** ([`tests/test_offline_adapter.py`](tests/test_offline_adapter.py))：校验多专家线程并发新建任务时的唯一 Task ID 分配与原子落盘。
-- **敏感凭据与硬编码密钥扫描** ([`scripts/check_secrets.py`](scripts/check_secrets.py))：硬拦截任何意外硬编码的 Token、AK/SK 密钥。
-- **持续集成 (GitHub Actions CI)**：在提交代码与 PR 时自动触发纯净环境构建，校验零环境依赖自愈性与测试 100% 通过率。
+- **前置交付周期 (Lead Time)**：精确统计工单从「待开始」到「已验收」的总耗时及流转速率；
+- **交付吞吐量 (Throughput)**：统计指定周期内各工作包与各角色的已完成工单总数；
+- **瓶颈与卡点诊断**：自动分析各阶段滞留时间（Lead Time Breakdown）及 Reviewer/QA 审查打回频次，定位流程卡点。
 
-执行全量测试套件：
 ```bash
+# 运行效能度量分析器
+python3 scripts/metrics_analyzer.py --board user_data/board.json
+```
+
+---
+
+## 质量防错门控与本地回归测试
+
+项目在设计上秉持 **Fail-Closed 强防御原则**，在物理代码层面严格防范越权与状态机悬挂：
+
+- **36 个状态流转场景覆盖**：覆盖 7 类任务（A-G）的标准正向流转、特权短链放行、审查/测试精准打回与挂起解阻。
+- **排他锁与并发保护**：多个专家并发新建任务时，任务编号由 `user_data/board.json.seq.lock` 排他锁串行分配，落盘采用原子替换杜绝半写。
+- **敏感凭据与密钥扫描** ([`scripts/check_secrets.py`](scripts/check_secrets.py))：硬拦截任何意外硬编码的 Token、AK/SK 密钥。
+- **开发者本地测试套件**：全量 132 项自动化测试覆盖在本地开发沙箱环境（`tmp_path`）中运行，保障生产数据与工作区 100% 隔离安全。
+
+```bash
+# 本地自测 (需本地存在 tests/ 目录)
 pytest tests/ --verbose
 ```
 
@@ -285,21 +304,20 @@ graph TD
 ## 目录结构与规范
 
 ```text
-2_多专家协同研发工作流/
-└── multi-agent-flow/                  # [技能核心包]
-    ├── SKILL.md                       # 技能主入口指令与 Prompt
+skills/
+└── multi-agent-flow/                  # [纯净 Skill 静态包 · 升级免疫]
+    ├── SKILL.md                       # 技能主入口指令、/yy-flow 规范与 Prompt
     ├── README.md                      # 本说明文档
     ├── rules/                         # [核心规则与契约]
-    │   ├── AGENTS.md                  # [核心] 多专家团队 Agent 协作契约与 6 大红线
-    │   ├── IDENTITY.md                # [角色] 8大专家 Agent 身份定义与多面人设
+    │   ├── AGENTS.md                  # [核心] 多专家团队 Agent 协作契约、6 大红线与 /yy-flow 响应契约
+    │   ├── IDENTITY.md                # [角色] 8 大专家 Agent 身份定义与多面人设
     │   ├── SOUL.md                    # [控制] 状态流转防错闭环心脏 (§九)
     │   ├── TOOLS.md                   # [工具] 看板工具与 CLI 适配层使用指引
     │   ├── USER.md                    # [协议] 自领取规则与【启动看板】32886 服务协议
     │   └── HEARTBEAT.md               # [巡检] 看板巡检与状态不变量核验规则
     ├── agents/                        # 8 大专家 Agent YAML 描述 (01-pm.yaml ~ 08-frontend.yaml)
-    ├── kanban/                        # 离线 Web 看板 (offline_board.html, board.json, js/)
-    ├── config/                        # 零硬编码配置模板 (workflow.config & project_architecture)
-    ├── tests/                         # 自动化测试套件 (test_full_workflow_suite, test_validate_transition, etc.)
+    ├── kanban/                        # 离线 Web 看板静态资源 (offline_board.html, js/, css/, json/)
+    ├── config/                        # 零硬编码配置模板 (workflow.config.template & project_architecture.template)
     ├── references/                    # 6 大全量提炼参考规约 (路由/流转/防错/Git/文档管理/交接协议)
     │   ├── 01-AI-Team-Workflow-Index.md
     │   ├── 02-State-Flow-Rules.md
@@ -307,8 +325,15 @@ graph TD
     │   ├── 04-Git-Workflow-Spec.md
     │   ├── 05-Document-Management-Spec.md
     │   └── 06-Inter-Agent-Handover-Protocol.md
-    ├── templates/                     # 开发/审查/测试报告与模块设计/排查文档模板
-    └── scripts/                       # 零依赖看板 Web 服务 (start_kanban_server.py)、物理防错校验 (validate_transition)、状态流转 (transition_task)、动态 Agent 探针 (verify_and_export_agents) 与看板适配器 (board_adapter_factory / offline_board_adapter)
+    ├── templates/                     # 开发/审查/测试报告与模块设计/排查文档模板 (7 个)
+    └── scripts/                       # 初始化 (init_skill)、度量分析 (metrics_analyzer)、状态流转 (transition_task)、Web看板 (start_kanban_server) 等核心 CLI 引擎
+
+# 宿主项目初次初始化后动态生成：
+user_data/                             # [宿主专属研发数据资产 · 宿主 Git 管理]
+├── board.json                         # 任务工单真实数据 (随宿主项目流转)
+├── workflow.config.yaml               # 宿主本地工作流配置
+├── project_architecture.config.yaml   # 宿主项目技术架构事实依据
+└── logs/                              # 审计流转日志 (audit_trail.log)
 ```
 
 ---
