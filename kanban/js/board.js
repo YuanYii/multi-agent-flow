@@ -1317,8 +1317,8 @@
                     const validStatuses = ['待开始', '进行中', '审查中', '测试中', '已完成', '已验收', '已退回', '已阻塞'];
                     const statusPatternStr = validStatuses.join('|');
 
-                    // 优先模式 A: 匹配明确的流转目标状态 (支持：更新至、更新为、流转至、流转到、变更为、调整为、推至、置为、移交至、退回到、退回至、重置为、切换至、回到、->、➔、=>、to 等全部动词)
-                    const transitionTargetRegex = new RegExp(`(?:更新至|更新为|流转至|流转到|变更为|调整为|推至|置为|移交至|退回到|退回至|重置为|切换至|回到|->|➔|=>|to)\\s*[【\\[]?(${statusPatternStr})[】\\]]?`, 'i');
+                    // 优先模式 A: 匹配明确的流转目标状态 (支持：更新至、更新为、流转至、流转到、变更为、调整为、推至、置为、移交至、退回到、退回至、重置为、切换至、回到、->、->、=>、to 等全部动词)
+                    const transitionTargetRegex = new RegExp(`(?:更新至|更新为|流转至|流转到|变更为|调整为|推至|置为|移交至|退回到|退回至|重置为|切换至|回到|->|->|=>|to)\\s*[【\\[]?(${statusPatternStr})[】\\]]?`, 'i');
                     const targetTransitionMatch = contentStr.match(transitionTargetRegex);
 
                     if (targetTransitionMatch) {

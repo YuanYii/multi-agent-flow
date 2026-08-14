@@ -108,7 +108,7 @@ def scan_and_migrate_legacy_docs(target_project_dir: str = PROJECT_ROOT):
         for src, dest in migrated_files:
             rel_src = os.path.relpath(src, target_project_dir)
             rel_dest = os.path.relpath(dest, target_project_dir)
-            print(f"  - [{rel_src}] ➔ [{rel_dest}]")
+            print(f"  - [{rel_src}] -> [{rel_dest}]")
     else:
         print("[NOTE]  [未发现散落旧文档] 当前项目根路径下无新增需要迁移的历史文档。")
 

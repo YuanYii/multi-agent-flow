@@ -109,7 +109,7 @@ def transition_task_pipeline(
 ) -> bool:
     resolved_task_id = task_id or "AUTO"
     extra_log = {"task_id": resolved_task_id}
-    logger.info(f"[SECURITY]  触发防错门控校验 ({from_status} ➔ {to_status}, 模式: {'DRY-RUN' if dry_run else 'REAL'})...", extra=extra_log)
+    logger.info(f"[SECURITY]  触发防错门控校验 ({from_status} -> {to_status}, 模式: {'DRY-RUN' if dry_run else 'REAL'})...", extra=extra_log)
 
     # 0. 提权代行白名单预检(Fail-Closed):在 validate 前阻断非法代行
     #    无代行声明(delegated_by 为空)时直接跳过,交由原 validate 权限矩阵处理
@@ -202,7 +202,7 @@ def transition_task_pipeline(
 
         # 物理硬阻断: 若执行状态流转（from_status 不是待开始/新建），强制要求必须提供 --task-id
         if not task_id and from_status not in ["待开始", "新建"]:
-            logger.error(f"[FAILED]  [Fail-Closed 物理硬拦截] 执行状态流转 ({from_status} ➔ {to_status}) 时必须通过 --task-id 提供原任务编号，严禁无任务 ID 隐式创建新卡片！", extra=extra_log)
+            logger.error(f"[FAILED]  [Fail-Closed 物理硬拦截] 执行状态流转 ({from_status} -> {to_status}) 时必须通过 --task-id 提供原任务编号，严禁无任务 ID 隐式创建新卡片！", extra=extra_log)
             record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "流转缺失task_id", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return False
 

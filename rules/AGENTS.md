@@ -7,10 +7,10 @@
 ## 快捷指令响应契约 (/yy-flow)
 
 当收到以 `/yy-flow` 开头的用户指令时，Agent 必须直接触发对应的确定性动作：
-- `/yy-flow` 或 `/yy-flow start` ➔ 立即执行初始化 7 步 SOP 并拉起 PM 严经理；
-- `/yy-flow status` ➔ 运行 `heartbeat.py` 巡检脚本并格式化输出在手任务与告警；
-- `/yy-flow kanban` ➔ 启动 `start_kanban_server.py` 并在回复中展示访问链接；
-- `/yy-flow metrics` ➔ 运行 `metrics_analyzer.py` 并呈现效能报告。
+- `/yy-flow` 或 `/yy-flow start` -> 立即执行初始化 7 步 SOP 并拉起 PM 严经理；
+- `/yy-flow status` -> 运行 `heartbeat.py` 巡检脚本并格式化输出在手任务与告警；
+- `/yy-flow kanban` -> 启动 `start_kanban_server.py` 并在回复中展示访问链接；
+- `/yy-flow metrics` -> 运行 `metrics_analyzer.py` 并呈现效能报告。
 
 ---
 

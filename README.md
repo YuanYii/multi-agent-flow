@@ -297,7 +297,7 @@ graph TD
 2. **打回不拆单原则 (Non-Fragmented Defect)**：打回一律在原任务上置为 `已退回` 并追加 `DEF-TXXX-N`。
 3. **报告复验追加原则 (Appended Audit)**：复审/复测结论强制追加至原报告。
 4. **原项目文档只读归档原则 (Read-Only Legacy Governance)**：归档镜像拷贝入 `docs/*/原项目文档/`，源文件 100% 保持原样，严格禁篡改历史原文档。
-5. **五层防错门控 (Anti-Error Protocol)**：路径推导 ➔ 角色门控 ➔ 提权协议 ➔ 指令分派 ➔ 隔离安全。
+5. **五层防错门控 (Anti-Error Protocol)**：路径推导 -> 角色门控 -> 提权协议 -> 指令分派 -> 隔离安全。
 
 ---
 

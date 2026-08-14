@@ -95,11 +95,11 @@ def serialize_subagent(role_data, role_meta, platform_key, subagent_spec):
     fmt = subagent_spec.get("format", "markdown_frontmatter")
     use_frontmatter = subagent_spec.get("frontmatter_subagent", True)
 
-    role_code = role_data.get("role_code", "")
-    core_duties = role_data.get("core_duties", [])
-    duty_str = "; ".join(core_duties) if isinstance(core_duties, list) else str(core_duties)
-    redlines = role_data.get("redlines", [])
-    redline_str = "; ".join(redlines) if isinstance(redlines, list) else str(redlines)
+    role_code = role_data.get("role_code") or role_data.get("role") or role_meta.get("role_code", "")
+    core_duties = role_data.get("core_duties") or role_data.get("responsibilities", [])
+    duty_str = "\n".join([f"- {d}" for d in core_duties]) if isinstance(core_duties, list) else str(core_duties)
+    redlines = role_data.get("redlines") or role_data.get("orchestration_rules", [])
+    redline_str = "\n".join([f"- {r}" for r in redlines]) if isinstance(redlines, list) else str(redlines)
     tools = ["run_command", "replace_file_content", "write_to_file", "view_file", "list_dir", "grep_search"]
 
     # 1. 状态机 SOP 引导提示词 (三步闭环)
@@ -108,7 +108,7 @@ def serialize_subagent(role_data, role_meta, platform_key, subagent_spec):
 ## 核心职责
 {duty_str}
 
-## 协作红线 (Redlines)
+## 协作规约与红线
 {redline_str}
 
 ## 自动化任务流转 SOP (CLI 三步闭环)
@@ -166,7 +166,7 @@ def export_platform_assets(platforms_config, active_platforms):
             rel_target = spec["skill_target"].format(skill_name=skill_name)
             abs_target = os.path.join(TARGET_PROJECT_DIR, rel_target)
             if safe_symlink(PROJECT_ROOT, abs_target):
-                print(f"[SUCCESS]  [{p_name}] 成功挂载 Skill 发现路径 ➔ {rel_target}")
+                print(f"[SUCCESS]  [{p_name}] 成功挂载 Skill 发现路径 -> {rel_target}")
 
         # 2. 执行 Cursor MDC 规则挂载
         if spec.get("mount_type") == "cursor_mdc" and "rule_target" in spec:
@@ -175,7 +175,7 @@ def export_platform_assets(platforms_config, active_platforms):
             os.makedirs(os.path.dirname(abs_rule), exist_ok=True)
             with open(abs_rule, "w", encoding="utf-8") as fp:
                 fp.write(f"---\ndescription: 多专家协同研发工作流规则 (YY-Flow)\nalwaysApply: false\n---\n# YY-Flow Multi-Agent Workflow\n请调阅 `skills/multi-agent-flow/SKILL.md` 遵循多专家协作契约。\n")
-            print(f"[SUCCESS]  [{p_name}] 成功创建 MDC 规则 ➔ {rel_rule}")
+            print(f"[SUCCESS]  [{p_name}] 成功创建 MDC 规则 -> {rel_rule}")
 
         # 3. 执行 Subagent 导出
         subagent_spec = spec.get("subagent_export")
@@ -202,14 +202,14 @@ def export_platform_assets(platforms_config, active_platforms):
                 fp.write(out_content)
             exported_count += 1
 
-        print(f"[SUCCESS]  [{p_name}] 成功导出 8 大专家子代理 ({exported_count}/8) ➔ 模式: `{pattern}`")
+        print(f"[SUCCESS]  [{p_name}] 成功导出 8 大专家子代理 ({exported_count}/8) -> 模式: `{pattern}`")
 
 def main():
     platforms_config = load_platforms_config()
     active_platforms = detect_active_platforms(platforms_config)
 
     print("==============================================================================")
-    print("🚀 [Multi-Agent Flow] 正在执行跨平台 Skill 自动挂载与 Subagent 导出...")
+    print("[START] [Multi-Agent Flow] 正在执行跨平台 Skill 自动挂载与 Subagent 导出...")
     print("==============================================================================")
 
     export_platform_assets(platforms_config, active_platforms)

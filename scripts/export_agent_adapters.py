@@ -103,7 +103,7 @@ def export_official_subagents(global_mode=False):
         with open(agent_file, "w", encoding="utf-8") as f:
             f.write(content)
 
-        summary.append(f"  - 子代理 `{meta['id']}` ➔ 写出至 `{os.path.relpath(agent_file, TARGET_PROJECT_DIR)}` (标头已声明 subagent: true)")
+        summary.append(f"  - 子代理 `{meta['id']}` -> 写出至 `{os.path.relpath(agent_file, TARGET_PROJECT_DIR)}` (标头已声明 subagent: true)")
 
     print("[SUCCESS]  [Antigravity 官方规范导出完成] 包含 subagent: true 标头的 7 大专家已全量就绪：")
     for s in summary:

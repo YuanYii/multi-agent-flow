@@ -73,6 +73,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         sys.stderr.write(f" [Kanban HTTP 32886] {self.address_string()} - {format % args}\n")
 
 
+class ReusableHTTPServer(HTTPServer):
+    allow_reuse_address = True
+
+
 def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0"):
     """启动简易 HTTP 看板服务"""
     if not os.path.exists(KANBAN_DIR):
@@ -81,13 +85,11 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0"):
 
     server_address = (host, port)
     try:
-        httpd = HTTPServer(server_address, KanbanHTTPRequestHandler)
+        httpd = ReusableHTTPServer(server_address, KanbanHTTPRequestHandler)
     except OSError as e:
         if e.errno == 48 or "Address already in use" in str(e):
-            print(f"[WARN]  [NOTICE] 端口 {port} 已被看板服务或其他进程占用，服务已处于运行状态！")
-            local_ip = get_local_ip()
-            print_kanban_urls(port, local_ip)
-            return
+            print(f"[FAILED]  [ERROR] 端口 {port} 被占用且无法复用: {e}")
+            sys.exit(1)
         else:
             print(f"[FAILED]  [ERROR] 启动 HTTP 服务失败: {e}")
             sys.exit(1)

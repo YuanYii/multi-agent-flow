@@ -6,7 +6,7 @@
 
 ## 1. 消息总线与交接 Payload 契约
 
-当上一阶段角色完成任务并将控制权移交给下一个角色（如 DEV ➔ REVIEWER，或 REVIEWER ➔ QA）时，必须在交接消息或存储中携带**强类型结构化 Context Payload**：
+当上一阶段角色完成任务并将控制权移交给下一个角色（如 DEV -> REVIEWER，或 REVIEWER -> QA）时，必须在交接消息或存储中携带**强类型结构化 Context Payload**：
 
 ```json
 {

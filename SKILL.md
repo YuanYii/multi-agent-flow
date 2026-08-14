@@ -27,12 +27,12 @@ version: 1.0.0
 
 当 Agent 调用或执行本 Skill 时，必须加载并遵循 [`rules/`](rules/) 目录下的规则约束与交互协议：
 
-1. **团队协作红线与按需加载** ➔ 调阅 [`rules/AGENTS.md`](rules/AGENTS.md)
-2. **8 大专家身份与人设定义** ➔ 调阅 [`rules/IDENTITY.md`](rules/IDENTITY.md)
-3. **安全控制心脏与防错原则** ➔ 调阅 [`rules/SOUL.md`](rules/SOUL.md)
-4. **看板巡检与卡顿监控 CheckList** ➔ 调阅 [`rules/HEARTBEAT.md`](rules/HEARTBEAT.md)
-5. **工具链与 CLI 适配指引** ➔ 调阅 [`rules/TOOLS.md`](rules/TOOLS.md)
-6. **用户自领取与代行授权协议** ➔ 调阅 [`rules/USER.md`](rules/USER.md)
+1. **团队协作红线与按需加载** -> 调阅 [`rules/AGENTS.md`](rules/AGENTS.md)
+2. **8 大专家身份与人设定义** -> 调阅 [`rules/IDENTITY.md`](rules/IDENTITY.md)
+3. **安全控制心脏与防错原则** -> 调阅 [`rules/SOUL.md`](rules/SOUL.md)
+4. **看板巡检与卡顿监控 CheckList** -> 调阅 [`rules/HEARTBEAT.md`](rules/HEARTBEAT.md)
+5. **工具链与 CLI 适配指引** -> 调阅 [`rules/TOOLS.md`](rules/TOOLS.md)
+6. **用户自领取与代行授权协议** -> 调阅 [`rules/USER.md`](rules/USER.md)
 
 ---
 
@@ -74,14 +74,14 @@ version: 1.0.0
      强制在回复中输出 Markdown 表格，清晰呈现所有子 Agent 标识、角色名称（前端专家【马前端】）、工具权限（已装配完整读写与 `run_command`）与合法状态流转区间：
      | 子代理标识 | 角色名称 | 核心职责 | 工具权限 | 合法状态流转区间 |
      | :--- | :--- | :--- | :--- | :--- |
-     | `@flow-pm` | 严经理 (项目经理) | 需求拆解、并发控制与终态验收 | 完整读写 + run_command | 待开始➔进行中 / 已完成➔已验收 |
-     | `@flow-architect` | 钱架构 (系统架构师) | 系统总体架构设计与 ADR 接口契约 | 完整读写 + run_command | 待开始➔进行中 / 进行中➔已完成 |
-     | `@flow-dev` | 李开发 (开发工程师) | 后端/全栈核心编码与单测实现 | 完整读写 + run_command | 待开始➔进行中 / 进行中➔审查中 (并发≤3) |
-     | `@flow-frontend` | 马前端 (前端开发工程师) | 现代 Web/UI 组件与交互体验开发 | 完整读写 + run_command | 待开始➔进行中 / 进行中➔审查中 (并发≤3) |
-     | `@flow-reviewer` | 周审查 (代码审查专家) | 代码规范、安全扫描与质量门控 | 完整读写 + run_command | 审查中➔测试中 / 审查中➔已退回 |
-     | `@flow-qa` | 章测试 (测试工程师) | 集成测试、边界场景与质量准出 | 完整读写 + run_command | 测试中➔已完成 / 测试中➔已退回 |
-     | `@flow-docs` | 李文通 (文档工程师) | 文档架构治理、用户手册与规范 | 完整读写 + run_command | 待开始➔进行中 / 进行中➔已完成 |
-     | `@flow-devops` | 吕改特 (运维管理员) | 分支合流、发布构建与 CI 巡检 | 完整读写 + run_command | 待开始➔进行中 / 进行中➔已完成 |
+     | `@flow-pm` | 严经理 (项目经理) | 需求拆解、并发控制与终态验收 | 完整读写 + run_command | 待开始->进行中 / 已完成->已验收 |
+     | `@flow-architect` | 钱架构 (系统架构师) | 系统总体架构设计与 ADR 接口契约 | 完整读写 + run_command | 待开始->进行中 / 进行中->已完成 |
+     | `@flow-dev` | 李开发 (开发工程师) | 后端/全栈核心编码与单测实现 | 完整读写 + run_command | 待开始->进行中 / 进行中->审查中 (并发≤3) |
+     | `@flow-frontend` | 马前端 (前端开发工程师) | 现代 Web/UI 组件与交互体验开发 | 完整读写 + run_command | 待开始->进行中 / 进行中->审查中 (并发≤3) |
+     | `@flow-reviewer` | 周审查 (代码审查专家) | 代码规范、安全扫描与质量门控 | 完整读写 + run_command | 审查中->测试中 / 审查中->已退回 |
+     | `@flow-qa` | 章测试 (测试工程师) | 集成测试、边界场景与质量准出 | 完整读写 + run_command | 测试中->已完成 / 测试中->已退回 |
+     | `@flow-docs` | 李文通 (文档工程师) | 文档架构治理、用户手册与规范 | 完整读写 + run_command | 待开始->进行中 / 进行中->已完成 |
+     | `@flow-devops` | 吕改特 (运维管理员) | 分支合流、发布构建与 CI 巡检 | 完整读写 + run_command | 待开始->进行中 / 进行中->已完成 |
    - **看板进度查看提示**：在创建任务或完成状态流转后，必须在回复末尾显式提示用户打开内置离线看板 [`kanban/offline_board.html`](kanban/offline_board.html) 导入 `kanban/board.json` 查看看板进度。
 
 ---
@@ -90,12 +90,12 @@ version: 1.0.0
 
 当 Agent 收到任务流转、领单、审查、测试或提权指令时，按需调阅 [`references/`](references/) 目录下的规约文档：
 
-1. **识别任务与角色边界** ➔ 调阅 [`references/01-AI-Team-Workflow-Index.md`](references/01-AI-Team-Workflow-Index.md)
-2. **推导合法下一状态** ➔ 调阅 [`references/02-State-Flow-Rules.md`](references/02-State-Flow-Rules.md)
-3. **校验角色权限与门控** ➔ 调阅 [`references/03-Anti-Error-Mechanism.md`](references/03-Anti-Error-Mechanism.md)
-4. **校验分支与 Git 规范** ➔ 调阅 [`references/04-Git-Workflow-Spec.md`](references/04-Git-Workflow-Spec.md)
-5. **校验文档结构与元数据** ➔ 调阅 [`references/05-Document-Management-Spec.md`](references/05-Document-Management-Spec.md)
-6. **校验交接契约与 Message 载荷** ➔ 调阅 [`references/06-Inter-Agent-Handover-Protocol.md`](references/06-Inter-Agent-Handover-Protocol.md)
+1. **识别任务与角色边界** -> 调阅 [`references/01-AI-Team-Workflow-Index.md`](references/01-AI-Team-Workflow-Index.md)
+2. **推导合法下一状态** -> 调阅 [`references/02-State-Flow-Rules.md`](references/02-State-Flow-Rules.md)
+3. **校验角色权限与门控** -> 调阅 [`references/03-Anti-Error-Mechanism.md`](references/03-Anti-Error-Mechanism.md)
+4. **校验分支与 Git 规范** -> 调阅 [`references/04-Git-Workflow-Spec.md`](references/04-Git-Workflow-Spec.md)
+5. **校验文档结构与元数据** -> 调阅 [`references/05-Document-Management-Spec.md`](references/05-Document-Management-Spec.md)
+6. **校验交接契约与 Message 载荷** -> 调阅 [`references/06-Inter-Agent-Handover-Protocol.md`](references/06-Inter-Agent-Handover-Protocol.md)
 
 ---
 
