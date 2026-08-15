@@ -6,6 +6,8 @@
 
 import sys
 import os
+import time
+import datetime
 import argparse
 import logging
 from typing import Dict, Any, Optional
@@ -31,8 +33,6 @@ logger = logging.getLogger("transition_pipeline")
 logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
-
-import time
 
 def cleanup_stale_locks(ttl_seconds: int = 300):
     """自动清理超过 ttl_seconds (默认5分钟) 的旧垃圾锁文件"""
@@ -241,7 +241,6 @@ def transition_task_pipeline(
                 record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"拒绝直接新建为{to_status}", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
 
-            import datetime
             now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             initial_status = "已验收" if (task_type == "E" and to_status == "已验收") else "进行中"
             create_fields = {
@@ -287,8 +286,6 @@ def transition_task_pipeline(
                 logger.error("[FAILED]  物理 API 写入失败，硬阻断流转！", extra=extra_log)
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "看板状态 API 写入失败", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
-            if remarks:
-                adapter.append_remarks(resolved_record_id, "remarks", remarks)
         except Exception as e:
             logger.error(f"[FAILED]  物理 API 调用抛出异常 ({e})，硬阻断！", extra=extra_log)
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"API 抛出异常: {e}", delegated_by=delegated_by, delegation_reason=delegation_reason)
