@@ -1,359 +1,100 @@
 # Multi-Agent Team Workflow (多专家协同研发工作流)
 
-> 契约驱动的多角色 Agent 协同研发技能包 —— 消除跨角色越权、打回碎片化与状态悬挂，让 AI 团队协作严丝合缝。
+> 契约驱动的多角色 Agent 协同研发技能包 —— 将项目管理、架构、开发、审查、测试、文档、运维拆分为 8 大专家角色，以五层防错门控 + 看板自动化流转，消除跨角色越权、打回碎片化与状态悬挂。
 
-解耦、高可靠、具备防错闭环机制的 AI 多专家协同研发工作流技能包。基于成熟的软件工程实践，将项目管理、系统架构、代码开发、前端开发、代码审查、功能测试、技术文档与 Git/运维整理解耦为 8 大标准职能角色，提供防错门控、打回不拆单、报告复验追加与看板自动化流转等能力。
+解耦、高可靠、具备防错闭环机制的 AI 多专家协同研发工作流技能包：状态与处理人原子绑定、打回不拆单、报告复验追加、多专家并发安全落卡，让 AI 团队协同严丝合缝。
 
----
+## 看板界面
 
-## 快捷唤醒指令 (Slash Commands)
+![多专家协作看板界面](kanban/kanban-preview.png)
 
-您可以在任意对话中直接输入 **`/yy-flow`** 快捷指令快速操作：
+## 快速使用（Agent 初始化）
 
-| 快捷指令 | 功能说明 | 对应行为 |
-| :--- | :--- | :--- |
-| **`/yy-flow`** 或 **`/yy-flow start`** | **一键激活工作流** | 自动执行 7 步 SOP 初始化并拉起 PM 严经理 |
-| **`/yy-flow status`** | **看板与在手任务巡检** | 执行心跳健康检查，输出各卡片流转与滞留告警 |
-| **`/yy-flow kanban`** | **启动离线看板 Web 界面** | 启动本地 HTTP 32886 端口看板并输出访问链接 |
-| **`/yy-flow metrics`** | **输出研发效能度量报告** | 计算 Lead Time、交付吞吐量与卡点分析 |
+**前置要求**：任一支持 Markdown/Skill 规范的 AI Agent（Antigravity CLI / Codex / Claude Code / Cursor 等）；使用离线本地看板**无需任何凭证**。
 
----
-
-## 快速使用
-
-### 前置要求
-
-- 任一 AI Agent：Antigravity CLI / Codex / Claude Code / Cursor / 或其他支持加载 Markdown 规范的 Agent
-- (可选) 在线看板凭证：飞书 Base / Jira / GitHub Projects（使用**离线本地看板**则完全无需任何凭证）
-
-### 安装与一键初始化
-
-将本 Skill 包克隆或复制到项目或 AI Agent 技能目录下：
+1. 将技能包克隆或复制到项目或 Agent 技能目录：
 
 ```bash
 cd /path/to/your-project
-
-# 1. 克隆技能包到 skills/ 目录 (或直接解压)
 git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi-agent-flow
-
-# 2. 一键执行标准初始化 (自动检测并清理 Skill 内部残留 .git 与 .gitignore，生成宿主专属 user_data/ 资产)
-bash skills/multi-agent-flow/scripts/init_skill.sh
 ```
 
-*(Windows 环境可执行 `powershell -ExecutionPolicy Bypass -File skills\multi-agent-flow\scripts\init_skill.ps1`)*
+2. 在与 Agent 的对话中触发初始化（二选一）：
 
----
+- 输入快捷指令 **`/yy-flow`** 或 **`/yy-flow start`**
+- 或直接说：**“使用 multi-agent-flow 初始化当前项目”**
 
-### 项目初始化与架构识别
+3. Agent 将自动执行 7 步标准初始化：
 
-您也可以直接在与 Agent 对话时输入 **`/yy-flow`**（或 `“使用 multi-agent-flow 初始化当前项目”`），Agent 将自动为您完成全套 7 步标准初始化流程：
+| 步骤 | 动作 |
+| :--- | :--- |
+| 1 | 敏感凭据扫描（`check_secrets.py`），确保零密钥泄露 |
+| 2 | 按宿主 Agent 规范导出 8 大专家子代理至 `.agents/agents/` |
+| 3 | 技术架构物理扫描（`auto_scan_stack.py`）识别语言/框架 |
+| 4 | 生成宿主专属 `user_data/`（workflow 配置、board.json、审计日志） |
+| 5 | 建立 `docs/` 工程文档骨架并归档历史散落文档 |
+| 6 | 专家团队技术栈自动同步（`agents/*.yaml`） |
+| 7 | 唤起 PM 严经理，输出项目鉴定与 8 大专家权限矩阵 |
 
-1. **敏感凭据扫描**：运行 `check_secrets.py` 扫描并确保零密钥泄露。
-2. **Subagent 官方标准路径查证与导出**：运行 `verify_and_export_agents.py`，根据宿主 Agent 规范将 8 大专家子代理自动导出至 `.agents/agents/{agent_name}/agent.md`。
-3. **技术架构物理扫描**：运行 `auto_scan_stack.py` 自动扫描分析宿主项目的语言、依赖与框架架构。
-4. **生成宿主专属数据资产目录 (`user_data/`)**：
-   - 生成 `user_data/workflow.config.yaml` 工作流配置；
-   - 生成 `user_data/project_architecture.config.yaml` 架构配置；
-   - 初始化空看板工单 `user_data/board.json` 与日志目录 `user_data/logs/`；
-   - 自动清理 Skill 内部残留的 `.git` 与 `.gitignore`，实现与宿主 Git 规则的无缝共存。
-5. **项目工程文档骨架建立与原项目文档自动归档**：建立标准 `docs/` 规范目录，运行 `migrate_legacy_docs.py` 自动将历史散落文档只读镜像归档至 `docs/*/原项目文档/`。
-6. **专家团队技术栈自动同步**：运行 `update_agent_tech_stacks.py` 将技术栈同步更新至 `agents/*.yaml`。
-7. **唤起 PM 专家输出项目鉴定声明**：PM 严经理接管并输出 `【已识别 xxxx 项目】` 及 8 大专家权限矩阵。
+初始化完成后即可开始流转，后续无需重新初始化。
 
----
+## 常用快捷指令
 
-### 数据看板配置指南（双模支持：纯静态离线 MVP / HTTP RESTful API）
+| 指令 | 功能 |
+| :--- | :--- |
+| **`/yy-flow`** 或 **`/yy-flow start`** | 一键激活工作流：初始化 SOP + 唤起 PM |
+| **`/yy-flow status`** | 看板巡检：输出流转状态、在手任务与滞留告警 |
+| **`/yy-flow kanban`** | 启动离线看板 Web 服务（端口 32886）并输出访问链接 |
+| **`/yy-flow metrics`** | 研发效能度量：Lead Time、吞吐量与卡点分析 |
 
-看板支持 **“纯静态文件双击即用 (Pure Static MVP)”** 与 **“本地 HTTP 32886 端口服务”** 两种运行模式：
+## 任务流转（Agent 对话示例）
 
-#### 1. 模式 A：纯静态离线模式 (Pure Static MVP) —— 零服务依赖、双击即开即用
-- **使用方式**：直接用任意浏览器双击打开 [`kanban/offline_board.html`](kanban/offline_board.html)；
-- **纯前端持久化**：
-  - **自动缓存**：界面操作自动持久化在浏览器 `localStorage` 中；
-  - **【导出 JSON】确认弹窗**：点击顶部工具栏【导出 JSON】，弹出专属确认对话框，展示当前工单统计与使用指引，点击【确认导出并下载】一键下载生成标准的 `board.json`；
-  - **【导入 JSON】秒级载入**：点击顶部工具栏【导入 JSON】，选择本地 `board.json` 即可无缝切换工单；
-- **全量视觉能力**：内置常驻高对比度细滚动条、终态优先流转标签解析、4 大视图与 NOAA 日落自适应深浅主题。
+| 场景 | 示例 Prompt | 结果 |
+| :--- | :--- | :--- |
+| 自领取任务 | “使用 multi-agent-flow，自领取下一个待开始任务” | 核验并发上限（≤3）→ 置【进行中】→ 开始编码 |
+| 提交审查 | “提交 T0001 代码审查” | 状态【审查中】，处理人移交 Reviewer |
+| 审查/测试 | “审查 T0001” | 通过→【测试中】/【已完成】；不通过→【已退回】回原负责人，备注写入 `DEF-T0001-1`（不拆单） |
+| 验收 | “验收已完成任务” | PM 校验结束时间 →【已验收】 |
+| 启动看板 | “启动看板” | 输出 <http://localhost:32886/> 访问链接 |
 
-#### 2. 模式 B：本地 HTTP RESTful API 服务 (端口: 32886)
-- **启动方式**：在终端运行 `python3 scripts/start_kanban_server.py --port 32886`（或在对话中输入 `/yy-flow kanban`）；
-- **实时强一致**：服务动态代理 `/board.json` 与 `/api/cards`、`/api/board/meta` 等 RESTful 接口，双向实时强同步写入宿主项目的 `user_data/board.json`；
-- **端口保护**：内置 `SO_REUSEPORT` 与 `SO_REUSEADDR` 双重 Socket 保护，杜绝 macOS 下进程重启时的 `Address already in use` 端口挂死。
+## 核心能力
 
----
+- **五层防错门控**：角色权限 / 特权放行 / 越权硬阻断 / 防自环死锁 / 并发上限与终态冻结，Fail-Closed 物理拦截。
+- **原子强绑定**：状态流转必须同步移交处理人；打回一律原单退回并追加结构化缺陷，禁止派生孤儿任务与碎片报告。
+- **并发安全**：全局排他锁（`board.json.seq.lock`）+ 临时文件原子替换，多专家并发建单编号 100% 不重复。
+- **看板双模**：纯静态离线（双击 `kanban/offline_board.html` 即用，localStorage 持久化）/ 本地 HTTP 服务（实时强同步 `user_data/board.json`）。
+- **在线看板扩展（可选）**：配置 `user_data/workflow.config.yaml` 可切换飞书 Base / Jira / GitHub Projects。
+- **体验细节**：自动日落护眼主题、终态优先流转标签、多维筛选与排序。
 
-### 在线看板扩展配置（可选）
-
-在配置文件 [`user_data/workflow.config.yaml`](config/workflow.config.template.yaml) 中，看板默认配置为**离线本地看板 (`local`)**；同时也支持配置扩展为飞书 Base、Jira 或 GitHub Projects：
-
-#### 1. 飞书多维表格 (Feishu Base) —— 可选在线扩展
-- **配置文件参数** (`user_data/workflow.config.yaml`)：
-  - `board.provider`: `"feishu_base"`
-  - `board.base_token`: **Base Token**（多维表格 URL `https://feishu.cn/base/【Base_Token】?table=...` 中 `base/` 后方的字符串）
-  - `board.table_id`: **Table ID**（多维表格 URL `...table=【tbl_ID】` 中 `table=` 后方的字符串）
-- **系统环境变量凭证**（API 授权使用）：
-  - `FEISHU_APP_ID`: 飞书开放平台自建应用的 App ID（示例：`cli_a1b2c3d4e5`）
-  - `FEISHU_APP_SECRET`: 飞书开放平台自建应用的 App Secret 密钥
-
-#### 2. Jira 看板 —— 可选在线扩展
-- **配置文件参数**：
-  - `board.provider`: `"jira"`
-  - `board.domain`: Jira 实例域名（示例：`https://your-domain.atlassian.net`）
-  - `board.project_key`: 项目 Project Key（示例：`PROJ`）
-- **系统环境变量凭证**：
-  - `JIRA_USER_EMAIL`: Atlassian 账号邮箱
-  - `JIRA_API_TOKEN`: Atlassian 账号后台生成的 API Token
-
-#### 3. GitHub Projects (v2) —— 可选在线扩展
-- **配置文件参数**：
-  - `board.provider`: `"github_projects"`
-  - `board.owner`: GitHub 组织名或用户名
-  - `board.project_number`: Project 编号（示例：`1`）
-- **系统环境变量凭证**：
-  - `GITHUB_TOKEN`: 具备 `repo` 和 `project` 读写权限的 Personal Access Token (PAT)
-
-**专家流转自动落卡**：调用 `transition_task.py` 执行流转时，若任务在看板中不存在将自动创建（初始状态「待开始」）后再流转，**8 大专家角色均可操作**：
-
-```bash
-# 专家流转：任务不存在自动创建；省略 --task-id 时自动分配最大编号+1
-python3 scripts/transition_task.py --config user_data/workflow.config.yaml \
-  --role PM --from-status 待开始 --to-status 进行中 --assignee Dev_User_1 \
-  --task-name "新任务" --stage "S1" --wp "WP-1"
-
-# 查看看板任务
-python3 scripts/offline_board_adapter.py --list user_data/board.json
-```
-
-**并发安全编号分配**：多个专家并发新建任务时，任务编号（`T\d+` 取最大号 +1）由适配器**全局排他锁**（`user_data/board.json.seq.lock`）串行分配，**编号 100% 不重复**；文件写入采用临时文件 + 原子替换（`os.replace`），杜绝半写文件；显式指定编号重复时 Fail-Closed 拒绝创建。
-
-**Web 物理强同步与 32886 服务**：在终端运行 `python3 scripts/start_kanban_server.py --port 32886`（或输入指令 `/yy-flow kanban`），服务将代理 `/board.json` 并映射读取 `user_data/board.json`，确保前端界面状态与工单数据 **物理 100% 强一致强同步**。
-
-**自动日落护眼主题算法**：看板内置 NOAA 日落计算引擎（白天切浅色、晚上切深色），**自动日落计算算法拥有最高优先级**，并配备 1 小时后台定时轮询计算器，自动为您无感平滑切换主题。
-
----
-
-## 研发效能度量与卡点分析
-
-项目内置了标准化的工程效能分析引擎（`scripts/metrics_analyzer.py`），可通过指令 **`/yy-flow metrics`** 或直接运行脚本进行全局度量：
-
-- **前置交付周期 (Lead Time)**：精确统计工单从「待开始」到「已验收」的总耗时及流转速率；
-- **交付吞吐量 (Throughput)**：统计指定周期内各工作包与各角色的已完成工单总数；
-- **瓶颈与卡点诊断**：自动分析各阶段滞留时间（Lead Time Breakdown）及 Reviewer/QA 审查打回频次，定位流程卡点。
-
-```bash
-# 运行效能度量分析器
-python3 scripts/metrics_analyzer.py --board user_data/board.json
-```
-
----
-
-## 质量防错门控与本地回归测试
-
-项目在设计上秉持 **Fail-Closed 强防御原则**，在物理代码层面严格防范越权与状态机悬挂：
-
-- **36 个状态流转场景覆盖**：覆盖 7 类任务（A-G）的标准正向流转、特权短链放行、审查/测试精准打回与挂起解阻。
-- **排他锁与并发保护**：多个专家并发新建任务时，任务编号由 `user_data/board.json.seq.lock` 排他锁串行分配，落盘采用原子替换杜绝半写。
-- **敏感凭据与密钥扫描** ([`scripts/check_secrets.py`](scripts/check_secrets.py))：硬拦截任何意外硬编码的 Token、AK/SK 密钥。
-- **开发者本地测试套件**：全量 132 项自动化测试覆盖在本地开发沙箱环境（`tmp_path`）中运行，保障生产数据与工作区 100% 隔离安全。
-
-```bash
-# 本地自测 (需本地存在 tests/ 目录)
-pytest tests/ --verbose
-```
-
----
-
-## 任务流转与指令交互
-
-在与 Agent 对话时，只需在 Prompt 中唤起 `multi-agent-flow` 技能标识，或在支持子 Agent 命令的 IDE 中直接使用快捷语法（如 `@flow-dev`, `/flow-dev`），Agent 将自动调阅 `SKILL.md` 并动态加载 `rules/` 下的核心规则与防错契约：
-
-#### 1. 开发人员自领取任务
-> **“使用 multi-agent-flow，自领取下一个待开始任务”** （或直接在对话中召唤 `@flow-dev` / `/flow-dev`）
+## 目录结构
 
 ```text
-→ Agent 自动核验并发上限 (≤3) 与领用顺序 (按编号从小到大)
-→ 先将看板状态置为【进行中】，确认成功落库后再启动编码
+skills/multi-agent-flow/
+├── SKILL.md                 # 技能主入口（/yy-flow 规范与 Prompt）
+├── README.md                # 本说明文档
+├── rules/                   # 协作契约与防错规则（AGENTS/IDENTITY/SOUL/TOOLS/USER/HEARTBEAT）
+├── agents/                  # 8 大专家角色 YAML 定义
+├── kanban/                  # 离线看板（offline_board.html + js/css/json）
+├── config/                  # 工作流与架构配置模板
+├── references/              # 6 大参考规约（流转/防错/Git/文档/交接）
+├── templates/               # 标准化报告与文档模板
+└── scripts/                 # 初始化/流转/度量/看板服务等 CLI 引擎
+
+# 宿主项目初始化后动态生成（随宿主 Git 管理）：
+user_data/
+├── board.json               # 任务工单真实数据
+├── workflow.config.yaml     # 宿主工作流配置
+├── project_architecture.config.yaml
+└── logs/                    # 审计流转日志
 ```
 
-#### 2. 开发完成提交审查
-> **“使用 multi-agent-flow，提交 T0001 代码审查”** （或召唤 `@flow-reviewer` / `/flow-reviewer`）
+## 更多文档
 
-```text
-→ 自动撰写/更新开发任务报告 (按工作包归档)
-→ 原子级更新看板状态为【审查中】，处理人移交【Reviewer】
-```
-
-#### 3. 审查与测试通过/打回
-> **“使用 multi-agent-flow，审查 T0001”** （或召唤 `@flow-qa` / `/flow-qa`）
-
-```text
-→ 若审查通过：状态推至【测试中】，处理人移交【QA】
-→ 若审查不通过：打回原任务，状态变【已退回】，处理人改回【原负责人】
-  并在看板「备注」中结构化写入 DEF-T0001-1 缺陷信息（不派生新任务编号）
-```
-
-#### 4. 项目经理验收
-> **“使用 multi-agent-flow，验收已完成任务”** （或召唤 `@flow-pm` / `/flow-pm`）
-
-```text
-→ 检查结束时间强校验，状态更新为【已验收】，末处理人保持【PM】
-```
-
-#### 5. 启动看板 Web 服务
-> **“启动看板”** （或 `/kanban`, `打开看板服务`, `启动看板界面`）
-
-```text
-→ 自动以后台任务形式运行脚本 python3 scripts/start_kanban_server.py --port 32886 启动零依赖 HTTP 服务
-→ 格式化回复 http://localhost:32886/ (或 http://127.0.0.1:32886/offline_board.html) 访问链接
-```
-
----
-
-## 核心契约与防错规则 (`rules/`)
-
-技能包在 [`rules/`](rules/) 目录下内置了全套标准化交互契约与防错规则，在调用 Skill 时自动按需装载：
-
--  [`rules/AGENTS.md`](rules/AGENTS.md)：**多专家团队协作契约** —— 规定 6 大协作红线、看板状态不变量与动态按需加载协议。
--  [`rules/IDENTITY.md`](rules/IDENTITY.md)：**专家团多面人设与身份契约** —— 定义 PM、ARCHITECT、DEV、FRONTEND、REVIEWER、QA、DOCS、DEVOPS 8 大专家身份及其提权代行规约。
--  [`rules/SOUL.md`](rules/SOUL.md)：**行为原则与防错控制心脏** —— 规定事实高于推论、原子更新、缺陷溯源不切碎等安全控制核心。
--  [`rules/HEARTBEAT.md`](rules/HEARTBEAT.md)：**看板状态巡检与卡顿监控** —— 规定滞留任务、并发上限及状态处理人一致性等巡检 Checklist。
--  [`rules/TOOLS.md`](rules/TOOLS.md)：**看板与工程工具链指引** —— 描述 `init_field_mapping.py`、`start_kanban_server.py` 等脚本说明。
--  [`rules/USER.md`](rules/USER.md)：**用户交互协议与协同契约** —— 规定自领取筛选规则、跨角色提权代行交互及【启动看板】32886 服务引导规范。
-
----
-
-## 为什么需要多专家协同规范？
-
-在多 Agent 或 AI 与人类团队协同研发中，常见痛点：
-
-- **乱越权改看板**：开发 Agent 自作主张把任务改成“已验收”，导致未经过测试的代码直接上产线。
-- **打回派生孤儿任务**：代码审查不通过就新建 `T0103-fix` 等碎片任务，导致上下文断裂、历史不可追溯。
-- **报告满天飞**：每次复审复测都新建《XXX_复审报告2.md》，文档严重离散。
-- **状态与处理人不同步**：只改了状态为“审查中”，但处理人忘记改，导致下游角色看不到任务（任务悬挂）。
-
-`multi-agent-flow` 将软件工程的严肃协同纪律融入 Agent 交互协议中 —— **不是限制 AI，而是确保 AI 团队协同严丝合缝**。
-
----
-
-## 核心架构与 8 大抽象角色
-
-每个节点由独立的专家角色（Role Agent）执行，详尽信息可参考 [`references/01-AI-Team-Workflow-Index.md`](references/01-AI-Team-Workflow-Index.md)。以下为各角色核心职责与红线边界：
-
-- **PM（项目经理）**：负责 WBS 维护、工作包拆解、任务派发与最终阶段验收。
-  - *红线*：不编写业务代码、不做技术架构设计、不亲自跑单测/集成测试。
-- **ARCHITECT（系统架构师）**：负责系统架构设计、技术选型与 ADR 编写。
-  - *红线*：架构设计不等于代码实现，任务完成后直接交由 PM 验收。
-- **DEV（全栈开发工程师）**：负责 Backend/Core 编码、单测（覆盖率>80%）及环境治理。
-  - *红线*：并发上限3个任务，必须先将看板状态改为“进行中”再开始编码。
-- **FRONTEND（前端开发工程师）**：负责 UI/UX 界面构建、组件拆分与 Web 看板交互对接。
-  - *红线*：并发上限3个任务，需遵守模块化样式与响应式工程规范。
-- **REVIEWER（代码审查员）**：负责代码规范 (PEP8 / Clean Code)、安全漏洞扫描与性能评估。
-  - *规范*：审查报告需标注问题优先级，打回时需回写结构化缺陷信息。
-- **QA（测试工程师）**：负责集成测试、端到端系统测试、回归测试。
-  - *红线*：不做单元测试。测试通过时必须在看板中填入结束时间。
-- **DOCS（文档工程师）**：负责平台操作手册、API 帮助文档等。
-  - *特例*：文档任务走精简流转，无需代码审查与测试。
-- **DEVOPS（运维管理员）**：负责分支合并、打 SemVer 标签与环境编排。
-  - *触发*：当前阶段任务全验收后由 PM 触发。
-
----
-
-## 任务生命周期与状态流转
-
-本工作流包含 8 个标准状态：`待开始`、`进行中`、`审查中`、`测试中`、`已退回`、`已阻塞`、`已完成`、`已验收`。
-详细状态定义与退回规则可参考 [`references/02-State-Flow-Rules.md`](references/02-State-Flow-Rules.md)。
-
-### 常规开发任务（A类）标准流转链：
-
-```mermaid
-graph TD
-    Start((开始)) -->|PM分配任务| Todo["待开始<br/>(处理人: PM/DEV)"]
-    
-    Todo -->|DEV/FRONTEND自领取| InProgress["进行中<br/>(处理人: DEV/FRONTEND)"]
-    
-    InProgress -->|提交审查| InReview["审查中<br/>(处理人: REVIEWER)"]
-    InProgress -->|依赖未就绪| Blocked["已阻塞<br/>(处理人: DEV/FRONTEND/REVIEWER/QA)"]
-    Blocked -->|依赖恢复| InProgress
-    
-    InReview -->|审查通过| InTesting["测试中<br/>(处理人: QA)"]
-    InReview -->|审查不通过| Rejected["已退回<br/>(处理人: 原负责人)"]
-    
-    InTesting -->|测试通过,填结束时间| Done["已完成<br/>(处理人: PM)"]
-    InTesting -->|测试不通过| Rejected
-    
-    Rejected -->|返工修复| InProgress
-    
-    Done -->|终态验收通过| Accepted["已验收<br/>(处理人: PM)"]
-    Done -->|验收不通过| Rejected
-    
-    Accepted --> End((结束))
-```
-
-### 其他类型任务流转：
-- **架构设计（B类）/ 文档（C类）/ 运维（D类）/ 环境（G类）**：通常直接由 `进行中` 流转至 `已完成` 交由 PM 验收，跳过代码审查与测试环节。
-
-### 核心防错：打回不拆单与报告追加原则
-- **严禁派生孤儿任务**：当审查或测试不通过时，**禁止新建独立修复任务（如 T0103-fix）**。一律在原任务上修改状态为 `已退回`，并在备注中写入结构化缺陷信息（`DEF-{原任务编号}-{轮次}`）。
-- **禁止新建碎片报告**：审查/测试退回修复后，重新流转时的复审/复测结论，强制要求追加在原有审查/测试报告的末尾章节（如 `§8 复审结论`），严禁新建独立的复审/复测报告文件。
-
----
-
-## [GUARD] 防错闭环机制 (§九 守护原则)
-
-完整五层防错门控、拦截处理与提权代行逻辑详见：
-->  [`references/03-Anti-Error-Mechanism.md`](references/03-Anti-Error-Mechanism.md)
-
-1. **状态与处理人原子绑定 (Atomic Update)**：修改状态必须同步修改处理人。
-2. **打回不拆单原则 (Non-Fragmented Defect)**：打回一律在原任务上置为 `已退回` 并追加 `DEF-TXXX-N`。
-3. **报告复验追加原则 (Appended Audit)**：复审/复测结论强制追加至原报告。
-4. **原项目文档只读归档原则 (Read-Only Legacy Governance)**：归档镜像拷贝入 `docs/*/原项目文档/`，源文件 100% 保持原样，严格禁篡改历史原文档。
-5. **五层防错门控 (Anti-Error Protocol)**：路径推导 -> 角色门控 -> 提权协议 -> 指令分派 -> 隔离安全。
-
----
-
-## 目录结构与规范
-
-```text
-skills/
-└── multi-agent-flow/                  # [纯净 Skill 静态包 · 升级免疫]
-    ├── SKILL.md                       # 技能主入口指令、/yy-flow 规范与 Prompt
-    ├── README.md                      # 本说明文档
-    ├── rules/                         # [核心规则与契约]
-    │   ├── AGENTS.md                  # [核心] 多专家团队 Agent 协作契约、6 大红线与 /yy-flow 响应契约
-    │   ├── IDENTITY.md                # [角色] 8 大专家 Agent 身份定义与多面人设
-    │   ├── SOUL.md                    # [控制] 状态流转防错闭环心脏 (§九)
-    │   ├── TOOLS.md                   # [工具] 看板工具与 CLI 适配层使用指引
-    │   ├── USER.md                    # [协议] 自领取规则与【启动看板】32886 服务协议
-    │   └── HEARTBEAT.md               # [巡检] 看板巡检与状态不变量核验规则
-    ├── agents/                        # 8 大专家 Agent YAML 描述 (01-pm.yaml ~ 08-frontend.yaml)
-    ├── kanban/                        # 离线 Web 看板静态资源 (纯前端 MVP 与双模支持)
-    │   ├── README.md                  # 纯静态离线看板快速上手指南
-    │   ├── offline_board.html         # 核心看板入口 (双击即用 / HTTP 托管)
-    │   ├── js/                        # 前端脚本 (data.js 导入导出, board.js, util.js, listbox.js)
-    │   ├── css/                       # 样式表 (styles.css 细滚动条、自适应深浅主题)
-    │   └── json/                      # kanban_meta.json 等元数据配置
-    ├── config/                        # 声明式平台与工程配置模板
-    │   ├── agent_platforms.yaml       # 声明式 7 大 Agent 平台 Subagent 导出与加载规范
-    │   ├── workflow.config.template.yaml
-    │   └── project_architecture.template.yaml
-    ├── references/                    # 6 大全量提炼参考规约 (路由/流转/防错/Git/文档管理/交接协议)
-    │   ├── 01-AI-Team-Workflow-Index.md
-    │   ├── 02-State-Flow-Rules.md
-    │   ├── 03-Anti-Error-Mechanism.md
-    │   ├── 04-Git-Workflow-Spec.md
-    │   ├── 05-Document-Management-Spec.md
-    │   └── 06-Inter-Agent-Handover-Protocol.md
-    ├── templates/                     # 开发/审查/测试报告与模块设计/排查文档模板 (7 个)
-    └── scripts/                       # 初始化 (init_skill)、度量分析 (metrics_analyzer)、状态流转 (transition_task)、Web看板 (start_kanban_server) 等核心 CLI 引擎
-
-# 宿主项目初次初始化后动态生成：
-user_data/                             # [宿主专属研发数据资产 · 宿主 Git 管理]
-├── board.json                         # 任务工单真实数据 (随宿主项目流转)
-├── workflow.config.yaml               # 宿主本地工作流配置
-├── project_architecture.config.yaml   # 宿主项目技术架构事实依据
-└── logs/                              # 审计流转日志 (audit_trail.log)
-```
-
----
+- [技能主入口 SKILL.md](SKILL.md) — 快捷指令、初始化 SOP 与动态流转协议
+- [AI 团队工作流索引](references/01-AI-Team-Workflow-Index.md) — 角色职责与流转总览
+- [防错闭环机制](references/03-Anti-Error-Mechanism.md) — 五层门控与守护原则
+- [状态流转规则](references/02-State-Flow-Rules.md) — 8 状态定义与 A-G 任务类型
+- [规则契约 rules/](rules/) — 协作红线与巡检协议
 
 ## License
 
