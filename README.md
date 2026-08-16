@@ -17,8 +17,8 @@
 ```bash
 cd /path/to/your-project
 
-# 方式 A: degit（需本机 Node，固定版本用 #release_v6，跟默认分支则省略）
-npx -y degit YuanYii/multi-agent-flow#release_v6 skills/multi-agent-flow
+# 方式 A: degit
+npx -y degit YuanYii/multi-agent-flow skills/multi-agent-flow
 
 # 方式 B: tarball（无 Node 环境，零依赖）
 mkdir -p skills/multi-agent-flow && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/release_v6.tar.gz | tar xz -C skills/multi-agent-flow --strip-components=1
