@@ -6,11 +6,13 @@
 
 import sys
 import os
+import re
 import time
 import datetime
 import argparse
 import logging
 from typing import Dict, Any, Optional
+from difflib import SequenceMatcher
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
@@ -86,6 +88,67 @@ def release_concurrency_lock(lock_tuple):
         pass
 
 
+ROLE_NAME_MAP = {
+    "PM": "严经理", "ARCHITECT": "钱架构", "DEV": "李开发",
+    "FRONTEND": "马前端", "REVIEWER": "周审查", "QA": "章测试",
+    "DOCS": "李文通", "DEVOPS": "吕改特"
+}
+
+PLACEHOLDER_TASK_NAMES = {"", "工作包任务", "-", "暂无", "新建任务", "未命名任务"}
+
+
+def normalize_task_name(name: str) -> str:
+    """任务名称归一化：去除空白与常见标点、转小写，用于重复度比对。"""
+    return re.sub(r"[\s\u3000，,。.;；:：()（）\[\]【】{}<>《》\"'`~!！?？\-_/\\|]", "", str(name)).lower()
+
+
+def check_duplicate_tasks(adapter, task_name, cfg_dup, limit=10, threshold=0.8):
+    """重复任务校验：取看板最近 N 条任务（按 seq 倒序），与 task_name 做三级命中比对。
+    返回命中候选列表 [{task_id, name, level}]；无命中或未启用返回空列表。
+    配置：duplicate_check.enabled / limit / threshold（workflow.config.yaml）。"""
+    raw = str(task_name or "").strip()
+    if not raw or raw in PLACEHOLDER_TASK_NAMES:
+        return []
+    dup_cfg = cfg_dup or {}
+    if dup_cfg.get("enabled", True) is False:
+        return []
+    limit = int(dup_cfg.get("limit", limit) or limit)
+    threshold = float(dup_cfg.get("threshold", threshold) or threshold)
+    try:
+        recs = adapter.list_records(limit=1000)
+    except Exception:
+        return []
+    recs = sorted(recs, key=lambda r: int(r.get("fields", {}).get("seq") or 0), reverse=True)
+    target = normalize_task_name(raw)
+    hits = []
+    for r in recs[:limit]:
+        f = r.get("fields", {})
+        name = str(f.get("name") or f.get("task_name") or "")
+        if not name:
+            continue
+        n = normalize_task_name(name)
+        if not n:
+            continue
+        if n == target:
+            level = "L1 完全一致"
+        elif target in n or n in target:
+            level = "L2 包含"
+        else:
+            ratio = SequenceMatcher(None, target, n).ratio()
+            if ratio < threshold:
+                continue
+            level = f"L3 相似度 {ratio:.2f}"
+        hits.append({"task_id": f.get("id"), "name": name, "level": level})
+    return hits
+
+
+def print_duplicate_protocol(task_name, hits):
+    """输出机器可解析的重复任务协议行 + 人类可读候选列表（无弹窗，输出后命令终止由调用方处理）。"""
+    print(f"DUPLICATE_TASK|v1|{task_name}|" + "|".join(f"{h['task_id']}({h['level']})" for h in hits))
+    for h in hits:
+        print(f"  [重复候选] {h['task_id']} {h['name']} ({h['level']})")
+
+
 def transition_task_pipeline(
     config_path: str,
     task_id: str = "",
@@ -106,10 +169,18 @@ def transition_task_pipeline(
     owner: str = None,
     delegated_by: str = "",
     delegation_reason: str = "",
+    create_only: bool = False,
+    force: bool = False,
+    no_dup_check: bool = False,
 ) -> bool:
     resolved_task_id = task_id or "AUTO"
     extra_log = {"task_id": resolved_task_id}
     logger.info(f"[SECURITY]  触发防错门控校验 ({from_status} -> {to_status}, 模式: {'DRY-RUN' if dry_run else 'REAL'})...", extra=extra_log)
+
+    # 0. 模式参数校验：流转模式必须提供 from/to/assignee；仅建卡使用 --create
+    if not create_only and (not from_status or not to_status or not assignee):
+        logger.error("[FAILED]  流转模式必须提供 --from-status/--to-status/--assignee；仅建卡请使用 --create", extra=extra_log)
+        return False
 
     # 0. 提权代行白名单预检(Fail-Closed):在 validate 前阻断非法代行
     #    无代行声明(delegated_by 为空)时直接跳过,交由原 validate 权限矩阵处理
@@ -144,6 +215,53 @@ def transition_task_pipeline(
             logger.error("[FAILED]  适配器未正确初始化，拦截落库", extra=extra_log)
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "适配器缺失", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return False
+
+        dup_cfg = cfg_data.get("duplicate_check", {}) or {}
+
+        # 2.5 显式建单模式 (--create / quick create)：建卡为【待开始】，不执行流转
+        if create_only:
+            role_upper = current_role.upper()
+            effective_assignee = ROLE_NAME_MAP.get(assignee, assignee)
+            # 建卡权限：PM 可派发任意处理人；非 PM 仅可为自己建卡
+            if role_upper != "PM" and effective_assignee != ROLE_NAME_MAP.get(role_upper, role_upper):
+                logger.error(f"[FAILED]  [建卡权限拦截] 角色 {role_upper} 仅可为自己建卡（assignee 必须为 {ROLE_NAME_MAP.get(role_upper, role_upper)}），如需派发请由 PM 执行！", extra=extra_log)
+                record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, "建卡权限拦截", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                return False
+            if not task_name or not str(task_name).strip():
+                logger.error("[FAILED]  [建卡拦截] --create 模式必须提供 --task-name！", extra=extra_log)
+                record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, "建卡缺失任务名", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                return False
+            # 重复任务校验：命中时输出重复内容并终止命令（无弹窗），用户决策后以 --force 重跑
+            if not no_dup_check:
+                dup_hits = check_duplicate_tasks(adapter, task_name, dup_cfg)
+                if dup_hits:
+                    print_duplicate_protocol(task_name, dup_hits)
+                    if not force:
+                        logger.error(f"[FAILED]  [重复任务拦截] 任务名称疑似与 {len(dup_hits)} 条现有任务重复，命令终止；确认重复创建请加 --force 重跑", extra=extra_log)
+                        record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, f"重复任务校验拦截: {len(dup_hits)} 条候选", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                        return False
+                    logger.warning(f"[WARN]  [重复任务] 用户确认强制创建（--force），命中 {len(dup_hits)} 条候选", extra=extra_log)
+            create_fields = {
+                "task_id": task_id,
+                "task_name": task_name,
+                "status": "待开始",
+                "assignee": effective_assignee,
+                "owner": owner or current_role,
+                "stage": stage or "-",
+                "workpackage": wp or "-",
+                "wbs_id": wbs or "-",
+                "start_date": None,
+                "process": remarks or None,
+                "remarks": remarks or None,
+            }
+            created_id = adapter.create_record(create_fields)
+            if not created_id:
+                logger.error("[FAILED]  建单失败（编号冲突或写入失败），硬阻断！", extra=extra_log)
+                record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, "建单失败", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                return False
+            logger.info(f" 任务 {created_id} 已建卡【待开始】(处理人: {effective_assignee}, 负责人: {owner or current_role})", extra={"task_id": created_id})
+            record_audit_event(created_id, current_role, "新建", "待开始", effective_assignee, True, "显式建单", delegated_by=delegated_by, delegation_reason=delegation_reason)
+            return True
 
         # 从配置与现有工单解析 task_name 与 max_parallel_tasks
         role_cfg = cfg_data.get("roles", {}).get(current_role.upper(), {})
@@ -222,27 +340,31 @@ def transition_task_pipeline(
             record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, True, "DRY-RUN 完整校验测试通过", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return True
 
-        ROLE_NAME_MAP = {
-            "PM": "严经理", "ARCHITECT": "钱架构", "DEV": "李开发",
-            "FRONTEND": "马前端", "REVIEWER": "周审查", "QA": "章测试",
-            "DOCS": "李文通", "DEVOPS": "吕改特"
-        }
         assignee = ROLE_NAME_MAP.get(assignee, assignee)
 
         resolved_record_id = record_id or task_id
         existing = adapter.get_record(resolved_record_id) if resolved_record_id else None
         
         # 物理硬阻断：对于 A 类常规开发任务，若看板中尚无此任务，绝对禁止直接新建为【已完成/审查中】！
-        # 强迫 A 类开发任务必须分两步执行：任务开始时先调 CLI 初始化建单为【进行中】，完成后再提交！
+        # 所有任务卡必须经历【待开始】：任务开始时先建单为【待开始】，领取后转【进行中】，完成后再提交！
         if existing is None:
             is_valid_creation = (from_status in ["待开始", "新建"]) or (to_status == "进行中") or (task_type in ["B", "C", "D", "E", "F", "G"])
             if not is_valid_creation:
-                logger.error(f"[FAILED]  [物理硬阻断] 看板中尚无此任务，绝对禁止直接新建为【{to_status}】！你必须首先在任务开始时调用 CLI 初始化建单为【进行中】！", extra=extra_log)
+                logger.error(f"[FAILED]  [物理硬阻断] 看板中尚无此任务，绝对禁止直接新建为【{to_status}】！你必须首先在任务开始时调用 CLI 初始化建单为【待开始】！", extra=extra_log)
                 record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"拒绝直接新建为{to_status}", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
 
+            # 兜底自动建单同样执行重复任务校验（命中输出重复内容并终止命令，--force 确认重跑）
+            if not no_dup_check:
+                dup_hits = check_duplicate_tasks(adapter, task_name, dup_cfg)
+                if dup_hits and not force:
+                    print_duplicate_protocol(task_name, dup_hits)
+                    logger.error(f"[FAILED]  [重复任务拦截] 自动建单疑似与 {len(dup_hits)} 条现有任务重复，命令终止；确认请加 --force 重跑", extra=extra_log)
+                    record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"重复任务校验拦截: {len(dup_hits)} 条候选", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                    return False
+
             now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            initial_status = "已验收" if (task_type == "E" and to_status == "已验收") else "进行中"
+            initial_status = "待开始"  # 所有任务卡必须经历【待开始】
             create_fields = {
                 "task_id": task_id,
                 "task_name": task_name or "工作包任务",
@@ -329,9 +451,9 @@ def main():
     parser.add_argument("--wbs", default=None, help="WBS 编号 (自动创建时写入)")
     parser.add_argument("--owner", default=None, help="负责人/验收人 (自动创建时写入 handler)")
     parser.add_argument("--role", required=True, help="当前触发者角色 (PM/DEV/REVIEWER/QA 等)")
-    parser.add_argument("--from-status", required=True, help="原状态")
-    parser.add_argument("--to-status", required=True, help="目标状态")
-    parser.add_argument("--assignee", required=True, help="同步更新的处理人")
+    parser.add_argument("--from-status", default="", help="原状态 (流转模式必填；--create 建卡模式可省略)")
+    parser.add_argument("--to-status", default="", help="目标状态 (流转模式必填；--create 建卡模式可省略)")
+    parser.add_argument("--assignee", default="", help="同步更新的处理人 (流转模式必填；--create 建卡模式必填)")
     parser.add_argument("--type", default="A", help="任务类型 (A-G)")
     parser.add_argument("--end-time", help="结束时间 (完成/验收必填)")
     parser.add_argument("--remarks", help="追加结构化缺陷或备注描述")
@@ -339,6 +461,9 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="开启预检测试模式而不物理写卡")
     parser.add_argument("--delegated-by", default="", help="提权代行来源角色 (如 PM/USER),留痕到 audit,需在白名单内")
     parser.add_argument("--delegation-reason", default="", help="提权代行理由 (人类用户显式授权时必填)")
+    parser.add_argument("--create", action="store_true", help="显式建单模式：创建任务卡【待开始】并分配处理人，不执行流转")
+    parser.add_argument("--force", action="store_true", help="重复任务校验命中时强制创建（用户已确认重复创建）")
+    parser.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
     args = parser.parse_args()
 
@@ -362,6 +487,9 @@ def main():
         owner=args.owner,
         delegated_by=args.delegated_by,
         delegation_reason=args.delegation_reason,
+        create_only=args.create,
+        force=args.force,
+        no_dup_check=args.no_dup_check,
     )
 
     if not ok:

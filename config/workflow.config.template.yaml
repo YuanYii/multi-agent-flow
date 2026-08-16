@@ -98,3 +98,9 @@ paths:
   qa_reports_dir: "docs/reports/qa/"
   summary_dir: "docs/reports/summary/"
   problem_records_dir: "docs/reports/problems/"
+
+# 重复任务校验（建卡时对最近 N 条任务做名称重复度校验）
+duplicate_check:
+  enabled: true        # 总开关
+  limit: 10            # 校验范围：按 seq 倒序取最近 N 条任务名称比对
+  threshold: 0.8       # 相似度阈值（difflib.SequenceMatcher ratio ≥ 阈值判重复）
