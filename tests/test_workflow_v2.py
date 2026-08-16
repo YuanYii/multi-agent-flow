@@ -150,7 +150,7 @@ class TestDuplicate:
             "--assignee", "李开发")
         r = run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口",
                 "--assignee", "李开发", expect=1)
-        assert "DUPLICATE_TASK" in r.stdout and "L1" in r.stdout
+        assert "DUPLICATE_TASK" in r.stdout and "完全一致" in r.stdout
 
     def test_l2_contains(self, env):
         run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口",
@@ -350,3 +350,72 @@ class TestProtocol:
     def test_heartbeat_orphan_check(self):
         src = open(os.path.join(SCRIPTS, "heartbeat.py"), encoding="utf-8").read()
         assert "ORPHAN_OUTPUT" in src and "orphan_output_hours" in src
+
+
+# =====================================================================
+# 组 9 · 任务分级系统 (L0/L1/L2) 9 用例
+# =====================================================================
+class TestTaskTiers:
+    def test_l1_docs_short_chain(self, env):
+        """L1 轻量任务走短链：待开始->进行中->已完成->已验收，绝不经过审查中/测试中。"""
+        run(env, "auto_task.py", "--task-name", "文档更新检查", "--role", "DOCS", "--type", "C")
+        c = find(env, "T0001")
+        assert c is not None and c.get("status") == "已验收"
+        proc = str(c.get("process", ""))
+        assert "进行中" in proc and "已完成" in proc
+        assert "审查中" not in proc and "测试中" not in proc
+
+    def test_l2_a_chain_has_review_test(self, env):
+        """L2 标准任务走全链：必须经历审查中与测试中。"""
+        run(env, "auto_task.py", "--task-name", "用户核心接口开发", "--role", "DEV", "--type", "A")
+        c = find(env, "T0001")
+        assert c is not None and c.get("status") == "已验收"
+        proc = str(c.get("process", ""))
+        assert "审查中" in proc and "测试中" in proc
+
+    def test_dup_label_no_l_prefix(self, env):
+        """重复任务检测标签已释放 L 命名空间（避免与 L0/L1/L2 分级混淆）。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口", "--assignee", "李开发")
+        r = run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口", "--assignee", "李开发", expect=1)
+        assert "L1 完全一致" not in r.stdout
+        assert "完全一致" in r.stdout
+
+    def test_pm_yaml_triage_present(self):
+        """PM YAML 必须显式包含任务分级三问与 L0 职责。"""
+        with open(os.path.join(REPO_ROOT, "agents", "01-pm.yaml"), encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        text = yaml.safe_dump(data, allow_unicode=True)
+        assert "L0" in text and "分级" in text and "三问" in text
+
+    def test_agents_yaml_l0_carveout(self):
+        """所有 8 个角色的完工硬门禁规则均包含 L0 豁免条款。"""
+        for fn in glob.glob(os.path.join(REPO_ROOT, "agents", "*.yaml")):
+            with open(fn, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            rules = data.get("orchestration_rules", [])
+            assert any("L0" in r and "完工硬门禁" in r for r in rules), f"{fn} 缺少 L0 完工硬门禁豁免"
+
+    def test_exporter_sop_l0_carveout(self):
+        """导出器 SOP 模板与导出的子代理必须包含 L0 豁免说明。"""
+        src = open(os.path.join(SCRIPTS, "verify_and_export_agents.py"), encoding="utf-8").read()
+        assert "L0" in src and "完工硬门禁" in src
+
+    def test_build_context_dispatch(self, env):
+        """build_agent_context dispatch 动作输出三问、分级与硬红线。"""
+        cmd = [sys.executable, os.path.join(SCRIPTS, "build_agent_context.py"), "--role", "PM", "--action", "dispatch"]
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
+        assert r.returncode == 0
+        assert "L0" in r.stdout and "三问" in r.stdout and "L1" in r.stdout and "L2" in r.stdout
+
+    def test_rules_l0_carveout_docs(self):
+        """rules/AGENTS.md 和 rules/IDENTITY.md 必须包含 L0 豁免说明。"""
+        agents_md = open(os.path.join(REPO_ROOT, "rules", "AGENTS.md"), encoding="utf-8").read()
+        identity_md = open(os.path.join(REPO_ROOT, "rules", "IDENTITY.md"), encoding="utf-8").read()
+        assert "L0" in agents_md and "分级三问" in agents_md
+        assert "L0" in identity_md
+
+    def test_heartbeat_orphan_l0_hint(self):
+        """heartbeat.py 孤儿产出提示必须包含草稿箱与 L0 提示。"""
+        src = open(os.path.join(SCRIPTS, "heartbeat.py"), encoding="utf-8").read()
+        assert "草稿箱" in src and "L0" in src
+
