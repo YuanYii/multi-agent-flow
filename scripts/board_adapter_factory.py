@@ -7,13 +7,13 @@ import os
 import json
 import yaml
 from typing import Any
+import paths
 from feishu_base_adapter import FeishuBaseAdapter
 from jira_adapter import JiraAdapter
 from github_projects_adapter import GitHubProjectsAdapter
 from offline_board_adapter import OfflineBoardAdapter
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(SCRIPT_DIR, "..", "config", "workflow.config.yaml")
 
 def exponential_backoff_retry(max_retries: int = 3, initial_delay: float = 1.0):
     """通用 API 请求指数退避重试装饰器"""
@@ -33,12 +33,19 @@ def exponential_backoff_retry(max_retries: int = 3, initial_delay: float = 1.0):
         return wrapper
     return decorator
 
-def get_board_adapter(config_file: str = CONFIG_PATH) -> Any:
-    """根据 workflow.config.yaml 自动创建并返回适配器实例"""
+def get_board_adapter(config_file: str = None) -> Any:
+    """根据 workflow.config.yaml 自动创建并返回适配器实例。
+
+    config_file=None 时走 paths.resolve_runtime_config() 解析链：
+    显式路径 > <data_root>/user_data/workflow.config.yaml > <skill>/config/workflow.config.yaml (legacy)
+    """
+    if config_file is None:
+        config_file = paths.resolve_runtime_config()
     if not os.path.exists(config_file):
         raise FileNotFoundError(
             f"[FAILED]  [Fail-Closed 物理拦截] 无法找到指定的看板配置文件: '{config_file}'！\n"
-            f"请核验路径是否正确，或先从 config/workflow.config.template.yaml 复制生成对应配置。"
+            f"解析链已尝试: <data_root>/user_data/workflow.config.yaml 与 <skill>/config/workflow.config.yaml。\n"
+            f"请先执行初始化 (init_skill.sh step 4) 生成宿主配置，或显式传 --config。"
         )
 
     with open(config_file, "r", encoding="utf-8") as f:
@@ -61,11 +68,11 @@ def get_board_adapter(config_file: str = CONFIG_PATH) -> Any:
     provider = board_cfg.get("provider", "feishu_base").lower()
 
     if provider == "local":
-        # 离线看板：默认持久化在宿主工程 user_data/ 目录下，解耦静态代码
+        # 离线看板：相对路径锚定 data_root（宿主项目根 / legacy skill 拷贝），不再锚定 skill_root
         raw_board_file = board_cfg.get("board_file", "user_data/board.json")
         if not os.path.isabs(raw_board_file):
-            skill_root = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
-            board_file = os.path.abspath(os.path.join(skill_root, raw_board_file))
+            data_root = paths.resolve_data_root()
+            board_file = os.path.abspath(os.path.join(data_root, raw_board_file))
         else:
             board_file = raw_board_file
         os.makedirs(os.path.dirname(board_file), exist_ok=True)

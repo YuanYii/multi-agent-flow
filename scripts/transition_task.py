@@ -21,6 +21,7 @@ from validate_transition import validate, validate_delegation_authority
 from board_adapter_factory import get_board_adapter
 from audit_logger import record_audit_event
 from file_lock import acquire_lock, release_lock, remove_lock_file_if_free, LockBusyError
+import paths
 
 # 容错型日志格式化类，防 traceback 泄漏
 class SafeTaskFormatter(logging.Formatter):
@@ -40,27 +41,38 @@ logger.addHandler(handler)
 def cleanup_stale_locks(ttl_seconds: int = 300):
     """自动清理超过 ttl_seconds (默认5分钟) 的旧垃圾锁文件。
     安全语义：先非阻塞试锁确认无持有者，再在【持锁状态下】unlink——
-    并发进程在 unlink 后只能拿到新 inode 的锁文件，互斥不会被删除破坏。"""
+    并发进程在 unlink 后只能拿到新 inode 的锁文件，互斥不会被删除破坏。
+    扫描 user_data/locks/（现行）与 scripts/（历史残留自然过期清除）。"""
     now = time.time()
     removed = 0
-    for entry in os.listdir(SCRIPT_DIR):
-        if entry.startswith(".lock_") and entry.endswith(".lock"):
-            full_p = os.path.join(SCRIPT_DIR, entry)
-            try:
-                if os.path.isfile(full_p) and (now - os.path.getmtime(full_p)) > ttl_seconds:
-                    if remove_lock_file_if_free(full_p):
-                        removed += 1
-                        logger.info(f"[LOCK]  已清理无持有者的过期锁文件: {entry}")
-            except Exception:
-                pass
+    scan_dirs = []
+    locks_dir = paths.locks_dir()
+    os.makedirs(locks_dir, exist_ok=True)
+    scan_dirs.append(locks_dir)
+    if os.path.isdir(SCRIPT_DIR):
+        scan_dirs.append(SCRIPT_DIR)
+    for scan_dir in scan_dirs:
+        for entry in os.listdir(scan_dir):
+            if entry.startswith(".lock_") and entry.endswith(".lock"):
+                full_p = os.path.join(scan_dir, entry)
+                try:
+                    if os.path.isfile(full_p) and (now - os.path.getmtime(full_p)) > ttl_seconds:
+                        if remove_lock_file_if_free(full_p):
+                            removed += 1
+                            logger.info(f"[LOCK]  已清理无持有者的过期锁文件: {entry}")
+                except Exception:
+                    pass
     return removed
 
 
 def acquire_concurrency_lock(task_id: str):
     """获取物理排他并发锁 (Fail-Closed：冲突则直接返回 None, None 阻断)
-    统一走 file_lock 抽象（Unix fcntl / Windows msvcrt），锁内写入 pid/ts 元数据。"""
+    统一走 file_lock 抽象（Unix fcntl / Windows msvcrt），锁内写入 pid/ts 元数据。
+    锁文件落 data_root/user_data/locks/（共享安装下不污染只读 skill 代码）。"""
     cleanup_stale_locks(300)
-    lock_file = os.path.join(SCRIPT_DIR, f".lock_{task_id}.lock")
+    locks_dir = paths.locks_dir()
+    os.makedirs(locks_dir, exist_ok=True)
+    lock_file = os.path.join(locks_dir, f".lock_{task_id}.lock")
     try:
         handle = acquire_lock(lock_file, blocking=False)
         return handle, lock_file
@@ -440,7 +452,7 @@ def transition_task_pipeline(
 
 def main():
     parser = argparse.ArgumentParser(description="一键门控任务流转管道工具")
-    parser.add_argument("--config", default="config/workflow.config.yaml", help="配置文件路径")
+    parser.add_argument("--config", default=None, help="配置文件路径")
     parser.add_argument("--task-id", default="", help="任务编号 (如 T0001)；不传则自动分配最大编号+1 (并发安全)")
     parser.add_argument("--record-id", default=None, help="看板内部记录 ID (离线看板默认等于任务编号，可省略)")
     parser.add_argument("--task-name", default=None, help="任务名称 (任务不存在自动创建时必填建议项)")

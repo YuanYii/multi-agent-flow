@@ -4,9 +4,19 @@
 # ==============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="${SCRIPT_DIR}/../config/workflow.config.yaml"
+# 配置解析链：宿主 user_data/workflow.config.yaml > legacy skill config/ > 模板
+CONFIG_FILE=""
+for _CAND in \
+    "${YY_FLOW_PROJECT_ROOT:-.}/user_data/workflow.config.yaml" \
+    "${SCRIPT_DIR}/../user_data/workflow.config.yaml" \
+    "${SCRIPT_DIR}/../config/workflow.config.yaml"; do
+    if [ -f "${_CAND}" ]; then
+        CONFIG_FILE="${_CAND}"
+        break
+    fi
+done
 
-if [ ! -f "${CONFIG_FILE}" ]; then
+if [ -z "${CONFIG_FILE}" ]; then
     CONFIG_FILE="${SCRIPT_DIR}/../config/workflow.config.template.yaml"
 fi
 

@@ -196,7 +196,7 @@ class TerminalRenderer:
 
 def main():
     parser = argparse.ArgumentParser(description="看板效能度量与流转诊断工具")
-    parser.add_argument("--config", default="config/workflow.config.yaml", help="看板配置文件")
+    parser.add_argument("--config", default=None, help="看板配置文件")
     parser.add_argument("--format", choices=["table", "json", "markdown"], default="table", help="输出格式")
     parser.add_argument("--output", help="输出报告文件路径")
     parser.add_argument("--stale-in-progress-hours", type=int, default=24, help="进行中滞留阈值(小时)")

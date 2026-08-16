@@ -74,9 +74,11 @@ def run_heartbeat(
     adapter: Any,
     thresholds: Dict[str, int] = None,
     now: datetime = None,
+    doc_dirs_override: list = None,
 ) -> Dict[str, Any]:
     """
     执行 4 项巡检,返回结构化告警结果。
+    doc_dirs_override: 孤儿产出巡检目录覆盖（测试注入用；默认 data_root/docs/03-operations/{reports,tasks}）
 
     返回结构:
     {
@@ -106,10 +108,11 @@ def run_heartbeat(
     # ---- 巡检 5: 孤儿产出检测（交付目录近 N 小时新增文件，名称未命中任何看板任务 → 标黄） ----
     try:
         import re as _re
-        skill_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        doc_dirs = [
-            os.path.join(skill_root, "docs", "03-operations", "reports"),
-            os.path.join(skill_root, "docs", "03-operations", "tasks"),
+        import paths as _paths
+        data_root = _paths.resolve_data_root()
+        doc_dirs = doc_dirs_override or [
+            os.path.join(data_root, "docs", "03-operations", "reports"),
+            os.path.join(data_root, "docs", "03-operations", "tasks"),
         ]
         card_names = [str(t.get("name") or t.get("task_name") or "") for t in tasks]
         def _norm(s):
@@ -251,7 +254,7 @@ def run_heartbeat(
 
 def main():
     parser = argparse.ArgumentParser(description="看板状态巡检 (4 项门控 + 阈值可配)")
-    parser.add_argument("--config", default="config/workflow.config.yaml", help="看板配置文件路径")
+    parser.add_argument("--config", default=None, help="看板配置文件路径")
     parser.add_argument("--json", action="store_true", help="以 JSON 格式输出")
     parser.add_argument("--stale-in-progress-hours", type=int, help="覆盖默认 24h 滞留阈值")
     parser.add_argument("--stale-review-or-test-hours", type=int, help="覆盖默认 12h 审查/测试滞留阈值")

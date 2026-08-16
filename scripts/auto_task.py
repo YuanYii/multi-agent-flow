@@ -33,6 +33,7 @@ sys.path.insert(0, SCRIPT_DIR)
 
 from transition_task import transition_task_pipeline, ROLE_NAME_MAP, check_duplicate_tasks
 from board_adapter_factory import get_board_adapter
+import paths
 
 CHAIN_A = ["待开始", "进行中", "审查中", "测试中", "已完成", "已验收"]
 CHAIN_SHORT = ["待开始", "进行中", "已完成", "已验收"]
@@ -100,7 +101,7 @@ def check_block_resolved(fields: Dict) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="自动任务编排引擎 (auto_task)")
-    parser.add_argument("--config", default="config/workflow.config.yaml", help="配置文件路径")
+    parser.add_argument("--config", default=None, help="配置文件路径")
     parser.add_argument("--task-id", default="", help="任务编号；缺省且提供 --task-name 时自动建卡")
     parser.add_argument("--task-name", default="", help="任务名称（建卡时必填）")
     parser.add_argument("--role", default="", help="主执行角色 (DEV/ARCHITECT/DOCS/DEVOPS/PM；缺省按类型推导)")
@@ -125,11 +126,13 @@ def main():
     delegated_by = args.delegated_by or ""
     delegation_reason = args.delegation_reason or "auto"
 
-    # 链级互斥锁（防多链/人工并发改同一任务）
+    # 链级互斥锁（防多链/人工并发改同一任务）；锁落 data_root/user_data/locks/
     chain_lock = None
     try:
         import fcntl
-        lock_path = os.path.join(SCRIPT_DIR, ".lock_auto_chain.lock")
+        locks_dir = paths.locks_dir()
+        os.makedirs(locks_dir, exist_ok=True)
+        lock_path = os.path.join(locks_dir, ".lock_auto_chain.lock")
         chain_lock = open(lock_path, "a+b")
         fcntl.flock(chain_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except Exception:

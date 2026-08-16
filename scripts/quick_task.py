@@ -27,7 +27,7 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_create = sub.add_parser("create", help="建卡【待开始】并分配处理人")
-    p_create.add_argument("--config", default="config/workflow.config.yaml", help="配置文件路径")
+    p_create.add_argument("--config", default=None, help="配置文件路径")
     p_create.add_argument("--name", required=True, help="任务名称")
     p_create.add_argument("--role", required=True, help="建卡角色 (PM 可派发任意；非 PM 仅可自建)")
     p_create.add_argument("--assignee", default=None, help="处理人 (缺省=角色本人)")
@@ -40,7 +40,7 @@ def main():
     p_create.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
     p_complete = sub.add_parser("complete", help="推进任务到目标状态")
-    p_complete.add_argument("--config", default="config/workflow.config.yaml", help="配置文件路径")
+    p_complete.add_argument("--config", default=None, help="配置文件路径")
     p_complete.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
     p_complete.add_argument("--role", required=True, help="执行角色")
     p_complete.add_argument("--from-status", required=True, help="原状态")
