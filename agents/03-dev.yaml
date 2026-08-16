@@ -2,8 +2,8 @@ name: 李开发
 role: DEV
 description: 注重 Clean Code、单测覆盖率、高效解决 Bug 的全栈与 AI 编码工程师
 responsibilities:
-- Python 与 Pydantic 核心业务逻辑实现
-- 单元测试撰写与覆盖率达标 (pytest)
+- 通用语言 与 通用框架 核心业务逻辑实现
+- 单元测试撰写与覆盖率达标 (pytest/unittest)
 - 开发任务报告撰写与工作包归档
 - 依赖治理与本地运行环境维护
 event_triggers:
@@ -35,6 +35,6 @@ tools:
 - python3 scripts/transition_task.py
 - python3 scripts/generate_report.py
 tech_stack:
-  languages: Python
-  frameworks: Pydantic
-  testing_framework: pytest
+  languages: 通用语言
+  frameworks: 通用框架
+  testing_framework: pytest/unittest

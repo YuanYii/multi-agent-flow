@@ -10,7 +10,12 @@ import sys
 import yaml
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, SCRIPT_DIR)
+
+import paths as _paths
+from agent_tech_overlay import load_arch_data, apply_tech_stack_to_role
+
+PROJECT_ROOT = _paths.skill_root()
 AGENTS_DIR = os.path.join(PROJECT_ROOT, "agents")
 CONFIG_PLATFORMS_FILE = os.path.join(PROJECT_ROOT, "config", "agent_platforms.yaml")
 TARGET_PROJECT_DIR = os.getcwd()
@@ -117,10 +122,10 @@ def serialize_subagent(role_data, role_meta, platform_key, subagent_spec):
 ## 自动化任务流转 SOP (CLI 三步闭环)
 在执行本角色相关任务时，必须严格执行以下三步物理命令流转：
 1. **领单/开工**：
-   `python3 scripts/transition_task.py --config user_data/workflow.config.yaml --role {role_code.upper()} --from-status 待开始 --to-status 进行中 --assignee {agent_id}`
+   `python3 scripts/transition_task.py --role {role_code.upper()} --from-status 待开始 --to-status 进行中 --assignee {agent_id}`
 2. **业务执行**：执行架构/编码/审查/测试/文档核心工作，产出交付物。
 3. **完工/提审/流转**：
-   `python3 scripts/transition_task.py --config user_data/workflow.config.yaml --role {role_code.upper()} --from-status 进行中 --to-status 审查中 --task-id <第一步任务ID> --assignee Reviewer_User_1`
+   `python3 scripts/transition_task.py --role {role_code.upper()} --from-status 进行中 --to-status 审查中 --task-id <第一步任务ID> --assignee Reviewer_User_1`
 4. **完工硬门禁（强制）**：任何代码/文档/审查/测试交付产出完成后，最后一步必须执行上述流转命令推进状态（A 类开发推至【审查中】，B/C/D/G 类推至【已完成】，终态前补填 end_time），否则视为未交付；看板任务卡必须经历【待开始】状态。
 """
 
@@ -200,12 +205,23 @@ def verify_exported_agent(out_abs_path, fmt):
     return True, ""
 
 def export_platform_assets(platforms_config, active_platforms):
-    """执行跨平台 Skill 挂载与 Subagent 导出，返回导出成败统计"""
+    """执行跨平台 Skill 挂载与 Subagent 导出，返回导出成败统计。
+
+    导出时把项目技术栈（user_data/project_architecture.config.yaml）覆盖到
+    内存中的角色定义——agents/*.yaml 模板保持只读。
+    """
     skill_name = platforms_config.get("default_skill_name", "yy-flow")
     platforms = platforms_config.get("platforms", {})
     missing_agents = []
     verify_failures = []
     total_exported = 0
+
+    arch_data = load_arch_data()
+    if arch_data:
+        proj = (arch_data.get("project") or {}).get("name", "未知")
+        print(f"[SYNC]  检测到已初始化架构配置，导出时合并项目技术栈: 【{proj}】")
+    else:
+        print("[NOTE]  架构配置未初始化，导出使用通用模板职责（首次 init 属正常，Step 6 会重导出）")
 
     print(f"[SCAN]  已自动侦测到当前激活/兼容平台: {active_platforms}")
 
@@ -250,6 +266,10 @@ def export_platform_assets(platforms_config, active_platforms):
 
             with open(yaml_path, "r", encoding="utf-8") as fp:
                 role_data = yaml.safe_load(fp)
+
+            # 导出时覆盖项目技术栈（纯内存操作，agents/*.yaml 不落盘不改写）
+            role_key = role_meta.get("role_code", "")
+            role_data = apply_tech_stack_to_role(role_data, arch_data, role_key)
 
             out_content = serialize_subagent(role_data, role_meta, p_key, subagent_spec)
             out_rel_path = pattern.format(agent_id=role_meta["id"])
