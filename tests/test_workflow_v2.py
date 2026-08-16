@@ -1,0 +1,352 @@
+#!/usr/bin/env python3
+"""
+multi-agent-flow 工作流 v2 功能测试套件（阶段 6）
+覆盖：建卡 / 领取流转 / 重复任务校验 / auto 全类型链 / 任意节点续跑 / 阻断前置验证 /
+挂起态恢复 / 幂等并发 / quick 命令 / 协议层。合计 41 个用例（含参数化）。
+运行：python3 -m pytest tests/test_workflow_v2.py -q
+"""
+import json
+import os
+import subprocess
+import sys
+import glob
+
+import pytest
+import yaml
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCRIPTS = os.path.join(REPO_ROOT, "scripts")
+
+
+@pytest.fixture()
+def env(tmp_path):
+    """每用例独立临时看板 + 配置。"""
+    board = tmp_path / "board.json"
+    cfg = tmp_path / "workflow.config.yaml"
+    with open(os.path.join(REPO_ROOT, "config", "workflow.config.yaml"), encoding="utf-8") as f:
+        base = yaml.safe_load(f)
+    base["board"]["board_file"] = str(board)
+    cfg.write_text(yaml.safe_dump(base, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    return {"board": board, "cfg": cfg}
+
+
+def run(env, *args, expect=0):
+    """运行 scripts 下脚本，断言退出码。返回 CompletedProcess。
+    quick_task 子命令先行，--config 置于子命令之后；其余脚本 --config 紧跟脚本名。"""
+    script = args[0]
+    rest = list(args[1:])
+    if script == "quick_task.py":
+        cmd = [sys.executable, os.path.join(SCRIPTS, script), rest[0], "--config", str(env["cfg"]), *rest[1:]]
+    else:
+        cmd = [sys.executable, os.path.join(SCRIPTS, script), "--config", str(env["cfg"]), *rest]
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
+    assert r.returncode == expect, f"exit={r.returncode} (期望 {expect})\nstdout={r.stdout}\nstderr={r.stderr}"
+    return r
+
+
+def cards(env):
+    if not env["board"].exists():
+        return []
+    d = json.loads(env["board"].read_text(encoding="utf-8"))
+    return d if isinstance(d, list) else d.get("cards", [])
+
+
+def find(env, tid):
+    for c in cards(env):
+        if c.get("id") == tid:
+            return c
+    return None
+
+
+def status_of(env, tid):
+    c = find(env, tid)
+    return c.get("status") if c else None
+
+
+def set_status_direct(env, tid, status, name="直接落库任务", assignee="李开发"):
+    """绕过 CLI 直接写看板（测试挂起态/终态场景）。"""
+    data = cards(env)
+    if not any(c.get("id") == tid for c in data):
+        data.append({"id": tid, "name": name, "status": status, "assignee": assignee, "seq": len(data) + 1})
+    else:
+        for c in data:
+            if c.get("id") == tid:
+                c["status"] = status
+    env["board"].write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+# =====================================================================
+# 组 1 · 建卡（--create）6 用例
+# =====================================================================
+class TestCreate:
+    def test_pm_create_card(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "登录接口",
+            "--assignee", "李开发")
+        assert status_of(env, "T0001") == "待开始"
+        assert find(env, "T0001")["assignee"] == "李开发"
+        assert not find(env, "T0001").get("start_date")
+
+    def test_role_self_create(self, env):
+        run(env, "transition_task.py", "--role", "DEV", "--create", "--task-name", "数据库设计",
+            "--assignee", "李开发")
+        assert status_of(env, "T0001") == "待开始"
+
+    def test_role_cannot_delegate(self, env):
+        run(env, "transition_task.py", "--role", "DEV", "--create", "--task-name", "越权派发",
+            "--assignee", "吕改特", expect=1)
+
+    def test_create_missing_name(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--assignee", "李开发", expect=1)
+
+    def test_create_dup_task_id(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
+            "--task-name", "A", "--assignee", "李开发")
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
+            "--task-name", "B", "--assignee", "李开发", expect=1)
+
+    def test_create_explicit_id(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
+            "--task-name", "显式编号", "--assignee", "李开发")
+        assert status_of(env, "T0100") == "待开始"
+
+
+# =====================================================================
+# 组 2 · 领取与流转 4 用例
+# =====================================================================
+class TestClaim:
+    def test_claim_to_in_progress(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "任务X",
+            "--assignee", "李开发")
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status",
+            "进行中", "--assignee", "李开发", "--task-id", "T0001")
+        assert status_of(env, "T0001") == "进行中"
+        assert find(env, "T0001").get("start_date")
+
+    def test_autocreate_fallback(self, env):
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status",
+            "进行中", "--assignee", "李开发", "--task-name", "兜底任务")
+        assert status_of(env, "T0001") == "进行中"  # 先建待开始再流转
+
+    def test_e_class_direct_accept(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status",
+            "已验收", "--assignee", "严经理", "--task-name", "审批事项", "--type", "E")
+        assert status_of(env, "T0001") == "已验收"
+
+    def test_blocked_requires_remark(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "任务B",
+            "--assignee", "李开发")
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status",
+            "进行中", "--assignee", "李开发", "--task-id", "T0001")
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "进行中", "--to-status",
+            "已阻塞", "--assignee", "李开发", "--task-id", "T0001", expect=1)  # 无阻断原因
+
+
+# =====================================================================
+# 组 3 · 重复任务校验 8 用例
+# =====================================================================
+class TestDuplicate:
+    def test_l1_exact(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口",
+            "--assignee", "李开发")
+        r = run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口",
+                "--assignee", "李开发", expect=1)
+        assert "DUPLICATE_TASK" in r.stdout and "L1" in r.stdout
+
+    def test_l2_contains(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口",
+            "--assignee", "李开发")
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name",
+            "用户登录接口与JWT鉴权", "--assignee", "李开发", expect=1)
+
+    def test_l3_similarity(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name",
+            "用户登录接口与JWT鉴权", "--assignee", "李开发")
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name",
+            "用户登录接口和 JWT 鉴权", "--assignee", "李开发", expect=1)
+
+    def test_force_creates(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口",
+            "--assignee", "李开发")
+        run(env, "transition_task.py", "--role", "PM", "--create", "--force", "--task-name",
+            "用户登录接口", "--assignee", "李开发")
+        assert len(cards(env)) == 2
+
+    def test_limit_config(self, env):
+        for i, n in enumerate(["任务甲", "任务乙", "任务丙"]):
+            run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", n,
+                "--assignee", "李开发")
+        env["cfg"].write_text(env["cfg"].read_text(encoding="utf-8").replace(
+            "limit: 10", "limit: 2"), encoding="utf-8")
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "任务甲",
+            "--assignee", "李开发")  # 第 1 条（任务甲）超出 limit=2 范围 → 不拦截
+        assert len(cards(env)) == 4
+
+    def test_disabled(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "任务D",
+            "--assignee", "李开发")
+        env["cfg"].write_text(env["cfg"].read_text(encoding="utf-8").replace(
+            "enabled: true", "enabled: false"), encoding="utf-8")
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "任务D",
+            "--assignee", "李开发")
+
+    def test_no_dup_check_flag(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "任务E",
+            "--assignee", "李开发")
+        run(env, "transition_task.py", "--role", "PM", "--create", "--no-dup-check", "--task-name",
+            "任务E", "--assignee", "李开发")
+
+    def test_fallback_dup_blocked(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "任务F",
+            "--assignee", "李开发")
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status",
+            "进行中", "--assignee", "李开发", "--task-name", "任务F", expect=1)  # 兜底自动建单重复
+
+
+# =====================================================================
+# 组 4 · auto 全类型链 5 用例
+# =====================================================================
+class TestAutoChains:
+    def test_a_full_chain(self, env):
+        run(env, "auto_task.py", "--task-name", "自动开发任务", "--role", "DEV", "--type", "A")
+        assert status_of(env, "T0001") == "已验收"
+
+    def test_b_short_chain(self, env):
+        run(env, "auto_task.py", "--task-name", "自动架构选型", "--role", "ARCHITECT", "--type", "B")
+        assert status_of(env, "T0001") == "已验收"
+
+    def test_f_chain(self, env):
+        run(env, "auto_task.py", "--task-name", "阶段总结", "--role", "PM", "--type", "F")
+        assert status_of(env, "T0001") == "已验收"
+
+    def test_e_chain(self, env):
+        run(env, "auto_task.py", "--task-name", "自执行事项", "--role", "PM", "--type", "E")
+        assert status_of(env, "T0001") == "已验收"
+
+    def test_simulate_no_write(self, env):
+        run(env, "auto_task.py", "--task-name", "模拟任务", "--simulate")
+        assert cards(env) == []
+
+
+# =====================================================================
+# 组 5 · 任意节点续跑 5 用例
+# =====================================================================
+class TestAutoResume:
+    @pytest.mark.parametrize("pre", ["进行中", "审查中", "测试中", "已完成"])
+    def test_resume_from_state(self, env, pre):
+        run(env, "auto_task.py", "--task-name", "续跑任务", "--role", "DEV", "--type", "A")
+        # 直接改回目标前置状态（模拟已推进到中途）
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
+            "--task-name", "独立续跑任务", "--assignee", "李开发", "--no-dup-check")
+        tid = "T0100"
+        set_status_direct(env, tid, pre)
+        run(env, "auto_task.py", "--task-id", tid, "--type", "A")
+        assert status_of(env, tid) == "已验收"
+
+    def test_idempotent_accepted(self, env):
+        run(env, "auto_task.py", "--task-name", "幂等任务", "--role", "DEV", "--type", "A")
+        run(env, "auto_task.py", "--task-id", "T0001", "--type", "A")
+        assert status_of(env, "T0001") == "已验收"
+
+
+# =====================================================================
+# 组 6 · 阻断前置验证 5 用例
+# =====================================================================
+class TestBlocked:
+    def _make_blocked(self, env, tid, remark):
+        data = cards(env)
+        for c in data:
+            if c.get("id") == tid:
+                c["status"] = "已阻塞"
+                c["remarks"] = remark
+        env["board"].write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def test_unresolved_stop(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
+            "--task-name", "阻断任务", "--assignee", "李开发")
+        self._make_blocked(env, "T0100", "【阻断】等待SDK")
+        r = run(env, "auto_task.py", "--task-id", "T0100", "--type", "A", expect=1)
+        assert "阻断未解除" in r.stdout
+        assert status_of(env, "T0100") == "已阻塞"  # 零变更
+
+    def test_resolved_resume(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
+            "--task-name", "阻断恢复任务", "--assignee", "李开发")
+        self._make_blocked(env, "T0100", "【阻断】等待SDK\n【解除】SDK已就绪")
+        run(env, "auto_task.py", "--task-id", "T0100", "--type", "A")
+        assert status_of(env, "T0100") == "已验收"
+
+    def test_clear_before_block_invalid(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
+            "--task-name", "时序任务", "--assignee", "李开发")
+        self._make_blocked(env, "T0100", "【解除】先行解除\n【阻断】之后阻塞")
+        run(env, "auto_task.py", "--task-id", "T0100", "--type", "A", expect=1)
+
+    def test_cancelled_reject(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
+            "--task-name", "取消任务", "--assignee", "李开发")
+        set_status_direct(env, "T0100", "已取消")
+        run(env, "auto_task.py", "--task-id", "T0100", "--type", "A", expect=1)
+
+    def test_rejected_resume(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
+            "--task-name", "退回任务", "--assignee", "李开发")
+        set_status_direct(env, "T0100", "已退回")
+        run(env, "auto_task.py", "--task-id", "T0100", "--type", "A")
+        assert status_of(env, "T0100") == "已验收"
+
+
+# =====================================================================
+# 组 7 · 门控/quick/并发 5 用例
+# =====================================================================
+class TestGateAndQuick:
+    def test_gate_violation_stop(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
+            "--task-name", "越权任务", "--assignee", "李开发")
+        set_status_direct(env, "T0100", "进行中")
+        r = run(env, "transition_task.py", "--role", "DEV", "--from-status", "进行中", "--to-status",
+                "已完成", "--assignee", "李开发", "--task-id", "T0100", "--end-time", "2026-08-16 12:00:00",
+                expect=1)  # A 类越权直推已完成
+        assert "越权" in r.stdout or "越权" in r.stderr
+
+    def test_quick_create(self, env):
+        run(env, "quick_task.py", "create", "--name", "快速建卡", "--role", "PM", "--assignee", "李开发")
+        assert status_of(env, "T0001") == "待开始"
+
+    def test_quick_complete(self, env):
+        run(env, "quick_task.py", "create", "--name", "快速流转", "--role", "PM", "--assignee", "李开发")
+        run(env, "quick_task.py", "complete", "--task-id", "T0001", "--role", "DEV",
+            "--from-status", "待开始", "--to-status", "进行中", "--assignee", "李开发")
+        assert status_of(env, "T0001") == "进行中"
+
+    def test_auto_chain_lock_released(self, env):
+        run(env, "auto_task.py", "--task-name", "锁测试甲", "--role", "DEV", "--type", "A")
+        run(env, "auto_task.py", "--task-name", "锁测试乙", "--role", "DEV", "--type", "A")  # 顺序执行锁正常释放
+        assert status_of(env, "T0002") == "已验收"
+
+    def test_no_direct_complete_for_a(self, env):
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
+            "--task-name", "直推任务", "--assignee", "李开发")
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status",
+            "进行中", "--assignee", "李开发", "--task-id", "T0100")
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "进行中", "--to-status",
+            "审查中", "--assignee", "李开发", "--task-id", "T0100")  # A 类正确提交路径
+
+
+# =====================================================================
+# 组 8 · 协议层 3 用例
+# =====================================================================
+class TestProtocol:
+    def test_agents_yaml_gate(self):
+        for fn in glob.glob(os.path.join(REPO_ROOT, "agents", "*.yaml")):
+            with open(fn, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            rules = data.get("orchestration_rules", [])
+            assert any("完工硬门禁" in r for r in rules), fn
+
+    def test_export_template_gate(self):
+        src = open(os.path.join(SCRIPTS, "verify_and_export_agents.py"), encoding="utf-8").read()
+        assert "完工硬门禁" in src
+
+    def test_heartbeat_orphan_check(self):
+        src = open(os.path.join(SCRIPTS, "heartbeat.py"), encoding="utf-8").read()
+        assert "ORPHAN_OUTPUT" in src and "orphan_output_hours" in src

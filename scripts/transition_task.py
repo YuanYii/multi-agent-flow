@@ -399,6 +399,13 @@ def transition_task_pipeline(
         if wp: update_fields[field_mapping.get("workpackage", "workpackage")] = wp
         if wbs: update_fields[field_mapping.get("wbs_id", "wbs_id")] = wbs
         if task_name: update_fields[field_mapping.get("task_name", "task_name")] = task_name
+        # 领取开工：进入【进行中】且尚无开始时间时自动落 start_date
+        if to_status == "进行中":
+            start_time_key = field_mapping.get("start_time", "start_time")
+            exist_fields = (existing.get("fields", {}) if existing else {}) or {}
+            current_start = exist_fields.get(start_time_key) or exist_fields.get("start_date") or exist_fields.get("start_time")
+            if not current_start:
+                update_fields[start_time_key] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         orig_assignee = (existing.get("fields", {}).get(assignee_key) if existing else None) or current_role
 
