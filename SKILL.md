@@ -58,7 +58,7 @@ version: 1.0.0
    - 自动扫描工作区配置文件（如 `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `Dockerfile`, `README.md` 等）。
    - 识别应用类型、开发语言、核心框架、单测/构建工具及目录架构模式。
 4. **模板复制与落库**：
-   - 复制模板 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 生成 `user_data/project_architecture.config.yaml`（落**数据根**：默认当前项目根；存量安装为 Skill 目录）。
+   - 复制模板 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 生成 `user_data/project_architecture.config.yaml`（落**数据根** `.yy-flow/user_data`；存量内嵌安装为 Skill 目录，零迁移）。
    - 将扫描识别出的真实技术架构结构化填充写入 `project_architecture.config.yaml`，作为后续 DEV / ARCHITECT / QA 等专家角色的统一技术事实依据。
 5. **项目工程文档骨架建立与原项目历史文档自动归档**：
    - 在目标项目下自动校验/建立 `docs/` 目录规范骨架（包含 `01-architecture/`, `02-modules/`, `03-operations/`, `04-standards/`, `05-templates/` 及 `.drafts/`）。
@@ -108,5 +108,5 @@ version: 1.0.0
 - [`agents/`](agents/)：8 大角色 YAML 定义 (`01-pm.yaml` ~ `08-frontend.yaml`)。
 - [`references/`](references/)：6 大全量提炼参考规约（路由、流转规则、防错闭环、Git 规范、文档治理规范、交接协议）。
 - [`templates/`](templates/)：标准化开发/审查/测试任务报告与工程文档模板。
-- [`scripts/`](scripts/)：看板工厂适配器 (`board_adapter_factory.py`)、门控强校验 (`validate_transition.py`)、报告生成器 (`generate_report.py`)、凭证安全扫描 (`check_secrets.py`) 与动态 Prompt 上下文合成器 (`build_agent_context.py`)。数据根统一解析 (`paths.py`：`YY_FLOW_PROJECT_ROOT` > legacy > CWD)；多项目共享安装器 (`install_global.sh` / `.ps1`，详见 README「共享安装」)。
+- [`scripts/`](scripts/)：看板工厂适配器 (`board_adapter_factory.py`)、门控强校验 (`validate_transition.py`)、报告生成器 (`generate_report.py`)、凭证安全扫描 (`check_secrets.py`) 与动态 Prompt 上下文合成器 (`build_agent_context.py`)。数据根统一解析 (`paths.py`：`--project-root`/`YY_FLOW_PROJECT_ROOT` > `.yy-flow` 自定位 > legacy > CWD；安装于 `.yy-flow/skill` 时数据自动落 `.yy-flow/user_data`，docs/ 留项目根)；多项目共享安装器 (`install_global.sh` / `.ps1`，详见 README「共享安装」)。
 

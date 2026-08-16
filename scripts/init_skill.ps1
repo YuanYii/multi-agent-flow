@@ -71,13 +71,18 @@ if (Test-Path "$SkillRoot\.git") {
 }
 
 Write-Host "[DOCS]  [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..." -ForegroundColor Yellow
+# docs 是项目交付物 → 落项目根（.yy-flow 布局下为 DataRoot 上一级；legacy 下即 DataRoot）
+$DocsRoot = Join-Path (Split-Path $DataRoot -Parent) "docs"
+if (-not (Split-Path $DataRoot -Leaf) -eq ".yy-flow") {
+    $DocsRoot = Join-Path $DataRoot "docs"
+}
 $DocsDirs = @(
-    "$DataRoot\docs\01-architecture",
-    "$DataRoot\docs\02-modules",
-    "$DataRoot\docs\03-operations",
-    "$DataRoot\docs\04-standards",
-    "$DataRoot\docs\05-templates",
-    "$DataRoot\docs\.drafts"
+    "$DocsRoot\01-architecture",
+    "$DocsRoot\02-modules",
+    "$DocsRoot\03-operations",
+    "$DocsRoot\04-standards",
+    "$DocsRoot\05-templates",
+    "$DocsRoot\.drafts"
 )
 foreach ($dir in $DocsDirs) {
     if (-not (Test-Path $dir)) {
@@ -95,5 +100,6 @@ Write-Host "  - PM 专家已完成项目范围核验，随时准备响应任务�
 
 Write-Host "==============================================================================" -ForegroundColor Cyan
 Write-Host "[SUCCESS]  [SOP 7 步全量就绪] multi-agent-flow 物理初始化顺利完成！" -ForegroundColor Cyan
-Write-Host "  运行数据目录: $DataRoot\user_data 与 $DataRoot\docs" -ForegroundColor Cyan
+Write-Host "  运行数据目录: $DataRoot\user_data" -ForegroundColor Cyan
+Write-Host "  项目文档目录: $DocsRoot" -ForegroundColor Cyan
 Write-Host "==============================================================================" -ForegroundColor Cyan

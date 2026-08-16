@@ -4,17 +4,27 @@ paths.py · 数据根解析与路径派生（代码/数据分离的唯一事实�
 
 职责：
 - 区分 SKILL_ROOT（只读技能代码：scripts/kanban/templates/references/rules/config 模板）
-  与 DATA_ROOT（按项目隔离的运行数据：user_data/、docs/、锁文件）
-- 所有数据路径均由 resolve_data_root() 派生，惰性求值（不在 import 时计算）
+  与 DATA_ROOT（按项目隔离的运行数据：user_data/、锁文件）
+- docs/ 是项目交付物而非 skill 私有数据 → 恒定锚定项目根，不随 data_root 派生
+
+新布局（.yy-flow 全家桶）：
+    <project>/
+    ├── .yy-flow/            ← 工具私有根（可整体 gitignore）
+    │   ├── skill/           ← 技能代码（degit/tarball 安装于此）
+    │   └── user_data/       ← board/审计/锁（数据与 skill 同根，升级删 skill/ 不伤数据）
+    ├── docs/                ← 项目交付文档（留项目根，提交 git，行业惯例位）
+    └── .claude/skills/yy-flow -> ../.yy-flow/skill
 
 data_root 优先级（高 → 低）：
 1. 显式参数（--project-root CLI 透传）
 2. 环境变量 YY_FLOW_PROJECT_ROOT
-3. legacy 判定：<skill_root>/user_data/board.json 存在 → skill_root
-   （收紧为要求 board.json 存在，而非仅 user_data/ 目录 —— 目录可能被误建）
-4. 当前工作目录（宿主项目根）
+3. .yy-flow 布局：skill 位于 <X>/.yy-flow/skill → data_root = <X>/.yy-flow
+   （skill 自定位推导，不依赖 CWD——消灭"在错误目录执行、数据落错项目"）
+4. legacy 判定：<skill_root>/user_data/board.json 存在 → skill_root
+   （存量 per-project 安装零迁移；收紧为要求 board.json 存在，目录误建不触发）
+5. CWD（宿主项目根兜底）
 
-误判的失败模式是"数据落进 skill 拷贝"（等价于旧行为），绝不会跨项目串数据。
+误判的失败模式是"数据落错目录"（可发现可迁移），绝不会跨项目串数据。
 """
 
 import os
@@ -29,6 +39,14 @@ def skill_root(env=None) -> str:
     return os.path.abspath(os.path.join(_SCRIPT_DIR, ".."))
 
 
+def _yyflow_data_root() -> "str | None":
+    """新布局判定：skill 位于 <X>/.yy-flow/skill → 数据根为 <X>/.yy-flow。"""
+    parent = os.path.dirname(skill_root())
+    if os.path.basename(parent) == ".yy-flow":
+        return parent
+    return None
+
+
 def _legacy_data_root(env) -> "str | None":
     """legacy per-project 安装判定：skill 拷贝内含 user_data/board.json。
     .yy-flow-shared 标记（install_global 写入）一票否决——共享正本绝不当数据根。"""
@@ -39,6 +57,20 @@ def _legacy_data_root(env) -> "str | None":
     if os.path.isfile(legacy_board):
         return root
     return None
+
+
+def project_root(explicit=None, env=None, cwd=None) -> str:
+    """项目根目录（docs/ 与宿主标识的锚定点）。
+
+    .yy-flow 布局下 = data_root 的上一级；legacy/共享安装下退回 data_root 本身
+    （此时 skill 内数据与项目根同处，docs 就在 data_root 下）。
+    """
+    env = os.environ if env is None else env
+    cwd = os.getcwd() if cwd is None else cwd
+    dr = resolve_data_root(explicit=explicit, env=env, cwd=cwd)
+    if os.path.basename(dr) == ".yy-flow":
+        return os.path.dirname(dr)
+    return dr
 
 
 def resolve_data_root(explicit=None, env=None, cwd=None) -> str:
@@ -55,12 +87,17 @@ def resolve_data_root(explicit=None, env=None, cwd=None) -> str:
     if env_root:
         return os.path.abspath(env_root)
 
-    # 3. legacy per-project 安装（数据在 skill 拷贝内）
+    # 3. .yy-flow 布局：skill 位于 <X>/.yy-flow/skill → <X>/.yy-flow（自定位，不依赖 CWD）
+    yyflow = _yyflow_data_root()
+    if yyflow:
+        return yyflow
+
+    # 4. legacy per-project 安装（数据在 skill 拷贝内）
     legacy = _legacy_data_root(env)
     if legacy:
         return legacy
 
-    # 4. CWD（宿主项目根）
+    # 5. CWD（宿主项目根兜底）
     return os.path.abspath(cwd)
 
 
@@ -73,7 +110,8 @@ def locks_dir(**kw) -> str:
 
 
 def docs_root(**kw) -> str:
-    return os.path.join(resolve_data_root(**kw), "docs")
+    """项目交付文档根：恒定项目根下（交付物不进工具私有目录）。"""
+    return os.path.join(project_root(**kw), "docs")
 
 
 def runtime_config_path(**kw) -> str:

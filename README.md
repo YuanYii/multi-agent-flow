@@ -12,28 +12,27 @@
 
 **前置要求**：任一支持 Markdown/Skill 规范的 AI Agent（Antigravity CLI / Codex / Claude Code / Cursor 等）；使用离线本地看板**无需任何凭证**。
 
-1. 将技能包克隆或复制到项目或 Agent 技能目录（推荐 degit / tarball，天然不带 `.git`）：
+1. 将技能包安装到项目 `.yy-flow/skill`（推荐 degit / tarball，天然不带 `.git`）：
 
 ```bash
 cd /path/to/your-project
 
 # 方式 A: degit（需本机 Node，固定版本用 #release_v6，跟默认分支则省略）
-npx -y degit YuanYii/multi-agent-flow#release_v6 skills/multi-agent-flow
+npx -y degit YuanYii/multi-agent-flow#release_v6 /tmp/yy-flow-stage && mkdir -p .yy-flow && mv /tmp/yy-flow-stage .yy-flow/skill
+# 注: degit 要求目标目录为空/不存在，故先落临时目录再就位
 
 # 方式 B: tarball（无 Node 环境，零依赖）
-mkdir -p skills/multi-agent-flow && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/release_v6.tar.gz | tar xz -C skills/multi-agent-flow --strip-components=1
+mkdir -p .yy-flow/skill && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/release_v6.tar.gz | tar xz -C .yy-flow/skill --strip-components=1
 ```
 
-1. 将技能包克隆或复制到项目或 Agent 技能目录（推荐 degit / tarball，天然不带 `.git`）：
+安装后布局（数据与技能同根，升级删 `.yy-flow/skill` 重装不伤数据；`docs/` 是项目交付物留项目根）：
 
-```bash
-cd /path/to/your-project
-
-# 方式 A: degit（需本机 Node，固定版本用 #release_v6，跟默认分支则省略）
-npx -y degit YuanYii/multi-agent-flow#release_v6 skills/multi-agent-flow
-
-# 方式 B: tarball（无 Node 环境，零依赖）
-mkdir -p skills/multi-agent-flow && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/release_v6.tar.gz | tar xz -C skills/multi-agent-flow --strip-components=1
+```text
+<project>/
+├── .yy-flow/            # 工具私有（建议整体加入 .gitignore）
+│   ├── skill/           # 技能代码
+│   └── user_data/       # 初始化后生成：board/审计/锁
+└── docs/                # 项目文档骨架（交付物，提交 git）
 ```
 
 <details>
@@ -55,9 +54,21 @@ bash scripts/install_global.sh            # 正本落 ~/agent-skills/multi-agent
 
 共享模式下的数据边界：
 - **代码共享**：scripts/kanban/templates/references 等只读资产一份；
-- **数据隔离**：每个项目的 `user_data/`、`docs/`、锁文件落各自项目根（解析链：`YY_FLOW_PROJECT_ROOT` > CWD）；
+- **数据隔离**：每个项目的 `user_data/`、锁文件落各自项目根（解析链：`YY_FLOW_PROJECT_ROOT` > `.yy-flow` 自定位 > CWD）；
 - 各项目仍需各自执行一次 `/yy-flow start` 初始化（生成项目专属配置与看板）；
 - 更新技能 = 重跑安装器；卸载 = 删各宿主软链 + 正本目录。
+
+</details>
+
+<details>
+<summary><b>存量安装迁移到 .yy-flow 布局（可选）</b></summary>
+
+旧版 `skills/multi-agent-flow/` 内嵌安装无需迁移（legacy 兼容，行为不变）。想切换到新布局：
+
+```bash
+mkdir -p .yy-flow && mv skills/multi-agent-flow .yy-flow/skill
+mv .yy-flow/skill/user_data .yy-flow/user_data   # 若存在
+```
 
 </details>
 
@@ -104,6 +115,7 @@ bash scripts/install_global.sh            # 正本落 ~/agent-skills/multi-agent
 ## 核心能力
 
 - **五层防错门控**：角色权限 / 特权放行 / 越权硬阻断 / 防自环死锁 / 并发上限与终态冻结，Fail-Closed 物理拦截。
+- **流程节点双标识**：每次流转在卡片 `process` 追加 `[{时间}] [{T0001-N03}] [{角色}] 状态由…更新至…` 节点行；节点号锁内 `max+1` 分配、单调递增、回滚烧号不复用，时间线按节点号升序渲染（历史旧行兼容排前）。
 - **原子强绑定**：状态流转必须同步移交处理人；打回一律原单退回并追加结构化缺陷，禁止派生孤儿任务与碎片报告。
 - **并发安全**：全局排他锁（`board.json.seq.lock`）+ 临时文件原子替换，多专家并发建单编号 100% 不重复。
 - **看板双模**：纯静态离线（双击 `kanban/offline_board.html` 即用，localStorage 持久化）/ 本地 HTTP 服务（实时强同步 `user_data/board.json`）。
@@ -114,7 +126,7 @@ bash scripts/install_global.sh            # 正本落 ~/agent-skills/multi-agent
 ## 目录结构
 
 ```text
-skills/multi-agent-flow/
+.yy-flow/skill/              # 技能代码（安装位置）
 ├── SKILL.md                 # 技能主入口（/yy-flow 规范与 Prompt）
 ├── README.md                # 本说明文档
 ├── rules/                   # 协作契约与防错规则（AGENTS/IDENTITY/SOUL/TOOLS/USER/HEARTBEAT）
@@ -125,14 +137,18 @@ skills/multi-agent-flow/
 ├── templates/               # 标准化报告与文档模板
 └── scripts/                 # 初始化/流转/度量/看板服务等 CLI 引擎
 
-# 宿主项目初始化后动态生成（随宿主 Git 管理；落在数据根——默认项目根目录，
-# 存量"Skill 内嵌安装"仍保持在 Skill 目录内，行为不变）：
-user_data/
+# 初始化后生成（数据根 = .yy-flow，与 skill 同根；升级删 .yy-flow/skill 重装不伤数据）：
+.yy-flow/user_data/
 ├── board.json               # 任务工单真实数据
 ├── workflow.config.yaml     # 宿主工作流配置
 ├── project_architecture.config.yaml
 ├── locks/                   # 任务并发锁文件
 └── logs/                    # 审计流转日志
+
+# 项目交付文档（留项目根，提交 git）：
+docs/                        # 01-architecture ~ 05-templates 五分类骨架
+
+# 兼容：存量 skills/multi-agent-flow/user_data 内嵌安装零迁移，行为不变
 ```
 
 ## 更多文档

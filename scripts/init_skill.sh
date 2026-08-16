@@ -71,12 +71,17 @@ if [ -d "${SKILL_ROOT}/.git" ]; then
 fi
 
 echo "[DOCS]  [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..."
-mkdir -p "${DATA_ROOT}/docs/01-architecture" \
-         "${DATA_ROOT}/docs/02-modules" \
-         "${DATA_ROOT}/docs/03-operations" \
-         "${DATA_ROOT}/docs/04-standards" \
-         "${DATA_ROOT}/docs/05-templates" \
-         "${DATA_ROOT}/docs/.drafts"
+# docs 是项目交付物 → 落项目根（.yy-flow 布局下为 DATA_ROOT 上一级；legacy 下即 DATA_ROOT）
+DOCS_ROOT="$(dirname "${DATA_ROOT}")/docs"
+if [ "$(basename "${DATA_ROOT}")" != ".yy-flow" ]; then
+    DOCS_ROOT="${DATA_ROOT}/docs"
+fi
+mkdir -p "${DOCS_ROOT}/01-architecture" \
+         "${DOCS_ROOT}/02-modules" \
+         "${DOCS_ROOT}/03-operations" \
+         "${DOCS_ROOT}/04-standards" \
+         "${DOCS_ROOT}/05-templates" \
+         "${DOCS_ROOT}/.drafts"
 
 python3 "${SCRIPT_DIR}/migrate_legacy_docs.py"
 
@@ -88,5 +93,6 @@ echo "  - PM 专家已完成项目范围核验，随时准备响应任务编排�
 
 echo "=============================================================================="
 echo "[SUCCESS]  [SOP 7 步全量就绪] multi-agent-flow 物理初始化顺利完成！"
-echo "  运行数据目录: ${DATA_ROOT}/user_data 与 ${DATA_ROOT}/docs"
+echo "  运行数据目录: ${DATA_ROOT}/user_data"
+echo "  项目文档目录: ${DOCS_ROOT}"
 echo "=============================================================================="

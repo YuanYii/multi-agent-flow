@@ -132,3 +132,48 @@ class TestDerivedDirs:
     def test_audit_log_dir_default_under_user_data(self, tmp_path):
         got = paths.audit_logs_dir(env={"YY_FLOW_PROJECT_ROOT": str(tmp_path)})
         assert got == str(tmp_path / "user_data" / "logs")
+
+
+class TestYyFlowLayout:
+    """新布局: skill 位于 <X>/.yy-flow/skill → 数据根 <X>/.yy-flow，docs 留 <X>"""
+
+    def test_skill_in_yyflow_derives_data_root(self, tmp_path, monkeypatch):
+        layout = tmp_path / ".yy-flow" / "skill" / "scripts"
+        layout.mkdir(parents=True)
+        monkeypatch.setattr(paths, "_SCRIPT_DIR", str(layout))
+        got = paths.resolve_data_root(env={}, cwd=str(tmp_path / "elsewhere"))
+        assert got == str(tmp_path / ".yy-flow")
+
+    def test_cwd_irrelevant_in_yyflow_layout(self, tmp_path, monkeypatch):
+        """skill 自定位优先于 CWD——在错误目录执行也不落错项目"""
+        layout = tmp_path / ".yy-flow" / "skill" / "scripts"
+        layout.mkdir(parents=True)
+        monkeypatch.setattr(paths, "_SCRIPT_DIR", str(layout))
+        got = paths.resolve_data_root(env={}, cwd="/")
+        assert got == str(tmp_path / ".yy-flow")
+
+    def test_docs_root_at_project_root(self, tmp_path, monkeypatch):
+        """docs 是交付物: .yy-flow 布局下落项目根而非 .yy-flow 内"""
+        layout = tmp_path / ".yy-flow" / "skill" / "scripts"
+        layout.mkdir(parents=True)
+        monkeypatch.setattr(paths, "_SCRIPT_DIR", str(layout))
+        assert paths.docs_root(env={}, cwd="/") == str(tmp_path / "docs")
+        assert paths.project_root(env={}, cwd="/") == str(tmp_path)
+
+    def test_env_still_overrides_layout(self, tmp_path, monkeypatch):
+        layout = tmp_path / ".yy-flow" / "skill" / "scripts"
+        layout.mkdir(parents=True)
+        monkeypatch.setattr(paths, "_SCRIPT_DIR", str(layout))
+        override = tmp_path / "custom"
+        got = paths.resolve_data_root(env={"YY_FLOW_PROJECT_ROOT": str(override)}, cwd="/")
+        assert got == str(override)
+
+    def test_legacy_still_wins_when_no_yyflow(self, tmp_path, monkeypatch):
+        """skill 不在 .yy-flow 内且含 user_data/board.json → legacy 数据根（存量零迁移）"""
+        legacy_skill = tmp_path / "legacyskill" / "scripts"
+        legacy_skill.mkdir(parents=True)
+        (tmp_path / "legacyskill" / "user_data").mkdir()
+        (tmp_path / "legacyskill" / "user_data" / "board.json").write_text("[]", encoding="utf-8")
+        monkeypatch.setattr(paths, "_SCRIPT_DIR", str(legacy_skill))
+        got = paths.resolve_data_root(env={}, cwd="/anywhere")
+        assert got == str(tmp_path / "legacyskill")

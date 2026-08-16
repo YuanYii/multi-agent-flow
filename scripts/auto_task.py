@@ -142,7 +142,9 @@ def main():
     try:
         adapter = get_board_adapter(args.config)
         import yaml
-        with open(args.config, "r", encoding="utf-8") as cf:
+        # args.config 为 None（未传 --config）时用 factory 同一解析链定位
+        effective_config = args.config or paths.resolve_runtime_config()
+        with open(effective_config, "r", encoding="utf-8") as cf:
             cfg_data = yaml.safe_load(cf)
         dup_cfg = (cfg_data or {}).get("duplicate_check", {}) or {}
 
