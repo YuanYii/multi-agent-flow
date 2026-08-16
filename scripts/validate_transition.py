@@ -162,6 +162,11 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
             print(f"[REJECT 打回处理人拦截] 角色 {role_upper} 执行打回操作时，禁止将处理人 (Assignee) 设置为自身 ({assignee})！必须精确退回原开发负责人！")
             return False
 
+    # 2.2 置【已阻塞】必须携带阻断原因备注（约定格式：【阻断】<原因>），为 auto 前置验证提供数据
+    if to_status == "已阻塞" and not remarks:
+        print("[REJECT 阻断原因缺失] 置为【已阻塞】必须携带 --remarks 写明阻断原因（约定格式：【阻断】<原因>）！")
+        return False
+
     # 3. 终态结束时间强校验 (E 类用户自执行任务豁免 end_time 强校验)
     if to_status in ["已完成", "已验收"] and not end_time:
         if type_upper == "E":
