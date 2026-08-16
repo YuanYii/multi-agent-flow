@@ -25,27 +25,27 @@ EXCLUDE_DIRS = {
 }
 
 CATEGORY_KEYWORDS: Dict[str, Dict[str, List[str]]] = {
-    "01-项目管理": {
+    "D01-项目管理": {
         "dir_keywords": ["pm", "manage", "plan", "charter", "require", "risk", "change", "lesson", "status", "milestone", "需求", "计划", "章程", "风险", "变更", "复盘"],
         "text_keywords": ["项目章程", "需求规格", "项目计划", "风险登记", "变更日志", "经验教训", "里程碑", "状态报告", "charter", "requirement", "risk register"]
     },
-    "02-架构设计": {
+    "D02-架构设计": {
         "dir_keywords": ["arch", "architecture", "design", "system", "spec"],
         "text_keywords": ["架构", "系统设计", "architecture", "adr", "接口规范", "数据模型"]
     },
-    "03-业务模块": {
+    "D03-业务模块": {
         "dir_keywords": ["module", "component", "subsystem", "service"],
         "text_keywords": ["模块设计", "组件", "服务设计", "module", "subsystem"]
     },
-    "04-研发过程": {
+    "D04-研发过程": {
         "dir_keywords": ["ops", "deploy", "operation", "guide", "manual", "report"],
         "text_keywords": ["运维指南", "部署手册", "操作手册", "troubleshooting", "排查指南", "测试报告"]
     },
-    "05-规范标准": {
+    "D05-规范标准": {
         "dir_keywords": ["standard", "rule", "convention", "guide"],
         "text_keywords": ["规范", "代码标准", "命名规约", "standard", "convention"]
     },
-    "06-文档模板": {
+    "D06-文档模板": {
         "dir_keywords": ["template", "tpl", "example"],
         "text_keywords": ["模板", "template", "样例"]
     }

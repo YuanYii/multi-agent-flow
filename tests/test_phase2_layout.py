@@ -192,5 +192,5 @@ class TestReportDir:
                   "--type", "dev", "--task-id", "T0001", "--task-name", "验证"],
                  env_extra={"YY_FLOW_PROJECT_ROOT": str(host)}, cwd=str(host))
         assert r.returncode == 0, r.stderr
-        expected = host / "docs" / "04-研发过程" / "02-报告" / "dev" / "T0001_dev_report.md"
+        expected = host / "docs" / "D04-研发过程" / "D02-报告" / "dev" / "T0001_dev_report.md"
         assert expected.exists()

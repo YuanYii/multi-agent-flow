@@ -111,6 +111,8 @@ def run_heartbeat(
         import paths as _paths
         data_root = _paths.resolve_data_root()
         doc_dirs = doc_dirs_override or [
+            os.path.join(data_root, "docs", "D04-研发过程", "D02-报告"),
+            os.path.join(data_root, "docs", "D04-研发过程", "D01-任务"),
             os.path.join(data_root, "docs", "04-研发过程", "02-报告"),
             os.path.join(data_root, "docs", "04-研发过程", "01-任务"),
             os.path.join(data_root, "docs", "04-研发过程", "报告"),

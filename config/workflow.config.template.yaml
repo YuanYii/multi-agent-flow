@@ -92,12 +92,12 @@ roles:
 # 文档与产出目录映射（5 级体系）
 paths:
   docs_root: "docs/"
-  task_breakdown_dir: "docs/04-研发过程/01-任务/"
-  dev_reports_dir: "docs/04-研发过程/02-报告/dev/"
-  review_reports_dir: "docs/04-研发过程/02-报告/review/"
-  qa_reports_dir: "docs/04-研发过程/02-报告/qa/"
-  summary_dir: "docs/04-研发过程/02-报告/summary/"
-  problem_records_dir: "docs/04-研发过程/02-报告/problems/"
+  task_breakdown_dir: "docs/D04-研发过程/D01-任务/"
+  dev_reports_dir: "docs/D04-研发过程/D02-报告/dev/"
+  review_reports_dir: "docs/D04-研发过程/D02-报告/review/"
+  qa_reports_dir: "docs/D04-研发过程/D02-报告/qa/"
+  summary_dir: "docs/D04-研发过程/D02-报告/summary/"
+  problem_records_dir: "docs/D04-研发过程/D02-报告/problems/"
 
 # 重复任务校验（建卡时对最近 N 条任务做名称重复度校验）
 duplicate_check:
