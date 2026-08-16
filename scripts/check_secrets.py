@@ -16,6 +16,7 @@ SECRET_PATTERNS = [
 ]
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, SCRIPT_DIR)
 WORKFLOW_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 
 def scan_file(file_path: str) -> List[Tuple[int, str, str]]:
@@ -48,9 +49,17 @@ def main():
     print("========================================================================")
 
     total_issues = 0
+    # 技能代码目录（只读正本）+ 宿主数据根的 user_data 与 docs（真实配置/报告可能含凭证）
+    import paths as _paths
+    data_root = _paths.resolve_data_root()
     scan_dirs = [
         os.path.join(WORKFLOW_ROOT, d) for d in ["config", "scripts", "agents", "docs", "kanban"]
     ]
+    if os.path.abspath(data_root) != os.path.abspath(WORKFLOW_ROOT):
+        scan_dirs += [
+            os.path.join(data_root, "user_data"),
+            os.path.join(data_root, "docs"),
+        ]
 
     for s_dir in scan_dirs:
         if not os.path.exists(s_dir):
@@ -60,6 +69,8 @@ def main():
                 if file.endswith(('.yaml', '.json', '.py', '.sh')):
                     f_path = os.path.join(root, file)
                     rel_path = os.path.relpath(f_path, WORKFLOW_ROOT)
+                    if not os.path.abspath(f_path).startswith(os.path.abspath(WORKFLOW_ROOT)):
+                        rel_path = os.path.relpath(f_path, data_root)
                     findings = scan_file(f_path)
                     if findings:
                         print(f"\n[FAILED]  在 [{rel_path}] 中发现高风险硬编码凭证:")
