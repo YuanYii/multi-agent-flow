@@ -1330,6 +1330,18 @@
 
                 let uniqueLines = Array.from(new Set(lines));
 
+                // 节点序号排序：含 [{任务ID}-N{序号}] 双标识的行按序号升序；
+                // 无节点标识的旧格式行保持原相对顺序排最前（历史数据兼容）
+                const nodeSeqOf = (l) => {
+                    const m = l.match(/\[(T\d+)-N(\d+)\]/);
+                    return m ? parseInt(m[2], 10) : -1;
+                };
+                uniqueLines.sort((a, b) => {
+                    const na = nodeSeqOf(a), nb = nodeSeqOf(b);
+                    if (na !== nb) return na - nb;
+                    return 0; // 同号或同为旧行：稳定排序保持原序
+                });
+
                 uniqueLines.forEach(line => {
                     const row = document.createElement('div');
                     row.className = 'timeline-row';

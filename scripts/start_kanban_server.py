@@ -190,6 +190,24 @@ def allocate_next_task_id(cards: list) -> str:
     return f"T{max_id + 1:04d}"
 
 
+# 流程节点 ID（如 T0001-N03）：任务ID + 任务内单调递增节点序号
+_NODE_ID_RE = re.compile(r"\b(T\d+)-N?(\d+)\b")
+
+
+def allocate_node_seq(card: dict) -> int:
+    """锁外计算卡片 process 内下一节点序号（调用方须持 seq.lock 写锁）。
+
+    与 offline_board_adapter._next_node_seq 同构：max(N)+1，只追加、回滚烧号不复用。
+    """
+    max_n = 0
+    text = str(card.get("process") or "")
+    tid = str(card.get("id", ""))
+    for m in _NODE_ID_RE.finditer(text):
+        if m.group(1) == tid:
+            max_n = max(max_n, int(m.group(2)))
+    return max_n + 1
+
+
 def append_audit_log(task_id: str, role: str, from_status: str, to_status: str, operator: str, comment: str = ""):
     """记录结构化审计事件"""
     os.makedirs(os.path.dirname(AUDIT_LOG_FILE), exist_ok=True)
@@ -462,8 +480,9 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             if target_status in ("已完成", "已验收"):
                 card["end_date"] = now_str
 
-            # 追加流转记录
-            log_text = f"[{now_str}] [{operator_name}] 将状态由【{from_status}】更新至【{target_status}】"
+            # 追加流转节点行（任务ID-N序号 双标识，与 transition_task.py 写入格式统一）
+            node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
+            log_text = f"[{now_str}] [{node_id}] [{operator_role}] 状态由【{from_status}】更新至【{target_status}】 (操作人: {operator_name})"
             if comment:
                 log_text += f" (说明: {comment})"
 
@@ -474,6 +493,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 append_audit_log(task_id, operator_role, from_status, target_status, operator_name, comment)
                 self._send_json_resp(200, "状态流转成功", {
                     "id": task_id,
+                    "node_id": node_id,
                     "from_status": from_status,
                     "to_status": target_status,
                     "history_entry": log_text

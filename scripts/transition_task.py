@@ -207,7 +207,9 @@ def transition_task_pipeline(
         import yaml
         try:
             adapter = get_board_adapter(config_path)
-            with open(config_path, "r", encoding="utf-8") as cfg_f:
+            # config_path 为 None（未传 --config）时用 factory 同一解析链定位
+            effective_config = config_path or paths.resolve_runtime_config()
+            with open(effective_config, "r", encoding="utf-8") as cfg_f:
                 cfg_data = yaml.safe_load(cfg_f)
                 field_mapping = cfg_data.get("board", {}).get("fields", {})
         except Exception as e:
@@ -441,6 +443,22 @@ def transition_task_pipeline(
                 adapter.update_record(resolved_record_id, {status_key: from_status, assignee_key: orig_assignee})
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"备注异常回滚: {e}", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
+
+        # 11. 追加流程节点行（任务ID-N序号 双标识；时间线渲染与排序的数据源）
+        #     失败仅告警不回滚——节点行是展示增强，状态本体已原子落库；
+        #     但烧掉的节点号不复用，审计日志仍有完整记录
+        try:
+            if hasattr(adapter, "append_process_node"):
+                node_id = adapter.append_process_node(
+                    resolved_record_id, current_role.upper(),
+                    from_status or "-", to_status, assignee,
+                    comment=remarks or "")
+                if node_id:
+                    logger.info(f" [NODE]  已追加流程节点 {node_id}", extra=extra_log)
+                else:
+                    logger.warning("[WARN]  流程节点行追加失败（记录不存在？），不影响已落库状态", extra=extra_log)
+        except Exception as e:
+            logger.warning(f"[WARN]  流程节点行追加异常 ({e})，不影响已落库状态", extra=extra_log)
 
         logger.info(f" 看板 {task_id} 已成功推至【{to_status}】，处理人: {assignee}", extra=extra_log)
         record_audit_event(task_id, current_role, from_status, to_status, assignee, True, "流转全量物理落库成功", delegated_by=delegated_by, delegation_reason=delegation_reason)

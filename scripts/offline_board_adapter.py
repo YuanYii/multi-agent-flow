@@ -18,6 +18,7 @@ import re
 import sys
 import json
 import tempfile
+import datetime
 from typing import Dict, Any, List, Optional
 
 # skill 逻辑字段 key → 离线看板 JSON 字段名 (None = 看板无对应字段，写入时跳过)
@@ -48,6 +49,8 @@ KANBAN_NATIVE_FIELDS = {
 }
 
 _TASK_ID_RE = re.compile(r"^T(\d+)$")
+# 流程节点 ID（如 T0001-N03 / T0001-3）: 任务ID + 任务内单调递增节点序号
+_NODE_ID_RE = re.compile(r"\b(T\d+)-N?(\d+)\b")
 
 
 class OfflineBoardAdapter:
@@ -162,6 +165,21 @@ class OfflineBoardAdapter:
             if m:
                 max_num = max(max_num, int(m.group(1)))
         return f"T{max_num + 1:04d}"
+
+    @staticmethod
+    def _next_node_seq(process_text: Optional[str], task_id: str) -> int:
+        """在锁内计算指定任务的下一个流程节点序号。
+
+        扫描 process 文本行内的节点 ID（如 [T0001-N03]），取最大 N + 1；
+        无任何节点行时返回 1。与任务编号 max+1 分配同构：
+        单调递增、只追加、永不重排（回滚烧号不复用）。
+        """
+        max_n = 0
+        if process_text:
+            for m in _NODE_ID_RE.finditer(str(process_text)):
+                if m.group(1) == str(task_id):
+                    max_n = max(max_n, int(m.group(2)))
+        return max_n + 1
 
     # ------------------------------------------------------------------
     # 统一接口
@@ -341,6 +359,36 @@ class OfflineBoardAdapter:
                     c[kanban_field] = combined
                     return self._write_cards(cards)
             return False
+        finally:
+            self._release_seq_lock(lock_f)
+
+    def append_process_node(self, record_id: str, role: str,
+                            from_status: str, to_status: str,
+                            operator: str, comment: str = "") -> "str | None":
+        """锁内分配节点号并向 process 字段追加结构化流转节点行。
+
+        节点行格式: [{时间戳}] [{任务ID}-N{序号}] [{角色}] 状态由【{from}】更新至【{to}】 (操作人) (说明: ...)
+        节点号在 board.json.seq.lock 排他锁内取该卡 max(N)+1 —— 并发安全、
+        单调递增、只追加、回滚烧号不复用。
+        返回完整节点 ID（如 "T0001-N03"）；记录不存在返回 None。
+        """
+        lock_f = self._acquire_seq_lock()
+        try:
+            cards = self._read_cards()
+            for c in cards:
+                if str(c.get("id")) == str(record_id):
+                    node_seq = self._next_node_seq(c.get("process"), str(record_id))
+                    node_id = f"{record_id}-N{node_seq:02d}"
+                    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    line = f"[{ts}] [{node_id}] [{role}] 状态由【{from_status}】更新至【{to_status}】 (操作人: {operator})"
+                    if comment:
+                        line += f" (说明: {comment})"
+                    existing = c.get("process") or ""
+                    c["process"] = f"{existing}\n{line}".strip() if existing else line
+                    if self._write_cards(cards):
+                        return node_id
+                    return None
+            return None
         finally:
             self._release_seq_lock(lock_f)
 
