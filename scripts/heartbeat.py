@@ -139,7 +139,7 @@ def run_heartbeat(
                             "severity": "warning",
                             "code": "ORPHAN_OUTPUT",
                             "task_id": "-",
-                            "message": f"孤儿成果: {fp} (近 {orphan_hours:.0f}h 新增但看板无对应任务，建议补录)",
+                            "message": f"孤儿成果: {fp} (近 {orphan_hours:.0f}h 新增但看板无对应任务，建议补录；若为 L0 即时问答产出：归档至 草稿箱/ 或升级为 L1 建卡)",
                         })
     except Exception:
         pass

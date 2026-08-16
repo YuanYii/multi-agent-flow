@@ -70,7 +70,11 @@ CHAIN_ROLES_E = [
 
 
 def resolve_chain(task_type: str, main_role: str) -> tuple:
-    """返回 (状态链, 步骤角色表)。"""
+    """返回 (状态链, 步骤角色表)。
+    - 类型 A: L2 标准任务全链 (CHAIN_A: 待开始->进行中->审查中->测试中->已完成->已验收)
+    - 类型 E: 用户直验 (CHAIN_E)
+    - 类型 B/C/D/F/G: L1 轻量任务短链 (CHAIN_SHORT: 待开始->进行中->已完成->已验收)
+    """
     t = task_type.upper()
     if t == "A":
         return CHAIN_A, CHAIN_ROLES_A
@@ -105,7 +109,7 @@ def main():
     parser.add_argument("--task-id", default="", help="任务编号；缺省且提供 --task-name 时自动建卡")
     parser.add_argument("--task-name", default="", help="任务名称（建卡时必填）")
     parser.add_argument("--role", default="", help="主执行角色 (DEV/ARCHITECT/DOCS/DEVOPS/PM；缺省按类型推导)")
-    parser.add_argument("--type", default="A", help="任务类型 (A-G)")
+    parser.add_argument("--type", default="A", help="任务类型 (A-G: A为L2标准任务全链; B/C/D/F/G为L1轻量任务短链; E为用户直验)")
     parser.add_argument("--stage", default="", help="建卡时写入阶段")
     parser.add_argument("--wp", default="", help="建卡时写入工作包")
     parser.add_argument("--wbs", default="", help="建卡时写入 WBS")

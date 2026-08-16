@@ -134,14 +134,14 @@ def check_duplicate_tasks(adapter, task_name, cfg_dup, limit=10, threshold=0.8):
         if not n:
             continue
         if n == target:
-            level = "L1 完全一致"
+            level = "完全一致"
         elif target in n or n in target:
-            level = "L2 包含"
+            level = "包含关系"
         else:
             ratio = SequenceMatcher(None, target, n).ratio()
             if ratio < threshold:
                 continue
-            level = f"L3 相似度 {ratio:.2f}"
+            level = f"相似度 {ratio:.2f}"
         hits.append({"task_id": f.get("id"), "name": name, "level": level})
     return hits
 
@@ -482,7 +482,7 @@ def main():
     parser.add_argument("--from-status", default="", help="原状态 (流转模式必填；--create 建卡模式可省略)")
     parser.add_argument("--to-status", default="", help="目标状态 (流转模式必填；--create 建卡模式可省略)")
     parser.add_argument("--assignee", default="", help="同步更新的处理人 (流转模式必填；--create 建卡模式必填)")
-    parser.add_argument("--type", default="A", help="任务类型 (A-G)")
+    parser.add_argument("--type", default="A", help="任务类型 (A-G: A为L2标准任务全链; B/C/D/F/G为L1轻量任务短链; E为用户直验)")
     parser.add_argument("--end-time", help="结束时间 (完成/验收必填)")
     parser.add_argument("--remarks", help="追加结构化缺陷或备注描述")
     parser.add_argument("--active-dev-count", type=int, default=1, help="当前开发人员'进行中'任务数 (并发上限校验用)")
