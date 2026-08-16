@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Multi-Agent Flow · 零依赖简易 HTTP 看板 Web 服务 (增强 RESTful API 引擎)
-固定服务端口：32886
+默认端口 32886，被其他项目实例占用时自动向上探测 (32886-32905)；同项目重复启动直接复用既有实例
 提供技能包内置离线看板 (kanban/offline_board.html) 与全量看板操作 REST 接口支持
 """
 
@@ -10,9 +10,12 @@ import os
 import re
 import json
 import time
+import atexit
+import hashlib
 import tempfile
 import argparse
 import socket
+import urllib.request
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, unquote
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -22,6 +25,9 @@ SKILL_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 KANBAN_DIR = os.path.join(SKILL_ROOT, "kanban")
 
 DEFAULT_PORT = 32886
+PROBE_RANGE = 20
+SERVICE_NAME = "multi-agent-flow-kanban"
+HEALTH_API_VERSION = 1
 
 
 def get_local_ip() -> str:
@@ -36,10 +42,39 @@ def get_local_ip() -> str:
         return "127.0.0.1"
 
 
-USER_DATA_BOARD = os.path.join(SKILL_ROOT, "user_data", "board.json")
-USER_DATA_PREFERENCES = os.path.join(SKILL_ROOT, "user_data", "preferences.json")
-AUDIT_LOG_FILE = os.path.join(SKILL_ROOT, "user_data", "logs", "audit_trail.log")
+def _data_root() -> str:
+    """数据根目录：与全脚本同链（env > legacy > CWD），共享安装下指向宿主项目"""
+    sys.path.insert(0, SCRIPT_DIR)
+    import paths as _paths
+    return _paths.resolve_data_root()
+
+
+_DATA_ROOT = _data_root()
+USER_DATA_BOARD = os.path.join(_DATA_ROOT, "user_data", "board.json")
+USER_DATA_PREFERENCES = os.path.join(_DATA_ROOT, "user_data", "preferences.json")
+AUDIT_LOG_FILE = os.path.join(_DATA_ROOT, "user_data", "logs", "audit_trail.log")
 LOCK_FILE = USER_DATA_BOARD + ".seq.lock"
+KANBAN_RUNTIME_FILE = os.path.join(_DATA_ROOT, "user_data", "kanban_server.json")
+
+
+def compute_project_fingerprint(data_root: str) -> str:
+    """项目实例指纹：data_root 绝对路径哈希。
+
+    必须哈希 data_root 而非 skill_root —— 多项目共享同一份 Skill 拷贝时
+    skill_root 相同，若以其为指纹会误"复用"彼此的服务，重新引入串数据问题。
+    """
+    return hashlib.sha1(os.path.abspath(data_root).encode("utf-8")).hexdigest()[:16]
+
+
+# 启动成功后由 start_server 填充；/api/health 的数据源
+SERVER_STATE = {
+    "service": SERVICE_NAME,
+    "version": HEALTH_API_VERSION,
+    "fingerprint": "",
+    "port": None,
+    "pid": os.getpid(),
+    "data_root": "",
+}
 
 
 def _acquire_lock(f):
@@ -288,6 +323,11 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         if path in ("/api/board/meta", "/api/preferences"):
             pref = read_preferences_data()
             self._send_json_resp(200, "success", pref)
+            return
+
+        # 6. REST API: GET /api/health (实例健康与项目指纹，供端口复用判定)
+        if path == "/api/health":
+            self._send_json_resp(200, "success", dict(SERVER_STATE))
             return
 
         # 静态资源请求
@@ -560,42 +600,178 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         self._send_json_resp(404, "Not Found", None, http_status=404)
 
     def log_message(self, format, *args):
-        # 保持控制台日志简洁
-        sys.stderr.write(f" [Kanban HTTP 32886] {self.address_string()} - {format % args}\n")
+        # 保持控制台日志简洁（端口跟随实际绑定值）
+        try:
+            port = self.server.server_address[1]
+        except Exception:
+            port = "?"
+        sys.stderr.write(f" [Kanban HTTP {port}] {self.address_string()} - {format % args}\n")
 
 
 class ReusableHTTPServer(HTTPServer):
-    allow_reuse_address = True
+    # Windows 上 SO_REUSEADDR 允许两个活跃进程同时绑定同一端口（等效于 SO_REUSEPORT 的危害），
+    # 必须禁用；Unix 上仅允许复用 TIME_WAIT 端口，保留
+    allow_reuse_address = (sys.platform != "win32")
 
     def server_bind(self):
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        if hasattr(socket, "SO_REUSEPORT"):
-            try:
-                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            except Exception:
-                pass
+        if self.allow_reuse_address:
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # 注意：绝不设置 SO_REUSEPORT —— 它允许多实例同时绑定同一端口，
+        # 请求随机分发到不同项目实例，造成看板数据静默串写
         super().server_bind()
 
 
-def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0"):
-    """启动简易 HTTP 看板服务"""
+def _port_listening(port: int, timeout: float = 0.2) -> bool:
+    """探测 127.0.0.1:{port} 是否有进程监听（固定探测回环地址，避免 macOS 防火墙弹窗）"""
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+
+def _query_health(port: int, timeout: float = 0.8) -> dict | None:
+    """GET /api/health；非本服务（404/超时/非 JSON）返回 None。
+
+    显式禁用代理：系统/环境代理（http_proxy 等）会拦截 127.0.0.1 请求，
+    把 health 探测转发给代理进程，导致复用判定永远失败。
+    兼容统一响应体（{"code":200,"data":{...}}）与裸 health 载荷。
+    """
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(f"http://127.0.0.1:{port}/api/health", timeout=timeout) as resp:
+            if resp.status != 200:
+                return None
+            data = json.loads(resp.read().decode("utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("data"), dict):
+            data = data["data"]  # 统一响应体解包
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
+def _is_same_instance(health: dict | None, fingerprint: str) -> bool:
+    """判定监听者是否为同项目的本服务实例（指纹不区分指纹来源层）"""
+    if not health:
+        return False
+    return health.get("service") == SERVICE_NAME and health.get("fingerprint") == fingerprint
+
+
+class ProbeResult:
+    """端口探测结果：action ∈ {"bind", "reuse"}；bind 时携带已绑定的 server，reuse 时携带既有实例 health"""
+
+    def __init__(self, action: str, port: int, health: dict | None = None, httpd=None):
+        self.action = action
+        self.port = port
+        self.health = health
+        self.httpd = httpd
+
+
+def _is_addr_in_use(e: OSError) -> bool:
+    """跨平台判断"地址被占用"错误（macOS/Linux errno 48/98，Windows winerror 10048）"""
+    import errno as _errno
+    if e.errno == _errno.EADDRINUSE:
+        return True
+    if getattr(e, "winerror", None) == 10048:
+        return True
+    return "Address already in use" in str(e) or "only one usage" in str(e).lower()
+
+
+def probe_port(requested_port: int, fingerprint: str, pinned: bool = False) -> ProbeResult:
+    """端口探测与复用判定。
+
+    - pinned=True（显式 --port/KANBAN_PORT）：只试 requested_port；同指纹复用，否则硬失败
+    - pinned=False：requested_port 起向上探测 DEFAULT_PORT..DEFAULT_PORT+PROBE_RANGE
+    """
+    candidates = [requested_port] if pinned else list(
+        dict.fromkeys([requested_port] + list(range(DEFAULT_PORT, DEFAULT_PORT + PROBE_RANGE + 1)))
+    )
+
+    last_error = ""
+    for port in candidates:
+        if _port_listening(port):
+            health = _query_health(port)
+            if _is_same_instance(health, fingerprint):
+                return ProbeResult("reuse", port, health)
+            # 其他项目实例或无关服务 → 尝试下一端口
+            continue
+        try:
+            httpd = ReusableHTTPServer(("127.0.0.1", port), KanbanHTTPRequestHandler)
+            return ProbeResult("bind", port, httpd=httpd)
+        except OSError as e:
+            if _is_addr_in_use(e):
+                # bind-close 竞态：探测时空闲、绑定时被抢 → 落到下一候选
+                last_error = str(e)
+                continue
+            raise
+
+    print(f"[FAILED]  [ERROR] 候选端口全部不可用 (尝试了 {len(candidates)} 个): {last_error or '均被其他服务占用'}")
+    sys.exit(1)
+
+
+def _write_runtime_file(port: int, fingerprint: str):
+    """落盘运行时信息，供人工排障与后续工具查询（不做启动快速路径）"""
+    try:
+        os.makedirs(os.path.dirname(KANBAN_RUNTIME_FILE), exist_ok=True)
+        payload = {
+            "port": port,
+            "pid": os.getpid(),
+            "fingerprint": fingerprint,
+            "started_at": datetime.now().isoformat(),
+        }
+        with open(KANBAN_RUNTIME_FILE, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        sys.stderr.write(f"[WARN] 运行时文件写入失败 (不影响服务): {e}\n")
+
+
+def _remove_runtime_file():
+    try:
+        if os.path.exists(KANBAN_RUNTIME_FILE):
+            os.remove(KANBAN_RUNTIME_FILE)
+    except Exception:
+        pass
+
+
+def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool = False):
+    """启动简易 HTTP 看板服务（含端口探测与同项目复用）"""
     if not os.path.exists(KANBAN_DIR):
         print(f"[FAILED]  [ERROR] 无法找到看板目录: {KANBAN_DIR}")
         sys.exit(1)
 
-    server_address = (host, port)
-    try:
-        httpd = ReusableHTTPServer(server_address, KanbanHTTPRequestHandler)
-    except OSError as e:
-        if e.errno == 48 or "Address already in use" in str(e):
-            print(f"[FAILED]  [ERROR] 端口 {port} 被占用且无法复用: {e}")
-            sys.exit(1)
-        else:
-            print(f"[FAILED]  [ERROR] 启动 HTTP 服务失败: {e}")
+    fingerprint = compute_project_fingerprint(_DATA_ROOT)
+    result = probe_port(port, fingerprint, pinned=pinned)
+
+    if result.action == "reuse":
+        print("\n" + "=" * 70)
+        print(f"[REUSE]  本项目看板服务已在运行 (端口: {result.port})，直接复用既有实例")
+        print(f" 既有实例 PID: {result.health.get('pid', '未知')} | 启动于: {result.health.get('data_root', '')}")
+        print("=" * 70)
+        print_kanban_urls(result.port, get_local_ip())
+        return
+
+    # probe_port 在 127.0.0.1 上试探性绑定成功；若最终要求监听其他 host，重建监听
+    httpd = result.httpd
+    if host not in ("", "127.0.0.1", "localhost"):
+        httpd.server_close()
+        try:
+            httpd = ReusableHTTPServer((host, result.port), KanbanHTTPRequestHandler)
+        except OSError as e:
+            print(f"[FAILED]  [ERROR] 端口 {result.port} 绑定 {host} 失败: {e}")
             sys.exit(1)
 
+    SERVER_STATE.update(
+        fingerprint=fingerprint,
+        port=result.port,
+        pid=os.getpid(),
+        data_root=_DATA_ROOT,
+    )
+
+    _write_runtime_file(result.port, fingerprint)
+    atexit.register(_remove_runtime_file)
+
     local_ip = get_local_ip()
-    print_kanban_urls(port, local_ip)
+    print_kanban_urls(result.port, local_ip)
 
     try:
         httpd.serve_forever()
@@ -617,11 +793,20 @@ def print_kanban_urls(port: int, local_ip: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Multi-Agent Flow 看板简易 HTTP 服务")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"服务端口 (默认: {DEFAULT_PORT})")
+    parser.add_argument("--port", type=int, default=None,
+                        help=f"固定服务端口 (默认: 环境变量 KANBAN_PORT 或 {DEFAULT_PORT}+自动探测)")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="监听 Host (默认: 0.0.0.0)")
     args = parser.parse_args()
 
-    start_server(port=args.port, host=args.host)
+    env_port = os.environ.get("KANBAN_PORT", "").strip()
+    if args.port is not None:
+        port, pinned = args.port, True
+    elif env_port:
+        port, pinned = int(env_port), True
+    else:
+        port, pinned = DEFAULT_PORT, False
+
+    start_server(port=port, host=args.host, pinned=pinned)
 
 
 if __name__ == "__main__":
