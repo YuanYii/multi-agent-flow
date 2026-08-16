@@ -76,11 +76,13 @@ DOCS_ROOT="$(dirname "${DATA_ROOT}")/docs"
 if [ "$(basename "${DATA_ROOT}")" != ".yy-flow" ]; then
     DOCS_ROOT="${DATA_ROOT}/docs"
 fi
-mkdir -p "${DOCS_ROOT}/01-项目管理/需求" \
-         "${DOCS_ROOT}/01-项目管理/状态报告" \
+mkdir -p "${DOCS_ROOT}/01-项目管理/01-需求" \
+         "${DOCS_ROOT}/01-项目管理/02-状态报告" \
          "${DOCS_ROOT}/02-架构设计" \
          "${DOCS_ROOT}/03-业务模块" \
-         "${DOCS_ROOT}/04-研发过程" \
+         "${DOCS_ROOT}/04-研发过程/01-任务" \
+         "${DOCS_ROOT}/04-研发过程/02-报告" \
+         "${DOCS_ROOT}/04-研发过程/03-操作手册" \
          "${DOCS_ROOT}/05-规范标准" \
          "${DOCS_ROOT}/06-文档模板" \
          "${DOCS_ROOT}/草稿箱"
