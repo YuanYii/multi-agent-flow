@@ -11,10 +11,15 @@ import json
 import re
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, SCRIPT_DIR)
+
+import paths as _paths
 
 
-def scan_project_stack(target_dir: str = PROJECT_ROOT) -> dict:
+def scan_project_stack(target_dir: str = None) -> dict:
+    """扫描目标项目技术栈；默认目标为解析后的 data_root（宿主项目），而非 skill 拷贝自身"""
+    if target_dir is None:
+        target_dir = _paths.resolve_data_root()
     info = {
         "project_name": "未知应用",
         "languages": [],
@@ -91,29 +96,25 @@ def scan_project_stack(target_dir: str = PROJECT_ROOT) -> dict:
     return info
 
 
-def sync_stack_to_config(info: dict, target_project_dir: str = PROJECT_ROOT) -> bool:
-    """将扫描到的语言、框架、单测映射写回 project_architecture.config.yaml，并触发 update_agent_tech_stacks.py"""
+def sync_stack_to_config(info: dict, target_project_dir: str = None) -> bool:
+    """将扫描到的语言、框架、单测映射写回 <data_root>/user_data/project_architecture.config.yaml"""
     import yaml
     import shutil
     import subprocess
 
-    config_dir = os.path.join(target_project_dir, "config")
-    config_path = os.path.join(config_dir, "project_architecture.config.yaml")
+    if target_project_dir is None:
+        target_project_dir = _paths.resolve_data_root()
+    # 配置落宿主 user_data/（与 init step 4 生成位置一致）；模板恒取 skill 拷贝
+    config_path = os.path.join(target_project_dir, "user_data", "project_architecture.config.yaml")
+    template_path = os.path.join(_paths.skill_root(), "config", "project_architecture.template.yaml")
 
     if not os.path.exists(config_path):
-        template_path = os.path.join(config_dir, "project_architecture.template.yaml")
         if os.path.exists(template_path):
+            os.makedirs(os.path.dirname(config_path), exist_ok=True)
             shutil.copy2(template_path, config_path)
         else:
             print(f"[WARN]  未找到架构配置文件: {config_path}")
             return False
-
-    # 生成物理备份 .bak
-    bak_path = config_path + ".bak"
-    try:
-        shutil.copy2(config_path, bak_path)
-    except Exception:
-        pass
 
     try:
         with open(config_path, "r", encoding="utf-8") as f:
@@ -137,7 +138,7 @@ def sync_stack_to_config(info: dict, target_project_dir: str = PROJECT_ROOT) -> 
 
         with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
-        print(f" [配置同步] 已成功将识别出的技术栈写回 {config_path} (备份: {bak_path})")
+        print(f" [配置同步] 已成功将识别出的技术栈写回 {config_path}")
 
         # 联动触发 update_agent_tech_stacks.py 同步更新 agents/*.yaml
         update_script = os.path.join(SCRIPT_DIR, "update_agent_tech_stacks.py")
@@ -156,8 +157,12 @@ def sync_stack_to_config(info: dict, target_project_dir: str = PROJECT_ROOT) -> 
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="自动物理扫描项目依赖与 README 工具")
-    parser.add_argument("--write", action="store_true", help="自动将扫描到的技术栈同步落盘至 config 与 agents/*.yaml")
+    parser.add_argument("--write", action="store_true", help="自动将扫描到的技术栈同步落盘至 user_data 配置")
+    parser.add_argument("--project-root", default=None, help="显式数据根（默认: 解析链）")
     args = parser.parse_args()
+    if args.project_root:
+        import os as _os
+        _os.environ.setdefault("YY_FLOW_PROJECT_ROOT", args.project_root)
 
     print("[SCAN]  [auto_scan_stack] 正在物理代码扫描工程依赖与 README.md...")
     info = scan_project_stack()
