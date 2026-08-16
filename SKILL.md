@@ -20,6 +20,8 @@ version: 1.0.0
 | **`/yy-flow status`** | **心跳巡检与看板状态**：输出当前所有工单流转、在手任务与卡点滞留分析 | 运行 `heartbeat.py`，检测超时滞留与并发超限 |
 | **`/yy-flow kanban`** | **看板 Web 服务就绪**：启动内置离线看板 HTTP 服务并提供本地访问链接 | 运行 `start_kanban_server.py` (端口 32886) |
 | **`/yy-flow metrics`** | **效能度量报告**：一键计算并输出前置交付周期 (Lead Time)、吞吐量与卡点分析 | 运行 `metrics_analyzer.py` |
+| **`/yy-flow create`** | **显式建单**：创建任务卡【待开始】并分配处理人（PM 可派发任意；非 PM 仅可自建） | 运行 `transition_task.py --create` / `quick_task.py create` |
+| **`/yy-flow auto`** | **自动任务**：一条指令自动完成完整生命周期至已验收——全类型链（A–G）、任意节点续跑、已阻塞前置验证（【解除】记录）、重复任务校验 | 运行 `auto_task.py` |
 
 ---
 

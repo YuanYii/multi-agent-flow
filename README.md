@@ -46,6 +46,8 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 | **`/yy-flow status`** | 看板巡检：输出流转状态、在手任务与滞留告警 |
 | **`/yy-flow kanban`** | 启动离线看板 Web 服务（端口 32886）并输出访问链接 |
 | **`/yy-flow metrics`** | 研发效能度量：Lead Time、吞吐量与卡点分析 |
+| **`/yy-flow create`** | 显式建单：创建任务卡【待开始】并分配处理人（PM 可派发任意，非 PM 仅可自建） |
+| **`/yy-flow auto`** | 自动任务：一条指令完成完整生命周期至已验收（全类型链、任意节点续跑、阻断前置验证） |
 
 ## 任务流转（Agent 对话示例）
 
@@ -65,6 +67,7 @@ git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi
 - **看板双模**：纯静态离线（双击 `kanban/offline_board.html` 即用，localStorage 持久化）/ 本地 HTTP 服务（实时强同步 `user_data/board.json`）。
 - **在线看板扩展（可选）**：配置 `user_data/workflow.config.yaml` 可切换飞书 Base / Jira / GitHub Projects。
 - **体验细节**：自动日落护眼主题、终态优先流转标签、多维筛选与排序。
+- **防重复建单**：建卡时对最近 N 条任务做名称重复度校验（完全一致/包含/相似度≥阈值），命中即终止并提示，用户确认后以 `--force` 重跑；`N` 与阈值在 `config/workflow.config.yaml` 的 `duplicate_check` 节配置（默认 limit=10、threshold=0.8）。
 
 ## 目录结构
 
