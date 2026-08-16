@@ -5,6 +5,12 @@
   "type": "object",
   "required": ["project", "tech_stack", "architecture_overview"],
   "properties": {
+    "meta": {
+      "type": "object",
+      "properties": {
+        "initialized": { "type": "boolean", "description": "初始化完成标志：true 表示已由 auto_scan_stack.py 填充真实值" }
+      }
+    },
     "project": {
       "type": "object",
       "required": ["name", "version", "app_type"],

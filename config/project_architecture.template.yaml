@@ -1,6 +1,9 @@
 # project_architecture.template.yaml - 项目技术架构与技术栈配置文件模板
 # 当首次加载 multi-agent-flow 技能时，Agent 自动识别项目并复制生成 project_architecture.config.yaml
 
+meta:
+  initialized: false               # 初始化完成标志：auto_scan_stack.py --write 填充真实值后置 true；false 时视为未初始化
+
 project:
   name: "project_name"             # 项目名称
   version: "1.0.0"                # 版本号

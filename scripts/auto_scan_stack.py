@@ -130,6 +130,11 @@ def sync_stack_to_config(info: dict, target_project_dir: str = PROJECT_ROOT) -> 
         cfg["tech_stack"]["frameworks"] = [{"name": fw, "type": "backend/frontend"} for fw in fws]
         cfg["tech_stack"]["testing"] = {"framework": test_fw, "min_coverage_percent": 80}
 
+        # 填充真实扫描值后置初始化完成标志：SKILL.md 依此判断是否需要重扫
+        if "meta" not in cfg:
+            cfg["meta"] = {}
+        cfg["meta"]["initialized"] = True
+
         with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
         print(f" [配置同步] 已成功将识别出的技术栈写回 {config_path} (备份: {bak_path})")

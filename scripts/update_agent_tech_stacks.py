@@ -31,6 +31,14 @@ def load_architecture_config():
     with open(config_path, "r", encoding="utf-8") as f:
         arch_data = yaml.safe_load(f)
 
+    # 占位值哨兵: 配置仍为模板占位（未初始化）时拒绝执行，防止占位值污染 agents/*.yaml
+    meta = arch_data.get("meta") or {}
+    project_name = (arch_data.get("project") or {}).get("name", "")
+    if not meta.get("initialized") and project_name in ("", "project_name"):
+        print("[ERROR] project_architecture 配置仍为模板占位值（meta.initialized != true），拒绝同步至 agents/*.yaml。")
+        print("        请先运行: python3 scripts/auto_scan_stack.py --write 完成真实架构扫描填充。")
+        sys.exit(1)
+
     # 物理 Schema 强校验
     schema_path = os.path.join(CONFIG_DIR, "project_architecture.schema.json")
     if os.path.exists(schema_path):
