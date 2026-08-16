@@ -46,14 +46,11 @@ if [ ! -f "${PROJECT_ROOT}/user_data/board.json" ]; then
     echo "  - 已成功初始化空看板工单 user_data/board.json"
 fi
 
-# [CLEAN]  宿主环境纯净化：清理 Skill 目录内部残留的 .git 目录和 .gitignore 文件
+# [NOTICE]  若通过 git clone 安装，Skill 目录内会残留 .git；初始化不做任何删除，
+# 仅提示由用户自行决定（degit/tarball 安装方式天然无此目录）
 if [ -d "${PROJECT_ROOT}/.git" ]; then
-    rm -rf "${PROJECT_ROOT}/.git"
-    echo "  - 已自动清理 Skill 目录内部残留的 .git 仓库目录"
-fi
-if [ -f "${PROJECT_ROOT}/.gitignore" ]; then
-    rm -f "${PROJECT_ROOT}/.gitignore"
-    echo "  - 已自动清理 Skill 目录内部的 .gitignore 文件"
+    echo "[TIP]  检测到 Skill 目录内存在 .git（git clone 安装残留），保留未动。"
+    echo "       如需清理可手动执行: rm -rf \"${PROJECT_ROOT}/.git\""
 fi
 
 echo "[DOCS]  [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..."

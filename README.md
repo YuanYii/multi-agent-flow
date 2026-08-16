@@ -12,11 +12,16 @@
 
 **前置要求**：任一支持 Markdown/Skill 规范的 AI Agent（Antigravity CLI / Codex / Claude Code / Cursor 等）；使用离线本地看板**无需任何凭证**。
 
-1. 将技能包克隆或复制到项目或 Agent 技能目录：
+1. 将技能包克隆或复制到项目或 Agent 技能目录（推荐 degit / tarball，天然不带 `.git`）：
 
 ```bash
 cd /path/to/your-project
-git clone --depth 1 https://github.com/YuanYii/multi-agent-flow.git skills/multi-agent-flow
+
+# 方式 A: degit（需本机 Node，固定版本用 #release_v6，跟默认分支则省略）
+npx -y degit YuanYii/multi-agent-flow#release_v6 skills/multi-agent-flow
+
+# 方式 B: tarball（无 Node 环境，零依赖）
+mkdir -p skills/multi-agent-flow && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/release_v6.tar.gz | tar xz -C skills/multi-agent-flow --strip-components=1
 ```
 
 2. 在与 Agent 的对话中触发初始化（二选一）：
