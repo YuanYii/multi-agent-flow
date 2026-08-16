@@ -24,6 +24,43 @@ npx -y degit YuanYii/multi-agent-flow#release_v6 skills/multi-agent-flow
 mkdir -p skills/multi-agent-flow && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/release_v6.tar.gz | tar xz -C skills/multi-agent-flow --strip-components=1
 ```
 
+1. 将技能包克隆或复制到项目或 Agent 技能目录（推荐 degit / tarball，天然不带 `.git`）：
+
+```bash
+cd /path/to/your-project
+
+# 方式 A: degit（需本机 Node，固定版本用 #release_v6，跟默认分支则省略）
+npx -y degit YuanYii/multi-agent-flow#release_v6 skills/multi-agent-flow
+
+# 方式 B: tarball（无 Node 环境，零依赖）
+mkdir -p skills/multi-agent-flow && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/release_v6.tar.gz | tar xz -C skills/multi-agent-flow --strip-components=1
+```
+
+<details>
+<summary><b>多项目共享安装（可选，单份正本 + 各宿主全局软链）</b></summary>
+
+多项目共用一份只读正本，避免每项目重复拷贝与版本漂移：
+
+```bash
+# 一次性安装（Linux/macOS；Windows 用 scripts/install_global.ps1）
+bash scripts/install_global.sh            # 正本落 ~/agent-skills/multi-agent-flow
+# 或固定版本: bash scripts/install_global.sh release_v6
+```
+
+安装器会：
+1. 物化正本至 `~/agent-skills/multi-agent-flow`（degit 优先、tarball 兜底）；
+2. **零数据守卫**：正本内含 `user_data/board.json` 即拒绝安装（防数据串写）；
+3. 写入 `.yy-flow-shared` 标记（数据根解析据此永不做 legacy 误判）；
+4. 运行 `verify_and_export_agents.py --global` 软链至各已安装宿主的用户级技能目录（如 `~/.claude/skills/yy-flow`）。
+
+共享模式下的数据边界：
+- **代码共享**：scripts/kanban/templates/references 等只读资产一份；
+- **数据隔离**：每个项目的 `user_data/`、`docs/`、锁文件落各自项目根（解析链：`YY_FLOW_PROJECT_ROOT` > CWD）；
+- 各项目仍需各自执行一次 `/yy-flow start` 初始化（生成项目专属配置与看板）；
+- 更新技能 = 重跑安装器；卸载 = 删各宿主软链 + 正本目录。
+
+</details>
+
 2. 在与 Agent 的对话中触发初始化（二选一）：
 
 - 输入快捷指令 **`/yy-flow`** 或 **`/yy-flow start`**
@@ -49,7 +86,7 @@ mkdir -p skills/multi-agent-flow && curl -L https://github.com/YuanYii/multi-age
 | :--- | :--- |
 | **`/yy-flow`** 或 **`/yy-flow start`** | 一键激活工作流：初始化 SOP + 唤起 PM |
 | **`/yy-flow status`** | 看板巡检：输出流转状态、在手任务与滞留告警 |
-| **`/yy-flow kanban`** | 启动离线看板 Web 服务（端口 32886）并输出访问链接 |
+| **`/yy-flow kanban`** | 启动离线看板 Web 服务（默认 32886，被其他项目占用自动递增，同项目复用）并输出实际访问链接 |
 | **`/yy-flow metrics`** | 研发效能度量：Lead Time、吞吐量与卡点分析 |
 | **`/yy-flow create`** | 显式建单：创建任务卡【待开始】并分配处理人（PM 可派发任意，非 PM 仅可自建） |
 | **`/yy-flow auto`** | 自动任务：一条指令完成完整生命周期至已验收（全类型链、任意节点续跑、阻断前置验证） |
@@ -62,7 +99,7 @@ mkdir -p skills/multi-agent-flow && curl -L https://github.com/YuanYii/multi-age
 | 提交审查 | “提交 T0001 代码审查” | 状态【审查中】，处理人移交 Reviewer |
 | 审查/测试 | “审查 T0001” | 通过→【测试中】/【已完成】；不通过→【已退回】回原负责人，备注写入 `DEF-T0001-1`（不拆单） |
 | 验收 | “验收已完成任务” | PM 校验结束时间 →【已验收】 |
-| 启动看板 | “启动看板” | 输出 <http://localhost:32886/> 访问链接 |
+| 启动看板 | “启动看板” | 输出实际端口访问链接（默认 <http://localhost:32886/>，多项目并行自动递增） |
 
 ## 核心能力
 
@@ -88,11 +125,13 @@ skills/multi-agent-flow/
 ├── templates/               # 标准化报告与文档模板
 └── scripts/                 # 初始化/流转/度量/看板服务等 CLI 引擎
 
-# 宿主项目初始化后动态生成（随宿主 Git 管理）：
+# 宿主项目初始化后动态生成（随宿主 Git 管理；落在数据根——默认项目根目录，
+# 存量"Skill 内嵌安装"仍保持在 Skill 目录内，行为不变）：
 user_data/
 ├── board.json               # 任务工单真实数据
 ├── workflow.config.yaml     # 宿主工作流配置
 ├── project_architecture.config.yaml
+├── locks/                   # 任务并发锁文件
 └── logs/                    # 审计流转日志
 ```
 
