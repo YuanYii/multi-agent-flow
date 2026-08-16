@@ -1264,8 +1264,8 @@
                         <span>${esc(card.name || '未命名任务')}</span>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <span class="tag tag-status">${esc(card.status || '待开始')}</span>
-                        <span class="tag tag-person">负责人: ${esc(card.assignee || '未分配')}</span>
+                        <span class="tag" style="background:${getBadgeStyle('status', card.status).bg}; color:${getBadgeStyle('status', card.status).text}; border:1px solid rgba(0,0,0,0.06);">${esc(card.status || '待开始')}</span>
+                        <span class="tag" style="background:${getBadgeStyle('person', card.assignee).bg}; color:${getBadgeStyle('person', card.assignee).text}; border:1px solid rgba(0,0,0,0.06);">负责人: ${esc(card.assignee || '未分配')}</span>
                         ${card.handler ? `<span class="tag tag-stage">当前处理人: ${esc(card.handler)}</span>` : ''}
                         ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${esc(card.wbs)}</span>` : ''}
                     </div>
@@ -1314,6 +1314,18 @@
 
                 let rawStr = rawLogs.join('\n').replace(/\\n/g, '\n');
                 let lines = rawStr.split('\n').map(l => l.trim()).filter(Boolean);
+
+                // 多行节点合并：'操作说明:' 起始的行是上一节点的说明段，合并进上一行
+                // （数据两行、渲染一节点；旧格式单行节点不受影响）
+                let merged = [];
+                for (const l of lines) {
+                    if (/^操作说明[:：]/.test(l) && merged.length) {
+                        merged[merged.length - 1] += '\n' + l;
+                    } else {
+                        merged.push(l);
+                    }
+                }
+                lines = merged;
                 
                 // 智能保底推演：若没有任何显式日志行，自动基于元数据推导首条初始化流转记录
                 if (lines.length === 0) {
@@ -1352,11 +1364,17 @@
                     let contentStr = line;
                     let statusTag = '';
 
-                    // 1. 时间提取
+                    // 1. 时间提取（旧格式: 行首 [时间]；新格式: [节点ID]  [时间]  描述）
                     const timeMatch = line.match(/^\[(\d{4}-\d{2}-\d{2}[^\]]*)\]\s*(.*)$/);
                     if (timeMatch) {
                         timeStr = timeMatch[1];
                         contentStr = timeMatch[2];
+                    } else {
+                        const nodeTimeMatch = line.match(/^\[T\d+-N\d+\]\s+\[(\d{4}-\d{2}-\d{2}[^\]]*)\]\s*([\s\S]*)$/);
+                        if (nodeTimeMatch) {
+                            timeStr = nodeTimeMatch[1];
+                            contentStr = nodeTimeMatch[2];
+                        }
                     }
 
                     // 2. 多维智能标签提取 (状态 / 负责人移交 / 阶段工作包 / 记录保底)

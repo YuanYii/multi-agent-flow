@@ -365,9 +365,12 @@ class OfflineBoardAdapter:
     def append_process_node(self, record_id: str, role: str,
                             from_status: str, to_status: str,
                             operator: str, comment: str = "") -> "str | None":
-        """锁内分配节点号并向 process 字段追加结构化流转节点行。
+        """锁内分配节点号并向 process 字段追加结构化流转节点。
 
-        节点行格式: [{时间戳}] [{任务ID}-N{序号}] [{角色}] 状态由【{from}】更新至【{to}】 (操作人) (说明: ...)
+        节点格式（两行，说明可选）:
+          [{节点ID}]  [{时间戳}]  状态由【{from}】更新至【{to}】，操作人: {操作人}
+          操作说明: {说明}
+
         节点号在 board.json.seq.lock 排他锁内取该卡 max(N)+1 —— 并发安全、
         单调递增、只追加、回滚烧号不复用。
         返回完整节点 ID（如 "T0001-N03"）；记录不存在返回 None。
@@ -380,9 +383,9 @@ class OfflineBoardAdapter:
                     node_seq = self._next_node_seq(c.get("process"), str(record_id))
                     node_id = f"{record_id}-N{node_seq:02d}"
                     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    line = f"[{ts}] [{node_id}] [{role}] 状态由【{from_status}】更新至【{to_status}】 (操作人: {operator})"
+                    line = f"[{node_id}]  [{ts}]  状态由【{from_status}】更新至【{to_status}】，操作人: {operator}"
                     if comment:
-                        line += f" (说明: {comment})"
+                        line += f"\n操作说明: {comment}"
                     existing = c.get("process") or ""
                     c["process"] = f"{existing}\n{line}".strip() if existing else line
                     if self._write_cards(cards):

@@ -61,12 +61,15 @@ class TestNodeAllocation:
         a = OfflineBoardAdapter(board)
         a.append_process_node("T0005", "QA", "测试中", "已完成", "章测试", comment="回归通过")
         process = json.load(open(board, encoding="utf-8"))[0]["process"]
-        line = process.split("\n")[0]
-        assert "[T0005-N01]" in line
-        assert "[QA]" in line
-        assert "【测试中】更新至【已完成】" in line
-        assert "(操作人: 章测试)" in line
-        assert "(说明: 回归通过)" in line
+        # 新格式: 节点行 + 可选独立"操作说明:"行（无角色段、无括号）
+        first_line = process.split("\n")[0]
+        assert first_line.startswith("[T0005-N01]")
+        assert "[2026-" in first_line  # 时间戳在节点 ID 后
+        assert "状态由【测试中】更新至【已完成】，操作人: 章测试" in first_line
+        assert "[QA]" not in first_line  # 角色段已去除（角色=操作人，冗余）
+        assert "(操作人" not in first_line  # 不再用括号
+        lines = process.split("\n")
+        assert lines[1].startswith("操作说明: 回归通过")
 
     def test_legacy_process_text_not_confused(self, tmp_path):
         """旧格式 process（无节点 ID）不参与编号，新节点从 N01 起"""

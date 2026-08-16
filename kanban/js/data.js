@@ -51,6 +51,7 @@ async function fetchKanbanMetaConfig() {
 async function loadStorageData() {
     await fetchKanbanMetaConfig();
     await loadBoardPreferences();
+    applyServerBoardTitle();
     await fetchBackgroundData();
 }
 
@@ -73,6 +74,18 @@ async function loadBoardPreferences() {
             kanbanPreferences = Object.assign(kanbanPreferences, JSON.parse(localPref));
         }
     } catch (e) {}
+}
+
+// 服务端标题应用：用户未在本地编辑过标题时，采用服务端偏好（含项目名动态默认）。
+// 本地编辑过（localStorage 有 offline_board_title_v1）则尊重本地定制，服务端不覆盖。
+function applyServerBoardTitle() {
+    try {
+        if (localStorage.getItem('offline_board_title_v1')) return; // 用户定制优先
+    } catch (e) {}
+    const t = (kanbanPreferences.title || '').trim();
+    if (t && typeof applyBoardTitle === 'function') {
+        applyBoardTitle(t);
+    }
 }
 
 async function fetchBackgroundData() {

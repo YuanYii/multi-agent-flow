@@ -144,11 +144,37 @@ def atomic_write_board_data(cards: list) -> bool:
         lock_f.close()
 
 
+BOARD_TITLE_SUFFIX = "Multi Agent任务看板"
+
+
+def read_project_name() -> str:
+    """从运行态 workflow 配置读取项目名（project.name），失败返回空串。"""
+    try:
+        import yaml
+        sys.path.insert(0, SCRIPT_DIR)
+        import paths as _paths
+        config_file = _paths.resolve_runtime_config()
+        with open(config_file, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        name = str(((cfg.get("project") or {}).get("name")) or "").strip()
+        # 模板占位值不展示
+        return "" if name in ("", "Sample-Project", "project_name") else name
+    except Exception:
+        return ""
+
+
+def default_board_title() -> str:
+    """默认看板标题：{项目名} Multi Agent任务看板（无项目名时退化为通用标题）"""
+    proj = read_project_name()
+    return f"{proj} {BOARD_TITLE_SUFFIX}" if proj else "多专家Agent协作任务看板"
+
+
 def read_preferences_data() -> dict:
-    """读取看板布局与偏好配置"""
+    """读取看板布局与偏好配置（title 未定制时注入项目名动态默认值）"""
+    dynamic_default = default_board_title()
     if not os.path.exists(USER_DATA_PREFERENCES):
         return {
-            "title": "多专家Agent协作任务看板",
+            "title": dynamic_default,
             "theme": "light",
             "row_height": 55,
             "card_visible_fields": ["id", "name", "assignee", "est_hours", "status"],
@@ -158,10 +184,14 @@ def read_preferences_data() -> dict:
         with open(USER_DATA_PREFERENCES, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, dict):
+                # 未定制过标题（缺省/旧默认值）→ 跟随项目名动态默认
+                title = str(data.get("title") or "").strip()
+                if title in ("", "多专家Agent协作任务看板"):
+                    data["title"] = dynamic_default
                 return data
     except Exception:
         pass
-    return {}
+    return {"title": dynamic_default}
 
 
 def atomic_write_preferences_data(pref: dict) -> bool:
@@ -188,6 +218,26 @@ def allocate_next_task_id(cards: list) -> str:
         if m:
             max_id = max(max_id, int(m.group(1)))
     return f"T{max_id + 1:04d}"
+
+
+# 角色编码/子代理标识 → 角色名（与 transition_task.ROLE_NAME_MAP 同源；
+# 看板 assignee 恒存中文名，编码仅作入参别名）
+ROLE_NAME_MAP = {
+    "PM": "严经理", "ARCHITECT": "钱架构", "DEV": "李开发",
+    "FRONTEND": "马前端", "REVIEWER": "周审查", "QA": "章测试",
+    "DOCS": "李文通", "DEVOPS": "吕改特",
+    "flow-pm": "严经理", "flow-architect": "钱架构", "flow-dev": "李开发",
+    "flow-frontend": "马前端", "flow-reviewer": "周审查", "flow-qa": "章测试",
+    "flow-docs": "李文通", "flow-devops": "吕改特",
+}
+
+
+def normalize_role_name(val) -> str:
+    """角色编码/子代理 ID 归一化为中文角色名；未命中原样返回"""
+    if not val:
+        return val
+    key = str(val).strip()
+    return ROLE_NAME_MAP.get(key, ROLE_NAME_MAP.get(key.upper(), key))
 
 
 # 流程节点 ID（如 T0001-N03）：任务ID + 任务内单调递增节点序号
@@ -399,9 +449,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             status = body_data.get("status") or "待开始"
-            assignee = body_data.get("assignee") or "李开发"
+            assignee = normalize_role_name(body_data.get("assignee")) or "李开发"
             remarks = body_data.get("remarks", "")
-            init_process = body_data.get("process") or f"[{now_str}] [{status}] 手动新增任务{f' — {remarks}' if remarks else ''}"
 
             new_card = {
                 "id": new_id,
@@ -418,8 +467,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 "start_date": body_data.get("start_date", now_str),
                 "end_date": body_data.get("end_date", ""),
                 "remarks": remarks,
-                "process": init_process
+                "process": ""
             }
+
+            # 建单即写首条节点（新建→待开始）——时间线从建卡起步，不再缺第一环
+            node_id = f"{new_id}-N01"
+            init_process = body_data.get("process") or \
+                f"[{node_id}]  [{now_str}]  建单并进入【{status}】，操作人: {assignee}" + \
+                (f"\n操作说明: {remarks}" if remarks else "")
+            new_card["process"] = init_process
 
             cards.append(new_card)
             if atomic_write_board_data(cards):
@@ -462,8 +518,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(400, "缺少 target_status 目标状态", None, http_status=400)
                 return
 
-            operator_name = body_data.get("operator_name") or "李开发"
-            operator_role = body_data.get("operator_role") or "DEV"
+            operator_name = normalize_role_name(body_data.get("operator_name")) or "李开发"
             comment = body_data.get("comment", "").strip()
 
             cards = read_board_data()
@@ -475,22 +530,26 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             from_status = card.get("status", "待开始")
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            # 更新卡片状态
+            # 更新卡片状态 + 处理人（编码归一化为角色名，assignee 恒中文）
             card["status"] = target_status
+            new_assignee = normalize_role_name(body_data.get("assignee"))
+            if new_assignee:
+                card["assignee"] = new_assignee
             if target_status in ("已完成", "已验收"):
                 card["end_date"] = now_str
 
-            # 追加流转节点行（任务ID-N序号 双标识，与 transition_task.py 写入格式统一）
+            # 追加流转节点（任务ID-N序号 双标识；说明独立成行）
             node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
-            log_text = f"[{now_str}] [{node_id}] [{operator_role}] 状态由【{from_status}】更新至【{target_status}】 (操作人: {operator_name})"
+            log_text = f"[{node_id}]  [{now_str}]  状态由【{from_status}】更新至【{target_status}】，操作人: {operator_name}"
             if comment:
-                log_text += f" (说明: {comment})"
+                log_text += f"\n操作说明: {comment}"
 
             current_process = card.get("process", "")
             card["process"] = f"{current_process}\n{log_text}".strip()
 
             if atomic_write_board_data(cards):
-                append_audit_log(task_id, operator_role, from_status, target_status, operator_name, comment)
+                audit_role = body_data.get("operator_role") or "USER"
+                append_audit_log(task_id, audit_role, from_status, target_status, operator_name, comment)
                 self._send_json_resp(200, "状态流转成功", {
                     "id": task_id,
                     "node_id": node_id,
