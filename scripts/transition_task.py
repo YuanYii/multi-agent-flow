@@ -287,7 +287,18 @@ def transition_task_pipeline(
             except Exception:
                 pass
 
-        # 3. 强制运行防护门控 (并发上限与 HOTFIX 特权透传，未通过则直接抛错中断！)
+        # 3. 身份硬校验（前置）：执行状态流转（from_status 不是待开始/新建）必须显式提供 --task-id，
+        #    严禁无任务 ID 隐式创建新卡片；先于门控校验快速失败
+        if not task_id and from_status not in ["待开始", "新建"]:
+            logger.error(f"[FAILED]  [Fail-Closed 物理硬拦截] 执行状态流转 ({from_status} -> {to_status}) 时必须通过 --task-id 提供原任务编号，严禁无任务 ID 隐式创建新卡片！", extra=extra_log)
+            record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "流转缺失task_id", delegated_by=delegated_by, delegation_reason=delegation_reason)
+            return False
+
+        # 4. 任务存在性检查（只读，前置）：确定目标记录与是否需要自动建单
+        resolved_record_id = record_id or task_id
+        existing = adapter.get_record(resolved_record_id) if resolved_record_id else None
+
+        # 5. 强制运行防护门控 (并发上限与 HOTFIX 特权透传，未通过则直接抛错中断！)
         is_valid = validate(
             role=current_role,
             from_status=from_status,
@@ -310,34 +321,22 @@ def transition_task_pipeline(
 
         logger.info("[SUCCESS]  防错规则核验成功", extra=extra_log)
 
-        # 物理硬阻断: 若执行状态流转（from_status 不是待开始/新建），强制要求必须提供 --task-id
-        if not task_id and from_status not in ["待开始", "新建"]:
-            logger.error(f"[FAILED]  [Fail-Closed 物理硬拦截] 执行状态流转 ({from_status} -> {to_status}) 时必须通过 --task-id 提供原任务编号，严禁无任务 ID 隐式创建新卡片！", extra=extra_log)
-            record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "流转缺失task_id", delegated_by=delegated_by, delegation_reason=delegation_reason)
-            return False
-
-        # 4. 动态读取 Key 映射
+        # 6. 动态读取 Key 映射
         status_key = field_mapping.get("status", "status")
         assignee_key = field_mapping.get("assignee", "assignee")
         end_time_key = field_mapping.get("end_time", "end_time")
 
-        # 5. 任务存在性检查：不存在则自动创建（所有专家角色均可操作）
-        #    dry-run 模式不落库，仅提示正式执行时的行为
+        # 7. dry-run 模式：不落库，仅提示正式执行时的行为（门控已通过）
         if dry_run:
-            if task_id:
-                existing = adapter.get_record(task_id)
-                if existing is None:
-                    logger.info(f"ℹ [DRY-RUN] 任务 {task_id} 在看板中不存在，正式执行时将自动创建后再流转", extra=extra_log)
+            if task_id and existing is None:
+                logger.info(f"ℹ [DRY-RUN] 任务 {task_id} 在看板中不存在，正式执行时将自动创建后再流转", extra=extra_log)
             logger.info(" [DRY-RUN] 配置文件与 Schema 检验完全通过！模拟预检不触发物理网络写卡", extra=extra_log)
             record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, True, "DRY-RUN 完整校验测试通过", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return True
 
         assignee = ROLE_NAME_MAP.get(assignee, assignee)
 
-        resolved_record_id = record_id or task_id
-        existing = adapter.get_record(resolved_record_id) if resolved_record_id else None
-        
-        # 物理硬阻断：对于 A 类常规开发任务，若看板中尚无此任务，绝对禁止直接新建为【已完成/审查中】！
+        # 8. 物理硬阻断：对于 A 类常规开发任务，若看板中尚无此任务，绝对禁止直接新建为【已完成/审查中】！
         # 所有任务卡必须经历【待开始】：任务开始时先建单为【待开始】，领取后转【进行中】，完成后再提交！
         if existing is None:
             is_valid_creation = (from_status in ["待开始", "新建"]) or (to_status == "进行中") or (task_type in ["B", "C", "D", "E", "F", "G"])
@@ -384,7 +383,7 @@ def transition_task_pipeline(
         else:
             resolved_record_id = existing.get("record_id") or resolved_record_id
 
-        # 6. 执行物理原子写入
+        # 9. 执行物理原子写入
         update_fields = {status_key: to_status, assignee_key: assignee}
         if end_time: update_fields[end_time_key] = end_time
         if stage: update_fields[field_mapping.get("stage", "stage")] = stage
@@ -412,7 +411,7 @@ def transition_task_pipeline(
             record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"API 抛出异常: {e}", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return False
 
-        # 6. 追加备注与补偿回滚
+        # 10. 追加备注与补偿回滚
         remarks_key = field_mapping.get("remarks", "remarks")
         if remarks:
             try:
