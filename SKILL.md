@@ -92,6 +92,7 @@ version: 1.0.0
 
 当 Agent 收到任务流转、领单、审查、测试或提权指令时，按需调阅 [`references/`](references/) 目录下的规约文档：
 
+0. **任务分级判定 (L0/L1/L2 三问)** -> 调阅 [`references/02-State-Flow-Rules.md §二`](references/02-State-Flow-Rules.md)
 1. **识别任务与角色边界** -> 调阅 [`references/01-AI-Team-Workflow-Index.md`](references/01-AI-Team-Workflow-Index.md)
 2. **推导合法下一状态** -> 调阅 [`references/02-State-Flow-Rules.md`](references/02-State-Flow-Rules.md)
 3. **校验角色权限与门控** -> 调阅 [`references/03-Anti-Error-Mechanism.md`](references/03-Anti-Error-Mechanism.md)
