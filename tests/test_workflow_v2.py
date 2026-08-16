@@ -419,3 +419,60 @@ class TestTaskTiers:
         src = open(os.path.join(SCRIPTS, "heartbeat.py"), encoding="utf-8").read()
         assert "草稿箱" in src and "L0" in src
 
+
+# =====================================================================
+# 组 10 · 负责人 (Owner) 与处理人 (Handler) 语义与生命周期
+# =====================================================================
+class TestOwnerAndHandlerSemantics:
+    def test_pm_create_assigns_owner_and_handler_to_worker(self, env):
+        """PM 派单未指定 --owner 时，负责人与初始处理人均正确赋予实际执行人(李开发)，而非 PM。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "责任人测试任务", "--assignee", "flow-dev")
+        c = find(env, "T0001")
+        assert c is not None
+        assert c.get("assignee") == "李开发"  # 负责人
+        assert c.get("handler") == "李开发"   # 处理人
+
+    def test_owner_stable_across_lifecycle_and_handler_shifts(self, env):
+        """流转过程中负责人保持恒定不变，处理人随节点流转并在终态收敛至严经理。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "流转经办人测试", "--assignee", "DEV")
+        # 1. 待开始 -> 进行中
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "DEV", "--task-id", "T0001")
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发" and c.get("handler") == "李开发"
+
+        # 2. 进行中 -> 审查中
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "进行中", "--to-status", "审查中", "--assignee", "flow-reviewer", "--task-id", "T0001")
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发"   # 负责人不变
+        assert c.get("handler") == "周审查"    # 处理人移交周审查
+
+        # 3. 审查中 -> 测试中
+        run(env, "transition_task.py", "--role", "REVIEWER", "--from-status", "审查中", "--to-status", "测试中", "--assignee", "flow-qa", "--task-id", "T0001")
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发"   # 负责人不变
+        assert c.get("handler") == "章测试"    # 处理人移交章测试
+
+        # 4. 测试中 -> 已完成
+        now_str = "2026-08-16 23:00:00"
+        run(env, "transition_task.py", "--role", "QA", "--from-status", "测试中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--end-time", now_str)
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发"   # 负责人不变
+        assert c.get("handler") == "严经理"    # 处理人收敛至严经理
+
+        # 5. 已完成 -> 已验收
+        run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--end-time", now_str)
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发"   # 负责人不变
+        assert c.get("handler") == "严经理"    # 处理人终态为严经理
+
+    def test_reject_returns_handler_to_owner(self, env):
+        """打回时处理人精确退回给原负责人。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "退回测试任务", "--assignee", "DEV")
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "DEV", "--task-id", "T0001")
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "进行中", "--to-status", "审查中", "--assignee", "REVIEWER", "--task-id", "T0001")
+        # 周审查打回
+        run(env, "transition_task.py", "--role", "REVIEWER", "--from-status", "审查中", "--to-status", "已退回", "--assignee", "DEV", "--task-id", "T0001", "--remarks", "DEF-T0001-1 修复代码")
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发"
+        assert c.get("handler") == "李开发"
+

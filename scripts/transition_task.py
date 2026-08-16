@@ -95,8 +95,26 @@ def release_concurrency_lock(lock_tuple):
 ROLE_NAME_MAP = {
     "PM": "严经理", "ARCHITECT": "钱架构", "DEV": "李开发",
     "FRONTEND": "马前端", "REVIEWER": "周审查", "QA": "章测试",
-    "DOCS": "李文通", "DEVOPS": "吕改特"
+    "DOCS": "李文通", "DEVOPS": "吕改特",
+    "pm": "严经理", "architect": "钱架构", "dev": "李开发",
+    "frontend": "马前端", "reviewer": "周审查", "qa": "章测试",
+    "docs": "李文通", "devops": "吕改特",
+    "flow-pm": "严经理", "flow-architect": "钱架构", "flow-dev": "李开发",
+    "flow-frontend": "马前端", "flow-reviewer": "周审查", "flow-qa": "章测试",
+    "flow-docs": "李文通", "flow-devops": "吕改特",
+    "pm_user": "严经理", "architect_user": "钱架构",
+    "dev_user": "李开发", "dev_user_1": "李开发", "dev_user_2": "李开发",
+    "frontend_user": "马前端", "reviewer_user": "周审查", "reviewer_user_1": "周审查",
+    "qa_user": "章测试", "docs_user": "李文通", "devops_user": "吕改特",
 }
+
+
+def normalize_role_name(val: Any) -> str:
+    """角色编码/子代理 ID/占位符 归一化为中文角色名；未命中原样返回"""
+    if not val:
+        return ""
+    key = str(val).strip()
+    return ROLE_NAME_MAP.get(key, ROLE_NAME_MAP.get(key.lower(), ROLE_NAME_MAP.get(key.upper(), key)))
 
 PLACEHOLDER_TASK_NAMES = {"", "工作包任务", "-", "暂无", "新建任务", "未命名任务"}
 
@@ -227,10 +245,11 @@ def transition_task_pipeline(
         # 2.5 显式建单模式 (--create / quick create)：建卡为【待开始】，不执行流转
         if create_only:
             role_upper = current_role.upper()
-            effective_assignee = ROLE_NAME_MAP.get(assignee, assignee)
+            effective_assignee = normalize_role_name(assignee or current_role)
+            expected_self = normalize_role_name(role_upper)
             # 建卡权限：PM 可派发任意处理人；非 PM 仅可为自己建卡
-            if role_upper != "PM" and effective_assignee != ROLE_NAME_MAP.get(role_upper, role_upper):
-                logger.error(f"[FAILED]  [建卡权限拦截] 角色 {role_upper} 仅可为自己建卡（assignee 必须为 {ROLE_NAME_MAP.get(role_upper, role_upper)}），如需派发请由 PM 执行！", extra=extra_log)
+            if role_upper != "PM" and effective_assignee != expected_self:
+                logger.error(f"[FAILED]  [建卡权限拦截] 角色 {role_upper} 仅可为自己建卡（assignee 必须为 {expected_self}），如需派发请由 PM 执行！", extra=extra_log)
                 record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, "建卡权限拦截", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
             if not task_name or not str(task_name).strip():
@@ -247,12 +266,19 @@ def transition_task_pipeline(
                         record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, f"重复任务校验拦截: {len(dup_hits)} 条候选", delegated_by=delegated_by, delegation_reason=delegation_reason)
                         return False
                     logger.warning(f"[WARN]  [重复任务] 用户确认强制创建（--force），命中 {len(dup_hits)} 条候选", extra=extra_log)
+            # 任务负责人 (Owner): 实际执行人。PM派单时默认等于被派发的执行人(如李开发)；自建自领为自身
+            if owner:
+                effective_owner = normalize_role_name(owner)
+            else:
+                effective_owner = effective_assignee if role_upper == "PM" else expected_self
+
             create_fields = {
                 "task_id": task_id,
                 "task_name": task_name,
                 "status": "待开始",
-                "assignee": effective_assignee,
-                "owner": owner or current_role,
+                "assignee": effective_owner,
+                "owner": effective_owner,
+                "handler": effective_assignee,
                 "stage": stage or "-",
                 "workpackage": wp or "-",
                 "wbs_id": wbs or "-",
@@ -265,7 +291,7 @@ def transition_task_pipeline(
                 logger.error("[FAILED]  建单失败（编号冲突或写入失败），硬阻断！", extra=extra_log)
                 record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, "建单失败", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
-            logger.info(f" 任务 {created_id} 已建卡【待开始】(处理人: {effective_assignee}, 负责人: {owner or current_role})", extra={"task_id": created_id})
+            logger.info(f" 任务 {created_id} 已建卡【待开始】(负责人: {effective_owner}, 处理人: {effective_assignee})", extra={"task_id": created_id})
             record_audit_event(created_id, current_role, "新建", "待开始", effective_assignee, True, "显式建单", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return True
 
@@ -348,7 +374,7 @@ def transition_task_pipeline(
             record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, True, "DRY-RUN 完整校验测试通过", delegated_by=delegated_by, delegation_reason=delegation_reason)
             return True
 
-        assignee = ROLE_NAME_MAP.get(assignee, assignee)
+        norm_assignee = normalize_role_name(assignee)
 
         # 8. 物理硬阻断：对于 A 类常规开发任务，若看板中尚无此任务，绝对禁止直接新建为【已完成/审查中】！
         # 所有任务卡必须经历【待开始】：任务开始时先建单为【待开始】，领取后转【进行中】，完成后再提交！
@@ -356,7 +382,7 @@ def transition_task_pipeline(
             is_valid_creation = (from_status in ["待开始", "新建"]) or (to_status == "进行中") or (task_type in ["B", "C", "D", "E", "F", "G"])
             if not is_valid_creation:
                 logger.error(f"[FAILED]  [物理硬阻断] 看板中尚无此任务，绝对禁止直接新建为【{to_status}】！你必须首先在任务开始时调用 CLI 初始化建单为【待开始】！", extra=extra_log)
-                record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"拒绝直接新建为{to_status}", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                record_audit_event(resolved_task_id, current_role, from_status, to_status, norm_assignee, False, f"拒绝直接新建为{to_status}", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
 
             # 兜底自动建单同样执行重复任务校验（命中输出重复内容并终止命令，--force 确认重跑）
@@ -365,17 +391,19 @@ def transition_task_pipeline(
                 if dup_hits and not force:
                     print_duplicate_protocol(task_name, dup_hits)
                     logger.error(f"[FAILED]  [重复任务拦截] 自动建单疑似与 {len(dup_hits)} 条现有任务重复，命令终止；确认请加 --force 重跑", extra=extra_log)
-                    record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"重复任务校验拦截: {len(dup_hits)} 条候选", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                    record_audit_event(resolved_task_id, current_role, from_status, to_status, norm_assignee, False, f"重复任务校验拦截: {len(dup_hits)} 条候选", delegated_by=delegated_by, delegation_reason=delegation_reason)
                     return False
 
             now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             initial_status = "待开始"  # 所有任务卡必须经历【待开始】
+            effective_owner = normalize_role_name(owner) if owner else norm_assignee
             create_fields = {
                 "task_id": task_id,
                 "task_name": task_name or "工作包任务",
                 "status": initial_status,
-                "assignee": assignee,
-                "owner": owner or current_role,
+                "assignee": effective_owner,
+                "owner": effective_owner,
+                "handler": norm_assignee,
                 "stage": stage or "-",
                 "workpackage": wp or "-",
                 "wbs_id": wbs or "-",
@@ -386,19 +414,33 @@ def transition_task_pipeline(
             created_id = adapter.create_record(create_fields)
             if not created_id:
                 logger.error(f"[FAILED]  任务自动创建失败（编号冲突或写入失败），硬阻断流转！", extra=extra_log)
-                record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "任务自动创建失败", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                record_audit_event(resolved_task_id, current_role, from_status, to_status, norm_assignee, False, "任务自动创建失败", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
             if not task_id:
                 task_id = created_id
             resolved_record_id = task_id
             extra_log = {"task_id": task_id}
-            logger.info(f" 任务 {task_id} 在看板中不存在，已成功初始化建单为【{initial_status}】(负责人: {assignee})", extra=extra_log)
-            record_audit_event(task_id, current_role, "新建", initial_status, assignee, True, "任务自动初始化建单", delegated_by=delegated_by, delegation_reason=delegation_reason)
+            logger.info(f" 任务 {task_id} 在看板中不存在，已成功初始化建单为【{initial_status}】(负责人: {effective_owner}, 处理人: {norm_assignee})", extra=extra_log)
+            record_audit_event(task_id, current_role, "新建", initial_status, norm_assignee, True, "任务自动初始化建单", delegated_by=delegated_by, delegation_reason=delegation_reason)
         else:
             resolved_record_id = existing.get("record_id") or resolved_record_id
 
         # 9. 执行物理原子写入
-        update_fields = {status_key: to_status, assignee_key: assignee}
+        # 处理人 (handler): 随流转推进更新；终态（已完成/已验收/已取消）默认收敛至 严经理
+        target_handler = norm_assignee
+        if to_status in ["已完成", "已验收", "已取消"] and (not target_handler or target_handler == normalize_role_name(current_role)):
+            target_handler = "严经理"
+        elif to_status == "已退回":
+            exist_fields = (existing.get("fields", {}) if existing else {}) or {}
+            orig_owner = exist_fields.get("assignee") or exist_fields.get("owner")
+            if orig_owner:
+                target_handler = normalize_role_name(orig_owner)
+
+        update_fields = {status_key: to_status, "handler": target_handler}
+        if assignee_key and assignee_key != "assignee":
+            update_fields[assignee_key] = target_handler
+        if owner:
+            update_fields["assignee"] = normalize_role_name(owner)
         if end_time: update_fields[end_time_key] = end_time
         if stage: update_fields[field_mapping.get("stage", "stage")] = stage
         if wp: update_fields[field_mapping.get("workpackage", "workpackage")] = wp
@@ -460,8 +502,8 @@ def transition_task_pipeline(
         except Exception as e:
             logger.warning(f"[WARN]  流程节点行追加异常 ({e})，不影响已落库状态", extra=extra_log)
 
-        logger.info(f" 看板 {task_id} 已成功推至【{to_status}】，处理人: {assignee}", extra=extra_log)
-        record_audit_event(task_id, current_role, from_status, to_status, assignee, True, "流转全量物理落库成功", delegated_by=delegated_by, delegation_reason=delegation_reason)
+        logger.info(f" 看板 {task_id} 已成功推至【{to_status}】，处理人: {target_handler}", extra=extra_log)
+        record_audit_event(task_id, current_role, from_status, to_status, target_handler, True, "流转全量物理落库成功", delegated_by=delegated_by, delegation_reason=delegation_reason)
         return True
 
     finally:
@@ -477,7 +519,7 @@ def main():
     parser.add_argument("--stage", default=None, help="项目阶段 (自动创建时写入)")
     parser.add_argument("--wp", default=None, help="工作包 (自动创建时写入)")
     parser.add_argument("--wbs", default=None, help="WBS 编号 (自动创建时写入)")
-    parser.add_argument("--owner", default=None, help="负责人/验收人 (自动创建时写入 handler)")
+    parser.add_argument("--owner", default=None, help="任务负责人 (实际承接人，生命周期保持稳定)")
     parser.add_argument("--role", required=True, help="当前触发者角色 (PM/DEV/REVIEWER/QA 等)")
     parser.add_argument("--from-status", default="", help="原状态 (流转模式必填；--create 建卡模式可省略)")
     parser.add_argument("--to-status", default="", help="目标状态 (流转模式必填；--create 建卡模式可省略)")

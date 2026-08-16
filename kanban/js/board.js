@@ -340,8 +340,10 @@
 
             // Table inline -> write back to data + re-render
             const cardId = trigger.dataset.cardId;
+            const field = trigger.dataset.field;
             if (cardId) {
                 if (type === 'status') quickUpdateStatus(cardId, value);
+                else if (field === 'handler') quickUpdateHandler(cardId, value);
                 else quickUpdateAssignee(cardId, value);
             }
             closeTagPanel();
@@ -691,9 +693,11 @@
                             ${tagSelectTriggerHTML('status', card.status || '待开始', `data-card-id="${esc(card.id)}"`)}
                         </td>
                         <td>
-                            ${tagSelectTriggerHTML('person', card.assignee || '李开发', `data-card-id="${esc(card.id)}"`)}
+                            ${tagSelectTriggerHTML('person', card.assignee || '未分配', `data-card-id="${esc(card.id)}" data-field="assignee"`)}
                         </td>
-                        <td>${esc(card.handler) || '-'}</td>
+                        <td>
+                            ${tagSelectTriggerHTML('person', card.handler || card.assignee || '未分配', `data-card-id="${esc(card.id)}" data-field="handler"`)}
+                        </td>
                         <td>${esc(card.est_hours)}</td>
                         <td>${esc(card.act_hours)}</td>
                         <td><small style="color:#4e5969;">${esc(card.start_date) || '-'}</small></td>
@@ -865,6 +869,18 @@
                 saveStorageData();
                 applyFilters();
                 showToast(`已更新 ${card.id} 负责人为: ${newAssignee}`);
+            }
+        }
+
+        function quickUpdateHandler(cardId, newHandler) {
+            const card = rawCardsData.find(c => c.id === cardId);
+            if (card && card.handler !== newHandler) {
+                const oldHandler = card.handler;
+                card.handler = newHandler;
+                appendProcessLog(card, `[快捷处理人变更] 处理人由【${oldHandler || '未设定'}】变更为【${newHandler}】`);
+                saveStorageData();
+                applyFilters();
+                showToast(`已更新 ${card.id} 处理人为: ${newHandler}`);
             }
         }
 
@@ -1266,7 +1282,7 @@
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                         <span class="tag" style="background:${getBadgeStyle('status', card.status).bg}; color:${getBadgeStyle('status', card.status).text}; border:1px solid rgba(0,0,0,0.06);">${esc(card.status || '待开始')}</span>
                         <span class="tag" style="background:${getBadgeStyle('person', card.assignee).bg}; color:${getBadgeStyle('person', card.assignee).text}; border:1px solid rgba(0,0,0,0.06);">负责人: ${esc(card.assignee || '未分配')}</span>
-                        ${card.handler ? `<span class="tag tag-stage">当前处理人: ${esc(card.handler)}</span>` : ''}
+                        ${card.handler ? `<span class="tag" style="background:${getBadgeStyle('person', card.handler).bg}; color:${getBadgeStyle('person', card.handler).text}; border:1px solid rgba(0,0,0,0.06);">处理人: ${esc(card.handler)}</span>` : ''}
                         ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${esc(card.wbs)}</span>` : ''}
                     </div>
                 `;

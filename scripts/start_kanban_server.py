@@ -226,18 +226,25 @@ ROLE_NAME_MAP = {
     "PM": "严经理", "ARCHITECT": "钱架构", "DEV": "李开发",
     "FRONTEND": "马前端", "REVIEWER": "周审查", "QA": "章测试",
     "DOCS": "李文通", "DEVOPS": "吕改特",
+    "pm": "严经理", "architect": "钱架构", "dev": "李开发",
+    "frontend": "马前端", "reviewer": "周审查", "qa": "章测试",
+    "docs": "李文通", "devops": "吕改特",
     "flow-pm": "严经理", "flow-architect": "钱架构", "flow-dev": "李开发",
     "flow-frontend": "马前端", "flow-reviewer": "周审查", "flow-qa": "章测试",
     "flow-docs": "李文通", "flow-devops": "吕改特",
+    "pm_user": "严经理", "architect_user": "钱架构",
+    "dev_user": "李开发", "dev_user_1": "李开发", "dev_user_2": "李开发",
+    "frontend_user": "马前端", "reviewer_user": "周审查", "reviewer_user_1": "周审查",
+    "qa_user": "章测试", "docs_user": "李文通", "devops_user": "吕改特",
 }
 
 
 def normalize_role_name(val) -> str:
-    """角色编码/子代理 ID 归一化为中文角色名；未命中原样返回"""
+    """角色编码/子代理 ID/占位符 归一化为中文角色名；未命中原样返回"""
     if not val:
-        return val
+        return ""
     key = str(val).strip()
-    return ROLE_NAME_MAP.get(key, ROLE_NAME_MAP.get(key.upper(), key))
+    return ROLE_NAME_MAP.get(key, ROLE_NAME_MAP.get(key.lower(), ROLE_NAME_MAP.get(key.upper(), key)))
 
 
 # 流程节点 ID（如 T0001-N03）：任务ID + 任务内单调递增节点序号

@@ -121,6 +121,14 @@ def serialize_subagent(role_data, role_meta, platform_key, subagent_spec):
     redline_str = "\n".join([f"- {r}" for r in redlines]) if isinstance(redlines, list) else str(redlines)
     tools = PLATFORM_TOOLS.get(platform_key, DEFAULT_TOOLS)
 
+    role_name_map = {
+        "PM": "严经理", "ARCHITECT": "钱架构", "DEV": "李开发",
+        "FRONTEND": "马前端", "REVIEWER": "周审查", "QA": "章测试",
+        "DOCS": "李文通", "DEVOPS": "吕改特"
+    }
+    self_role_name = role_name_map.get(role_code.upper(), agent_name.split()[0])
+    next_handler_name = "周审查" if role_code.upper() in ["DEV", "FRONTEND"] else "严经理"
+
     # 1. 状态机 SOP 引导提示词 (三步闭环)
     # 注: --config 省略，由 paths.resolve_runtime_config() 解析链定位配置（任意 CWD 均正确）
     sop_prompt = f"""# 角色定义：{agent_name} ({agent_id})
@@ -134,10 +142,10 @@ def serialize_subagent(role_data, role_meta, platform_key, subagent_spec):
 ## 自动化任务流转 SOP (CLI 三步闭环)
 在执行本角色相关任务时，必须严格执行以下三步物理命令流转：
 1. **领单/开工**：
-   `python3 scripts/transition_task.py --role {role_code.upper()} --from-status 待开始 --to-status 进行中 --assignee {agent_id}`
+   `python3 scripts/transition_task.py --role {role_code.upper()} --from-status 待开始 --to-status 进行中 --assignee {self_role_name}`
 2. **业务执行**：执行架构/编码/审查/测试/文档核心工作，产出交付物。
 3. **完工/提审/流转**：
-   `python3 scripts/transition_task.py --role {role_code.upper()} --from-status 进行中 --to-status 审查中 --task-id <第一步任务ID> --assignee Reviewer_User_1`
+   `python3 scripts/transition_task.py --role {role_code.upper()} --from-status 进行中 --to-status 审查中 --task-id <第一步任务ID> --assignee {next_handler_name}`
 4. **完工硬门禁（强制）**：任何代码/文档/审查/测试交付产出完成后，最后一步必须执行上述流转命令推进状态（A 类开发推至【审查中】，B/C/D/G 类推至【已完成】，终态前补填 end_time），否则视为未交付；看板任务卡必须经历【待开始】状态（本门禁仅约束已建卡任务；L0 即时问答无卡直答，不适用——分级三问见 references/02-State-Flow-Rules.md）。
 """
 

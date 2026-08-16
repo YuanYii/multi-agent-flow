@@ -48,9 +48,9 @@ MAIN_ROLE_BY_TYPE = {
 # A 类链: 每段转换的 (执行角色, 处理人)
 CHAIN_ROLES_A = [
     ("待开始", "进行中", "DEV", "李开发"),
-    ("进行中", "审查中", "DEV", "李开发"),
-    ("审查中", "测试中", "REVIEWER", "周审查"),
-    ("测试中", "已完成", "QA", "章测试"),
+    ("进行中", "审查中", "DEV", "周审查"),
+    ("审查中", "测试中", "REVIEWER", "章测试"),
+    ("测试中", "已完成", "QA", "严经理"),
     ("已完成", "已验收", "PM", "严经理"),
 ]
 
@@ -59,7 +59,7 @@ def short_chain_roles(main_role: str) -> List[tuple]:
     main_assignee = ROLE_NAME_MAP.get(main_role, main_role)
     return [
         ("待开始", "进行中", main_role, main_assignee),
-        ("进行中", "已完成", main_role, main_assignee),
+        ("进行中", "已完成", main_role, "严经理"),
         ("已完成", "已验收", "PM", "严经理"),
     ]
 
