@@ -40,7 +40,7 @@ version: 1.0.0
 
 ## 初次加载：技术架构自动识别 SOP (Architecture Discovery)
 
-当 Agent **初次在此工作区调阅/加载本 Skill**（检测到 `config/project_architecture.config.yaml` 不存在）时，必须自动执行以下操作并遵循响应契约：
+当 Agent **初次在此工作区调阅/加载本 Skill**（检测到 `config/project_architecture.config.yaml` 不存在，**或**其 `meta.initialized != true`）时，必须自动执行以下操作并遵循响应契约：
 
 > [NOTICE] **【显式响应与 Token 预警契约】**
 > Agent 在启动初始化时，**必须第一时间在回复中显式输出以下提示**：
@@ -52,8 +52,8 @@ version: 1.0.0
 
 1. **核验配置文件**：检查 `config/project_architecture.config.yaml` 是否已存在。
 2. **代码物理强拦截与 Subagent 官方规范落盘**：
-   - **【代码层 100% 物理拦截】**：必须运行 `python3 scripts/verify_and_export_agents.py`。该 Python 脚本在代码底层强制发起 HTTP 校验，访问官方页面查验 Subagent 规范断言。
-   - **防遗忘硬锁 (Hard Code Assurance)**：无论 Agent 模型本身是否遗忘规则，只要运行该初始化脚本，**代码解释器在物理层 100% 必然会执行官方联网查验**；若网络/断言失败则直接 `exit(1)` 抛错阻断，从机制上彻底解耦对 AI 纯文本“记忆力”的依赖。
+   - **【代码层物理拦截】**：必须运行 `python3 scripts/verify_and_export_agents.py`。该脚本按 `config/agent_platforms.yaml` 声明的各平台官方导出路径与格式完成 8 大专家子代理落盘。
+   - **本地格式断言 (Fail-Closed)**：脚本在导出后逐份执行确定性校验——Markdown frontmatter 可被 YAML 解析、Codex TOML 可被 tomllib 解析、`name`/`description` 必填、8 角色齐全；任一不满足即 `exit(1)` 阻断初始化（挂载失败降级为 WARN 提示）。此机制不依赖网络，从代码层解耦对 AI 纯文本“记忆力”的依赖。
 3. **自动扫描与识别**（若不存在配置文件）：
    - 自动扫描工作区配置文件（如 `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `Dockerfile`, `README.md` 等）。
    - 识别应用类型、开发语言、核心框架、单测/构建工具及目录架构模式。

@@ -18,7 +18,7 @@ echo "==========================================================================
 echo "[SECURITY]  [Step 1/7] 强执行敏感凭据泄露安全扫描 (check_secrets.py)..."
 python3 "${SCRIPT_DIR}/check_secrets.py"
 
-echo "[SECURITY]  [Step 2/7] 动态 Agent 环境探测、官方文档实时查证与 Subagent 强规范落盘..."
+echo "[SECURITY]  [Step 2/7] 动态 Agent 环境探测、Subagent 导出与本地格式断言 (Fail-Closed)..."
 python3 "${SCRIPT_DIR}/verify_and_export_agents.py"
 
 echo "[SCAN]  [Step 3/7] 自动代码物理扫描工程基础设施、依赖文件与语言技术栈配置..."

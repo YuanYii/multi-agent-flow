@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """
 通用多 Agent 平台技能挂载与子代理导出引擎 (Universal Agent Mounting & Export Engine)
-严格遵循各平台官方最新规范与开放标准 (Zero-Speculation Verified)，
-通过声明式配置驱动，自动完成技能目录挂载、Slash Command / 规则注册与 8 大专家子代理格式序列化。
+按声明式配置驱动，自动完成技能目录挂载、规则注册与 8 大专家子代理格式序列化，
+并在导出后执行本地格式断言 (Fail-Closed: 解析失败/角色不齐全即 exit(1))。
 """
 
 import os
 import sys
-import shutil
-import urllib.request
 import yaml
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,6 +25,16 @@ ROLES_MAP = {
     "07-devops.yaml": {"id": "flow-devops", "role_code": "devops", "name": "吕改特 (运维管理员)"},
     "08-frontend.yaml": {"id": "flow-frontend", "role_code": "frontend", "name": "马前端 (前端开发工程师)"},
 }
+
+# 各平台官方工具名映射: 导出给对应平台的 subagent 必须使用该平台认识的工具标识
+PLATFORM_TOOLS = {
+    "claude_code": ["Bash", "Edit", "Read", "Write", "Grep", "Glob"],
+    "antigravity": ["run_command", "replace_file_content", "write_to_file", "view_file", "list_dir", "grep_search"],
+    "cursor": ["Read", "Edit", "Write", "Bash", "Grep", "Glob"],
+    "opencode": ["bash", "edit", "read", "write", "grep", "glob"],
+    "zcode": ["run_command", "replace_file_content", "write_to_file", "view_file", "list_dir", "grep_search"],
+}
+DEFAULT_TOOLS = ["run_command", "replace_file_content", "write_to_file", "view_file", "list_dir", "grep_search"]
 
 def load_platforms_config():
     """读取声明式平台配置"""
@@ -54,16 +62,11 @@ def safe_symlink(source_dir, target_link_path):
         os.symlink(rel_source, target_link_path)
         return True
     except (OSError, NotImplementedError):
-        # Windows / 受限环境回退：如果无法创建 symlink，创建快捷方式或目录拷贝提示
-        try:
-            if hasattr(os, "system"):
-                # 尝试 Windows mklink /J (Junction)
-                if sys.platform == "win32":
-                    cmd = f'mklink /J "{target_link_path}" "{source_dir}"'
-                    if os.system(cmd) == 0:
-                        return True
-        except Exception:
-            pass
+        # Windows / 受限环境回退：如果无法创建 symlink，创建 Junction 或提示
+        if sys.platform == "win32":
+            cmd = f'mklink /J "{target_link_path}" "{source_dir}"'
+            if os.system(cmd) == 0:
+                return True
         return False
 
 def detect_active_platforms(platforms_config):
@@ -100,7 +103,7 @@ def serialize_subagent(role_data, role_meta, platform_key, subagent_spec):
     duty_str = "\n".join([f"- {d}" for d in core_duties]) if isinstance(core_duties, list) else str(core_duties)
     redlines = role_data.get("redlines") or role_data.get("orchestration_rules", [])
     redline_str = "\n".join([f"- {r}" for r in redlines]) if isinstance(redlines, list) else str(redlines)
-    tools = ["run_command", "replace_file_content", "write_to_file", "view_file", "list_dir", "grep_search"]
+    tools = PLATFORM_TOOLS.get(platform_key, DEFAULT_TOOLS)
 
     # 1. 状态机 SOP 引导提示词 (三步闭环)
     sop_prompt = f"""# 角色定义：{agent_name} ({agent_id})
@@ -149,10 +152,60 @@ developer_instructions = \"\"\"
     else:
         return sop_prompt
 
+def verify_exported_agent(out_abs_path, fmt):
+    """
+    本地格式断言 (Fail-Closed):
+    - markdown_frontmatter: frontmatter 必须可被 yaml.safe_load 解析, 且 name/description 非空
+    - codex_toml: 必须可被 tomllib 解析, 且 name/description 非空
+    返回 (ok: bool, err: str)
+    """
+    try:
+        with open(out_abs_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+    except Exception as e:
+        return False, f"读取失败: {e}"
+
+    if fmt == "codex_toml":
+        try:
+            import tomllib
+        except ImportError:
+            # Python < 3.10 无 tomllib: 降级为关键行存在性断言
+            has_name = any(line.startswith("name =") for line in content.splitlines())
+            has_desc = any(line.startswith("description =") for line in content.splitlines())
+            if has_name and has_desc:
+                return True, ""
+            return False, "TOML 缺少 name/description 声明行"
+        try:
+            data = tomllib.loads(content)
+        except Exception as e:
+            return False, f"TOML 解析失败: {e}"
+        if not data.get("name") or not data.get("description"):
+            return False, "TOML 缺少 name/description 字段"
+        return True, ""
+
+    # markdown + frontmatter
+    if not content.startswith("---"):
+        return False, "缺少 YAML frontmatter 起始标头"
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        return False, "frontmatter 结构不完整"
+    try:
+        fm = yaml.safe_load(parts[1])
+    except Exception as e:
+        return False, f"frontmatter YAML 解析失败: {e}"
+    if not isinstance(fm, dict):
+        return False, "frontmatter 不是合法映射"
+    if not fm.get("name") or not fm.get("description"):
+        return False, "frontmatter 缺少 name/description 字段"
+    return True, ""
+
 def export_platform_assets(platforms_config, active_platforms):
-    """执行跨平台 Skill 挂载与 Subagent 导出"""
+    """执行跨平台 Skill 挂载与 Subagent 导出，返回导出成败统计"""
     skill_name = platforms_config.get("default_skill_name", "yy-flow")
     platforms = platforms_config.get("platforms", {})
+    missing_agents = []
+    verify_failures = []
+    total_exported = 0
 
     print(f"[SCAN]  已自动侦测到当前激活/兼容平台: {active_platforms}")
 
@@ -168,6 +221,8 @@ def export_platform_assets(platforms_config, active_platforms):
             abs_target = os.path.join(TARGET_PROJECT_DIR, rel_target)
             if safe_symlink(PROJECT_ROOT, abs_target):
                 print(f"[SUCCESS]  [{p_name}] 成功挂载 Skill 发现路径 -> {rel_target}")
+            else:
+                print(f"[WARN]  [{p_name}] Skill 挂载跳过 (目标已存在实体路径或无法创建软链) -> {rel_target}")
 
         # 2. 执行 Cursor MDC 规则挂载
         if spec.get("mount_type") == "cursor_mdc" and "rule_target" in spec:
@@ -184,11 +239,13 @@ def export_platform_assets(platforms_config, active_platforms):
             continue
 
         pattern = subagent_spec["pattern"]
+        fmt = subagent_spec.get("format", "markdown_frontmatter")
         exported_count = 0
 
         for yaml_file, role_meta in sorted(ROLES_MAP.items()):
             yaml_path = os.path.join(AGENTS_DIR, yaml_file)
             if not os.path.exists(yaml_path):
+                missing_agents.append(f"[{p_key}] {yaml_file}")
                 continue
 
             with open(yaml_path, "r", encoding="utf-8") as fp:
@@ -202,8 +259,16 @@ def export_platform_assets(platforms_config, active_platforms):
             with open(out_abs_path, "w", encoding="utf-8") as fp:
                 fp.write(out_content)
             exported_count += 1
+            total_exported += 1
 
-        print(f"[SUCCESS]  [{p_name}] 成功导出 8 大专家子代理 ({exported_count}/8) -> 模式: `{pattern}`")
+            # 导出后本地格式断言
+            ok, err = verify_exported_agent(out_abs_path, fmt)
+            if not ok:
+                verify_failures.append(f"[{p_key}] {out_rel_path}: {err}")
+
+        print(f"[SUCCESS]  [{p_name}] 成功导出专家子代理 ({exported_count}/8) -> 模式: `{pattern}`")
+
+    return missing_agents, verify_failures, total_exported
 
 def main():
     platforms_config = load_platforms_config()
@@ -213,10 +278,24 @@ def main():
     print("[START] [Multi-Agent Flow] 正在执行跨平台 Skill 自动挂载与 Subagent 导出...")
     print("==============================================================================")
 
-    export_platform_assets(platforms_config, active_platforms)
+    missing_agents, verify_failures, total_exported = export_platform_assets(platforms_config, active_platforms)
+
+    if missing_agents:
+        for m in missing_agents:
+            print(f"[ERROR] 角色定义文件缺失: {m}")
+    if verify_failures:
+        for f_ in verify_failures:
+            print(f"[ERROR] 导出格式断言失败: {f_}")
+
+    expected = 8 * max(len([p for p in active_platforms if platforms_config.get("platforms", {}).get(p, {}).get("subagent_export")]), 1)
+    if missing_agents or verify_failures or total_exported == 0:
+        print("==============================================================================")
+        print("[FAILED] Subagent 导出未通过完整性校验，初始化阻断 (Fail-Closed)！")
+        print("==============================================================================")
+        sys.exit(1)
 
     print("==============================================================================")
-    print("[SUCCESS]  全平台 Skill 挂载与 8 大专家子代理序列化就绪！")
+    print(f"[SUCCESS] 全平台 Skill 挂载与专家子代理序列化就绪 (共导出 {total_exported} 份，本地格式断言全部通过)！")
     print("==============================================================================")
 
 if __name__ == "__main__":
