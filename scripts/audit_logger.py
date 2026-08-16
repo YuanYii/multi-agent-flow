@@ -21,20 +21,19 @@ from datetime import datetime, date
 from typing import Any, Dict, List, Optional
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, SCRIPT_DIR)
+
+import paths as _paths
 
 def get_logs_dir() -> str:
-    return os.environ.get("AUDIT_LOG_DIR") or os.path.join(PROJECT_ROOT, "user_data", "logs")
+    """日志目录：AUDIT_LOG_DIR 环境变量覆盖 > data_root/user_data/logs（惰性解析）"""
+    return _paths.audit_logs_dir()
 
 def get_audit_log_file() -> str:
     return os.path.join(get_logs_dir(), "audit_trail.log")
 
 def get_archive_dir() -> str:
     return os.path.join(get_logs_dir(), "archive")
-
-LOGS_DIR = get_logs_dir()
-AUDIT_LOG_FILE = get_audit_log_file()
-ARCHIVE_DIR = get_archive_dir()
 
 
 def record_audit_event(
@@ -93,7 +92,7 @@ def record_audit_event(
 
 if __name__ == "__main__":
     record_audit_event("T0000", "TEST", "待开始", "进行中", "TESTER", True, "审计日志测试事件")
-    print(f"[SUCCESS]  [AuditLogger] 测试审计日志已写入: {AUDIT_LOG_FILE}")
+    print(f"[SUCCESS]  [AuditLogger] 测试审计日志已写入: {get_audit_log_file()}")
 
 
 # =============================================================================
@@ -191,7 +190,7 @@ def _today_str() -> str:
 
 def _current_log_date() -> Optional[str]:
     """从文件名后缀解析当前 audit_trail.log 所属日期 (YYYYMMDD);若文件未带日期后缀,返回 None。"""
-    name = os.path.basename(AUDIT_LOG_FILE)
+    name = os.path.basename(get_audit_log_file())
     m = re.search(r"-(\d{8})(?:\.log)?$", name)
     return m.group(1) if m else None
 
@@ -205,10 +204,12 @@ def rotate_if_needed(max_size_mb: int = 50) -> Dict[str, Any]:
 
     返回 {"rotated": bool, "reason": str, "archived_to": str|None}
     """
-    if not os.path.exists(AUDIT_LOG_FILE):
+    audit_log_file = get_audit_log_file()
+    archive_dir = get_archive_dir()
+    if not os.path.exists(audit_log_file):
         return {"rotated": False, "reason": "no_log_file", "archived_to": None}
 
-    size_mb = os.path.getsize(AUDIT_LOG_FILE) / (1024 * 1024)
+    size_mb = os.path.getsize(audit_log_file) / (1024 * 1024)
     today = _today_str()
     log_date = _current_log_date()
 
@@ -218,10 +219,10 @@ def rotate_if_needed(max_size_mb: int = 50) -> Dict[str, Any]:
     if not should_rotate_daily and not should_rotate_size:
         return {"rotated": False, "reason": "no_rotation_needed", "archived_to": None}
 
-    os.makedirs(ARCHIVE_DIR, exist_ok=True)
+    os.makedirs(archive_dir, exist_ok=True)
 
     try:
-        lock_f = open(AUDIT_LOG_FILE, "a+", encoding="utf-8")
+        lock_f = open(audit_log_file, "a+", encoding="utf-8")
         try:
             if sys.platform == "win32":
                 import msvcrt
@@ -238,8 +239,8 @@ def rotate_if_needed(max_size_mb: int = 50) -> Dict[str, Any]:
                 archive_name = f"audit_trail-{log_date}-{ts}.log.gz"
                 reason = f"size_limit_{size_mb:.1f}MB>={max_size_mb}MB"
 
-            archive_path = os.path.join(ARCHIVE_DIR, archive_name)
-            with open(AUDIT_LOG_FILE, "rb") as src, gzip.open(archive_path, "wb") as dst:
+            archive_path = os.path.join(archive_dir, archive_name)
+            with open(audit_log_file, "rb") as src, gzip.open(archive_path, "wb") as dst:
                 shutil.copyfileobj(src, dst)
         finally:
             if sys.platform == "win32":
@@ -256,8 +257,8 @@ def rotate_if_needed(max_size_mb: int = 50) -> Dict[str, Any]:
                     pass
             lock_f.close()
 
-        if os.path.exists(AUDIT_LOG_FILE):
-            os.remove(AUDIT_LOG_FILE)
+        if os.path.exists(audit_log_file):
+            os.remove(audit_log_file)
 
         return {
             "rotated": True,

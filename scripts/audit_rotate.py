@@ -21,7 +21,7 @@ import json
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from audit_logger import rotate_if_needed, AUDIT_LOG_FILE, ARCHIVE_DIR
+from audit_logger import rotate_if_needed, get_audit_log_file, get_archive_dir
 
 
 def main():
@@ -32,10 +32,11 @@ def main():
 
     if args.dry_run:
         from audit_logger import _current_log_date
-        if not os.path.exists(AUDIT_LOG_FILE):
-            print(f"[DRY-RUN] 日志文件不存在: {AUDIT_LOG_FILE}")
+        audit_log_file = get_audit_log_file()
+        if not os.path.exists(audit_log_file):
+            print(f"[DRY-RUN] 日志文件不存在: {audit_log_file}")
             return
-        size_mb = os.path.getsize(AUDIT_LOG_FILE) / (1024 * 1024)
+        size_mb = os.path.getsize(audit_log_file) / (1024 * 1024)
         log_date = _current_log_date()
         from datetime import date
         today = date.today().strftime("%Y%m%d")
