@@ -11,11 +11,11 @@ __pycache__/
 
 # Local runtime configs, logs, lock files, and runtime outputs
 config/workflow.config.yaml
-config/project_architecture.config.yaml
 user_data/
+kanban/board.json
+kanban/board.json.seq.lock
 docs/
 logs/
-tests/
 *.lock
 */*.lock
 .lock_*
