@@ -103,7 +103,7 @@ def generate_report(report_type: str, task_id: str, task_name: str, assignee: st
     return True
 
 def resolve_report_dir(report_type: str) -> str:
-    """报告归档目录：config paths.* 映射（锚定 data_root），默认 docs/03-operations/reports/{type}。
+    """报告归档目录：config paths.* 映射（锚定 data_root），默认 docs/03-研发过程/报告/{type}。
 
     统一三套历史约定（config paths / heartbeat 硬编码 / 本脚本旧硬编码）为 config 单一事实源。
     """
@@ -125,7 +125,7 @@ def resolve_report_dir(report_type: str) -> str:
         rel = None
     if rel:
         return os.path.join(data_root, rel)
-    return os.path.join(data_root, "docs", "03-operations", "reports", report_type)
+    return os.path.join(data_root, "docs", "03-研发过程", "报告", report_type)
 
 
 def main(args: list = None):
@@ -134,7 +134,7 @@ def main(args: list = None):
     parser.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
     parser.add_argument("--task-name", default="工作包开发任务", help="任务名称")
     parser.add_argument("--assignee", default="DEV", help="处理人")
-    parser.add_argument("--output", default="", help="输出报告文件路径 (未指定时自动归档至 docs/reports/{type}/)")
+    parser.add_argument("--output", default="", help="输出报告文件路径 (未指定时自动归档至 docs/03-研发过程/报告/{type}/)")
     parser.add_argument("--summary", default="", help="执行总结与补充文本")
 
     parsed_args = parser.parse_args(args)

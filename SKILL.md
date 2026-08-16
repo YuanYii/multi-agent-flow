@@ -61,9 +61,9 @@ version: 1.0.0
    - 复制模板 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 生成 `user_data/project_architecture.config.yaml`（落**数据根** `.yy-flow/user_data`；存量内嵌安装为 Skill 目录，零迁移）。
    - 将扫描识别出的真实技术架构结构化填充写入 `project_architecture.config.yaml`，作为后续 DEV / ARCHITECT / QA 等专家角色的统一技术事实依据。
 5. **项目工程文档骨架建立与原项目历史文档自动归档**：
-   - 在目标项目下自动校验/建立 `docs/` 目录规范骨架（包含 `01-architecture/`, `02-modules/`, `03-operations/`, `04-standards/`, `05-templates/` 及 `.drafts/`）。
+   - 在目标项目下自动校验/建立 `docs/` 目录规范骨架（包含 `01-架构设计/`, `02-业务模块/`, `03-研发过程/`, `04-规范标准/`, `05-文档模板/` 及 `草稿箱/`）。
    - **历史文档隔离归档**：运行 `python3 scripts/migrate_legacy_docs.py` 自动扫描原项目中散落的历史文档，在对应的分类目录下创建 **`原项目文档/`** 专用文件夹进行拷贝分类隔离。
-   - 在目标项目 `.gitignore` 中确保排除 `.drafts/` 隔离区。
+   - 在目标项目 `.gitignore` 中确保排除 `草稿箱/` 隔离区。
 6. **专家团队技术栈自动同步**：
    - 运行脚本 `python3 scripts/update_agent_tech_stacks.py` 触发重新导出。
    - 技术栈在**导出时**合并至各平台 Subagent 产物（6 个技术角色的职责与栈定制；PM/文档角色无技术栈绑定）；`agents/*.yaml` 为只读模板，不再被改写——多项目共享同一份 Skill 时互不覆盖。

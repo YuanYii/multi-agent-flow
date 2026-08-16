@@ -25,23 +25,23 @@ EXCLUDE_DIRS = {
 }
 
 CATEGORY_KEYWORDS: Dict[str, Dict[str, List[str]]] = {
-    "01-architecture": {
+    "01-架构设计": {
         "dir_keywords": ["arch", "architecture", "design", "system", "spec"],
         "text_keywords": ["架构", "系统设计", "architecture", "adr", "接口规范", "数据模型"]
     },
-    "02-modules": {
+    "02-业务模块": {
         "dir_keywords": ["module", "component", "subsystem", "service"],
         "text_keywords": ["模块设计", "组件", "服务设计", "module", "subsystem"]
     },
-    "03-operations": {
+    "03-研发过程": {
         "dir_keywords": ["ops", "deploy", "operation", "guide", "manual", "report"],
         "text_keywords": ["运维指南", "部署手册", "操作手册", "troubleshooting", "排查指南", "测试报告"]
     },
-    "04-standards": {
+    "04-规范标准": {
         "dir_keywords": ["standard", "rule", "convention", "guide"],
         "text_keywords": ["规范", "代码标准", "命名规约", "standard", "convention"]
     },
-    "05-templates": {
+    "05-文档模板": {
         "dir_keywords": ["template", "tpl", "example"],
         "text_keywords": ["模板", "template", "样例"]
     }
@@ -66,11 +66,11 @@ def classify_document(filepath: str) -> str:
             if dkw in parent_dir:
                 scores[cat] += 10
 
-        # 2. 文件名匹配 (权重: +5，若为完整命中的架构关键词加给 01-architecture +8)
+        # 2. 文件名匹配 (权重: +5，若为完整命中的架构关键词加给 01-架构设计 +8)
         for tkw in kw_dict["text_keywords"]:
             if tkw in fname:
                 scores[cat] += 5
-                if cat == "01-architecture" and ("design" in fname or "arch" in fname):
+                if cat == "01-架构设计" and ("design" in fname or "arch" in fname):
                     scores[cat] += 3
 
         # 3. 文本内容匹配 (权重: +1)
@@ -81,7 +81,7 @@ def classify_document(filepath: str) -> str:
     best_cat = max(scores, key=scores.get)
     if scores[best_cat] > 0:
         return best_cat
-    return "02-modules"
+    return "02-业务模块"
 
 
 def scan_and_migrate_legacy_docs(target_project_dir: str = None):

@@ -146,7 +146,7 @@ mv .yy-flow/skill/user_data .yy-flow/user_data   # 若存在
 └── logs/                    # 审计流转日志
 
 # 项目交付文档（留项目根，提交 git）：
-docs/                        # 01-architecture ~ 05-templates 五分类骨架
+docs/                        # 01-架构设计 ~ 05-文档模板 五分类骨架
 
 # 兼容：存量 skills/multi-agent-flow/user_data 内嵌安装零迁移，行为不变
 ```

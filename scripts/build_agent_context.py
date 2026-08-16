@@ -78,7 +78,7 @@ def build_context(role: str, action: str = "general") -> str:
     context_output.append("2. **打回绝对禁止新建编号**：一律在原任务上置为 `已退回` 并追加 `DEF-TXXX-N` 备注；")
     context_output.append("3. **绝对禁止先干后补**：自领取任务必须先将看板状态更至 `进行中` 落库后再编码；")
     context_output.append("4. **绝对禁止孤儿报告**：复审/复测结论直接追加至原报告；")
-    context_output.append("5. **绝对禁止无元数据乱建深层文档与擅改原文档**：工程文档深度≤3级，Markdown附带Frontmatter标头，草稿入 `.drafts/` 隔离；归档原项目历史文档时绝对禁止改动/覆盖/删除原文档。")
+    context_output.append("5. **绝对禁止无元数据乱建深层文档与擅改原文档**：工程文档深度≤3级，Markdown附带Frontmatter标头，草稿入 `草稿箱/` 隔离；归档原项目历史文档时绝对禁止改动/覆盖/删除原文档。")
     context_output.append("6. **Subagent 官方标准路径实时查证原则**：初始化或挂载 Subagent 时须查证当前 Agent 官方规范路径与格式。")
     context_output.append("\n")
 

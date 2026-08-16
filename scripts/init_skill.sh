@@ -76,12 +76,12 @@ DOCS_ROOT="$(dirname "${DATA_ROOT}")/docs"
 if [ "$(basename "${DATA_ROOT}")" != ".yy-flow" ]; then
     DOCS_ROOT="${DATA_ROOT}/docs"
 fi
-mkdir -p "${DOCS_ROOT}/01-architecture" \
-         "${DOCS_ROOT}/02-modules" \
-         "${DOCS_ROOT}/03-operations" \
-         "${DOCS_ROOT}/04-standards" \
-         "${DOCS_ROOT}/05-templates" \
-         "${DOCS_ROOT}/.drafts"
+mkdir -p "${DOCS_ROOT}/01-架构设计" \
+         "${DOCS_ROOT}/02-业务模块" \
+         "${DOCS_ROOT}/03-研发过程" \
+         "${DOCS_ROOT}/04-规范标准" \
+         "${DOCS_ROOT}/05-文档模板" \
+         "${DOCS_ROOT}/草稿箱"
 
 python3 "${SCRIPT_DIR}/migrate_legacy_docs.py"
 

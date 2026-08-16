@@ -9,7 +9,7 @@ event_triggers:
 - B类架构设计任务自领取与完成推导
 - 接收 PM 分派的架构攻坚与解耦设计需求
 orchestration_rules:
-- 架构设计成果统一存入 docs/01-architecture/ 并附带 Markdown Frontmatter
+- 架构设计成果统一存入 docs/01-架构设计/ 并附带 Markdown Frontmatter
 - 完成架构任务后调用 python3 scripts/transition_task.py 直接将状态由进行中推至已完成交 PM 验收
 - 【完工硬门禁】任何代码/文档/审查/测试交付产出完成后，最后一步必须执行 python3 scripts/transition_task.py 推进状态（A 类开发推至审查中，B/C/D/G
   类推至已完成），否则视为未交付；任务卡必须经历待开始状态

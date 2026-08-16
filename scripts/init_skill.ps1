@@ -77,12 +77,12 @@ if (-not (Split-Path $DataRoot -Leaf) -eq ".yy-flow") {
     $DocsRoot = Join-Path $DataRoot "docs"
 }
 $DocsDirs = @(
-    "$DocsRoot\01-architecture",
-    "$DocsRoot\02-modules",
-    "$DocsRoot\03-operations",
-    "$DocsRoot\04-standards",
-    "$DocsRoot\05-templates",
-    "$DocsRoot\.drafts"
+    "$DocsRoot\01-架构设计",
+    "$DocsRoot\02-业务模块",
+    "$DocsRoot\03-研发过程",
+    "$DocsRoot\04-规范标准",
+    "$DocsRoot\05-文档模板",
+    "$DocsRoot\草稿箱"
 )
 foreach ($dir in $DocsDirs) {
     if (-not (Test-Path $dir)) {

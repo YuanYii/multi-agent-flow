@@ -78,7 +78,7 @@ def run_heartbeat(
 ) -> Dict[str, Any]:
     """
     执行 4 项巡检,返回结构化告警结果。
-    doc_dirs_override: 孤儿产出巡检目录覆盖（测试注入用；默认 data_root/docs/03-operations/{reports,tasks}）
+    doc_dirs_override: 孤儿产出巡检目录覆盖（测试注入用；默认 data_root/docs/03-研发过程/{报告,任务}）
 
     返回结构:
     {
@@ -111,8 +111,8 @@ def run_heartbeat(
         import paths as _paths
         data_root = _paths.resolve_data_root()
         doc_dirs = doc_dirs_override or [
-            os.path.join(data_root, "docs", "03-operations", "reports"),
-            os.path.join(data_root, "docs", "03-operations", "tasks"),
+            os.path.join(data_root, "docs", "03-研发过程", "报告"),
+            os.path.join(data_root, "docs", "03-研发过程", "任务"),
         ]
         card_names = [str(t.get("name") or t.get("task_name") or "") for t in tasks]
         def _norm(s):

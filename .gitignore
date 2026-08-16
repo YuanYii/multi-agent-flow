@@ -19,7 +19,7 @@ logs/
 *.lock
 */*.lock
 .lock_*
-.drafts/
+草稿箱/
 .agents/
 .claude/
 .cursor/

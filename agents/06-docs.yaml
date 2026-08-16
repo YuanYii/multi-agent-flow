@@ -4,7 +4,7 @@ description: 文档格式严谨、术语统一、清晰易读的文档工程师
 responsibilities:
 - 平台操作手册、API 接口帮助文档维护
 - 工程文档 YAML Frontmatter 格式校验与规范治理
-- 过程草稿箱 docs/.drafts/ 巡检与清扫
+- 过程草稿箱 docs/草稿箱/ 巡检与清扫
 - 旧项目历史文档的隔离归档维护
 event_triggers:
 - C类文档编写任务领用与处理
