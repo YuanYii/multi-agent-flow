@@ -48,10 +48,11 @@ def load_platforms_config():
             return yaml.safe_load(fp)
     return {"default_skill_name": "yy-flow", "platforms": {}}
 
-def safe_symlink(source_dir, target_link_path):
+def safe_symlink(source_dir, target_link_path, relative=True):
     """
     跨平台安全软链接创建：
     具备 Windows OSError (WinError 1314 权限不足) 优雅降级回退机制
+    relative=False 用于全局挂载（跨卷绝对链更稳健）
     """
     parent = os.path.dirname(target_link_path)
     os.makedirs(parent, exist_ok=True)
@@ -63,8 +64,8 @@ def safe_symlink(source_dir, target_link_path):
             return False  # 已存在实体目录/文件，跳过
 
     try:
-        rel_source = os.path.relpath(source_dir, parent)
-        os.symlink(rel_source, target_link_path)
+        link_source = os.path.relpath(source_dir, parent) if relative else os.path.abspath(source_dir)
+        os.symlink(link_source, target_link_path)
         return True
     except (OSError, NotImplementedError):
         # Windows / 受限环境回退：如果无法创建 symlink，创建 Junction 或提示
@@ -74,12 +75,22 @@ def safe_symlink(source_dir, target_link_path):
                 return True
         return False
 
-def detect_active_platforms(platforms_config):
-    """动态感知当前被激活的 Agent 平台"""
+def detect_active_platforms(platforms_config, global_mode=False):
+    """动态感知当前被激活的 Agent 平台。
+    global_mode: 用各平台用户级目录（global_detect_dirs，如 ~/.claude）探测，
+    且仅保留声明了 global_skill_target 的平台。"""
     env = os.environ
     active = []
 
     for platform_key, spec in platforms_config.get("platforms", {}).items():
+        if global_mode:
+            g_dirs = spec.get("global_detect_dirs", [])
+            if not spec.get("global_skill_target"):
+                continue  # 无全局挂载目标的平台不参与全局模式
+            if any(os.path.exists(os.path.expanduser(d)) for d in g_dirs):
+                active.append(platform_key)
+            continue
+
         # Universal 始终作为通用标准兜底激活
         if platform_key == "universal":
             active.append(platform_key)
@@ -111,6 +122,7 @@ def serialize_subagent(role_data, role_meta, platform_key, subagent_spec):
     tools = PLATFORM_TOOLS.get(platform_key, DEFAULT_TOOLS)
 
     # 1. 状态机 SOP 引导提示词 (三步闭环)
+    # 注: --config 省略，由 paths.resolve_runtime_config() 解析链定位配置（任意 CWD 均正确）
     sop_prompt = f"""# 角色定义：{agent_name} ({agent_id})
 
 ## 核心职责
@@ -204,11 +216,15 @@ def verify_exported_agent(out_abs_path, fmt):
         return False, "frontmatter 缺少 name/description 字段"
     return True, ""
 
-def export_platform_assets(platforms_config, active_platforms):
+def export_platform_assets(platforms_config, active_platforms, global_mode=False):
     """执行跨平台 Skill 挂载与 Subagent 导出，返回导出成败统计。
 
     导出时把项目技术栈（user_data/project_architecture.config.yaml）覆盖到
     内存中的角色定义——agents/*.yaml 模板保持只读。
+
+    global_mode=True: 挂载各平台用户级全局技能目录（global_skill_target，绝对链）；
+    Subagent 导出走 user_pattern（用户级）；技术栈覆盖在全局模式下禁用
+    （项目个性化产物不得跨项目泄漏）。
     """
     skill_name = platforms_config.get("default_skill_name", "yy-flow")
     platforms = platforms_config.get("platforms", {})
@@ -216,8 +232,10 @@ def export_platform_assets(platforms_config, active_platforms):
     verify_failures = []
     total_exported = 0
 
-    arch_data = load_arch_data()
-    if arch_data:
+    arch_data = None if global_mode else load_arch_data()
+    if global_mode:
+        print("[GLOBAL] 全局共享安装模式：Subagent 导出为通用版（不含项目技术栈，防跨项目泄漏）")
+    elif arch_data:
         proj = (arch_data.get("project") or {}).get("name", "未知")
         print(f"[SYNC]  检测到已初始化架构配置，导出时合并项目技术栈: 【{proj}】")
     else:
@@ -231,8 +249,16 @@ def export_platform_assets(platforms_config, active_platforms):
         spec = platforms[p_key]
         p_name = spec.get("name", p_key)
 
-        # 1. 执行 Skill 目录挂载
-        if "skill_target" in spec:
+        # 1. 执行 Skill 目录挂载（全局模式消费 global_skill_target）
+        if global_mode:
+            g_target_tpl = spec.get("global_skill_target")
+            if g_target_tpl:
+                abs_target = os.path.expanduser(g_target_tpl.format(skill_name=skill_name))
+                if safe_symlink(PROJECT_ROOT, abs_target, relative=False):
+                    print(f"[SUCCESS]  [{p_name}] 全局挂载 Skill -> {abs_target}")
+                else:
+                    print(f"[WARN]  [{p_name}] 全局挂载跳过 (目标已存在实体路径或无法创建软链) -> {abs_target}")
+        elif "skill_target" in spec:
             rel_target = spec["skill_target"].format(skill_name=skill_name)
             abs_target = os.path.join(TARGET_PROJECT_DIR, rel_target)
             if safe_symlink(PROJECT_ROOT, abs_target):
@@ -240,8 +266,8 @@ def export_platform_assets(platforms_config, active_platforms):
             else:
                 print(f"[WARN]  [{p_name}] Skill 挂载跳过 (目标已存在实体路径或无法创建软链) -> {rel_target}")
 
-        # 2. 执行 Cursor MDC 规则挂载
-        if spec.get("mount_type") == "cursor_mdc" and "rule_target" in spec:
+        # 2. 执行 Cursor MDC 规则挂载（仅项目级模式有意义）
+        if not global_mode and spec.get("mount_type") == "cursor_mdc" and "rule_target" in spec:
             rel_rule = spec["rule_target"].format(skill_name=skill_name)
             abs_rule = os.path.join(TARGET_PROJECT_DIR, rel_rule)
             os.makedirs(os.path.dirname(abs_rule), exist_ok=True)
@@ -249,13 +275,21 @@ def export_platform_assets(platforms_config, active_platforms):
                 fp.write(f"---\ndescription: 多专家协同研发工作流规则 (YY-Flow)\nalwaysApply: false\n---\n# YY-Flow Multi-Agent Workflow\n请调阅 `skills/multi-agent-flow/SKILL.md` 遵循多专家协作契约。\n")
             print(f"[SUCCESS]  [{p_name}] 成功创建 MDC 规则 -> {rel_rule}")
 
-        # 3. 执行 Subagent 导出
+        # 3. 执行 Subagent 导出（全局模式：仅 user_pattern；项目模式：pattern）
         subagent_spec = spec.get("subagent_export")
-        if not subagent_spec or not subagent_spec.get("pattern"):
+        pattern = None
+        if global_mode:
+            pattern = (subagent_spec or {}).get("user_pattern")
+            if not pattern:
+                print(f"[SKIP]  [{p_name}] 无用户级 Subagent 导出路径声明，跳过全局导出")
+                continue
+        elif subagent_spec and subagent_spec.get("pattern"):
+            pattern = subagent_spec["pattern"]
+
+        if not pattern:
             continue
 
-        pattern = subagent_spec["pattern"]
-        fmt = subagent_spec.get("format", "markdown_frontmatter")
+        fmt = (subagent_spec or {}).get("format", "markdown_frontmatter")
         exported_count = 0
 
         for yaml_file, role_meta in sorted(ROLES_MAP.items()):
@@ -271,9 +305,12 @@ def export_platform_assets(platforms_config, active_platforms):
             role_key = role_meta.get("role_code", "")
             role_data = apply_tech_stack_to_role(role_data, arch_data, role_key)
 
-            out_content = serialize_subagent(role_data, role_meta, p_key, subagent_spec)
+            out_content = serialize_subagent(role_data, role_meta, p_key, subagent_spec or {})
             out_rel_path = pattern.format(agent_id=role_meta["id"])
-            out_abs_path = os.path.join(TARGET_PROJECT_DIR, out_rel_path)
+            if global_mode:
+                out_abs_path = os.path.expanduser(out_rel_path)
+            else:
+                out_abs_path = os.path.join(TARGET_PROJECT_DIR, out_rel_path)
 
             os.makedirs(os.path.dirname(out_abs_path), exist_ok=True)
             with open(out_abs_path, "w", encoding="utf-8") as fp:
@@ -291,14 +328,28 @@ def export_platform_assets(platforms_config, active_platforms):
     return missing_agents, verify_failures, total_exported
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="跨平台 Skill 挂载与 Subagent 导出引擎")
+    parser.add_argument("--global", dest="global_mode", action="store_true",
+                        help="全局共享安装模式：挂载各宿主用户级技能目录（global_skill_target）")
+    parser.add_argument("--target-project-dir", default=None,
+                        help="宿主项目目录（默认: 当前工作目录）")
+    args = parser.parse_args()
+
+    global TARGET_PROJECT_DIR
+    if args.target_project_dir:
+        TARGET_PROJECT_DIR = os.path.abspath(args.target_project_dir)
+
     platforms_config = load_platforms_config()
-    active_platforms = detect_active_platforms(platforms_config)
+    active_platforms = detect_active_platforms(platforms_config, global_mode=args.global_mode)
 
+    mode_label = "全局共享安装 (user-level mount)" if args.global_mode else "项目级挂载"
     print("==============================================================================")
-    print("[START] [Multi-Agent Flow] 正在执行跨平台 Skill 自动挂载与 Subagent 导出...")
+    print(f"[START] [Multi-Agent Flow] 跨平台 Skill 自动挂载与 Subagent 导出 · {mode_label}")
     print("==============================================================================")
 
-    missing_agents, verify_failures, total_exported = export_platform_assets(platforms_config, active_platforms)
+    missing_agents, verify_failures, total_exported = export_platform_assets(
+        platforms_config, active_platforms, global_mode=args.global_mode)
 
     if missing_agents:
         for m in missing_agents:
@@ -307,8 +358,24 @@ def main():
         for f_ in verify_failures:
             print(f"[ERROR] 导出格式断言失败: {f_}")
 
-    expected = 8 * max(len([p for p in active_platforms if platforms_config.get("platforms", {}).get(p, {}).get("subagent_export")]), 1)
-    if missing_agents or verify_failures or total_exported == 0:
+    # Fail-Closed 计数：global 模式只对声明了 user_pattern 的平台有导出预期
+    if args.global_mode:
+        exportable = [p for p in active_platforms
+                      if (platforms_config.get("platforms", {}).get(p, {})
+                          .get("subagent_export", {}) or {}).get("user_pattern")]
+    else:
+        exportable = [p for p in active_platforms
+                      if platforms_config.get("platforms", {}).get(p, {}).get("subagent_export")]
+
+    # global 模式下零平台被探测到 = 没有任何宿主已安装 → Fail-Closed（静默成功更糟）
+    if args.global_mode and not active_platforms:
+        print("==============================================================================")
+        print("[FAILED] 全局模式未探测到任何已安装的 Agent 宿主（各平台用户级目录均不存在）！")
+        print("         请先安装至少一个宿主（Claude Code / Codex / Antigravity），或用项目级模式。")
+        print("==============================================================================")
+        sys.exit(1)
+
+    if missing_agents or verify_failures or (exportable and total_exported == 0):
         print("==============================================================================")
         print("[FAILED] Subagent 导出未通过完整性校验，初始化阻断 (Fail-Closed)！")
         print("==============================================================================")
