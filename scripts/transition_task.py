@@ -20,6 +20,7 @@ sys.path.insert(0, SCRIPT_DIR)
 from validate_transition import validate, validate_delegation_authority
 from board_adapter_factory import get_board_adapter
 from audit_logger import record_audit_event
+from file_lock import acquire_lock, release_lock, remove_lock_file_if_free, LockBusyError
 
 # 容错型日志格式化类，防 traceback 泄漏
 class SafeTaskFormatter(logging.Formatter):
@@ -37,55 +38,46 @@ logger.addHandler(handler)
 
 
 def cleanup_stale_locks(ttl_seconds: int = 300):
-    """自动清理超过 ttl_seconds (默认5分钟) 的旧垃圾锁文件"""
+    """自动清理超过 ttl_seconds (默认5分钟) 的旧垃圾锁文件。
+    安全语义：先非阻塞试锁确认无持有者，再在【持锁状态下】unlink——
+    并发进程在 unlink 后只能拿到新 inode 的锁文件，互斥不会被删除破坏。"""
     now = time.time()
+    removed = 0
     for entry in os.listdir(SCRIPT_DIR):
         if entry.startswith(".lock_") and entry.endswith(".lock"):
             full_p = os.path.join(SCRIPT_DIR, entry)
             try:
                 if os.path.isfile(full_p) and (now - os.path.getmtime(full_p)) > ttl_seconds:
-                    os.remove(full_p)
+                    if remove_lock_file_if_free(full_p):
+                        removed += 1
+                        logger.info(f"[LOCK]  已清理无持有者的过期锁文件: {entry}")
             except Exception:
                 pass
+    return removed
 
 
 def acquire_concurrency_lock(task_id: str):
-    """获取物理排他并发锁 (Fail-Closed：冲突则直接返回 None, None 阻断)"""
+    """获取物理排他并发锁 (Fail-Closed：冲突则直接返回 None, None 阻断)
+    统一走 file_lock 抽象（Unix fcntl / Windows msvcrt），锁内写入 pid/ts 元数据。"""
     cleanup_stale_locks(300)
     lock_file = os.path.join(SCRIPT_DIR, f".lock_{task_id}.lock")
     try:
-        f = open(lock_file, "w")
-        if sys.platform == "win32":
-            import msvcrt
-            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        return f, lock_file
+        handle = acquire_lock(lock_file, blocking=False)
+        return handle, lock_file
+    except LockBusyError:
+        return None, None
     except Exception:
         # Fail-Closed: 锁竞争失败或不支持，绝对返回 None！
         return None, None
 
 
 def release_concurrency_lock(lock_tuple):
+    """释放并发锁：只解锁不删除锁文件。
+    删除统一交给 cleanup_stale_locks 的持锁 unlink，消除"释放后立即删除"的竞态窗口。"""
     if not lock_tuple or not lock_tuple[0]:
         return
-    f, lock_file = lock_tuple
-    try:
-        if sys.platform == "win32":
-            import msvcrt
-            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(f, fcntl.LOCK_UN)
-    except Exception:
-        pass
-    try:
-        f.close()
-        if os.path.exists(lock_file):
-            os.remove(lock_file)
-    except Exception:
-        pass
+    handle, _lock_file = lock_tuple
+    release_lock(handle)
 
 
 ROLE_NAME_MAP = {
