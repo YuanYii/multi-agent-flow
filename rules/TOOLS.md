@@ -16,13 +16,14 @@
   - `create_record(fields)`：建单 SOP 工具。
 
 ## 3. 通用多 Agent 专家导出与自适应发现适配器
-- **路径**：`multi-agent-flow/scripts/export_agent_adapters.py`
-- **用途**：识别目前已知的（Cursor, Claude Code, Antigravity, Codex, Pi, OpenCode, Windsurf, Copilot）及未知/全新的 AI Agent 工具，自动完成专家人设导出与挂载。
+- **路径**：`multi-agent-flow/scripts/verify_and_export_agents.py`（唯一导出入口）
+- **配置**：平台清单与导出路径由 `multi-agent-flow/config/agent_platforms.yaml` 声明式驱动，当前支持：Antigravity、Claude Code、Cursor、Codex、OpenCode、ZCode、Pi、Agent Skills 开放标准 (agentskills.io)。
 - **机制**：
-  1. 自动匹配预设 Agent 配置路径；
-  2. 自动搜索工作区中的隐藏配置文件夹（包含 `prompts`, `rules`, `agents`, `subagents` 等关键词）；
-  3. 降级导出至通配路径 `.agents/`；
-  4. 支持手动指定路径：`python3 export_agent_adapters.py --custom-dir .mytool/agents --syntax /`
+  1. 按 `detect_dirs`/环境变量自动侦测当前激活平台；
+  2. 按平台官方格式（Markdown+Frontmatter / Codex TOML）序列化 8 大专家并导出至各平台原生路径（如 `.claude/agents/`、`.agents/agents/`）；
+  3. 工具声明按平台映射为原生工具名（Claude Code → `Bash/Edit/Read/Write/Grep/Glob`）；
+  4. 导出后执行本地格式断言：frontmatter/TOML 可解析、`name`/`description` 必填、8 角色齐全，任一失败 `exit(1)` 阻断（Fail-Closed）。
+- **用法**：`python3 scripts/verify_and_export_agents.py`（在宿主项目根目录执行）
 
 ## 4. 状态巡检脚本
 - **路径**：`multi-agent-flow/scripts/status.sh` / `status.ps1`
