@@ -34,6 +34,7 @@ DEFAULT_THRESHOLDS = {
     "stale_review_or_test_hours": 12, # 审查中/测试中滞留阈值
     "dev_max_parallel": 3,           # 开发人员并发上限
     "frontend_max_parallel": 3,      # 前端开发人员并发上限
+    "orphan_output_hours": 48,       # 孤儿产出检测窗口（近 N 小时新增交付文件无对应卡片）
 }
 
 
@@ -101,6 +102,44 @@ def run_heartbeat(
 
     tasks = [_normalize_record(r) for r in records]
     total = len(tasks)
+
+    # ---- 巡检 5: 孤儿产出检测（交付目录近 N 小时新增文件，名称未命中任何看板任务 → 标黄） ----
+    try:
+        import re as _re
+        skill_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        doc_dirs = [
+            os.path.join(skill_root, "docs", "03-operations", "reports"),
+            os.path.join(skill_root, "docs", "03-operations", "tasks"),
+        ]
+        card_names = [str(t.get("name") or t.get("task_name") or "") for t in tasks]
+        def _norm(s):
+            return _re.sub(r"[\s\u3000，,。.;；:：()（）\[\]【】\-\_/\\|]", "", str(s)).lower()
+        norms = [_norm(n) for n in card_names if _norm(n)]
+        orphan_hours = float(thresholds.get("orphan_output_hours", 48))
+        cutoff = now.timestamp() - orphan_hours * 3600
+        for base_dir in doc_dirs:
+            if not os.path.isdir(base_dir):
+                continue
+            for root, _dirs, files in os.walk(base_dir):
+                for fn in files:
+                    if not fn.lower().endswith((".md", ".html", ".txt", ".json")):
+                        continue
+                    fp = os.path.join(root, fn)
+                    try:
+                        if os.path.getmtime(fp) < cutoff:
+                            continue
+                    except Exception:
+                        continue
+                    nb = _norm(os.path.splitext(fn)[0])
+                    if nb and not any(nb in c or c in nb for c in norms):
+                        alerts.append({
+                            "severity": "warning",
+                            "code": "ORPHAN_OUTPUT",
+                            "task_id": "-",
+                            "message": f"孤儿成果: {fp} (近 {orphan_hours:.0f}h 新增但看板无对应任务，建议补录)",
+                        })
+    except Exception:
+        pass
 
     # 任务按 assignee (开发人员) 分组
     dev_active_count: Dict[str, int] = defaultdict(int)

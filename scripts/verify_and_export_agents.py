@@ -118,6 +118,7 @@ def serialize_subagent(role_data, role_meta, platform_key, subagent_spec):
 2. **业务执行**：执行架构/编码/审查/测试/文档核心工作，产出交付物。
 3. **完工/提审/流转**：
    `python3 scripts/transition_task.py --config user_data/workflow.config.yaml --role {role_code.upper()} --from-status 进行中 --to-status 审查中 --task-id <第一步任务ID> --assignee Reviewer_User_1`
+4. **完工硬门禁（强制）**：任何代码/文档/审查/测试交付产出完成后，最后一步必须执行上述流转命令推进状态（A 类开发推至【审查中】，B/C/D/G 类推至【已完成】，终态前补填 end_time），否则视为未交付；看板任务卡必须经历【待开始】状态。
 """
 
     # 2. 格式 A: Codex 官方 TOML 格式
