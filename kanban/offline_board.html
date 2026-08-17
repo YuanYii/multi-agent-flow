@@ -170,6 +170,12 @@
                     <option value="未分配">未分配</option>
                 </select>
             </div>
+            <div class="form-item">
+                <label>按创建人:</label>
+                <select id="filter-creator" onchange="applyFilters()">
+                    <option value="">全部创建人</option>
+                </select>
+            </div>
             <div class="form-item date-range-form-item">
                 <label>开始时间范围:</label>
                 <div class="date-range-inputs">
@@ -227,6 +233,7 @@
                         <th style="width: 110px;">状态<div class="resizer"></div></th>
                         <th style="width: 110px;">负责人<div class="resizer"></div></th>
                         <th style="width: 90px;">处理人<div class="resizer"></div></th>
+                        <th style="width: 90px;">创建人<div class="resizer"></div></th>
                         <th style="width: 80px;">预估(h)<div class="resizer"></div></th>
                         <th style="width: 80px;">实际(h)<div class="resizer"></div></th>
                         <th style="width: 105px;">开始时间<div class="resizer"></div></th>

@@ -71,6 +71,7 @@
             { key: 'status',     th: '状态',          label: '状态 (Status)' },
             { key: 'assignee',   th: '负责人',        label: '负责人 (Assignee)' },
             { key: 'handler',    th: '处理人',        label: '处理人 (Handler)' },
+            { key: 'creator',    th: '创建人',        label: '创建人 (Creator)' },
             { key: 'est_hours',  th: '预估(h)',       label: '预估工时 (Est Hours)' },
             { key: 'act_hours',  th: '实际(h)',       label: '实际工时 (Act Hours)' },
             { key: 'start_date', th: '开始时间',      label: '开始时间 (Start Date)' },
@@ -698,6 +699,7 @@
                         <td>
                             ${tagSelectTriggerHTML('person', card.handler || card.assignee || '未分配', `data-card-id="${esc(card.id)}" data-field="handler"`)}
                         </td>
+                        <td><small style="color:var(--text-muted); font-family:inherit;">${esc(card.creator || '-')}</small></td>
                         <td>${esc(card.est_hours)}</td>
                         <td>${esc(card.act_hours)}</td>
                         <td><small style="color:#4e5969;">${esc(card.start_date) || '-'}</small></td>
@@ -719,6 +721,30 @@
             document.getElementById('raw-count').innerText = rawCardsData.length;
         }
 
+        function renderCreatorFilterOptions() {
+            const selectEl = document.getElementById('filter-creator');
+            if (!selectEl) return;
+
+            const currentVal = selectEl.value;
+            const creatorSet = new Set();
+            rawCardsData.forEach(c => {
+                const cr = (c.creator || '').trim();
+                if (cr && cr !== '-') creatorSet.add(cr);
+            });
+            const sorted = Array.from(creatorSet).sort();
+            let html = '<option value="">全部创建人</option>';
+            sorted.forEach(name => {
+                html += `<option value="${esc(name)}">${esc(name)}</option>`;
+            });
+            selectEl.innerHTML = html;
+            if (sorted.includes(currentVal)) {
+                selectEl.value = currentVal;
+            }
+            if (typeof refreshUiSelects === 'function') {
+                refreshUiSelects();
+            }
+        }
+
         function initRender() {
             // 1. Kanban Assignee
             renderKanban("board-assignee", assigneeColsConfig, "assignee");
@@ -731,9 +757,10 @@
             // 3. Kanban Status
             renderKanban("board-status", statusColsConfig, "status");
 
-            // 4. Data Table
+            // 4. Data Table & Filters
             renderTable();
             renderPersonCheckboxList();
+            renderCreatorFilterOptions();
             updateCounter();
             refreshModalTagSelectors();
         }
@@ -748,6 +775,7 @@
             const statusFilter = document.getElementById('filter-status') ? document.getElementById('filter-status').value : '';
             const assigneeFilter = document.getElementById('filter-assignee') ? document.getElementById('filter-assignee').value : '';
             const handlerFilter = document.getElementById('filter-handler') ? document.getElementById('filter-handler').value : '';
+            const creatorFilter = document.getElementById('filter-creator') ? document.getElementById('filter-creator').value : '';
             const startFrom = document.getElementById('filter-start-from') ? document.getElementById('filter-start-from').value : '';
             const startTo = document.getElementById('filter-start-to') ? document.getElementById('filter-start-to').value : '';
             const endFrom = document.getElementById('filter-end-from') ? document.getElementById('filter-end-from').value : '';
@@ -760,6 +788,7 @@
                     (c.name && c.name.toLowerCase().includes(query)) ||
                     (c.assignee && c.assignee.toLowerCase().includes(query)) ||
                     (c.handler && c.handler.toLowerCase().includes(query)) ||
+                    (c.creator && c.creator.toLowerCase().includes(query)) ||
                     (c.status && c.status.toLowerCase().includes(query)) ||
                     (c.stage && c.stage.toLowerCase().includes(query)) ||
                     (c.wbs && c.wbs.toLowerCase().includes(query)) ||
@@ -781,6 +810,9 @@
                     }
                 }
 
+                // Creator matching:
+                const matchCreator = !creatorFilter || (c.creator && c.creator === creatorFilter);
+
                 const matchMultiPerson = !personFocusActive || selectedPersons.has(c.assignee) || selectedPersons.has(normalizeRoleName(c.assignee));
 
                 // Date range comparisons (pure ISO string prefix comparison)
@@ -792,11 +824,11 @@
                 const matchEndFrom = !endFrom || (cEndDate && cEndDate >= endFrom);
                 const matchEndTo = !endTo || (cEndDate && cEndDate <= endTo);
 
-                return matchQuery && matchStatus && matchDropdownAssignee && matchHandler &&
+                return matchQuery && matchStatus && matchDropdownAssignee && matchHandler && matchCreator &&
                        matchMultiPerson && matchStartFrom && matchStartTo && matchEndFrom && matchEndTo;
             });
 
-            updateActiveFilterHint(query, statusFilter, assigneeFilter, handlerFilter, startFrom, startTo, endFrom, endTo);
+            updateActiveFilterHint(query, statusFilter, assigneeFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo);
             applySort();
         }
 
@@ -808,7 +840,7 @@
 
         // Surface which filters are currently narrowing the result set, so an empty
         // result never looks like "the data vanished".
-        function updateActiveFilterHint(query, statusFilter, assigneeFilter, handlerFilter, startFrom, startTo, endFrom, endTo) {
+        function updateActiveFilterHint(query, statusFilter, assigneeFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo) {
             const el = document.getElementById('active-filter-hint');
             if (!el) return;
 
@@ -817,6 +849,7 @@
             if (statusFilter) parts.push(`状态=${statusFilter}`);
             if (assigneeFilter) parts.push(`负责人=${assigneeFilter}`);
             if (handlerFilter) parts.push(`处理人=${handlerFilter}`);
+            if (creatorFilter) parts.push(`创建人=${creatorFilter}`);
             if (isPersonFocusActive()) parts.push(`聚焦人员=${Array.from(selectedPersons).join('/')}`);
             if (startFrom || startTo) parts.push(`开始时间=${startFrom || '...'}~${startTo || '...'}`);
             if (endFrom || endTo) parts.push(`结束时间=${endFrom || '...'}~${endTo || '...'}`);
@@ -844,6 +877,7 @@
             const st = document.getElementById('filter-status'); if (st) st.value = '';
             const as = document.getElementById('filter-assignee'); if (as) as.value = '';
             const hd = document.getElementById('filter-handler'); if (hd) hd.value = '';
+            const cr = document.getElementById('filter-creator'); if (cr) cr.value = '';
             const sf = document.getElementById('filter-start-from'); if (sf) sf.value = '';
             const st_to = document.getElementById('filter-start-to'); if (st_to) st_to.value = '';
             const ef = document.getElementById('filter-end-from'); if (ef) ef.value = '';
@@ -852,6 +886,7 @@
             document.getElementById('sort-order').value = 'asc';
             selectedPersons.clear();
             renderPersonCheckboxList();
+            renderCreatorFilterOptions();
             refreshUiSelects();
             applyFilters();
             closeAllCustomPopovers();
@@ -1319,6 +1354,7 @@
                         <span class="tag" style="background:${getBadgeStyle('status', card.status).bg}; color:${getBadgeStyle('status', card.status).text}; border:1px solid rgba(0,0,0,0.06);">${esc(card.status || '待开始')}</span>
                         <span class="tag" style="background:${getBadgeStyle('person', card.assignee).bg}; color:${getBadgeStyle('person', card.assignee).text}; border:1px solid rgba(0,0,0,0.06);">负责人: ${esc(card.assignee || '未分配')}</span>
                         ${card.handler ? `<span class="tag" style="background:${getBadgeStyle('person', card.handler).bg}; color:${getBadgeStyle('person', card.handler).text}; border:1px solid rgba(0,0,0,0.06);">处理人: ${esc(card.handler)}</span>` : ''}
+                        ${card.creator ? `<span class="tag" style="background:#f4f5f7; color:#4e5969; border:1px solid rgba(0,0,0,0.06);">创建人: ${esc(card.creator)}</span>` : ''}
                         ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${esc(card.wbs)}</span>` : ''}
                     </div>
                 `;
@@ -1334,6 +1370,10 @@
                     <div class="detail-item">
                         <span class="detail-label">阶段 / 工作包</span>
                         <span class="detail-value">${esc(card.wp || card.stage || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">创建人 (Creator)</span>
+                        <span class="detail-value" style="color:var(--primary); font-weight:600;">${esc(card.creator || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">前置任务依赖</span>
@@ -1615,8 +1655,8 @@
             });
         }
 
-                // Column & Row Resizable Drag Event Handlers
-        const DEFAULT_COL_WIDTHS = [40, 55, 90, 90, 110, 170, 320, 110, 110, 90, 80, 80, 105, 105, 260, 320, 70];
+        // Column & Row Resizable Drag Event Handlers
+        const DEFAULT_COL_WIDTHS = [40, 55, 90, 90, 110, 170, 320, 110, 110, 90, 90, 80, 80, 105, 105, 260, 320, 70];
 
         function applyColumnWidths(table, widths) {
             if (!table) return;
