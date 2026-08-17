@@ -27,7 +27,7 @@ def env(tmp_path):
         base = yaml.safe_load(f)
     base["board"]["board_file"] = str(board)
     cfg.write_text(yaml.safe_dump(base, allow_unicode=True, sort_keys=False), encoding="utf-8")
-    return {"board": board, "cfg": cfg}
+    return {"board": board, "cfg": cfg, "tmp": tmp_path}
 
 
 def run(env, *args, expect=0):
@@ -39,7 +39,9 @@ def run(env, *args, expect=0):
         cmd = [sys.executable, os.path.join(SCRIPTS, script), rest[0], "--config", str(env["cfg"]), *rest[1:]]
     else:
         cmd = [sys.executable, os.path.join(SCRIPTS, script), "--config", str(env["cfg"]), *rest]
-    r = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
+    sub_env = os.environ.copy()
+    sub_env["YY_FLOW_PROJECT_ROOT"] = str(env.get("tmp") or env["board"].parent)
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT, env=sub_env)
     assert r.returncode == expect, f"exit={r.returncode} (期望 {expect})\nstdout={r.stdout}\nstderr={r.stderr}"
     return r
 
@@ -150,7 +152,7 @@ class TestDuplicate:
             "--assignee", "李开发")
         r = run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口",
                 "--assignee", "李开发", expect=1)
-        assert "DUPLICATE_TASK" in r.stdout and "L1" in r.stdout
+        assert "DUPLICATE_TASK" in r.stdout and "完全一致" in r.stdout
 
     def test_l2_contains(self, env):
         run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口",
@@ -350,3 +352,286 @@ class TestProtocol:
     def test_heartbeat_orphan_check(self):
         src = open(os.path.join(SCRIPTS, "heartbeat.py"), encoding="utf-8").read()
         assert "ORPHAN_OUTPUT" in src and "orphan_output_hours" in src
+
+
+# =====================================================================
+# 组 9 · 任务分级系统 (L0/L1/L2) 9 用例
+# =====================================================================
+class TestTaskTiers:
+    def test_l1_docs_short_chain(self, env):
+        """L1 轻量任务走短链：待开始->进行中->已完成->已验收，绝不经过审查中/测试中。"""
+        run(env, "auto_task.py", "--task-name", "文档更新检查", "--role", "DOCS", "--type", "C")
+        c = find(env, "T0001")
+        assert c is not None and c.get("status") == "已验收"
+        proc = str(c.get("process", ""))
+        assert "进行中" in proc and "已完成" in proc
+        assert "审查中" not in proc and "测试中" not in proc
+
+    def test_l2_a_chain_has_review_test(self, env):
+        """L2 标准任务走全链：必须经历审查中与测试中。"""
+        run(env, "auto_task.py", "--task-name", "用户核心接口开发", "--role", "DEV", "--type", "A")
+        c = find(env, "T0001")
+        assert c is not None and c.get("status") == "已验收"
+        proc = str(c.get("process", ""))
+        assert "审查中" in proc and "测试中" in proc
+
+    def test_dup_label_no_l_prefix(self, env):
+        """重复任务检测标签已释放 L 命名空间（避免与 L0/L1/L2 分级混淆）。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口", "--assignee", "李开发")
+        r = run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户登录接口", "--assignee", "李开发", expect=1)
+        assert "L1 完全一致" not in r.stdout
+        assert "完全一致" in r.stdout
+
+    def test_pm_yaml_triage_present(self):
+        """PM YAML 必须显式包含任务分级三问与 L0 职责。"""
+        with open(os.path.join(REPO_ROOT, "agents", "01-pm.yaml"), encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        text = yaml.safe_dump(data, allow_unicode=True)
+        assert "L0" in text and "分级" in text and "三问" in text
+
+    def test_agents_yaml_l0_carveout(self):
+        """所有 8 个角色的完工硬门禁规则均包含 L0 豁免条款。"""
+        for fn in glob.glob(os.path.join(REPO_ROOT, "agents", "*.yaml")):
+            with open(fn, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            rules = data.get("orchestration_rules", [])
+            assert any("L0" in r and "完工硬门禁" in r for r in rules), f"{fn} 缺少 L0 完工硬门禁豁免"
+
+    def test_exporter_sop_l0_carveout(self):
+        """导出器 SOP 模板与导出的子代理必须包含 L0 豁免说明。"""
+        src = open(os.path.join(SCRIPTS, "verify_and_export_agents.py"), encoding="utf-8").read()
+        assert "L0" in src and "完工硬门禁" in src
+
+    def test_build_context_dispatch(self, env):
+        """build_agent_context dispatch 动作输出三问、分级与硬红线。"""
+        cmd = [sys.executable, os.path.join(SCRIPTS, "build_agent_context.py"), "--role", "PM", "--action", "dispatch"]
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
+        assert r.returncode == 0
+        assert "L0" in r.stdout and "三问" in r.stdout and "L1" in r.stdout and "L2" in r.stdout
+
+    def test_rules_l0_carveout_docs(self):
+        """rules/AGENTS.md 和 rules/IDENTITY.md 必须包含 L0 豁免说明。"""
+        agents_md = open(os.path.join(REPO_ROOT, "rules", "AGENTS.md"), encoding="utf-8").read()
+        identity_md = open(os.path.join(REPO_ROOT, "rules", "IDENTITY.md"), encoding="utf-8").read()
+        assert "L0" in agents_md and "分级三问" in agents_md
+        assert "L0" in identity_md
+
+    def test_heartbeat_orphan_l0_hint(self):
+        """heartbeat.py 孤儿产出提示必须包含草稿箱与 L0 提示。"""
+        src = open(os.path.join(SCRIPTS, "heartbeat.py"), encoding="utf-8").read()
+        assert "草稿箱" in src and "L0" in src
+
+
+# =====================================================================
+# 组 10 · 负责人 (Owner) 与处理人 (Handler) 语义与生命周期
+# =====================================================================
+class TestOwnerAndHandlerSemantics:
+    def test_pm_create_assigns_owner_and_handler_to_worker(self, env):
+        """PM 派单未指定 --owner 时，负责人与初始处理人均正确赋予实际执行人(李开发)，而非 PM。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "责任人测试任务", "--assignee", "flow-dev")
+        c = find(env, "T0001")
+        assert c is not None
+        assert c.get("assignee") == "李开发"  # 负责人
+        assert c.get("handler") == "李开发"   # 处理人
+
+    def test_owner_stable_across_lifecycle_and_handler_shifts(self, env):
+        """流转过程中负责人保持恒定不变，处理人随节点流转并在终态收敛至严经理。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "流转经办人测试", "--assignee", "DEV")
+        # 1. 待开始 -> 进行中
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "DEV", "--task-id", "T0001")
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发" and c.get("handler") == "李开发"
+
+        # 2. 进行中 -> 审查中
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "进行中", "--to-status", "审查中", "--assignee", "flow-reviewer", "--task-id", "T0001")
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发"   # 负责人不变
+        assert c.get("handler") == "周审查"    # 处理人移交周审查
+
+        # 3. 审查中 -> 测试中
+        run(env, "transition_task.py", "--role", "REVIEWER", "--from-status", "审查中", "--to-status", "测试中", "--assignee", "flow-qa", "--task-id", "T0001")
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发"   # 负责人不变
+        assert c.get("handler") == "章测试"    # 处理人移交章测试
+
+        # 4. 测试中 -> 已完成
+        now_str = "2026-08-16 23:00:00"
+        run(env, "transition_task.py", "--role", "QA", "--from-status", "测试中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--end-time", now_str)
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发"   # 负责人不变
+        assert c.get("handler") == "严经理"    # 处理人收敛至严经理
+
+        # 5. 已完成 -> 已验收
+        run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--end-time", now_str)
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发"   # 负责人不变
+        assert c.get("handler") == "严经理"    # 处理人终态为严经理
+
+    def test_reject_returns_handler_to_owner(self, env):
+        """打回时处理人精确退回给原负责人。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "退回测试任务", "--assignee", "DEV")
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "DEV", "--task-id", "T0001")
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "进行中", "--to-status", "审查中", "--assignee", "REVIEWER", "--task-id", "T0001")
+        # 周审查打回
+        run(env, "transition_task.py", "--role", "REVIEWER", "--from-status", "审查中", "--to-status", "已退回", "--assignee", "DEV", "--task-id", "T0001", "--remarks", "DEF-T0001-1 修复代码")
+        c = find(env, "T0001")
+        assert c.get("assignee") == "李开发"
+        assert c.get("handler") == "李开发"
+
+
+# =====================================================================
+# 组 11 · 虚拟角色与外部通信边界 (Virtual Agent vs External IM)
+# =====================================================================
+class TestVirtualAgentNotificationBoundary:
+    def test_handover_protocol_contains_virtual_agent_rules(self):
+        """06-Inter-Agent-Handover-Protocol.md 必须包含虚拟专家与外部 IM 边界规约。"""
+        src = open(os.path.join(REPO_ROOT, "references", "06-Inter-Agent-Handover-Protocol.md"), encoding="utf-8").read()
+        assert "虚拟角色边界" in src
+        assert "虚拟专家身份定界" in src
+        assert "看板任务卡指派即通知" in src
+
+    def test_agents_rule_contains_redline_seven(self):
+        """rules/AGENTS.md 必须包含红线 7：虚拟专家身份与外部通信铁律。"""
+        src = open(os.path.join(REPO_ROOT, "rules", "AGENTS.md"), encoding="utf-8").read()
+        assert "虚拟专家身份与外部通信铁律" in src
+        assert "严禁" in src and "通讯录" in src
+
+
+# =====================================================================
+# 组 12 · 独立专家任务与自定义字段映射安全 (Independent Tasks & Field Map Safety)
+# =====================================================================
+class TestIndependentTasksAndFieldMappingSafety:
+    def test_reviewer_independent_review_task(self, env):
+        """周审查独立专项审查任务：待开始 -> 进行中 -> 已完成 -> 已验收，负责人恒为周审查。"""
+        # 1. PM 分派专项审查任务给周审查
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "代码规范与安全专项审计", "--assignee", "REVIEWER", "--type", "B")
+        c = find(env, "T0001")
+        assert c.get("assignee") == "周审查"
+        assert c.get("handler") == "周审查"
+
+        # 2. 周审查自领取开工: 待开始 -> 进行中
+        out = run(env, "transition_task.py", "--role", "REVIEWER", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "REVIEWER", "--task-id", "T0001", "--type", "B")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("status") == "进行中"
+        assert c.get("assignee") == "周审查"
+        assert c.get("handler") == "周审查"
+
+        # 3. 周审查完工提交 PM 验收: 进行中 -> 已完成
+        out = run(env, "transition_task.py", "--role", "REVIEWER", "--from-status", "进行中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", "2026-08-17 10:00:00")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("status") == "已完成"
+        assert c.get("assignee") == "周审查"  # 负责人仍为周审查
+        assert c.get("handler") == "严经理"   # 处理人收敛至严经理
+
+        # 4. PM 验收: 已完成 -> 已验收
+        out = run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", "2026-08-17 10:00:00")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("status") == "已验收"
+        assert c.get("assignee") == "周审查"  # 负责人终态依然为周审查！
+        assert c.get("handler") == "严经理"
+
+    def test_qa_independent_testcase_task(self, env):
+        # 1. PM 分派用例编写任务给 QA
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "全链路用例设计与梳理", "--assignee", "QA", "--type", "C")
+        # 2. QA 开工
+        out = run(env, "transition_task.py", "--role", "QA", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "QA", "--task-id", "T0001", "--type", "C")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("status") == "进行中"
+        assert c.get("assignee") == "章测试"
+        assert c.get("handler") == "章测试"
+
+        # QA 完工
+        out = run(env, "transition_task.py", "--role", "QA", "--from-status", "进行中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", "2026-08-17 10:00:00")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("status") == "已完成"
+        assert c.get("assignee") == "章测试"
+        assert c.get("handler") == "严经理"
+
+        # PM 验收
+        out = run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", "2026-08-17 10:00:00")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("status") == "已验收"
+        assert c.get("assignee") == "章测试"
+        assert c.get("handler") == "严经理"
+
+
+# =====================================================================
+# 组 13 · 任务流转标签状态与领域枚举固化 (Workflow Enums Solidification)
+# =====================================================================
+class TestWorkflowEnumsSolidification:
+    def test_task_status_enum_completeness(self):
+        """TaskStatus 必须包含 9 大标准状态枚举。"""
+        from enums import TaskStatus
+        expected = ["待开始", "进行中", "审查中", "测试中", "已完成", "已验收", "已退回", "已阻塞", "已取消"]
+        assert TaskStatus.all_values() == expected
+        assert TaskStatus.terminal_statuses() == {"已完成", "已验收", "已取消"}
+        assert TaskStatus.active_statuses() == {"进行中", "审查中", "测试中"}
+
+    def test_task_type_enum_completeness(self):
+        """TaskType 必须包含 A-G 7 类标准任务类型。"""
+        from enums import TaskType
+        assert TaskType.all_values() == ["A", "B", "C", "D", "E", "F", "G"]
+        assert TaskType.short_chain_types() == {"B", "C", "D", "F", "G"}
+
+    def test_role_enum_and_normalization(self):
+        """RoleEnum 必须包含 8 大 AI 专家角色及用户规范中文名，并支持别名归一化。"""
+        from enums import RoleEnum, normalize_role
+        assert len(RoleEnum.expert_roles()) == 8
+        assert normalize_role("flow-dev") == "李开发"
+        assert normalize_role("DEV") == "李开发"
+        assert normalize_role("dev_user_1") == "李开发"
+        assert normalize_role("flow-reviewer") == "周审查"
+        assert normalize_role("pm") == "严经理"
+        assert normalize_role(None) == "未分配"
+
+    def test_enums_json_metadata_export(self):
+        """enums.json 必须成功导出并包含完整字段元数据。"""
+        from enums import dump_enums_dict, export_enums_json
+        data = dump_enums_dict()
+        assert len(data["task_statuses"]) == 9
+        assert len(data["task_types"]) == 7
+        assert len(data["roles"]) == 9
+        assert "已退回" in [s["key"] for s in data["task_statuses"]]
+
+        exported_file = export_enums_json()
+        assert os.path.exists(exported_file)
+        with open(exported_file, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+        assert len(loaded["task_statuses"]) == 9
+
+
+# =====================================================================
+# 组 14 · 真人操作者/创建人自动捕获与流转不可变性 (Task Creator Tracking)
+# =====================================================================
+class TestTaskCreatorTracking:
+    def test_auto_detect_creator_on_create(self, env):
+        """新建任务时未指定 creator 自动捕获当前 OS/Git 用户名。"""
+        from offline_board_adapter import get_current_os_user
+        expected_user = get_current_os_user()
+
+        out = run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "创建人自动捕获测试", "--assignee", "DEV")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("creator") == expected_user
+
+        # 历经流转: DEV 开工 -> 提审
+        out = run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "DEV", "--task-id", "T0001")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("creator") == expected_user  # 流转后 creator 依然不可变！
+
+    def test_explicit_creator_override(self, env):
+        """显式传入 --creator 时精确记录并持久化。"""
+        out = run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "自定义创建人测试", "--assignee", "DEV", "--creator", "alice_developer")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("creator") == "alice_developer"
+
+
+

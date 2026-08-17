@@ -34,11 +34,12 @@
 
 | 状态变更动作 | 合法操作人集合 (Allowed Operators) | 变更后处理人 (Assignee Target) | 关联场景 |
 |-------------|-----------------------------------|------------------------------|---------|
-| `待开始` → `进行中` | `PM`, `DEV` (自身自领取), `FRONTEND` (自身自领取) | `DEV` / `FRONTEND` (自身) 或 被分配者 | A/B/C/D/G 类任务启动 |
+| `待开始` → `进行中` | 所有执行角色 (`PM`, `DEV`, `FRONTEND`, `ARCHITECT`, `REVIEWER`, `QA`, `DOCS`, `DEVOPS`) | 自身或被分配者 | A~G 类各类任务自领取启动 |
+| `已退回` → `进行中` | 所有执行角色 (`DEV`, `FRONTEND`, `ARCHITECT`, `REVIEWER`, `QA`, `DOCS`, `DEVOPS`, `PM`) | 原负责人 | 返工修复领单开工 |
 | `待开始` → `已验收` | `PM` (直接确认完成) | `PM` (负责人保持为 User) | E 类用户自执行任务快捷验收 |
 | `进行中` → `已验收` | `PM` (直接确认完成) | `PM` (负责人保持为 User) | E 类用户自执行任务快捷验收 |
 | `进行中` → `审查中` | `DEV` / `FRONTEND` (代码/前端开发完成) / `ARCHITECT` (架构完成) | `REVIEWER` (代码/前端) 或 `PM` (架构) | A 类开发/前端、B 类架构提审 |
-| `进行中` → `已完成` | `ARCHITECT` (架构完成) / `DEV` (环境完成) / `FRONTEND` (前端环境完成) / `DOCS` / `DEVOPS` | `PM` | B 类架构/G 类环境/C/D 类提交验收 |
+| `进行中` → `已完成` | 各执行角色 (`ARCHITECT`, `DEV` 环境, `FRONTEND` 环境, `DOCS`, `DEVOPS`, `REVIEWER` 专项, `QA` 专项) | `PM` | B/C/D/G 类及专项审查/测试提交验收 |
 | `审查中` → `测试中` | `REVIEWER`, `PM` (审查通过) | `QA` | A 类代码/前端审查通过 |
 | `审查中` → `已退回` | `REVIEWER`, `PM` (审查不通过) | 原负责人 (DEV / FRONTEND / ARCHITECT) | A/B 类审查打回 |
 | `测试中` → `已完成` | `QA` (测试通过，必带 `结束时间`) | `PM` | A 类测试通过提交 PM 验收 |

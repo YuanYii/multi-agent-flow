@@ -33,18 +33,18 @@ window.escapeHtml = esc;
    Custom Color-Coded Dropdown Engine & Role Mapping
    ============================================================ */
 const ROLE_MAP = {
-    'flow-pm': '严经理', 'pm': '严经理', 'PM': '严经理',
-    'flow-architect': '钱架构', 'architect': '钱架构', 'ARCHITECT': '钱架构',
-    'flow-dev': '李开发', 'dev': '李开发', 'DEV': '李开发',
-    'flow-frontend': '马前端', 'frontend': '马前端', 'FRONTEND': '马前端', '前端开发': '马前端',
-    'flow-reviewer': '周审查', 'reviewer': '周审查', 'REVIEWER': '周审查',
-    'flow-qa': '章测试', 'qa': '章测试', 'QA': '章测试',
-    'flow-docs': '李文通', 'docs': '李文通', 'DOCS': '李文通',
-    'flow-devops': '吕改特', 'devops': '吕改特', 'DEVOPS': '吕改特'
+    'flow-pm': '严经理', 'pm': '严经理', 'PM': '严经理', 'pm_user': '严经理',
+    'flow-architect': '钱架构', 'architect': '钱架构', 'ARCHITECT': '钱架构', 'architect_user': '钱架构',
+    'flow-dev': '李开发', 'dev': '李开发', 'DEV': '李开发', 'dev_user': '李开发', 'dev_user_1': '李开发', 'dev_user_2': '李开发',
+    'flow-frontend': '马前端', 'frontend': '马前端', 'FRONTEND': '马前端', '前端开发': '马前端', 'frontend_user': '马前端',
+    'flow-reviewer': '周审查', 'reviewer': '周审查', 'REVIEWER': '周审查', 'reviewer_user': '周审查', 'reviewer_user_1': '周审查',
+    'flow-qa': '章测试', 'qa': '章测试', 'QA': '章测试', 'qa_user': '章测试',
+    'flow-docs': '李文通', 'docs': '李文通', 'DOCS': '李文通', 'docs_user': '李文通',
+    'flow-devops': '吕改特', 'devops': '吕改特', 'DEVOPS': '吕改特', 'devops_user': '吕改特'
 };
 
 function normalizeRoleName(val) {
-    if (!val) return '李开发';
+    if (!val) return '未分配';
     const trimmed = String(val).trim();
     return ROLE_MAP[trimmed] || ROLE_MAP[trimmed.toLowerCase()] || ROLE_MAP[trimmed.toUpperCase()] || trimmed;
 }
@@ -74,7 +74,8 @@ const PERSON_COLORS = {
     '周审查': { bg:'#e0f2fe', text:'#0284c7' },
     '章测试': { bg:'#fce8f8', text:'#c21897' },
     '李文通': { bg:'#fff7e6', text:'#b45309' },
-    '吕改特': { bg:'#f0f0f0', text:'#595959' }
+    '吕改特': { bg:'#f0f0f0', text:'#595959' },
+    '未分配': { bg:'#f2f3f5', text:'#8c8c8c' }
 };
 
 const STAGE_OPTIONS = ['Phase-1', 'Phase-2', 'Phase-3', 'WP1-需求', 'WP2-后端', 'WP2-前端', 'WP3-测试', 'WP4-运维', '-'];
@@ -90,10 +91,25 @@ const STAGE_COLORS = {
     '-':        { bg:'#f2f3f5', text:'#8c8c8c' }
 };
 
+const TASK_TYPE_OPTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+const TASK_TYPE_COLORS = {
+    'A': { bg:'#e6f4ff', text:'#0958d9', label:'A (常规开发)' },
+    'B': { bg:'#f9f0ff', text:'#722ed1', label:'B (架构/审计)' },
+    'C': { bg:'#fff7e6', text:'#d46b08', label:'C (文档工程)' },
+    'D': { bg:'#e6fffb', text:'#08979c', label:'D (运维/Git)' },
+    'E': { bg:'#f6ffed', text:'#389e0d', label:'E (用户自建)' },
+    'F': { bg:'#feffe6', text:'#7cb305', label:'F (阶段总结)' },
+    'G': { bg:'#fff0f6', text:'#c41d7f', label:'G (环境治理)' }
+};
+
 function getBadgeStyle(type, value) {
     if (type === 'person') {
         const norm = normalizeRoleName(value);
         return PERSON_COLORS[norm] || PERSON_COLORS[value] || { bg:'#e8f0fe', text:'#3370ff' };
+    }
+    if (type === 'task_type' || type === 'type') {
+        const valUpper = String(value || 'A').toUpperCase();
+        return TASK_TYPE_COLORS[valUpper] || { bg:'#e8f0fe', text:'#3370ff' };
     }
     const map = type === 'status' ? STATUS_COLORS : (type === 'stage' ? STAGE_COLORS : PERSON_COLORS);
     return map[value] || { bg:'#e8f0fe', text:'#3370ff' };

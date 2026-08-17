@@ -45,4 +45,4 @@ python3 scripts/heartbeat.py --json
 - `python3 scripts/audit_query.py --task-id T0001` — 查某任务全量流转
 - `python3 scripts/audit_query.py --failed` — 查所有失败事件
 - `python3 scripts/audit_query.py --delegated-by USER` — 查代行记录
-- `python3 scripts/audit_rotate.py --max-size-mb 50` — 日切分 + 单文件超 50MB 二次切,旧文件 gzip 归档至 `logs/archive/`
+- `python3 scripts/audit_rotate.py --max-size-mb 50` — 日切分 + 单文件超 50MB 二次切,旧文件 gzip 归档至 `user_data/logs/archive/`

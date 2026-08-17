@@ -17,6 +17,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
 from board_adapter_factory import get_board_adapter
+from enums import normalize_role
 
 
 def parse_datetime(val: Any) -> Optional[datetime]:
@@ -52,6 +53,24 @@ class MetricsCalculator:
             return out
         return rec
 
+    @staticmethod
+    def _get_status_entry_time(task: Dict[str, Any], status: str) -> Optional[datetime]:
+        """从任务 process 节点中倒序解析进入当前 status 的时间戳；无节点时回退至 start_date / start_time"""
+        import re as _re
+        process = task.get("process")
+        if process and isinstance(process, str):
+            lines = [line.strip() for line in process.split("\n") if line.strip()]
+            for line in reversed(lines):
+                if f"更新至【{status}】" in line:
+                    m = _re.search(r"\[(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)", line)
+                    if m:
+                        dt = parse_datetime(m.group(1))
+                        if dt:
+                            return dt
+        # 兜底：新任务卡或无节点历史时，回退至 start_date / start_time
+        start_date = task.get("start_date") or task.get("start_time")
+        return parse_datetime(start_date)
+
     def compute_summary(self) -> Dict[str, Any]:
         total = len(self.tasks)
         status_counts = defaultdict(int)
@@ -86,10 +105,12 @@ class MetricsCalculator:
         }
 
     def compute_role_workload(self) -> Dict[str, Dict[str, int]]:
-        """统计各处理人/角色的负荷情况"""
+        """统计各处理人/角色的负荷情况（自动通过 normalize_role 归一化聚合别名）"""
         workload = defaultdict(lambda: {"in_progress": 0, "completed": 0, "total": 0})
         for t in self.tasks:
-            assignee = str(t.get("assignee") or t.get("owner") or "未分配")
+            raw_assignee = t.get("assignee") or t.get("owner")
+            norm = normalize_role(raw_assignee)
+            assignee = raw_assignee if norm == "未分配" and raw_assignee else norm
             status = str(t.get("status", ""))
             workload[assignee]["total"] += 1
             if status == "进行中":
@@ -99,19 +120,19 @@ class MetricsCalculator:
         return dict(workload)
 
     def detect_bottlenecks(self, stale_in_progress_hours: int = 24, stale_review_test_hours: int = 12) -> List[Dict[str, Any]]:
-        """检测并定位流转卡点"""
+        """检测并定位流转卡点（基于节点入态时间精确计算）"""
         bottlenecks = []
         for t in self.tasks:
             tid = t.get("task_id") or t.get("record_id") or t.get("id") or "?"
             tname = t.get("task_name") or t.get("name") or "未命名任务"
             status = str(t.get("status", ""))
             assignee = str(t.get("assignee") or "未分配")
-            s_dt = parse_datetime(t.get("start_date") or t.get("start_time"))
+            status_entry_dt = self._get_status_entry_time(t, status)
 
-            if not s_dt:
+            if not status_entry_dt:
                 continue
 
-            elapsed_hours = (self.now - s_dt).total_seconds() / 3600
+            elapsed_hours = (self.now - status_entry_dt).total_seconds() / 3600
             if status == "进行中" and elapsed_hours > stale_in_progress_hours:
                 bottlenecks.append({
                     "task_id": tid,
@@ -196,7 +217,7 @@ class TerminalRenderer:
 
 def main():
     parser = argparse.ArgumentParser(description="看板效能度量与流转诊断工具")
-    parser.add_argument("--config", default="config/workflow.config.yaml", help="看板配置文件")
+    parser.add_argument("--config", default=None, help="看板配置文件")
     parser.add_argument("--format", choices=["table", "json", "markdown"], default="table", help="输出格式")
     parser.add_argument("--output", help="输出报告文件路径")
     parser.add_argument("--stale-in-progress-hours", type=int, default=24, help="进行中滞留阈值(小时)")

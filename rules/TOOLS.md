@@ -22,8 +22,16 @@
   1. 按 `detect_dirs`/环境变量自动侦测当前激活平台；
   2. 按平台官方格式（Markdown+Frontmatter / Codex TOML）序列化 8 大专家并导出至各平台原生路径（如 `.claude/agents/`、`.agents/agents/`）；
   3. 工具声明按平台映射为原生工具名（Claude Code → `Bash/Edit/Read/Write/Grep/Glob`）；
-  4. 导出后执行本地格式断言：frontmatter/TOML 可解析、`name`/`description` 必填、8 角色齐全，任一失败 `exit(1)` 阻断（Fail-Closed）。
-- **用法**：`python3 scripts/verify_and_export_agents.py`（在宿主项目根目录执行）
+  4. 导出时把项目技术栈（`user_data/project_architecture.config.yaml`）合并进各专家职责——`agents/*.yaml` 模板保持只读；
+  5. 导出后执行本地格式断言：frontmatter/TOML 可解析、`name`/`description` 必填、8 角色齐全，任一失败 `exit(1)` 阻断（Fail-Closed）。
+- **用法**：
+  - 项目级（默认）：`python3 scripts/verify_and_export_agents.py`（任意 CWD；宿主项目目录自动探测）
+  - 全局共享：`python3 scripts/verify_and_export_agents.py --global`（挂载各宿主用户级技能目录；子代理导出为通用版，防跨项目泄漏）
+
+## 3.1 数据根解析器与全局安装器
+- **路径**：`multi-agent-flow/scripts/paths.py` / `install_global.sh` / `install_global.ps1`
+- **数据根解析链**（所有脚本统一）：`--project-root` 参数 > `YY_FLOW_PROJECT_ROOT` 环境变量 > legacy 判定（skill 拷贝内含 `user_data/board.json` → skill 即数据根，存量安装零迁移）> 当前工作目录。
+- **共享安装**：`install_global.sh` 落正本至 `~/agent-skills/multi-agent-flow`（含零数据守卫与 `.yy-flow-shared` 标记），各项目数据仍落各自项目根，互不串扰。
 
 ## 4. 状态巡检脚本
 - **路径**：`multi-agent-flow/scripts/status.sh` / `status.ps1`

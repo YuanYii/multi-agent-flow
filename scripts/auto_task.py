@@ -33,6 +33,7 @@ sys.path.insert(0, SCRIPT_DIR)
 
 from transition_task import transition_task_pipeline, ROLE_NAME_MAP, check_duplicate_tasks
 from board_adapter_factory import get_board_adapter
+import paths
 
 CHAIN_A = ["待开始", "进行中", "审查中", "测试中", "已完成", "已验收"]
 CHAIN_SHORT = ["待开始", "进行中", "已完成", "已验收"]
@@ -47,9 +48,9 @@ MAIN_ROLE_BY_TYPE = {
 # A 类链: 每段转换的 (执行角色, 处理人)
 CHAIN_ROLES_A = [
     ("待开始", "进行中", "DEV", "李开发"),
-    ("进行中", "审查中", "DEV", "李开发"),
-    ("审查中", "测试中", "REVIEWER", "周审查"),
-    ("测试中", "已完成", "QA", "章测试"),
+    ("进行中", "审查中", "DEV", "周审查"),
+    ("审查中", "测试中", "REVIEWER", "章测试"),
+    ("测试中", "已完成", "QA", "严经理"),
     ("已完成", "已验收", "PM", "严经理"),
 ]
 
@@ -58,7 +59,7 @@ def short_chain_roles(main_role: str) -> List[tuple]:
     main_assignee = ROLE_NAME_MAP.get(main_role, main_role)
     return [
         ("待开始", "进行中", main_role, main_assignee),
-        ("进行中", "已完成", main_role, main_assignee),
+        ("进行中", "已完成", main_role, "严经理"),
         ("已完成", "已验收", "PM", "严经理"),
     ]
 
@@ -69,7 +70,11 @@ CHAIN_ROLES_E = [
 
 
 def resolve_chain(task_type: str, main_role: str) -> tuple:
-    """返回 (状态链, 步骤角色表)。"""
+    """返回 (状态链, 步骤角色表)。
+    - 类型 A: L2 标准任务全链 (CHAIN_A: 待开始->进行中->审查中->测试中->已完成->已验收)
+    - 类型 E: 用户直验 (CHAIN_E)
+    - 类型 B/C/D/F/G: L1 轻量任务短链 (CHAIN_SHORT: 待开始->进行中->已完成->已验收)
+    """
     t = task_type.upper()
     if t == "A":
         return CHAIN_A, CHAIN_ROLES_A
@@ -100,11 +105,11 @@ def check_block_resolved(fields: Dict) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="自动任务编排引擎 (auto_task)")
-    parser.add_argument("--config", default="config/workflow.config.yaml", help="配置文件路径")
+    parser.add_argument("--config", default=None, help="配置文件路径")
     parser.add_argument("--task-id", default="", help="任务编号；缺省且提供 --task-name 时自动建卡")
     parser.add_argument("--task-name", default="", help="任务名称（建卡时必填）")
     parser.add_argument("--role", default="", help="主执行角色 (DEV/ARCHITECT/DOCS/DEVOPS/PM；缺省按类型推导)")
-    parser.add_argument("--type", default="A", help="任务类型 (A-G)")
+    parser.add_argument("--type", default="A", help="任务类型 (A-G: A为L2标准任务全链; B/C/D/F/G为L1轻量任务短链; E为用户直验)")
     parser.add_argument("--stage", default="", help="建卡时写入阶段")
     parser.add_argument("--wp", default="", help="建卡时写入工作包")
     parser.add_argument("--wbs", default="", help="建卡时写入 WBS")
@@ -125,21 +130,26 @@ def main():
     delegated_by = args.delegated_by or ""
     delegation_reason = args.delegation_reason or "auto"
 
-    # 链级互斥锁（防多链/人工并发改同一任务）
-    chain_lock = None
+    # 链级互斥锁（防多链/人工并发改同一任务）；锁落 data_root/user_data/locks/
+    import file_lock
+    from file_lock import LockBusyError
+
+    chain_lock_handle = None
     try:
-        import fcntl
-        lock_path = os.path.join(SCRIPT_DIR, ".lock_auto_chain.lock")
-        chain_lock = open(lock_path, "a+b")
-        fcntl.flock(chain_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except Exception:
+        locks_dir = paths.locks_dir()
+        os.makedirs(locks_dir, exist_ok=True)
+        lock_path = os.path.join(locks_dir, ".lock_auto_chain.lock")
+        chain_lock_handle = file_lock.acquire_lock(lock_path, blocking=False)
+    except (LockBusyError, OSError):
         print("[FAILED]  另一条自动链正在执行或锁不可用，物理阻断！")
         sys.exit(1)
 
     try:
         adapter = get_board_adapter(args.config)
         import yaml
-        with open(args.config, "r", encoding="utf-8") as cf:
+        # args.config 为 None（未传 --config）时用 factory 同一解析链定位
+        effective_config = args.config or paths.resolve_runtime_config()
+        with open(effective_config, "r", encoding="utf-8") as cf:
             cfg_data = yaml.safe_load(cf)
         dup_cfg = (cfg_data or {}).get("duplicate_check", {}) or {}
 
@@ -268,13 +278,8 @@ def main():
         print(f"[AUTO]  ✅ 任务 {task_id} 自动链完成，终态【{prev}】" if prev == "已验收" else f"[AUTO]  任务 {task_id} 到达【{prev}】")
         sys.exit(0)
     finally:
-        if chain_lock:
-            try:
-                import fcntl
-                fcntl.flock(chain_lock, fcntl.LOCK_UN)
-            except Exception:
-                pass
-            chain_lock.close()
+        if chain_lock_handle:
+            file_lock.release_lock(chain_lock_handle)
 
 
 if __name__ == "__main__":

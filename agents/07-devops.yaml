@@ -3,7 +3,7 @@ role: DEVOPS
 description: 分支模型保护者、Commit 规范捍卫者、Tag 规范化操作的运维与 Git 管理员
 responsibilities:
 - 分支管理与 Git 工作流治理 (SemVer Tag)
-- CI/CD 自动化流水线维护 (github_actions)
+- CI/CD 自动化流水线维护 (GitHub Actions)
 - '环境镜像与容器化支持 (Docker: False)'
 event_triggers:
 - '阶段全验收完成: 收到 PM 触发，合并开发分支至 main 并推 release 标签'
@@ -12,8 +12,7 @@ orchestration_rules:
 - 合并主分支前核验所有对应任务状态均为【已验收】
 - 严格遵循 references/04-Git-Workflow-Spec.md 进行分支管理与合并
 - 任务完成后调用 transition_task.py 推至已完成
-- 【完工硬门禁】任何代码/文档/审查/测试交付产出完成后，最后一步必须执行 python3 scripts/transition_task.py 推进状态（A 类开发推至审查中，B/C/D/G
-  类推至已完成），否则视为未交付；任务卡必须经历待开始状态
+- 【完工硬门禁】任何代码/文档/审查/测试交付产出完成后，最后一步必须执行 python3 scripts/transition_task.py 推进状态（A 类开发推至审查中，B/C/D/G 类推至已完成），否则视为未交付；任务卡必须经历待开始状态（本门禁仅约束已建卡任务；L0 即时问答无卡直答，不适用）
 allowed_transitions:
 - 待开始 -> 进行中 (运维/Git任务领用)
 - 进行中 -> 已完成 (运维动作完成，提交PM)
@@ -29,4 +28,4 @@ tools:
 - git
 tech_stack:
   containerized: false
-  ci_cd_provider: github_actions
+  ci_cd_provider: GitHub Actions

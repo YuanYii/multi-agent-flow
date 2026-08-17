@@ -18,7 +18,36 @@ import re
 import sys
 import json
 import tempfile
+import datetime
+import subprocess
+import getpass
 from typing import Dict, Any, List, Optional
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+from enums import TaskStatus
+import file_lock
+
+
+def get_current_os_user() -> str:
+    """自动获取当前真人操作者名称（Git用户名优先，OS系统登录名兜底）"""
+    try:
+        git_user = subprocess.check_output(
+            ["git", "config", "user.name"],
+            stderr=subprocess.DEVNULL, timeout=1
+        ).decode("utf-8").strip()
+        if git_user:
+            return git_user
+    except Exception:
+        pass
+
+    try:
+        return getpass.getuser()
+    except Exception:
+        return os.environ.get("USER") or os.environ.get("USERNAME") or "system"
+
 
 # skill 逻辑字段 key → 离线看板 JSON 字段名 (None = 看板无对应字段，写入时跳过)
 KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
@@ -27,7 +56,9 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
     "wbs_id": "wbs",
     "status": "status",
     "assignee": "assignee",
-    "owner": "handler",
+    "owner": "assignee",
+    "handler": "handler",
+    "creator": "creator",
     "priority": None,
     "estimated_hours": "est_hours",
     "actual_hours": "act_hours",
@@ -43,11 +74,13 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
 
 # 看板原生字段集合（直接透传的白名单）
 KANBAN_NATIVE_FIELDS = {
-    "id", "name", "wbs", "status", "assignee", "handler", "est_hours", "act_hours",
+    "id", "name", "wbs", "status", "assignee", "handler", "creator", "est_hours", "act_hours",
     "start_date", "end_date", "stage", "wp", "process", "remarks", "pretask", "seq",
 }
 
 _TASK_ID_RE = re.compile(r"^T(\d+)$")
+# 流程节点 ID（如 T0001-N03 / T0001-3）: 任务ID + 任务内单调递增节点序号
+_NODE_ID_RE = re.compile(r"\b(T\d+)-N?(\d+)\b")
 
 
 class OfflineBoardAdapter:
@@ -67,38 +100,8 @@ class OfflineBoardAdapter:
             self._value_to_kanban[str(config_value)] = KANBAN_FIELD_MAP.get(skill_key)
 
     # ------------------------------------------------------------------
-    # 内部工具：锁 / 读写
+    # 内部工具：读写
     # ------------------------------------------------------------------
-    def _acquire_seq_lock(self):
-        """获取全局排他锁（阻塞式）。所有读-改-写操作必须持锁，保证原子性。"""
-        f = open(self.seq_lock_file, "w")
-        try:
-            if sys.platform == "win32":
-                import msvcrt
-                msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(f, fcntl.LOCK_EX)
-        except Exception:
-            f.close()
-            raise
-        return f
-
-    def _release_seq_lock(self, lock_f):
-        try:
-            if sys.platform == "win32":
-                import msvcrt
-                msvcrt.locking(lock_f.fileno(), msvcrt.LK_UNLCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(lock_f, fcntl.LOCK_UN)
-        except Exception:
-            pass
-        try:
-            lock_f.close()
-        except Exception:
-            pass
-
     def _read_cards(self) -> List[Dict[str, Any]]:
         """读取看板全部卡片（JSON 数组）。文件不存在返回空列表。"""
         if not os.path.exists(self.board_file):
@@ -163,14 +166,28 @@ class OfflineBoardAdapter:
                 max_num = max(max_num, int(m.group(1)))
         return f"T{max_num + 1:04d}"
 
+    @staticmethod
+    def _next_node_seq(process_text: Optional[str], task_id: str) -> int:
+        """在锁内计算指定任务的下一个流程节点序号。
+
+        扫描 process 文本行内的节点 ID（如 [T0001-N03]），取最大 N + 1；
+        无任何节点行时返回 1。与任务编号 max+1 分配同构：
+        单调递增、只追加、永不重排（回滚烧号不复用）。
+        """
+        max_n = 0
+        if process_text:
+            for m in _NODE_ID_RE.finditer(str(process_text)):
+                if m.group(1) == str(task_id):
+                    max_n = max(max_n, int(m.group(2)))
+        return max_n + 1
+
     # ------------------------------------------------------------------
     # 统一接口
     # ------------------------------------------------------------------
     def list_records(self, filter_json: Optional[Dict[str, Any]] = None,
                      limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
         """检索看板记录（支持按 status/assignee 等字段的简单等值过滤）。"""
-        lock_f = self._acquire_seq_lock()
-        try:
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             cards = self._read_cards()
             items = [{"record_id": c.get("id"), "fields": c} for c in cards]
 
@@ -199,24 +216,18 @@ class OfflineBoardAdapter:
                                 filtered.append(item)
                     items = filtered
             return items[offset:offset + limit]
-        finally:
-            self._release_seq_lock(lock_f)
 
     def get_record(self, record_id: str) -> Optional[Dict[str, Any]]:
         """获取指定任务编号的详情记录；不存在返回 None。"""
-        lock_f = self._acquire_seq_lock()
-        try:
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             for c in self._read_cards():
                 if str(c.get("id")) == str(record_id):
                     return {"record_id": c.get("id"), "fields": c}
             return None
-        finally:
-            self._release_seq_lock(lock_f)
 
     def update_record(self, record_id: str, fields: Dict[str, Any]) -> bool:
         """更新指定任务的状态/处理人/描述等字段；记录不存在或企图篡改已验收终态核心状态时返回 False。"""
-        lock_f = self._acquire_seq_lock()
-        try:
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             cards = self._read_cards()
             for c in cards:
                 if str(c.get("id")) == str(record_id):
@@ -237,8 +248,6 @@ class OfflineBoardAdapter:
                             c["act_hours"] = f"{mins} min"
                     return self._write_cards(cards)
             return False
-        finally:
-            self._release_seq_lock(lock_f)
 
     @staticmethod
     def _calc_minutes(start_str: str, end_str: str) -> Optional[int]:
@@ -290,8 +299,7 @@ class OfflineBoardAdapter:
         if "task_name" in merged_fields and "name" not in merged_fields:
             merged_fields["name"] = merged_fields["task_name"]
 
-        lock_f = self._acquire_seq_lock()
-        try:
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             cards = self._read_cards()
 
             task_id = str(merged_fields.get("task_id") or merged_fields.get("id") or "").strip()
@@ -307,8 +315,8 @@ class OfflineBoardAdapter:
             translated.setdefault("wbs", "-")
             translated.setdefault("wp", "-")
             translated.setdefault("stage", merged_fields.get("stage") or "-")
-            translated.setdefault("est_hours", "-")
             translated.setdefault("act_hours", 0)
+            translated.setdefault("creator", merged_fields.get("creator") or get_current_os_user())
 
             # 时间计算
             st = translated.get("start_date") or translated.get("start_time")
@@ -325,24 +333,49 @@ class OfflineBoardAdapter:
             if not self._write_cards(cards):
                 return None
             return task_id
-        finally:
-            self._release_seq_lock(lock_f)
 
     def append_remarks(self, record_id: str, remarks_field_name: str, new_text: str) -> bool:
         """原子级追加备注（打回缺陷信息等）；记录不存在返回 False。"""
-        lock_f = self._acquire_seq_lock()
-        try:
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             kanban_field = self._value_to_kanban.get(str(remarks_field_name)) or "remarks"
             cards = self._read_cards()
             for c in cards:
                 if str(c.get("id")) == str(record_id):
                     existing = c.get(kanban_field) or ""
-                    combined = f"{existing}\\n\\n{new_text}".strip() if existing else new_text
+                    combined = f"{existing}\n\n{new_text}".strip() if existing else new_text
                     c[kanban_field] = combined
                     return self._write_cards(cards)
             return False
-        finally:
-            self._release_seq_lock(lock_f)
+
+    def append_process_node(self, record_id: str, role: str,
+                            from_status: str, to_status: str,
+                            operator: str, comment: str = "") -> "str | None":
+        """锁内分配节点号并向 process 字段追加结构化流转节点。
+
+        节点格式（两行，说明可选）:
+          [{节点ID}]  [{时间戳}]  状态由【{from}】更新至【{to}】，操作人: {操作人}
+          操作说明: {说明}
+
+        节点号在 board.json.seq.lock 排他锁内取该卡 max(N)+1 —— 并发安全、
+        单调递增、只追加、回滚烧号不复用。
+        返回完整节点 ID（如 "T0001-N03"）；记录不存在返回 None。
+        """
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
+            cards = self._read_cards()
+            for c in cards:
+                if str(c.get("id")) == str(record_id):
+                    node_seq = self._next_node_seq(c.get("process"), str(record_id))
+                    node_id = f"{record_id}-N{node_seq:02d}"
+                    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    line = f"[{node_id}]  [{ts}]  状态由【{from_status}】更新至【{to_status}】，操作人: {operator}"
+                    if comment:
+                        line += f"\n操作说明: {comment}"
+                    existing = c.get("process") or ""
+                    c["process"] = f"{existing}\n{line}".strip() if existing else line
+                    if self._write_cards(cards):
+                        return node_id
+                    return None
+            return None
 
 
 def init_board_file(board_file: str) -> str:

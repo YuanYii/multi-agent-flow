@@ -1,6 +1,10 @@
 # ==============================================================================
 # Multi-Agent Flow 跨平台 Agent 技能与子代理挂载声明式配置 (权威终版)
 # 严格遵循各平台官方最新标准与开放规约 (Zero-Speculation Verified)
+#
+# 全局共享安装 (--global)：仅下方 3 个平台的 global_skill_target 已按官方文档核实；
+# opencode/zcode 的用户级技能目录未核实前不声明（防拍脑袋路径）。
+# global_detect_dirs 用于全局模式下的平台探测（用户级目录存在即视为该宿主已安装）。
 # ==============================================================================
 
 version: "1.0.0"
@@ -14,8 +18,10 @@ platforms:
     mount_type: "symlink"
     skill_target: ".agents/skills/{skill_name}"
     global_skill_target: "~/.gemini/config/skills/{skill_name}"
+    global_detect_dirs: ["~/.gemini"]
     subagent_export:
       pattern: ".agents/agents/{agent_id}/agent.md"
+      user_pattern: "~/.gemini/config/skills-agents/{agent_id}/agent.md"
       format: "markdown_frontmatter"
       frontmatter_subagent: true
 
@@ -26,8 +32,10 @@ platforms:
     mount_type: "symlink"
     skill_target: ".claude/skills/{skill_name}"
     global_skill_target: "~/.claude/skills/{skill_name}"
+    global_detect_dirs: ["~/.claude"]
     subagent_export:
       pattern: ".claude/agents/{agent_id}.md"
+      user_pattern: "~/.claude/agents/{agent_id}.md"
       format: "markdown_frontmatter"
       frontmatter_subagent: true
 
@@ -49,10 +57,12 @@ platforms:
     mount_type: "symlink"
     skill_target: ".agents/skills/{skill_name}"
     global_skill_target: "~/.codex/skills/{skill_name}"
+    global_detect_dirs: ["~/.codex"]
     subagent_export:
       pattern: ".codex/agents/{agent_id}.toml"
       format: "codex_toml"
       frontmatter_subagent: false
+      # Codex 官方未提供用户级子代理目录声明，全局模式仅挂载 Skill 不导出子代理
 
   # 5. OpenCode
   opencode:

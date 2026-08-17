@@ -8,7 +8,10 @@ import argparse
 from datetime import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, SCRIPT_DIR)
+
+import paths as _paths
+
 TEMPLATES_DIR = os.path.join(SCRIPT_DIR, "..", "templates")
 
 REPORT_TEMPLATE_MAP = {
@@ -99,13 +102,39 @@ def generate_report(report_type: str, task_id: str, task_name: str, assignee: st
     print(f"[SUCCESS] 已成功创建生成任务报告: {output_path}")
     return True
 
+def resolve_report_dir(report_type: str) -> str:
+    """报告归档目录：config paths.* 映射（锚定 data_root），默认 docs/D04-研发过程/D02-报告/{type}。
+
+    统一三套历史约定（config paths / heartbeat 硬编码 / 本脚本旧硬编码）为 config 单一事实源。
+    """
+    import yaml
+    type_to_key = {
+        "dev": "dev_reports_dir", "frontend": "dev_reports_dir",
+        "reviewer": "review_reports_dir", "qa": "qa_reports_dir",
+        "pm": "summary_dir", "docs": "summary_dir",
+        "arch": "task_breakdown_dir", "devops": "summary_dir",
+    }
+    data_root = _paths.resolve_data_root()
+    config_file = _paths.resolve_runtime_config()
+    rel = None
+    try:
+        with open(config_file, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        rel = (cfg.get("paths", {}) or {}).get(type_to_key.get(report_type, ""), None)
+    except Exception:
+        rel = None
+    if rel:
+        return os.path.join(data_root, rel)
+    return os.path.join(data_root, "docs", "D04-研发过程", "D02-报告", report_type)
+
+
 def main(args: list = None):
     parser = argparse.ArgumentParser(description="自动化任务报告生成器")
     parser.add_argument("--type", required=True, help="报告类型 (pm|arch|dev|frontend|reviewer|qa|docs|devops，兼容别名 review)")
     parser.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
     parser.add_argument("--task-name", default="工作包开发任务", help="任务名称")
     parser.add_argument("--assignee", default="DEV", help="处理人")
-    parser.add_argument("--output", default="", help="输出报告文件路径 (未指定时自动归档至 docs/reports/{type}/)")
+    parser.add_argument("--output", default="", help="输出报告文件路径 (未指定时自动归档至 docs/D04-研发过程/D02-报告/{type}/)")
     parser.add_argument("--summary", default="", help="执行总结与补充文本")
 
     parsed_args = parser.parse_args(args)
@@ -118,7 +147,7 @@ def main(args: list = None):
 
     output_path = parsed_args.output
     if not output_path:
-        reports_dir = os.path.join(PROJECT_ROOT, "docs", "reports", report_type)
+        reports_dir = resolve_report_dir(report_type)
         os.makedirs(reports_dir, exist_ok=True)
         filename = f"{parsed_args.task_id}_{report_type}_report.md"
         output_path = os.path.join(reports_dir, filename)

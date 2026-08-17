@@ -1,238 +1,44 @@
 #!/usr/bin/env python3
 """
-自动将 project_architecture.config.yaml 中的技术栈同步更新至 agents/*.yaml
+专家技术栈同步触发器 (Tech Stack Sync Trigger)
+
+新语义（代码/数据分离后）：
+- agents/*.yaml 是只读模板，不再被改写
+- 项目技术栈在【导出时】由 agent_tech_overlay.py 覆盖到各平台 Subagent 产物
+- 本脚本校验架构配置就绪后，重新触发导出，使最终产物携带最新技术栈
 """
 import os
 import sys
-import json
-import yaml
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.path.join(SCRIPT_DIR, "..", "config")
-AGENTS_DIR = os.path.join(SCRIPT_DIR, "..", "agents")
+sys.path.insert(0, SCRIPT_DIR)
 
-class IndentedDumper(yaml.Dumper):
-    def increase_indent(self, flow=False, indentless=False):
-        return super().increase_indent(flow=False, indentless=False)
+from agent_tech_overlay import load_arch_data
 
-def dump_yaml(data, filepath):
-    with open(filepath, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, Dumper=IndentedDumper, allow_unicode=True, sort_keys=False)
-
-def load_architecture_config():
-    target_config = os.path.join(CONFIG_DIR, "project_architecture.config.yaml")
-    template_config = os.path.join(CONFIG_DIR, "project_architecture.template.yaml")
-    
-    config_path = target_config if os.path.exists(target_config) else template_config
-    if not os.path.exists(config_path):
-        print(f"[ERROR] 未找到技术架构配置文件: {config_path}")
-        sys.exit(1)
-        
-    with open(config_path, "r", encoding="utf-8") as f:
-        arch_data = yaml.safe_load(f)
-
-    # 占位值哨兵: 配置仍为模板占位（未初始化）时拒绝执行，防止占位值污染 agents/*.yaml
-    meta = arch_data.get("meta") or {}
-    project_name = (arch_data.get("project") or {}).get("name", "")
-    if not meta.get("initialized") and project_name in ("", "project_name"):
-        print("[ERROR] project_architecture 配置仍为模板占位值（meta.initialized != true），拒绝同步至 agents/*.yaml。")
-        print("        请先运行: python3 scripts/auto_scan_stack.py --write 完成真实架构扫描填充。")
-        sys.exit(1)
-
-    # 物理 Schema 强校验
-    schema_path = os.path.join(CONFIG_DIR, "project_architecture.schema.json")
-    if os.path.exists(schema_path):
-        try:
-            import jsonschema
-            with open(schema_path, "r", encoding="utf-8") as sf:
-                s_data = json.load(sf)
-            jsonschema.validate(instance=arch_data, schema=s_data)
-        except ImportError:
-            pass
-        except Exception as e:
-            print(f"[WARNING] 架构配置文件违反 project_architecture.schema.json 规范: {e}")
-            
-    return arch_data
-
-def update_dev_role(arch_data):
-    dev_path = os.path.join(AGENTS_DIR, "03-dev.yaml")
-    if not os.path.exists(dev_path):
-        return
-
-    with open(dev_path, "r", encoding="utf-8") as f:
-        dev_data = yaml.safe_load(f)
-
-    tech = arch_data.get("tech_stack", {})
-    langs = [l.get("name") for l in tech.get("languages", []) if isinstance(l, dict)]
-    frameworks = [fw.get("name") for fw in tech.get("frameworks", []) if isinstance(fw, dict)]
-    testing = tech.get("testing", {})
-    
-    lang_str = "/".join(langs) if langs else "通用语言"
-    fw_str = "/".join(frameworks) if frameworks else "通用框架"
-    test_framework = testing.get("framework", "pytest/unittest")
-
-    dev_data["tech_stack"] = {
-        "languages": lang_str,
-        "frameworks": fw_str,
-        "testing_framework": test_framework
-    }
-
-    dev_data["responsibilities"] = [
-        f"{lang_str} 与 {fw_str} 核心业务逻辑实现",
-        f"单元测试撰写与覆盖率达标 ({test_framework})",
-        "开发任务报告撰写与工作包归档",
-        "依赖治理与本地运行环境维护"
-    ]
-
-    dump_yaml(dev_data, dev_path)
-    print(f"[SUCCESS] 已更新开发专家配置: {dev_path}")
-
-def update_reviewer_role(arch_data):
-    reviewer_path = os.path.join(AGENTS_DIR, "04-reviewer.yaml")
-    if not os.path.exists(reviewer_path):
-        return
-
-    with open(reviewer_path, "r", encoding="utf-8") as f:
-        reviewer_data = yaml.safe_load(f)
-
-    tech = arch_data.get("tech_stack", {})
-    langs = [l.get("name") for l in tech.get("languages", []) if isinstance(l, dict)]
-    lang_str = "/".join(langs) if langs else "通用"
-
-    reviewer_data["tech_stack"] = {
-        "target_languages": lang_str,
-        "code_style": f"{lang_str} 最佳实践与规范检查"
-    }
-
-    reviewer_data["responsibilities"] = [
-        f"{lang_str} 代码规范与编码风格审查",
-        "安全漏洞、越权风险与性能瓶颈核验",
-        "架构契约与设计模式合规性审查"
-    ]
-
-    dump_yaml(reviewer_data, reviewer_path)
-    print(f"[SUCCESS] 已更新代码审查专家配置: {reviewer_path}")
-
-def update_qa_role(arch_data):
-    qa_path = os.path.join(AGENTS_DIR, "05-qa.yaml")
-    if not os.path.exists(qa_path):
-        return
-
-    with open(qa_path, "r", encoding="utf-8") as f:
-        qa_data = yaml.safe_load(f)
-
-    tech = arch_data.get("tech_stack", {})
-    testing = tech.get("testing", {})
-    test_framework = testing.get("framework", "pytest")
-    min_cov = testing.get("min_coverage_percent", 80)
-
-    qa_data["tech_stack"] = {
-        "testing_framework": test_framework,
-        "min_coverage_percent": f"{min_cov}%"
-    }
-
-    qa_data["responsibilities"] = [
-        f"基于 {test_framework} 的集成与端到端测试覆盖",
-        f"测试用例执行与单测覆盖率校验 (≥{min_cov}%)",
-        "缺陷回写与复测结论追加"
-    ]
-
-    dump_yaml(qa_data, qa_path)
-    print(f"[SUCCESS] 已更新测试专家配置: {qa_path}")
-
-def update_devops_role(arch_data):
-    devops_path = os.path.join(AGENTS_DIR, "07-devops.yaml")
-    if not os.path.exists(devops_path):
-        return
-
-    with open(devops_path, "r", encoding="utf-8") as f:
-        devops_data = yaml.safe_load(f)
-
-    deploy = arch_data.get("deployment_and_ci", {})
-    is_docker = deploy.get("containerized", False)
-    ci_provider = deploy.get("ci_cd_provider", "GitHub Actions")
-
-    devops_data["tech_stack"] = {
-        "containerized": is_docker,
-        "ci_cd_provider": ci_provider
-    }
-
-    devops_data["responsibilities"] = [
-        "分支管理与 Git 工作流治理 (SemVer Tag)",
-        f"CI/CD 自动化流水线维护 ({ci_provider})",
-        f"环境镜像与容器化支持 (Docker: {is_docker})"
-    ]
-
-    dump_yaml(devops_data, devops_path)
-    print(f"[SUCCESS] 已更新 DevOps 专家配置: {devops_path}")
-
-def update_architect_role(arch_data):
-    architect_path = os.path.join(AGENTS_DIR, "02-architect.yaml")
-    if not os.path.exists(architect_path):
-        return
-
-    with open(architect_path, "r", encoding="utf-8") as f:
-        arch_role_data = yaml.safe_load(f)
-
-    tech = arch_data.get("tech_stack", {})
-    langs = [l.get("name") for l in tech.get("languages", []) if isinstance(l, dict)]
-    frameworks = [fw.get("name") for fw in tech.get("frameworks", []) if isinstance(fw, dict)]
-    lang_str = "/".join(langs) if langs else "通用语言"
-    fw_str = "/".join(frameworks) if frameworks else "通用架构模式"
-
-    arch_role_data["tech_stack"] = {
-        "architecture_pattern": arch_data.get("project_type", "Monolith / Microservices"),
-        "primary_languages": lang_str,
-        "frameworks": fw_str
-    }
-
-    arch_role_data["responsibilities"] = [
-        f"基于 {lang_str} 与 {fw_str} 进行系统总体架构设计与 ADR 编写",
-        "模块边界划分、API 契约定义与高可用方案审查",
-        "指导关键技术攻关与性能瓶颈建模"
-    ]
-
-    dump_yaml(arch_role_data, architect_path)
-    print(f"[SUCCESS] 已更新系统架构师专家配置: {architect_path}")
-
-def update_frontend_role(arch_data):
-    frontend_path = os.path.join(AGENTS_DIR, "08-frontend.yaml")
-    if not os.path.exists(frontend_path):
-        return
-
-    with open(frontend_path, "r", encoding="utf-8") as f:
-        frontend_data = yaml.safe_load(f)
-
-    tech = arch_data.get("tech_stack", {})
-    frameworks = [fw.get("name") for fw in tech.get("frameworks", []) if isinstance(fw, dict)]
-    fe_fw = [fw for fw in frameworks if any(k in fw.lower() for k in ["react", "vue", "next", "nuxt", "svelte", "html", "css", "ts", "js"])]
-    fw_str = "/".join(fe_fw) if fe_fw else "/".join(frameworks) if frameworks else "HTML/JavaScript/CSS"
-
-    frontend_data["tech_stack"] = {
-        "web_frameworks": fw_str,
-        "styling": "Vanilla CSS / CSS Modules",
-        "ui_principles": "Vanilla JS, Responsive, Function-Driven Design"
-    }
-
-    frontend_data["responsibilities"] = [
-        f"基于 {fw_str} 实现高质量现代 Web 用户界面与微交互",
-        "响应式布局、UI 交互体验与前端性能优化",
-        "前端组件模块化开发与界面质量自测"
-    ]
-
-    dump_yaml(frontend_data, frontend_path)
-    print(f"[SUCCESS] 已更新前端开发专家配置: {frontend_path}")
 
 def main():
-    arch_data = load_architecture_config()
-    update_architect_role(arch_data)
-    update_dev_role(arch_data)
-    update_reviewer_role(arch_data)
-    update_qa_role(arch_data)
-    update_devops_role(arch_data)
-    update_frontend_role(arch_data)
-    print(" 所有专家 Agent 的技术栈已成功同步！")
+    arch = load_arch_data()
+    if arch is None:
+        print("[NOTE]  架构配置未初始化（user_data/project_architecture.config.yaml 缺失或为占位）。")
+        print("        跳过技术栈覆盖导出；将先执行 auto_scan_stack.py --write 完成扫描后自动联动。")
+        return 0
+
+    proj = (arch.get("project") or {}).get("name", "未知")
+    print(f"[SYNC]  [技术栈覆盖导出] 项目【{proj}】技术栈将在导出时合并至各平台 Subagent...")
+
+    # 重新触发导出（overlay 生效点在导出器内部）
+    import subprocess
+    res = subprocess.run(
+        [sys.executable, os.path.join(SCRIPT_DIR, "verify_and_export_agents.py")],
+        capture_output=True, text=True,
+    )
+    if res.returncode == 0:
+        print("[SUCCESS]  专家 Subagent 已携项目技术栈完成重新导出（agents/*.yaml 模板保持只读）。")
+        return 0
+    sys.stderr.write(res.stderr or res.stdout)
+    print("[FAILED]  重新导出失败，请检查上方输出。")
+    return 1
+
 
 if __name__ == "__main__":
-    main()
-
+    sys.exit(main())

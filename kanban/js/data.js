@@ -19,38 +19,36 @@ const defaultCardsData = [
         wbs: "1.1",
         start_date: "2026-08-14 09:00:00",
         end_date: "2026-08-15 18:00:00",
-        est_hours: 8,
-        act_hours: 2,
+        act_hours: "120 min",
         remarks: "执行系统解耦分析与 ADR 架构决策制定",
         process: "[2026-08-14 09:00:00] [系统初始化] 任务 [T0000] 已推入看板，当前状态【待开始】，负责人: 钱架构\n[2026-08-14 09:30:00] [钱架构] 领取任务并开始执行，状态由【待开始】更新至【进行中】"
     }
 ];
 
 let rawCardsData = [];
-let kanbanMetaConfig = null;
 let kanbanPreferences = {
     title: "多专家Agent协作任务看板",
     theme: "light",
     row_height: 55,
-    card_visible_fields: ["id", "name", "assignee", "est_hours", "status"],
-    column_widths: {}
+    card_visible_fields: ["id", "name", "assignee", "act_hours", "status"],
+    card_field_config: null,
+    column_widths: {},
+    filters: null,
+    sort: null
 };
 
 // -------------------------------------------------------------
-// 1. 初始化元数据与数据加载
+// 1. 初始化偏好与数据加载
 // -------------------------------------------------------------
-async function fetchKanbanMetaConfig() {
-    try {
-        const res = await fetch('./json/kanban_meta.json?t=' + Date.now());
-        if (res.ok) {
-            kanbanMetaConfig = await res.json();
-        }
-    } catch (err) {}
-}
-
 async function loadStorageData() {
-    await fetchKanbanMetaConfig();
     await loadBoardPreferences();
+    if (typeof restoreCardFieldConfig === 'function') {
+        restoreCardFieldConfig();
+    }
+    if (typeof renderFieldConfigPopover === 'function') {
+        renderFieldConfigPopover();
+    }
+    applyServerBoardTitle();
     await fetchBackgroundData();
 }
 
@@ -75,6 +73,18 @@ async function loadBoardPreferences() {
     } catch (e) {}
 }
 
+// 服务端标题应用：用户未在本地编辑过标题时，采用服务端偏好（含项目名动态默认）。
+// 本地编辑过（localStorage 有 offline_board_title_v1）则尊重本地定制，服务端不覆盖。
+function applyServerBoardTitle() {
+    try {
+        if (localStorage.getItem('offline_board_title_v1')) return; // 用户定制优先
+    } catch (e) {}
+    const t = (kanbanPreferences.title || '').trim();
+    if (t && typeof applyBoardTitle === 'function') {
+        applyBoardTitle(t);
+    }
+}
+
 async function fetchBackgroundData() {
     // 1. 优先通过 REST API /api/tasks 获取
     try {
@@ -84,6 +94,7 @@ async function fetchBackgroundData() {
             if (resp && resp.data && Array.isArray(resp.data.items) && resp.data.items.length > 0) {
                 rawCardsData = resp.data.items;
                 localStorage.setItem('offline_board_cards_v3', JSON.stringify(rawCardsData));
+                if (typeof initRender === 'function') initRender();
                 applyFilters();
                 return;
             }
@@ -98,6 +109,7 @@ async function fetchBackgroundData() {
             if (Array.isArray(fileData) && fileData.length > 0) {
                 rawCardsData = fileData;
                 localStorage.setItem('offline_board_cards_v3', JSON.stringify(rawCardsData));
+                if (typeof initRender === 'function') initRender();
                 applyFilters();
                 return;
             }
@@ -111,6 +123,7 @@ async function fetchBackgroundData() {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {
                 rawCardsData = parsed;
+                if (typeof initRender === 'function') initRender();
                 applyFilters();
                 return;
             }
@@ -121,6 +134,7 @@ async function fetchBackgroundData() {
     if (!Array.isArray(rawCardsData) || rawCardsData.length === 0) {
         rawCardsData = JSON.parse(JSON.stringify(defaultCardsData));
     }
+    if (typeof initRender === 'function') initRender();
     applyFilters();
 }
 

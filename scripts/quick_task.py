@@ -19,7 +19,7 @@ import argparse
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from transition_task import transition_task_pipeline, ROLE_NAME_MAP
+from transition_task import transition_task_pipeline, ROLE_NAME_MAP, normalize_role_name
 
 
 def main():
@@ -27,20 +27,20 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_create = sub.add_parser("create", help="建卡【待开始】并分配处理人")
-    p_create.add_argument("--config", default="config/workflow.config.yaml", help="配置文件路径")
+    p_create.add_argument("--config", default=None, help="配置文件路径")
     p_create.add_argument("--name", required=True, help="任务名称")
     p_create.add_argument("--role", required=True, help="建卡角色 (PM 可派发任意；非 PM 仅可自建)")
     p_create.add_argument("--assignee", default=None, help="处理人 (缺省=角色本人)")
     p_create.add_argument("--stage", default=None, help="项目阶段")
     p_create.add_argument("--wp", default=None, help="工作包")
     p_create.add_argument("--wbs", default=None, help="WBS 编号")
-    p_create.add_argument("--owner", default=None, help="负责人 (缺省=建卡角色)")
+    p_create.add_argument("--owner", default=None, help="负责人 (缺省=执行人)")
     p_create.add_argument("--type", default="A", help="任务类型 (A-G)")
     p_create.add_argument("--force", action="store_true", help="重复任务校验命中时强制创建")
     p_create.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
     p_complete = sub.add_parser("complete", help="推进任务到目标状态")
-    p_complete.add_argument("--config", default="config/workflow.config.yaml", help="配置文件路径")
+    p_complete.add_argument("--config", default=None, help="配置文件路径")
     p_complete.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
     p_complete.add_argument("--role", required=True, help="执行角色")
     p_complete.add_argument("--from-status", required=True, help="原状态")
@@ -55,7 +55,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "create":
-        assignee = args.assignee or ROLE_NAME_MAP.get(args.role.upper(), args.role)
+        assignee = normalize_role_name(args.assignee or args.role)
         ok = transition_task_pipeline(
             config_path=args.config,
             current_role=args.role,

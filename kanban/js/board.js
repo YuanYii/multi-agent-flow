@@ -71,19 +71,110 @@
             { key: 'status',     th: '状态',          label: '状态 (Status)' },
             { key: 'assignee',   th: '负责人',        label: '负责人 (Assignee)' },
             { key: 'handler',    th: '处理人',        label: '处理人 (Handler)' },
-            { key: 'est_hours',  th: '预估(h)',       label: '预估工时 (Est Hours)' },
-            { key: 'act_hours',  th: '实际(h)',       label: '实际工时 (Act Hours)' },
+            { key: 'creator',    th: '创建人',        label: '创建人 (Creator)' },
+            { key: 'act_hours',  th: '任务耗时(m)',   label: '任务耗时 (Duration)' },
             { key: 'start_date', th: '开始时间',      label: '开始时间 (Start Date)' },
             { key: 'end_date',   th: '结束时间',      label: '结束时间 (End Date)' },
             { key: 'remarks',    th: '备注',          label: '备注 (Remarks)' },
             { key: 'process',    th: '过程描述',      label: '过程描述 (Process)' }
         ];
 
+        /**
+         * 精确计算任务耗时（分钟）
+         * 口径：从首次进入【进行中】到进入【已完成】的时间跨度，严格不含【已验收】
+         */
+        function computeCardDuration(card) {
+            if (!card) return;
+            // 仅对【已完成】或【已验收】的任务计算闭环耗时；在途任务不提前结算，返回 null (显示 '-')
+            if (card.status !== '已完成' && card.status !== '已验收') {
+                card._duration_mins = null;
+                return;
+            }
+
+            // 1. 优先从 process 审计日志中提取 开工时刻 与 完工时刻（严格排除【已验收】）
+            if (card.process) {
+                const lines = String(card.process).split(/\n|\\n/);
+                let inProgressTs = null;
+                let completedTs = null;
+                const timeRegex = /\[(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?(?:[+-]\d{2}:?\d{2}|Z)?)\]/i;
+
+                for (const line of lines) {
+                    const tm = line.match(timeRegex);
+                    if (!tm) continue;
+                    const tsStr = tm[1].replace('T', ' ');
+                    const dt = new Date(tsStr.replace(/-/g, '/')).getTime();
+                    if (isNaN(dt)) continue;
+
+                    if (line.includes('更新至【进行中】') || line.includes('初始状态【进行中】')) {
+                        if (inProgressTs === null || dt < inProgressTs) inProgressTs = dt;
+                    }
+                    if (line.includes('更新至【已完成】') || line.includes('初始状态【已完成】')) {
+                        if (completedTs === null || dt > completedTs) completedTs = dt;
+                    }
+                }
+
+                if (inProgressTs !== null && completedTs !== null && completedTs >= inProgressTs) {
+                    card._duration_mins = Math.max(1, Math.round((completedTs - inProgressTs) / (1000 * 60)));
+                    return;
+                }
+            }
+
+            // 2. 兜底：若 process 无精确记录，读取 start_date 与 end_date
+            const st = card.start_date || card.start_time;
+            const et = card.end_date || card.end_time;
+            if (st && et) {
+                const sTime = new Date(String(st).replace('T', ' ').replace(/-/g, '/')).getTime();
+                const eTime = new Date(String(et).replace('T', ' ').replace(/-/g, '/')).getTime();
+                if (!isNaN(sTime) && !isNaN(eTime) && eTime >= sTime) {
+                    card._duration_mins = Math.max(1, Math.round((eTime - sTime) / (1000 * 60)));
+                    return;
+                }
+            }
+
+            // 3. 兜底：读取历史已有 act_hours
+            if (card.act_hours !== undefined && card.act_hours !== null && card.act_hours !== '' && card.act_hours !== '-') {
+                const s = String(card.act_hours).trim();
+                const m = s.match(/^(\d+(?:\.\d+)?)/);
+                if (m) {
+                    let val = parseFloat(m[1]);
+                    if (s.includes('h') && !s.includes('min') && !s.includes('m')) val = Math.round(val * 60);
+                    card._duration_mins = Math.round(val);
+                    return;
+                }
+            }
+
+            card._duration_mins = null;
+        }
+
+        function formatTaskDuration(card) {
+            if (!card) return '-';
+            if (card._duration_mins === undefined) {
+                computeCardDuration(card);
+            }
+            return (card._duration_mins !== null && card._duration_mins !== undefined) ? `${card._duration_mins}m` : '-';
+        }
+
+        function computeAllCardsDuration(cards) {
+            if (!Array.isArray(cards)) return;
+            cards.forEach(c => computeCardDuration(c));
+        }
+
         // Card display config: one flag per BOARD_FIELDS entry + a label-prefix toggle
         let cardFieldConfig = BOARD_FIELDS.reduce((acc, f) => { acc[f.key] = true; return acc; }, { showLabels: true });
 
+        function restoreCardFieldConfig() {
+            if (typeof kanbanPreferences !== 'undefined' && kanbanPreferences && kanbanPreferences.card_field_config && typeof kanbanPreferences.card_field_config === 'object') {
+                cardFieldConfig = Object.assign(cardFieldConfig, kanbanPreferences.card_field_config);
+            }
+        }
+
         // Build the field-config popover from the registry so it can never drift from the table
         function renderFieldConfigPopover() {
+            restoreCardFieldConfig();
+            const showLabelsCb = document.querySelector('#field-popover input[data-field="showLabels"]');
+            if (showLabelsCb) {
+                showLabelsCb.checked = cardFieldConfig.showLabels !== false;
+            }
             const container = document.getElementById('field-checkbox-list');
             if (!container) return;
             container.innerHTML = BOARD_FIELDS.map(f =>
@@ -340,8 +431,10 @@
 
             // Table inline -> write back to data + re-render
             const cardId = trigger.dataset.cardId;
+            const field = trigger.dataset.field;
             if (cardId) {
                 if (type === 'status') quickUpdateStatus(cardId, value);
+                else if (field === 'handler') quickUpdateHandler(cardId, value);
                 else quickUpdateAssignee(cardId, value);
             }
             closeTagPanel();
@@ -431,13 +524,13 @@
             let remarksHtml = (cardFieldConfig.remarks && card.remarks) ? `<div style="margin-top:4px; font-size:12px; color:#4e5969; line-height:1.4;">${lbl ? '备注: ' : ''}${esc(card.remarks.length > 60 ? card.remarks.substring(0, 60) + '...' : card.remarks)}</div>` : '';
             let processHtml = (cardFieldConfig.process && card.process) ? `<div style="margin-top:4px; font-size:12px; color:#4e5969; line-height:1.4;">${lbl ? '过程: ' : ''}${esc(card.process.length > 60 ? card.process.substring(0, 60) + '...' : card.process)}</div>` : '';
 
-            // --- 预估工时 / 实际工时 (independently toggleable) ---
+            // --- 任务耗时 (m) ---
             let hoursHtml = '';
-            if (cardFieldConfig.est_hours || cardFieldConfig.act_hours) {
-                const parts = [];
-                if (cardFieldConfig.est_hours) parts.push(`${esc(card.est_hours || '0')}h (预)`);
-                if (cardFieldConfig.act_hours) parts.push(`${esc(card.act_hours || '0')}h (实)`);
-                hoursHtml = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${lbl ? '工时: ' : ''}${parts.join(' / ')}`;
+            if (cardFieldConfig.act_hours) {
+                const durText = formatTaskDuration(card);
+                if (durText !== '-') {
+                    hoursHtml = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${lbl ? '耗时: ' : ''}${durText}`;
+                }
             }
 
             let metaHtml = (hoursHtml || datesHtml || remarksHtml || processHtml) ? `
@@ -691,11 +784,13 @@
                             ${tagSelectTriggerHTML('status', card.status || '待开始', `data-card-id="${esc(card.id)}"`)}
                         </td>
                         <td>
-                            ${tagSelectTriggerHTML('person', card.assignee || '李开发', `data-card-id="${esc(card.id)}"`)}
+                            ${tagSelectTriggerHTML('person', card.assignee || '未分配', `data-card-id="${esc(card.id)}" data-field="assignee"`)}
                         </td>
-                        <td>${esc(card.handler) || '-'}</td>
-                        <td>${esc(card.est_hours)}</td>
-                        <td>${esc(card.act_hours)}</td>
+                        <td>
+                            ${tagSelectTriggerHTML('person', card.handler || card.assignee || '未分配', `data-card-id="${esc(card.id)}" data-field="handler"`)}
+                        </td>
+                        <td><small style="color:var(--text-muted); font-family:inherit;">${esc(card.creator || '-')}</small></td>
+                        <td>${formatTaskDuration(card)}</td>
                         <td><small style="color:#4e5969;">${esc(card.start_date) || '-'}</small></td>
                         <td><small style="color:#4e5969;">${esc(card.end_date) || '-'}</small></td>
                         <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${esc(card.remarks) || '-'}</div></td>
@@ -715,7 +810,130 @@
             document.getElementById('raw-count').innerText = rawCardsData.length;
         }
 
+        function renderStageFilterOptions() {
+            const selectEl = document.getElementById('filter-stage');
+            if (!selectEl) return;
+
+            const currentVal = selectEl.value;
+            const stageSet = new Set();
+            rawCardsData.forEach(c => {
+                const stg = (c.stage || '').trim();
+                if (stg && stg !== '-') stageSet.add(stg);
+            });
+            const sorted = Array.from(stageSet).sort();
+            let html = '<option value="">全部阶段</option>';
+            sorted.forEach(name => {
+                html += `<option value="${esc(name)}">${esc(name)}</option>`;
+            });
+            selectEl.innerHTML = html;
+            if (sorted.includes(currentVal)) {
+                selectEl.value = currentVal;
+            }
+            if (typeof refreshUiSelects === 'function') {
+                refreshUiSelects();
+            }
+        }
+
+        function renderCreatorFilterOptions() {
+            const selectEl = document.getElementById('filter-creator');
+            if (!selectEl) return;
+
+            const currentVal = selectEl.value;
+            const creatorSet = new Set();
+            rawCardsData.forEach(c => {
+                const cr = (c.creator || '').trim();
+                if (cr && cr !== '-') creatorSet.add(cr);
+            });
+            const sorted = Array.from(creatorSet).sort();
+            let html = '<option value="">全部创建人</option>';
+            sorted.forEach(name => {
+                html += `<option value="${esc(name)}">${esc(name)}</option>`;
+            });
+            selectEl.innerHTML = html;
+            if (sorted.includes(currentVal)) {
+                selectEl.value = currentVal;
+            }
+            if (typeof refreshUiSelects === 'function') {
+                refreshUiSelects();
+            }
+        }
+
+        const DEFAULT_SAVED_FILTERS = {
+            query: '', status: '', stage: '', handler: '', creator: '',
+            selected_persons: [], start_from: '', start_to: '', end_from: '', end_to: ''
+        };
+        const DEFAULT_SAVED_SORT = { field: 'seq', order: 'asc' };
+
+        let filterPersistTimer = null;
+        function debouncedPersistFilterAndSort() {
+            if (filterPersistTimer) clearTimeout(filterPersistTimer);
+            filterPersistTimer = setTimeout(() => {
+                persistCurrentFilterAndSortState();
+            }, 350);
+        }
+
+        function persistCurrentFilterAndSortState() {
+            if (typeof apiSaveBoardMeta !== 'function') return;
+            const filters = {
+                query: (document.getElementById('search-box')?.value || '').trim(),
+                status: document.getElementById('filter-status')?.value || '',
+                stage: document.getElementById('filter-stage')?.value || '',
+                handler: document.getElementById('filter-handler')?.value || '',
+                creator: document.getElementById('filter-creator')?.value || '',
+                selected_persons: Array.from(selectedPersons),
+                start_from: document.getElementById('filter-start-from')?.value || '',
+                start_to: document.getElementById('filter-start-to')?.value || '',
+                end_from: document.getElementById('filter-end-from')?.value || '',
+                end_to: document.getElementById('filter-end-to')?.value || ''
+            };
+            const sort = {
+                field: document.getElementById('sort-field')?.value || 'seq',
+                order: document.getElementById('sort-order')?.value || 'asc'
+            };
+            apiSaveBoardMeta({ filters, sort });
+        }
+
+        let hasRestoredInitialFilters = false;
+        let isRestoringFilterState = false;
+        function restoreFilterAndSortState(force = false) {
+            if (hasRestoredInitialFilters && !force) return;
+            hasRestoredInitialFilters = true;
+
+            const f = (typeof kanbanPreferences !== 'undefined' && kanbanPreferences && kanbanPreferences.filters && typeof kanbanPreferences.filters === 'object') ? kanbanPreferences.filters : DEFAULT_SAVED_FILTERS;
+            const s = (typeof kanbanPreferences !== 'undefined' && kanbanPreferences && kanbanPreferences.sort && typeof kanbanPreferences.sort === 'object') ? kanbanPreferences.sort : DEFAULT_SAVED_SORT;
+
+            isRestoringFilterState = true;
+            try {
+                if (document.getElementById('search-box')) document.getElementById('search-box').value = f.query || '';
+                if (document.getElementById('filter-status')) document.getElementById('filter-status').value = f.status || '';
+                if (document.getElementById('filter-stage') && f.stage) document.getElementById('filter-stage').value = f.stage;
+                if (document.getElementById('filter-handler')) document.getElementById('filter-handler').value = f.handler || '';
+                if (document.getElementById('filter-creator') && f.creator) document.getElementById('filter-creator').value = f.creator;
+                if (document.getElementById('filter-start-from')) document.getElementById('filter-start-from').value = f.start_from || '';
+                if (document.getElementById('filter-start-to')) document.getElementById('filter-start-to').value = f.start_to || '';
+                if (document.getElementById('filter-end-from')) document.getElementById('filter-end-from').value = f.end_from || '';
+                if (document.getElementById('filter-end-to')) document.getElementById('filter-end-to').value = f.end_to || '';
+
+                if (Array.isArray(f.selected_persons) && f.selected_persons.length > 0) {
+                    selectedPersons = new Set(f.selected_persons);
+                } else {
+                    selectedPersons.clear();
+                }
+                renderPersonCheckboxList();
+
+                if (document.getElementById('sort-field')) document.getElementById('sort-field').value = s.field || 'seq';
+                if (document.getElementById('sort-order')) document.getElementById('sort-order').value = s.order || 'asc';
+
+                if (typeof refreshUiSelects === 'function') refreshUiSelects();
+            } finally {
+                isRestoringFilterState = false;
+            }
+        }
+
         function initRender() {
+            // 0. Pre-calculate duration for all cards for O(1) renders and sorts
+            computeAllCardsDuration(rawCardsData);
+
             // 1. Kanban Assignee
             renderKanban("board-assignee", assigneeColsConfig, "assignee");
 
@@ -727,9 +945,12 @@
             // 3. Kanban Status
             renderKanban("board-status", statusColsConfig, "status");
 
-            // 4. Data Table
+            // 4. Data Table & Filters
             renderTable();
             renderPersonCheckboxList();
+            renderStageFilterOptions();
+            renderCreatorFilterOptions();
+            restoreFilterAndSortState();
             updateCounter();
             refreshModalTagSelectors();
         }
@@ -741,8 +962,14 @@
 
         function applyFilters() {
             const query = document.getElementById('search-box').value.trim().toLowerCase();
-            const statusFilter = document.getElementById('filter-status').value;
-            const assigneeFilter = document.getElementById('filter-assignee').value;
+            const statusFilter = document.getElementById('filter-status') ? document.getElementById('filter-status').value : '';
+            const stageFilter = document.getElementById('filter-stage') ? document.getElementById('filter-stage').value : '';
+            const handlerFilter = document.getElementById('filter-handler') ? document.getElementById('filter-handler').value : '';
+            const creatorFilter = document.getElementById('filter-creator') ? document.getElementById('filter-creator').value : '';
+            const startFrom = document.getElementById('filter-start-from') ? document.getElementById('filter-start-from').value : '';
+            const startTo = document.getElementById('filter-start-to') ? document.getElementById('filter-start-to').value : '';
+            const endFrom = document.getElementById('filter-end-from') ? document.getElementById('filter-end-from').value : '';
+            const endTo = document.getElementById('filter-end-to') ? document.getElementById('filter-end-to').value : '';
             const personFocusActive = isPersonFocusActive();
 
             currentCardsData = rawCardsData.filter(c => {
@@ -750,6 +977,8 @@
                     (c.id && c.id.toLowerCase().includes(query)) ||
                     (c.name && c.name.toLowerCase().includes(query)) ||
                     (c.assignee && c.assignee.toLowerCase().includes(query)) ||
+                    (c.handler && c.handler.toLowerCase().includes(query)) ||
+                    (c.creator && c.creator.toLowerCase().includes(query)) ||
                     (c.status && c.status.toLowerCase().includes(query)) ||
                     (c.stage && c.stage.toLowerCase().includes(query)) ||
                     (c.wbs && c.wbs.toLowerCase().includes(query)) ||
@@ -757,14 +986,42 @@
                     (c.process && c.process.toLowerCase().includes(query))
                 );
                 const matchStatus = !statusFilter || c.status === statusFilter;
-                // Each assignee filter is a no-op when unset; when both are set they intersect (AND).
-                const matchDropdownAssignee = !assigneeFilter || c.assignee === assigneeFilter;
-                const matchMultiPerson = !personFocusActive || selectedPersons.has(c.assignee);
+                const matchStage = !stageFilter || (c.stage && c.stage === stageFilter);
 
-                return matchQuery && matchStatus && matchDropdownAssignee && matchMultiPerson;
+                // Handler matching:
+                let matchHandler = true;
+                if (handlerFilter) {
+                    if (handlerFilter === '未分配') {
+                        matchHandler = !c.handler || c.handler === '未分配' || (!c.handler && !c.assignee);
+                    } else {
+                        const eff = normalizeRoleName(c.handler || c.assignee);
+                        matchHandler = eff === normalizeRoleName(handlerFilter);
+                    }
+                }
+
+                // Creator matching:
+                const matchCreator = !creatorFilter || (c.creator && c.creator === creatorFilter);
+
+                // Person focus matching (Assignee multi-select from toolbar):
+                const matchMultiPerson = !personFocusActive || selectedPersons.has(c.assignee) || selectedPersons.has(normalizeRoleName(c.assignee));
+
+                // Date range comparisons (pure ISO string prefix comparison)
+                const cStartDate = (c.start_date || c.start_time || '').slice(0, 10);
+                const matchStartFrom = !startFrom || (cStartDate && cStartDate >= startFrom);
+                const matchStartTo = !startTo || (cStartDate && cStartDate <= startTo);
+
+                const cEndDate = (c.end_date || c.end_time || '').slice(0, 10);
+                const matchEndFrom = !endFrom || (cEndDate && cEndDate >= endFrom);
+                const matchEndTo = !endTo || (cEndDate && cEndDate <= endTo);
+
+                return matchQuery && matchStatus && matchStage && matchHandler && matchCreator &&
+                       matchMultiPerson && matchStartFrom && matchStartTo && matchEndFrom && matchEndTo;
             });
 
-            updateActiveFilterHint(query, statusFilter, assigneeFilter);
+            updateActiveFilterHint(query, statusFilter, stageFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo);
+            if (!isRestoringFilterState) {
+                debouncedPersistFilterAndSort();
+            }
             applySort();
         }
 
@@ -776,15 +1033,19 @@
 
         // Surface which filters are currently narrowing the result set, so an empty
         // result never looks like "the data vanished".
-        function updateActiveFilterHint(query, statusFilter, assigneeFilter) {
+        function updateActiveFilterHint(query, statusFilter, stageFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo) {
             const el = document.getElementById('active-filter-hint');
             if (!el) return;
 
             const parts = [];
             if (query) parts.push(`搜索"${query}"`);
             if (statusFilter) parts.push(`状态=${statusFilter}`);
-            if (assigneeFilter) parts.push(`负责人=${assigneeFilter}`);
+            if (stageFilter) parts.push(`阶段=${stageFilter}`);
+            if (handlerFilter) parts.push(`处理人=${handlerFilter}`);
+            if (creatorFilter) parts.push(`创建人=${creatorFilter}`);
             if (isPersonFocusActive()) parts.push(`聚焦人员=${Array.from(selectedPersons).join('/')}`);
+            if (startFrom || startTo) parts.push(`开始时间=${startFrom || '...'}~${startTo || '...'}`);
+            if (endFrom || endTo) parts.push(`结束时间=${endFrom || '...'}~${endTo || '...'}`);
 
             if (parts.length === 0) {
                 el.style.display = 'none';
@@ -794,25 +1055,30 @@
             }
 
             el.style.display = 'inline-flex';
-            const conflict = assigneeFilter && isPersonFocusActive() && !selectedPersons.has(assigneeFilter);
-            if (conflict) {
-                el.setAttribute('data-conflict', 'true');
-                el.innerText = `筛选冲突：${parts.join(' 且 ')} — 两个负责人条件互斥，结果必然为空`;
-            } else {
-                el.removeAttribute('data-conflict');
-                el.innerText = `筛选中：${parts.join(' 且 ')}（${currentCardsData.length} 条）`;
-            }
+            el.removeAttribute('data-conflict');
+            el.innerText = `筛选中：${parts.join(' 且 ')}（${currentCardsData.length} 条）`;
         }
 
         function resetFilters() {
             document.getElementById('search-box').value = '';
-            document.getElementById('filter-status').value = '';
-            document.getElementById('filter-assignee').value = '';
+            const st = document.getElementById('filter-status'); if (st) st.value = '';
+            const stg = document.getElementById('filter-stage'); if (stg) stg.value = '';
+            const hd = document.getElementById('filter-handler'); if (hd) hd.value = '';
+            const cr = document.getElementById('filter-creator'); if (cr) cr.value = '';
+            const sf = document.getElementById('filter-start-from'); if (sf) sf.value = '';
+            const st_to = document.getElementById('filter-start-to'); if (st_to) st_to.value = '';
+            const ef = document.getElementById('filter-end-from'); if (ef) ef.value = '';
+            const et = document.getElementById('filter-end-to'); if (et) et.value = '';
             document.getElementById('sort-field').value = 'seq';
             document.getElementById('sort-order').value = 'asc';
             selectedPersons.clear();
             renderPersonCheckboxList();
+            renderStageFilterOptions();
+            renderCreatorFilterOptions();
             refreshUiSelects();
+            if (typeof apiSaveBoardMeta === 'function') {
+                apiSaveBoardMeta({ filters: DEFAULT_SAVED_FILTERS, sort: DEFAULT_SAVED_SORT });
+            }
             applyFilters();
             closeAllCustomPopovers();
             showToast('已重置所有筛选条件！');
@@ -826,10 +1092,9 @@
                 currentCardsData.sort((a, b) => {
                     let valA = a[field] || '';
                     let valB = b[field] || '';
-
-                    if (field === 'est_hours' || field === 'act_hours') {
-                        valA = parseFloat(valA) || 0;
-                        valB = parseFloat(valB) || 0;
+                    if (field === 'act_hours') {
+                        valA = (a._duration_mins !== undefined && a._duration_mins !== null) ? a._duration_mins : -1;
+                        valB = (b._duration_mins !== undefined && b._duration_mins !== null) ? b._duration_mins : -1;
                     }
 
                     if (valA < valB) return order === 'asc' ? -1 : 1;
@@ -838,6 +1103,10 @@
                 });
             } else {
                 currentCardsData.sort((a, b) => order === 'asc' ? a.seq - b.seq : b.seq - a.seq);
+            }
+
+            if (!isRestoringFilterState) {
+                debouncedPersistFilterAndSort();
             }
 
             initRender();
@@ -865,6 +1134,18 @@
                 saveStorageData();
                 applyFilters();
                 showToast(`已更新 ${card.id} 负责人为: ${newAssignee}`);
+            }
+        }
+
+        function quickUpdateHandler(cardId, newHandler) {
+            const card = rawCardsData.find(c => c.id === cardId);
+            if (card && card.handler !== newHandler) {
+                const oldHandler = card.handler;
+                card.handler = newHandler;
+                appendProcessLog(card, `[快捷处理人变更] 处理人由【${oldHandler || '未设定'}】变更为【${newHandler}】`);
+                saveStorageData();
+                applyFilters();
+                showToast(`已更新 ${card.id} 处理人为: ${newHandler}`);
             }
         }
 
@@ -941,11 +1222,17 @@
                 const field = cb.getAttribute('data-field');
                 if (field) cardFieldConfig[field] = cb.checked;
             });
+            if (typeof apiSaveBoardMeta === 'function') {
+                apiSaveBoardMeta({ card_field_config: cardFieldConfig });
+            }
             initRender();
         }
 
         function setAllCardFields(checked) {
             BOARD_FIELDS.forEach(f => { cardFieldConfig[f.key] = checked; });
+            if (typeof apiSaveBoardMeta === 'function') {
+                apiSaveBoardMeta({ card_field_config: cardFieldConfig });
+            }
             renderFieldConfigPopover();
             initRender();
         }
@@ -1071,6 +1358,27 @@
             if (btn) btn.setAttribute('aria-expanded', 'false');
         }
 
+        function syncToolbarForActiveView(targetId) {
+            const isTable = targetId === 'view-table';
+            const fieldConfigBtn = document.getElementById('field-config-btn');
+            if (fieldConfigBtn) fieldConfigBtn.style.display = isTable ? 'none' : 'inline-flex';
+
+            const rowHeightBtn = document.getElementById('row-height-btn');
+            if (rowHeightBtn) rowHeightBtn.style.display = isTable ? 'inline-flex' : 'none';
+
+            const rowHeightDivider = document.getElementById('row-height-divider');
+            if (rowHeightDivider) rowHeightDivider.style.display = isTable ? 'inline-block' : 'none';
+
+            const importBtn = document.getElementById('import-json-btn');
+            if (importBtn) importBtn.style.display = isTable ? 'inline-flex' : 'none';
+
+            const exportBtn = document.getElementById('export-json-btn');
+            if (exportBtn) exportBtn.style.display = isTable ? 'inline-flex' : 'none';
+
+            const ioDivider = document.getElementById('import-export-divider');
+            if (ioDivider) ioDivider.style.display = isTable ? 'inline-block' : 'none';
+        }
+
         // Tab Switching Logic
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
@@ -1083,19 +1391,12 @@
                 const targetId = targetTab.getAttribute('data-target');
                 document.getElementById(targetId).classList.add('active');
 
-                const filterTag = document.getElementById('filter-label');
-
-                if (targetId === 'view-table') {
-                    filterTag.innerText = "分组依据: 明细表格";
-                } else if (targetId === 'view-kanban-status') {
-                    filterTag.innerText = "分组依据: 状态";
-                } else if (targetId === 'view-kanban-assignee') {
-                    filterTag.innerText = "分组依据: 负责人";
-                } else if (targetId === 'view-kanban-stage') {
-                    filterTag.innerText = "分组依据: 阶段工作包";
-                }
+                syncToolbarForActiveView(targetId);
             });
         });
+
+        // Initialize toolbar visibility according to active view
+        syncToolbarForActiveView('view-table');
 
         // Popover Controls with dynamic positioning relative to trigger button
         function toggleCustomPopover(event, id) {
@@ -1179,11 +1480,11 @@
                 assignee: initAssignee,
                 status: initStatus,
                 handler: '严经理',
-                est_hours: document.getElementById('new-est').value || '2',
                 act_hours: document.getElementById('new-act').value || '0',
                 remarks: document.getElementById('new-desc').value,
                 process: `[${nowStr}] [${initStatus}] 手动创建任务 [${id}]，初始状态【${initStatus}】，负责人: ${initAssignee}`
             };
+            computeCardDuration(newCard);
             rawCardsData.push(newCard);
             saveStorageData();
             applyFilters();
@@ -1232,7 +1533,6 @@
             const editName = document.getElementById('edit-name');
             const editWp = document.getElementById('edit-wp');
             const editWbs = document.getElementById('edit-wbs');
-            const editEst = document.getElementById('edit-est');
             const editAct = document.getElementById('edit-act');
             const editProcess = document.getElementById('edit-process');
             const editOriginalId = document.getElementById('edit-original-id');
@@ -1242,7 +1542,6 @@
             if (editName) editName.value = card.name;
             if (editWp) editWp.value = card.wp || card.stage || '';
             if (editWbs) editWbs.value = card.wbs || '';
-            if (editEst) editEst.value = card.est_hours || 0;
             if (editAct) editAct.value = card.act_hours || 0;
             if (editProcess) editProcess.value = card.process || card.remarks || '';
             if (editOriginalId) editOriginalId.value = card.id;
@@ -1264,9 +1563,10 @@
                         <span>${esc(card.name || '未命名任务')}</span>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <span class="tag tag-status">${esc(card.status || '待开始')}</span>
-                        <span class="tag tag-person">负责人: ${esc(card.assignee || '未分配')}</span>
-                        ${card.handler ? `<span class="tag tag-stage">当前处理人: ${esc(card.handler)}</span>` : ''}
+                        <span class="tag" style="background:${getBadgeStyle('status', card.status).bg}; color:${getBadgeStyle('status', card.status).text}; border:1px solid rgba(0,0,0,0.06);">${esc(card.status || '待开始')}</span>
+                        <span class="tag" style="background:${getBadgeStyle('person', card.assignee).bg}; color:${getBadgeStyle('person', card.assignee).text}; border:1px solid rgba(0,0,0,0.06);">负责人: ${esc(card.assignee || '未分配')}</span>
+                        ${card.handler ? `<span class="tag" style="background:${getBadgeStyle('person', card.handler).bg}; color:${getBadgeStyle('person', card.handler).text}; border:1px solid rgba(0,0,0,0.06);">处理人: ${esc(card.handler)}</span>` : ''}
+                        ${card.creator ? `<span class="tag" style="background:#f4f5f7; color:#4e5969; border:1px solid rgba(0,0,0,0.06);">创建人: ${esc(card.creator)}</span>` : ''}
                         ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${esc(card.wbs)}</span>` : ''}
                     </div>
                 `;
@@ -1284,12 +1584,16 @@
                         <span class="detail-value">${esc(card.wp || card.stage || '-')}</span>
                     </div>
                     <div class="detail-item">
+                        <span class="detail-label">创建人 (Creator)</span>
+                        <span class="detail-value" style="color:var(--primary); font-weight:600;">${esc(card.creator || '-')}</span>
+                    </div>
+                    <div class="detail-item">
                         <span class="detail-label">前置任务依赖</span>
                         <span class="detail-value">${esc(card.pre_tasks || card.prerequisite || '无前置')}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">工时消耗 (预估/实际)</span>
-                        <span class="detail-value">${card.est_hours || 0}h / ${card.act_hours || 0}h</span>
+                        <span class="detail-label">任务耗时 (Duration)</span>
+                        <span class="detail-value" style="font-weight:600; color:var(--primary);">${formatTaskDuration(card)}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">时间周期</span>
@@ -1314,6 +1618,18 @@
 
                 let rawStr = rawLogs.join('\n').replace(/\\n/g, '\n');
                 let lines = rawStr.split('\n').map(l => l.trim()).filter(Boolean);
+
+                // 多行节点合并：'操作说明:' 起始的行是上一节点的说明段，合并进上一行
+                // （数据两行、渲染一节点；旧格式单行节点不受影响）
+                let merged = [];
+                for (const l of lines) {
+                    if (/^操作说明[:：]/.test(l) && merged.length) {
+                        merged[merged.length - 1] += '\n' + l;
+                    } else {
+                        merged.push(l);
+                    }
+                }
+                lines = merged;
                 
                 // 智能保底推演：若没有任何显式日志行，自动基于元数据推导首条初始化流转记录
                 if (lines.length === 0) {
@@ -1330,6 +1646,18 @@
 
                 let uniqueLines = Array.from(new Set(lines));
 
+                // 节点序号排序：含 [{任务ID}-N{序号}] 双标识的行按序号升序；
+                // 无节点标识的旧格式行保持原相对顺序排最前（历史数据兼容）
+                const nodeSeqOf = (l) => {
+                    const m = l.match(/\[(T\d+)-N(\d+)\]/);
+                    return m ? parseInt(m[2], 10) : -1;
+                };
+                uniqueLines.sort((a, b) => {
+                    const na = nodeSeqOf(a), nb = nodeSeqOf(b);
+                    if (na !== nb) return na - nb;
+                    return 0; // 同号或同为旧行：稳定排序保持原序
+                });
+
                 uniqueLines.forEach(line => {
                     const row = document.createElement('div');
                     row.className = 'timeline-row';
@@ -1340,11 +1668,17 @@
                     let contentStr = line;
                     let statusTag = '';
 
-                    // 1. 时间提取
+                    // 1. 时间提取（旧格式: 行首 [时间]；新格式: [节点ID]  [时间]  描述）
                     const timeMatch = line.match(/^\[(\d{4}-\d{2}-\d{2}[^\]]*)\]\s*(.*)$/);
                     if (timeMatch) {
                         timeStr = timeMatch[1];
                         contentStr = timeMatch[2];
+                    } else {
+                        const nodeTimeMatch = line.match(/^\[T\d+-N\d+\]\s+\[(\d{4}-\d{2}-\d{2}[^\]]*)\]\s*([\s\S]*)$/);
+                        if (nodeTimeMatch) {
+                            timeStr = nodeTimeMatch[1];
+                            contentStr = nodeTimeMatch[2];
+                        }
                     }
 
                     // 2. 多维智能标签提取 (状态 / 负责人移交 / 阶段工作包 / 记录保底)
@@ -1512,9 +1846,9 @@
             card.wbs = document.getElementById('edit-wbs').value.trim();
             card.assignee = document.getElementById('edit-assignee').value;
             card.status = document.getElementById('edit-status').value;
-            card.est_hours = document.getElementById('edit-est').value;
             card.act_hours = document.getElementById('edit-act').value;
             card.process = document.getElementById('edit-process').value;
+            computeCardDuration(card);
 
             saveStorageData();
             applyFilters();
@@ -1533,16 +1867,59 @@
             });
         }
 
-                // Column & Row Resizable Drag Event Handlers
+        // Column & Row Resizable Drag Event Handlers
+        const DEFAULT_COL_WIDTHS = [40, 55, 90, 90, 110, 170, 320, 110, 110, 110, 90, 95, 105, 105, 260, 320, 70];
+
+        function applyColumnWidths(table, widths) {
+            if (!table) return;
+            const ths = table.querySelectorAll('thead th');
+            let totalW = 0;
+            ths.forEach((th, idx) => {
+                const w = widths[idx] || DEFAULT_COL_WIDTHS[idx] || 90;
+                th.style.width = w + 'px';
+                totalW += w;
+            });
+            table.style.width = totalW + 'px';
+            table.style.minWidth = totalW + 'px';
+        }
+
         function makeColumnsResizable() {
             const table = document.getElementById('main-data-table');
             if (!table) return;
             
-            const ths = table.querySelectorAll('th');
-            ths.forEach(th => {
+            // Load saved widths or apply standard defaults
+            let savedWidths = null;
+            try {
+                const raw = localStorage.getItem('kanban_col_widths');
+                if (raw) savedWidths = JSON.parse(raw);
+            } catch (e) {}
+
+            applyColumnWidths(table, Array.isArray(savedWidths) && savedWidths.length === DEFAULT_COL_WIDTHS.length ? savedWidths : DEFAULT_COL_WIDTHS);
+
+            const ths = table.querySelectorAll('thead th');
+            ths.forEach((th, idx) => {
                 th.setAttribute('scope', 'col');
                 const resizer = th.querySelector('.resizer');
                 if (!resizer) return;
+
+                // Double-click resizer to restore default standard width
+                resizer.addEventListener('dblclick', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const defW = DEFAULT_COL_WIDTHS[idx] || 90;
+                    th.style.width = defW + 'px';
+                    let currentWidths = [];
+                    let totalW = 0;
+                    table.querySelectorAll('thead th').forEach(t => {
+                        const w = t.offsetWidth;
+                        currentWidths.push(w);
+                        totalW += w;
+                    });
+                    table.style.width = totalW + 'px';
+                    table.style.minWidth = totalW + 'px';
+                    try { localStorage.setItem('kanban_col_widths', JSON.stringify(currentWidths)); } catch (err) {}
+                    showToast(`已重置 [${th.textContent.replace('▼','').replace('▲','').trim()}] 为标准默认宽度 (${defW}px)`);
+                });
 
                 resizer.addEventListener('mousedown', (e) => {
                     e.preventDefault();
@@ -1558,16 +1935,24 @@
                         
                         // Recalculate total table width
                         let totalW = 0;
-                        table.querySelectorAll('th').forEach(t => {
+                        table.querySelectorAll('thead th').forEach(t => {
                             totalW += t.offsetWidth;
                         });
                         table.style.width = totalW + 'px';
+                        table.style.minWidth = totalW + 'px';
                     }
 
                     function onMouseUp() {
                         resizer.classList.remove('resizing');
                         document.removeEventListener('mousemove', onMouseMove);
                         document.removeEventListener('mouseup', onMouseUp);
+
+                        // Persist customized widths
+                        let currentWidths = [];
+                        table.querySelectorAll('thead th').forEach(t => {
+                            currentWidths.push(t.offsetWidth);
+                        });
+                        try { localStorage.setItem('kanban_col_widths', JSON.stringify(currentWidths)); } catch (err) {}
                     }
 
                     document.addEventListener('mousemove', onMouseMove);

@@ -76,9 +76,9 @@ def build_context(role: str, action: str = "general") -> str:
     context_output.append("## 2. 团队协作 6 大防错红线 (来自 rules/AGENTS.md)")
     context_output.append("1. **绝对禁止越权修改状态**：未在授权角色集合内严禁推动状态；")
     context_output.append("2. **打回绝对禁止新建编号**：一律在原任务上置为 `已退回` 并追加 `DEF-TXXX-N` 备注；")
-    context_output.append("3. **绝对禁止先干后补**：自领取任务必须先将看板状态更至 `进行中` 落库后再编码；")
+    context_output.append("3. **绝对禁止先干后补**：自领取任务必须先将看板状态更至 `进行中` 落库后再编码（L0 即时问答除外）；")
     context_output.append("4. **绝对禁止孤儿报告**：复审/复测结论直接追加至原报告；")
-    context_output.append("5. **绝对禁止无元数据乱建深层文档与擅改原文档**：工程文档深度≤3级，Markdown附带Frontmatter标头，草稿入 `.drafts/` 隔离；归档原项目历史文档时绝对禁止改动/覆盖/删除原文档。")
+    context_output.append("5. **绝对禁止无元数据乱建深层文档与擅改原文档**：工程文档深度≤3级，Markdown附带Frontmatter标头，草稿入 `草稿箱/` 隔离；归档原项目历史文档时绝对禁止改动/覆盖/删除原文档。")
     context_output.append("6. **Subagent 官方标准路径实时查证原则**：初始化或挂载 Subagent 时须查证当前 Agent 官方规范路径与格式。")
     context_output.append("\n")
 
@@ -87,6 +87,12 @@ def build_context(role: str, action: str = "general") -> str:
     if action == "claim":
         context_output.append("- 确认并发任务数 ≤3；")
         context_output.append("- 先通过 API/CLI 更新看板为 `进行中` 并设置 Assignee 为自己。")
+    elif action == "dispatch":
+        context_output.append("- 执行任务分级三问判定 (L0/L1/L2)：")
+        context_output.append("  1. 会留下文件/仓库变更吗？否 -> L0 即时问答（直接作答不建卡，L0 无卡不违规）；")
+        context_output.append("  2. 留下的东西需要事后追溯吗？否 -> L0，是 -> L1 轻量任务（B/C/D/F/G，建卡走短链）；")
+        context_output.append("  3. 需要多角色协作或动核心资产吗？是 -> L2 标准任务（A 类，建卡走全链）；")
+        context_output.append("- 硬红线：修改文件/仓库必建卡；结论被引用必建卡；用户显式要求建卡必建卡。")
     elif action == "submit":
         context_output.append("- 生成/更新开发任务报告；")
         context_output.append("- 更新看板为 `审查中`，处理人同步更改为 `REVIEWER`。")
@@ -104,7 +110,7 @@ def build_context(role: str, action: str = "general") -> str:
 def main():
     parser = argparse.ArgumentParser(description="动态角色 Prompt 上下文裁剪合成器")
     parser.add_argument("--role", required=True, help="角色代码 (PM|ARCHITECT|DEV|FRONTEND|REVIEWER|QA|DOCS|DEVOPS)")
-    parser.add_argument("--action", default="general", help="当前动作 (claim|submit|review|test|approve|general)")
+    parser.add_argument("--action", default="general", help="当前动作 (claim|submit|review|test|approve|dispatch|general)")
 
     args = parser.parse_args()
 

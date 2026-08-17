@@ -21,20 +21,19 @@ from datetime import datetime, date
 from typing import Any, Dict, List, Optional
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, SCRIPT_DIR)
+
+import paths as _paths
 
 def get_logs_dir() -> str:
-    return os.environ.get("AUDIT_LOG_DIR") or os.path.join(PROJECT_ROOT, "user_data", "logs")
+    """日志目录：AUDIT_LOG_DIR 环境变量覆盖 > data_root/user_data/logs（惰性解析）"""
+    return _paths.audit_logs_dir()
 
 def get_audit_log_file() -> str:
     return os.path.join(get_logs_dir(), "audit_trail.log")
 
 def get_archive_dir() -> str:
     return os.path.join(get_logs_dir(), "archive")
-
-LOGS_DIR = get_logs_dir()
-AUDIT_LOG_FILE = get_audit_log_file()
-ARCHIVE_DIR = get_archive_dir()
 
 
 def record_audit_event(
@@ -65,35 +64,27 @@ def record_audit_event(
         "delegation_reason": delegation_reason or "",
     }
     
-    import time
+    import file_lock
+    lock_file = current_audit_file + ".lock"
     for attempt in range(1, 4):
+        handle = None
         try:
+            handle = file_lock.acquire_lock(lock_file, blocking=True, timeout=2.0)
             with open(current_audit_file, "a", encoding="utf-8") as f:
-                if sys.platform == "win32":
-                    import msvcrt
-                    msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
-                else:
-                    import fcntl
-                    fcntl.flock(f, fcntl.LOCK_EX)
-
                 f.write(json.dumps(event, ensure_ascii=False) + "\n")
-
-                if sys.platform == "win32":
-                    import msvcrt
-                    msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
-                else:
-                    import fcntl
-                    fcntl.flock(f, fcntl.LOCK_UN)
-                break
+            break
         except Exception as e:
             if attempt == 3:
                 sys.stderr.write(f"[AuditLogger Error] 审计日志落盘失败 (已重试 {attempt} 次): {e}\n")
             time.sleep(0.05 * attempt)
+        finally:
+            if handle:
+                file_lock.release_lock(handle)
 
 
 if __name__ == "__main__":
     record_audit_event("T0000", "TEST", "待开始", "进行中", "TESTER", True, "审计日志测试事件")
-    print(f"[SUCCESS]  [AuditLogger] 测试审计日志已写入: {AUDIT_LOG_FILE}")
+    print(f"[SUCCESS]  [AuditLogger] 测试审计日志已写入: {get_audit_log_file()}")
 
 
 # =============================================================================
@@ -190,74 +181,70 @@ def _today_str() -> str:
 
 
 def _current_log_date() -> Optional[str]:
-    """从文件名后缀解析当前 audit_trail.log 所属日期 (YYYYMMDD);若文件未带日期后缀,返回 None。"""
-    name = os.path.basename(AUDIT_LOG_FILE)
-    m = re.search(r"-(\d{8})(?:\.log)?$", name)
-    return m.group(1) if m else None
+    """从当前 audit_trail.log 首条记录的时间戳解析所属日期 (YYYYMMDD)；空文件或无时间戳返回 None。"""
+    audit_file = get_audit_log_file()
+    if not os.path.exists(audit_file) or os.path.getsize(audit_file) == 0:
+        return None
+    try:
+        with open(audit_file, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    ev = json.loads(line)
+                    ts = str(ev.get("timestamp", ""))
+                    if len(ts) >= 10:
+                        return ts[:10].replace("-", "")
+                    break
+    except Exception:
+        pass
+    return None
 
 
 def rotate_if_needed(max_size_mb: int = 50) -> Dict[str, Any]:
     """
     按日切分 + 单文件超 max_size_mb 二次切。
-    1) 若当前 audit_trail.log 文件名不带日期后缀 且 不属于今天 → 归档并新建 audit_trail-YYYYMMDD.log
+    1) 若当前 audit_trail.log 存在历史跨日记录 且 不属于今天 → 归档并新建空 audit_trail.log
     2) 若当前 audit_trail.log 大小 >= max_size_mb → 归档为 audit_trail-YYYYMMDD-HHMMSS.log.gz + 新建空文件
     3) 归档文件移至 logs/archive/
 
     返回 {"rotated": bool, "reason": str, "archived_to": str|None}
     """
-    if not os.path.exists(AUDIT_LOG_FILE):
+    audit_log_file = get_audit_log_file()
+    lock_file = audit_log_file + ".lock"
+    archive_dir = get_archive_dir()
+    if not os.path.exists(audit_log_file) or os.path.getsize(audit_log_file) == 0:
         return {"rotated": False, "reason": "no_log_file", "archived_to": None}
 
-    size_mb = os.path.getsize(AUDIT_LOG_FILE) / (1024 * 1024)
+    size_mb = os.path.getsize(audit_log_file) / (1024 * 1024)
     today = _today_str()
     log_date = _current_log_date()
 
-    should_rotate_daily = (log_date is None)
+    should_rotate_daily = bool(log_date and log_date < today)
     should_rotate_size = (size_mb >= max_size_mb)
 
     if not should_rotate_daily and not should_rotate_size:
         return {"rotated": False, "reason": "no_rotation_needed", "archived_to": None}
 
-    os.makedirs(ARCHIVE_DIR, exist_ok=True)
-
+    os.makedirs(archive_dir, exist_ok=True)
+    handle = None
     try:
-        lock_f = open(AUDIT_LOG_FILE, "a+", encoding="utf-8")
-        try:
-            if sys.platform == "win32":
-                import msvcrt
-                msvcrt.locking(lock_f.fileno(), msvcrt.LK_LOCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(lock_f, fcntl.LOCK_EX)
+        import file_lock
+        handle = file_lock.acquire_lock(lock_file, blocking=True, timeout=5.0)
 
-            if should_rotate_daily:
-                archive_name = f"audit_trail-{today}.log.gz"
-                reason = "daily_rotation"
-            else:
-                ts = datetime.now().strftime("%H%M%S")
-                archive_name = f"audit_trail-{log_date}-{ts}.log.gz"
-                reason = f"size_limit_{size_mb:.1f}MB>={max_size_mb}MB"
+        if should_rotate_daily:
+            archive_name = f"audit_trail-{log_date}.log.gz"
+            reason = "daily_rotation"
+        else:
+            ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+            archive_name = f"audit_trail-{today}-{ts}.log.gz"
+            reason = f"size_limit_{size_mb:.1f}MB>={max_size_mb}MB"
 
-            archive_path = os.path.join(ARCHIVE_DIR, archive_name)
-            with open(AUDIT_LOG_FILE, "rb") as src, gzip.open(archive_path, "wb") as dst:
-                shutil.copyfileobj(src, dst)
-        finally:
-            if sys.platform == "win32":
-                import msvcrt
-                try:
-                    msvcrt.locking(lock_f.fileno(), msvcrt.LK_UNLCK, 1)
-                except Exception:
-                    pass
-            else:
-                import fcntl
-                try:
-                    fcntl.flock(lock_f, fcntl.LOCK_UN)
-                except Exception:
-                    pass
-            lock_f.close()
+        archive_path = os.path.join(archive_dir, archive_name)
+        with open(audit_log_file, "rb") as src, gzip.open(archive_path, "wb") as dst:
+            shutil.copyfileobj(src, dst)
 
-        if os.path.exists(AUDIT_LOG_FILE):
-            os.remove(AUDIT_LOG_FILE)
+        if os.path.exists(audit_log_file):
+            os.remove(audit_log_file)
 
         return {
             "rotated": True,
@@ -266,3 +253,6 @@ def rotate_if_needed(max_size_mb: int = 50) -> Dict[str, Any]:
         }
     except Exception as e:
         return {"rotated": False, "reason": f"rotation_failed: {e}", "archived_to": None}
+    finally:
+        if handle:
+            file_lock.release_lock(handle)

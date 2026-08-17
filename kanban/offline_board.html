@@ -27,15 +27,16 @@
             <div class="tab" data-target="view-kanban-assignee"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 看板-按负责人</div>
             <div class="tab" data-target="view-kanban-stage"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> 看板-按阶段工作包</div>
         </div>
+        <div class="header-right" style="margin-left: auto; display: flex; align-items: center;">
+            <button class="btn" id="theme-toggle-btn" onclick="toggleTheme()" title="切换浅色/深色主题（默认按日落自动）">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                <span id="theme-toggle-label">深色</span>
+            </button>
+        </div>
     </div>
 
     <div class="toolbar">
         <button class="btn primary-btn" id="add-table-record-btn" onclick="openAddModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加记录</button>
-
-        <div class="filter-tag" id="current-filter">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"></path></svg>
-            <span style="color: var(--primary)" id="filter-label">分组依据: 明细表格</span>
-        </div>
 
         <!-- Quick Person Focus Multi-Select -->
         <div style="display:flex; align-items:center; gap:4px;">
@@ -47,7 +48,7 @@
         </div>
 
         <!-- Toolbar Action Buttons -->
-        <button class="btn" onclick="toggleCustomPopover(event, 'field-popover')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 卡片配置</button>
+        <button class="btn" id="field-config-btn" style="display:none;" onclick="toggleCustomPopover(event, 'field-popover')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 卡片配置</button>
         <button class="btn" onclick="toggleCustomPopover(event, 'filter-popover')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg> 筛选</button>
         <button class="btn" onclick="toggleCustomPopover(event, 'sort-popover')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16"/></svg> 排序</button>
 
@@ -57,18 +58,13 @@
         <button class="btn" onclick="resetFilters()" title="重置所有筛选条件与排序"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> 重置</button>
 
         <!-- Pure Static MVP JSON Import / Export -->
-        <span class="toolbar-divider" role="separator" aria-orientation="vertical"></span>
+        <span class="toolbar-divider" id="import-export-divider" role="separator" aria-orientation="vertical"></span>
         <button class="btn" id="import-json-btn" onclick="triggerImportJSON()" title="选择并载入本地 board.json 文件"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> 导入 JSON</button>
         <button class="btn" id="export-json-btn" onclick="exportBoardJSON()" title="将当前任务数据导出下载为 board.json 文件"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导出 JSON</button>
         <input type="file" id="import-json-file-input" style="display:none;" accept=".json,application/json" onchange="handleImportJSON(event)">
 
-        <button class="btn" id="theme-toggle-btn" onclick="toggleTheme()" title="切换浅色/深色主题（默认按日落自动）">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            <span id="theme-toggle-label">深色</span>
-        </button>
-
         <!-- Row Height Adjuster -->
-        <span class="toolbar-divider" role="separator" aria-orientation="vertical"></span>
+        <span class="toolbar-divider" id="row-height-divider" role="separator" aria-orientation="vertical"></span>
         <button class="btn" id="row-height-btn" onclick="toggleCustomPopover(event, 'row-height-popover')" aria-haspopup="listbox" aria-expanded="false" title="表格行高">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             行高 <span id="row-height-label">标准</span>
@@ -122,7 +118,7 @@
         </div>
 
         <!-- Filter Popover -->
-        <div class="popover" id="filter-popover">
+        <div class="popover" id="filter-popover" style="min-width: 290px;">
             <div class="popover-title">多维筛选条件</div>
             <div class="form-item">
                 <label>按状态:</label>
@@ -140,9 +136,15 @@
                 </select>
             </div>
             <div class="form-item">
-                <label>按负责人:</label>
-                <select id="filter-assignee" onchange="applyFilters()">
-                    <option value="">全部负责人</option>
+                <label>按阶段:</label>
+                <select id="filter-stage" onchange="applyFilters()">
+                    <option value="">全部阶段</option>
+                </select>
+            </div>
+            <div class="form-item">
+                <label>按处理人:</label>
+                <select id="filter-handler" onchange="applyFilters()">
+                    <option value="">全部处理人</option>
                     <option value="严经理">严经理</option>
                     <option value="钱架构">钱架构</option>
                     <option value="李开发">李开发</option>
@@ -151,9 +153,33 @@
                     <option value="章测试">章测试</option>
                     <option value="李文通">李文通</option>
                     <option value="吕改特">吕改特</option>
+                    <option value="用户">用户</option>
+                    <option value="未分配">未分配</option>
                 </select>
             </div>
-            <button class="btn" onclick="resetFilters()">重置筛选</button>
+            <div class="form-item">
+                <label>按创建人:</label>
+                <select id="filter-creator" onchange="applyFilters()">
+                    <option value="">全部创建人</option>
+                </select>
+            </div>
+            <div class="form-item date-range-form-item">
+                <label>开始时间范围:</label>
+                <div class="date-range-inputs">
+                    <input type="date" id="filter-start-from" onchange="applyFilters()" title="开始时间下限">
+                    <span class="range-separator">至</span>
+                    <input type="date" id="filter-start-to" onchange="applyFilters()" title="开始时间上限">
+                </div>
+            </div>
+            <div class="form-item date-range-form-item">
+                <label>结束时间范围:</label>
+                <div class="date-range-inputs">
+                    <input type="date" id="filter-end-from" onchange="applyFilters()" title="结束时间下限">
+                    <span class="range-separator">至</span>
+                    <input type="date" id="filter-end-to" onchange="applyFilters()" title="结束时间上限">
+                </div>
+            </div>
+            <button class="btn" style="width:100%; margin-top:8px;" onclick="resetFilters()">重置所有筛选</button>
         </div>
 
         <!-- Sort Popover -->
@@ -164,8 +190,7 @@
                 <select id="sort-field" onchange="applySort()">
                     <option value="seq">默认 (序号/导入顺序)</option>
                     <option value="id">任务编号</option>
-                    <option value="est_hours">预估工时</option>
-                    <option value="act_hours">实际工时</option>
+                    <option value="act_hours">任务耗时(m)</option>
                 </select>
             </div>
             <div class="form-item">
@@ -193,9 +218,9 @@
                         <th style="width: 320px;">任务名称<div class="resizer"></div></th>
                         <th style="width: 110px;">状态<div class="resizer"></div></th>
                         <th style="width: 110px;">负责人<div class="resizer"></div></th>
-                        <th style="width: 90px;">处理人<div class="resizer"></div></th>
-                        <th style="width: 80px;">预估(h)<div class="resizer"></div></th>
-                        <th style="width: 80px;">实际(h)<div class="resizer"></div></th>
+                        <th style="width: 110px;">处理人<div class="resizer"></div></th>
+                        <th style="width: 90px;">创建人<div class="resizer"></div></th>
+                        <th style="width: 95px;">任务耗时(m)<div class="resizer"></div></th>
                         <th style="width: 105px;">开始时间<div class="resizer"></div></th>
                         <th style="width: 105px;">结束时间<div class="resizer"></div></th>
                         <th style="width: 260px;">备注<div class="resizer"></div></th>
@@ -269,15 +294,9 @@
                     <div class="tag-select" data-type="status" data-target="new-status" data-value="待开始"></div>
                 </div>
             </div>
-            <div style="display:flex; gap:10px;">
-                <div class="form-item" style="flex:1;">
-                    <label>预估工时(h)</label>
-                    <input type="number" step="0.5" id="new-est" value="2">
-                </div>
-                <div class="form-item" style="flex:1;">
-                    <label>实际工时(h)</label>
-                    <input type="number" step="0.5" id="new-act" value="0">
-                </div>
+            <div class="form-item">
+                <label>任务耗时(m) <span style="color:var(--text-muted); font-weight:normal;">(选填，流转至已完成时将自动计算)</span></label>
+                <input type="number" step="1" id="new-act" value="0" placeholder="默认自动计算(m)">
             </div>
             <div class="form-item">
                 <label>过程描述 / 备注</label>
@@ -359,15 +378,9 @@
                         <div class="tag-select" data-type="status" data-target="edit-status" data-value="待开始"></div>
                     </div>
                 </div>
-                <div style="display:flex; gap:10px;">
-                    <div class="form-item" style="flex:1;">
-                        <label>预估工时(h)</label>
-                        <input type="number" step="0.5" id="edit-est">
-                    </div>
-                    <div class="form-item" style="flex:1;">
-                        <label>实际工时(h)</label>
-                        <input type="number" step="0.5" id="edit-act">
-                    </div>
+                <div class="form-item">
+                    <label>任务耗时(m) <span style="color:var(--text-muted); font-weight:normal;">(分钟)</span></label>
+                    <input type="number" step="1" id="edit-act" placeholder="耗时分钟数">
                 </div>
                 <div class="form-item">
                     <label>过程描述 / 备注 / 验证结论</label>
@@ -465,10 +478,10 @@
 
     <!-- Toast Notifications Container -->
     <div class="toast-container" id="toast-container"></div>
-    <script src="js/util.js?v=1.1.5"></script>
-    <script src="js/data.js?v=1.1.5"></script>
-    <script src="js/listbox.js?v=1.1.5"></script>
-    <script src="js/board.js?v=1.1.5"></script>
-    <script src="js/app.js?v=1.1.5"></script>
+    <script src="js/util.js?v=1.1.9"></script>
+    <script src="js/data.js?v=1.1.9"></script>
+    <script src="js/listbox.js?v=1.1.9"></script>
+    <script src="js/board.js?v=1.1.9"></script>
+    <script src="js/app.js?v=1.1.9"></script>
 </body>
 </html>

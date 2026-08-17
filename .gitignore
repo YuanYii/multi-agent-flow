@@ -6,20 +6,23 @@ __pycache__/
 # IDE and Editor files
 .idea/
 .vscode/
+.zcode/
+.opencode/
+.openclaw/
 *.swp
 *.swo
 
 # Local runtime configs, logs, lock files, and runtime outputs
 config/workflow.config.yaml
-config/project_architecture.config.yaml
 user_data/
+kanban/board.json
+kanban/board.json.seq.lock
 docs/
 logs/
-tests/
 *.lock
 */*.lock
 .lock_*
-.drafts/
+草稿箱/
 .agents/
 .claude/
 .cursor/

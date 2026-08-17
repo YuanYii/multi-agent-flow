@@ -3,9 +3,18 @@
 # ==============================================================================
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ConfigFile = Join-Path $ScriptDir "..\config\workflow.config.yaml"
+# 配置解析链：宿主 user_data/workflow.config.yaml > legacy skill config/ > 模板
+$ConfigFile = $null
+$Candidates = @(
+    (Join-Path (Get-Location) "user_data\workflow.config.yaml"),
+    (Join-Path $ScriptDir "..\user_data\workflow.config.yaml"),
+    (Join-Path $ScriptDir "..\config\workflow.config.yaml")
+)
+foreach ($Cand in $Candidates) {
+    if (Test-Path $Cand) { $ConfigFile = $Cand; break }
+}
 
-if (-not (Test-Path $ConfigFile)) {
+if (-not $ConfigFile) {
     $ConfigFile = Join-Path $ScriptDir "..\config\workflow.config.template.yaml"
 }
 

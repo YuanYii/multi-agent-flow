@@ -18,10 +18,11 @@ version: 1.0.0
 | :--- | :--- | :--- |
 | **`/yy-flow`** 或 **`/yy-flow start`** | **一键激活工作流**：自动执行初始化 7 步 SOP 并唤起 PM 严经理进行项目鉴定与任务编排 | 运行 `init_skill.sh`，生成 `user_data/` 并导出 8 大专家 |
 | **`/yy-flow status`** | **心跳巡检与看板状态**：输出当前所有工单流转、在手任务与卡点滞留分析 | 运行 `heartbeat.py`，检测超时滞留与并发超限 |
-| **`/yy-flow kanban`** | **看板 Web 服务就绪**：启动内置离线看板 HTTP 服务并提供本地访问链接 | 运行 `start_kanban_server.py` (端口 32886) |
+| **`/yy-flow kanban`** | **看板 Web 服务就绪**：启动内置离线看板 HTTP 服务并提供本地访问链接 | 运行 `start_kanban_server.py`（默认 32886 起自动探测，同项目实例复用，以实际输出端口为准） |
 | **`/yy-flow metrics`** | **效能度量报告**：一键计算并输出前置交付周期 (Lead Time)、吞吐量与卡点分析 | 运行 `metrics_analyzer.py` |
 | **`/yy-flow create`** | **显式建单**：创建任务卡【待开始】并分配处理人（PM 可派发任意；非 PM 仅可自建） | 运行 `transition_task.py --create` / `quick_task.py create` |
 | **`/yy-flow auto`** | **自动任务**：一条指令自动完成完整生命周期至已验收——全类型链（A–G）、任意节点续跑、已阻塞前置验证（【解除】记录）、重复任务校验 | 运行 `auto_task.py` |
+| **`/yy-flow gate [stage]`** 或 **`/yy-flow close-stage`** | **阶段结项门禁核验**：执行阶段准出 4 项硬核验（看板全验收、WBS 对账、架构总结、管理复盘） | 运行 `check_stage_gate.py`，全绿放行后派发 DevOps 吕改特合流打 Tag |
 
 ---
 
@@ -58,15 +59,15 @@ version: 1.0.0
    - 自动扫描工作区配置文件（如 `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `Dockerfile`, `README.md` 等）。
    - 识别应用类型、开发语言、核心框架、单测/构建工具及目录架构模式。
 4. **模板复制与落库**：
-   - 复制模板 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 生成 `config/project_architecture.config.yaml`。
+   - 复制模板 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 生成 `user_data/project_architecture.config.yaml`（落**数据根** `.yy-flow/user_data`；存量内嵌安装为 Skill 目录，零迁移）。
    - 将扫描识别出的真实技术架构结构化填充写入 `project_architecture.config.yaml`，作为后续 DEV / ARCHITECT / QA 等专家角色的统一技术事实依据。
 5. **项目工程文档骨架建立与原项目历史文档自动归档**：
-   - 在目标项目下自动校验/建立 `docs/` 目录规范骨架（包含 `01-architecture/`, `02-modules/`, `03-operations/`, `04-standards/`, `05-templates/` 及 `.drafts/`）。
+   - 在目标项目下自动校验/建立 `docs/` 目录规范骨架（包含 `D01-项目管理/`(含D01-需求/D02-状态报告), `D02-架构设计/`, `D03-业务模块/`, `D04-研发过程/`(含D01-任务/D02-报告/D03-操作手册), `D05-规范标准/`, `D06-文档模板/` 及 `草稿箱/`）。
    - **历史文档隔离归档**：运行 `python3 scripts/migrate_legacy_docs.py` 自动扫描原项目中散落的历史文档，在对应的分类目录下创建 **`原项目文档/`** 专用文件夹进行拷贝分类隔离。
-   - 在目标项目 `.gitignore` 中确保排除 `.drafts/` 隔离区。
+   - 在目标项目 `.gitignore` 中确保排除 `草稿箱/` 隔离区。
 6. **专家团队技术栈自动同步**：
-   - 运行脚本 `python3 scripts/update_agent_tech_stacks.py`（或由 Agent 依据 `project_architecture.config.yaml` 直接修改 `agents/*.yaml`）。
-   - 将扫描到的真实语言、框架、单测框架与 CI/CD 工具自动落盘同步至 `agents/01-pm.yaml` ~ `08-frontend.yaml` 全量 8 大角色，完成专家团队技术栈的高精定制。
+   - 运行脚本 `python3 scripts/update_agent_tech_stacks.py` 触发重新导出。
+   - 技术栈在**导出时**合并至各平台 Subagent 产物（6 个技术角色的职责与栈定制；PM/文档角色无技术栈绑定）；`agents/*.yaml` 为只读模板，不再被改写——多项目共享同一份 Skill 时互不覆盖。
 7. **唤起 PM 专家进行项目定位鉴定与显式响应契约**：
    - 自动加载 `agents/01-pm.yaml` 身份，扫描解析当前项目的 `README.md`、配置文件与源码入口。
    - 分析认定项目主要用途与核心功能，**强制在回复顶部输出标志行与官方查证凭据**：
@@ -84,7 +85,7 @@ version: 1.0.0
      | `@flow-qa` | 章测试 (测试工程师) | 集成测试、边界场景与质量准出 | 完整读写 + run_command | 测试中->已完成 / 测试中->已退回 |
      | `@flow-docs` | 李文通 (文档工程师) | 文档架构治理、用户手册与规范 | 完整读写 + run_command | 待开始->进行中 / 进行中->已完成 |
      | `@flow-devops` | 吕改特 (运维管理员) | 分支合流、发布构建与 CI 巡检 | 完整读写 + run_command | 待开始->进行中 / 进行中->已完成 |
-   - **看板进度查看提示**：在创建任务或完成状态流转后，必须在回复末尾显式提示用户打开内置离线看板 [`kanban/offline_board.html`](kanban/offline_board.html) 导入 `kanban/board.json` 查看看板进度。
+   - **看板进度查看提示**：在创建任务或完成状态流转后，必须在回复末尾显式提示用户打开内置离线看板 [`kanban/offline_board.html`](kanban/offline_board.html)（离线模式导入手动导出的 board.json；Web 服务模式直接访问实际端口）。
 
 ---
 
@@ -92,12 +93,13 @@ version: 1.0.0
 
 当 Agent 收到任务流转、领单、审查、测试或提权指令时，按需调阅 [`references/`](references/) 目录下的规约文档：
 
+0. **任务分级判定 (L0/L1/L2 三问)** -> 调阅 [`references/02-State-Flow-Rules.md §二`](references/02-State-Flow-Rules.md)
 1. **识别任务与角色边界** -> 调阅 [`references/01-AI-Team-Workflow-Index.md`](references/01-AI-Team-Workflow-Index.md)
 2. **推导合法下一状态** -> 调阅 [`references/02-State-Flow-Rules.md`](references/02-State-Flow-Rules.md)
 3. **校验角色权限与门控** -> 调阅 [`references/03-Anti-Error-Mechanism.md`](references/03-Anti-Error-Mechanism.md)
 4. **校验分支与 Git 规范** -> 调阅 [`references/04-Git-Workflow-Spec.md`](references/04-Git-Workflow-Spec.md)
 5. **校验文档结构与元数据** -> 调阅 [`references/05-Document-Management-Spec.md`](references/05-Document-Management-Spec.md)
-6. **校验交接契约与 Message 载荷** -> 调阅 [`references/06-Inter-Agent-Handover-Protocol.md`](references/06-Inter-Agent-Handover-Protocol.md)
+6. **校验交接契约、Message 载荷与虚拟角色通知边界** -> 调阅 [`references/06-Inter-Agent-Handover-Protocol.md`](references/06-Inter-Agent-Handover-Protocol.md)
 
 ---
 
@@ -108,5 +110,5 @@ version: 1.0.0
 - [`agents/`](agents/)：8 大角色 YAML 定义 (`01-pm.yaml` ~ `08-frontend.yaml`)。
 - [`references/`](references/)：6 大全量提炼参考规约（路由、流转规则、防错闭环、Git 规范、文档治理规范、交接协议）。
 - [`templates/`](templates/)：标准化开发/审查/测试任务报告与工程文档模板。
-- [`scripts/`](scripts/)：看板工厂适配器 (`board_adapter_factory.py`)、门控强校验 (`validate_transition.py`)、报告生成器 (`generate_report.py`)、凭证安全扫描 (`check_secrets.py`) 与动态 Prompt 上下文合成器 (`build_agent_context.py`)。
+- [`scripts/`](scripts/)：看板工厂适配器 (`board_adapter_factory.py`)、门控强校验 (`validate_transition.py`)、报告生成器 (`generate_report.py`)、凭证安全扫描 (`check_secrets.py`) 与动态 Prompt 上下文合成器 (`build_agent_context.py`)。数据根统一解析 (`paths.py`：`--project-root`/`YY_FLOW_PROJECT_ROOT` > `.yy-flow` 自定位 > legacy > CWD；安装于 `.yy-flow/skill` 时数据自动落 `.yy-flow/user_data`，docs/ 留项目根)；多项目共享安装器 (`install_global.sh` / `.ps1`，详见 README「共享安装」)。
 

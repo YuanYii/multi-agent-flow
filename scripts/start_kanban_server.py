@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Multi-Agent Flow · 零依赖简易 HTTP 看板 Web 服务 (增强 RESTful API 引擎)
-固定服务端口：32886
+默认端口 32886，被其他项目实例占用时自动向上探测 (32886-32905)；同项目重复启动直接复用既有实例
 提供技能包内置离线看板 (kanban/offline_board.html) 与全量看板操作 REST 接口支持
 """
 
@@ -10,9 +10,12 @@ import os
 import re
 import json
 import time
+import atexit
+import hashlib
 import tempfile
 import argparse
 import socket
+import urllib.request
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, unquote
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -22,6 +25,9 @@ SKILL_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 KANBAN_DIR = os.path.join(SKILL_ROOT, "kanban")
 
 DEFAULT_PORT = 32886
+PROBE_RANGE = 20
+SERVICE_NAME = "multi-agent-flow-kanban"
+HEALTH_API_VERSION = 1
 
 
 def get_local_ip() -> str:
@@ -36,34 +42,42 @@ def get_local_ip() -> str:
         return "127.0.0.1"
 
 
-USER_DATA_BOARD = os.path.join(SKILL_ROOT, "user_data", "board.json")
-USER_DATA_PREFERENCES = os.path.join(SKILL_ROOT, "user_data", "preferences.json")
-AUDIT_LOG_FILE = os.path.join(SKILL_ROOT, "user_data", "logs", "audit_trail.log")
+def _data_root() -> str:
+    """数据根目录：与全脚本同链（env > legacy > CWD），共享安装下指向宿主项目"""
+    sys.path.insert(0, SCRIPT_DIR)
+    import paths as _paths
+    return _paths.resolve_data_root()
+
+
+_DATA_ROOT = _data_root()
+USER_DATA_BOARD = os.path.join(_DATA_ROOT, "user_data", "board.json")
+USER_DATA_PREFERENCES = os.path.join(_DATA_ROOT, "user_data", "preferences.json")
+AUDIT_LOG_FILE = os.path.join(_DATA_ROOT, "user_data", "logs", "audit_trail.log")
 LOCK_FILE = USER_DATA_BOARD + ".seq.lock"
+KANBAN_RUNTIME_FILE = os.path.join(_DATA_ROOT, "user_data", "kanban_server.json")
 
 
-def _acquire_lock(f):
-    try:
-        if sys.platform == "win32":
-            import msvcrt
-            msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-    except Exception:
-        pass
+def compute_project_fingerprint(data_root: str) -> str:
+    """项目实例指纹：data_root 绝对路径哈希。
+
+    必须哈希 data_root 而非 skill_root —— 多项目共享同一份 Skill 拷贝时
+    skill_root 相同，若以其为指纹会误"复用"彼此的服务，重新引入串数据问题。
+    """
+    return hashlib.sha1(os.path.abspath(data_root).encode("utf-8")).hexdigest()[:16]
 
 
-def _release_lock(f):
-    try:
-        if sys.platform == "win32":
-            import msvcrt
-            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-    except Exception:
-        pass
+# 启动成功后由 start_server 填充；/api/health 的数据源
+SERVER_STATE = {
+    "service": SERVICE_NAME,
+    "version": HEALTH_API_VERSION,
+    "fingerprint": "",
+    "port": None,
+    "pid": os.getpid(),
+    "data_root": "",
+}
+
+
+import file_lock
 
 
 def read_board_data() -> list:
@@ -93,9 +107,9 @@ def atomic_write_board_data(cards: list) -> bool:
     for idx, card in enumerate(cards, start=1):
         card["seq"] = idx
 
-    lock_f = open(LOCK_FILE, "w")
+    handle = None
     try:
-        _acquire_lock(lock_f)
+        handle = file_lock.acquire_lock(LOCK_FILE, blocking=True, timeout=5.0)
         with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
             json.dump(cards, tf, indent=2, ensure_ascii=False)
             tmp_name = tf.name
@@ -105,28 +119,58 @@ def atomic_write_board_data(cards: list) -> bool:
         sys.stderr.write(f"[ERROR] atomic_write_board_data failed: {e}\n")
         return False
     finally:
-        _release_lock(lock_f)
-        lock_f.close()
+        if handle:
+            file_lock.release_lock(handle)
+
+
+BOARD_TITLE_SUFFIX = "Multi Agent任务看板"
+
+
+def read_project_name() -> str:
+    """从运行态 workflow 配置读取项目名（project.name），失败返回空串。"""
+    try:
+        import yaml
+        sys.path.insert(0, SCRIPT_DIR)
+        import paths as _paths
+        config_file = _paths.resolve_runtime_config()
+        with open(config_file, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        name = str(((cfg.get("project") or {}).get("name")) or "").strip()
+        # 模板占位值不展示
+        return "" if name in ("", "Sample-Project", "project_name") else name
+    except Exception:
+        return ""
+
+
+def default_board_title() -> str:
+    """默认看板标题：{项目名} Multi Agent任务看板（无项目名时退化为通用标题）"""
+    proj = read_project_name()
+    return f"{proj} {BOARD_TITLE_SUFFIX}" if proj else "多专家Agent协作任务看板"
 
 
 def read_preferences_data() -> dict:
-    """读取看板布局与偏好配置"""
+    """读取看板布局与偏好配置（title 未定制时注入项目名动态默认值）"""
+    dynamic_default = default_board_title()
     if not os.path.exists(USER_DATA_PREFERENCES):
         return {
-            "title": "多专家Agent协作任务看板",
+            "title": dynamic_default,
             "theme": "light",
             "row_height": 55,
-            "card_visible_fields": ["id", "name", "assignee", "est_hours", "status"],
+            "card_visible_fields": ["id", "name", "assignee", "act_hours", "status"],
             "column_widths": {}
         }
     try:
         with open(USER_DATA_PREFERENCES, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, dict):
+                # 未定制过标题（缺省/旧默认值）→ 跟随项目名动态默认
+                title = str(data.get("title") or "").strip()
+                if title in ("", "多专家Agent协作任务看板"):
+                    data["title"] = dynamic_default
                 return data
     except Exception:
         pass
-    return {}
+    return {"title": dynamic_default}
 
 
 def atomic_write_preferences_data(pref: dict) -> bool:
@@ -153,6 +197,51 @@ def allocate_next_task_id(cards: list) -> str:
         if m:
             max_id = max(max_id, int(m.group(1)))
     return f"T{max_id + 1:04d}"
+
+
+# 角色编码/子代理标识 → 角色名（与 transition_task.ROLE_NAME_MAP 同源；
+# 看板 assignee 恒存中文名，编码仅作入参别名）
+ROLE_NAME_MAP = {
+    "PM": "严经理", "ARCHITECT": "钱架构", "DEV": "李开发",
+    "FRONTEND": "马前端", "REVIEWER": "周审查", "QA": "章测试",
+    "DOCS": "李文通", "DEVOPS": "吕改特",
+    "pm": "严经理", "architect": "钱架构", "dev": "李开发",
+    "frontend": "马前端", "reviewer": "周审查", "qa": "章测试",
+    "docs": "李文通", "devops": "吕改特",
+    "flow-pm": "严经理", "flow-architect": "钱架构", "flow-dev": "李开发",
+    "flow-frontend": "马前端", "flow-reviewer": "周审查", "flow-qa": "章测试",
+    "flow-docs": "李文通", "flow-devops": "吕改特",
+    "pm_user": "严经理", "architect_user": "钱架构",
+    "dev_user": "李开发", "dev_user_1": "李开发", "dev_user_2": "李开发",
+    "frontend_user": "马前端", "reviewer_user": "周审查", "reviewer_user_1": "周审查",
+    "qa_user": "章测试", "docs_user": "李文通", "devops_user": "吕改特",
+}
+
+
+def normalize_role_name(val) -> str:
+    """角色编码/子代理 ID/占位符 归一化为中文角色名；未命中原样返回"""
+    if not val:
+        return ""
+    key = str(val).strip()
+    return ROLE_NAME_MAP.get(key, ROLE_NAME_MAP.get(key.lower(), ROLE_NAME_MAP.get(key.upper(), key)))
+
+
+# 流程节点 ID（如 T0001-N03）：任务ID + 任务内单调递增节点序号
+_NODE_ID_RE = re.compile(r"\b(T\d+)-N?(\d+)\b")
+
+
+def allocate_node_seq(card: dict) -> int:
+    """锁外计算卡片 process 内下一节点序号（调用方须持 seq.lock 写锁）。
+
+    与 offline_board_adapter._next_node_seq 同构：max(N)+1，只追加、回滚烧号不复用。
+    """
+    max_n = 0
+    text = str(card.get("process") or "")
+    tid = str(card.get("id", ""))
+    for m in _NODE_ID_RE.finditer(text):
+        if m.group(1) == tid:
+            max_n = max(max_n, int(m.group(2)))
+    return max_n + 1
 
 
 def append_audit_log(task_id: str, role: str, from_status: str, to_status: str, operator: str, comment: str = ""):
@@ -290,6 +379,11 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             self._send_json_resp(200, "success", pref)
             return
 
+        # 6. REST API: GET /api/health (实例健康与项目指纹，供端口复用判定)
+        if path == "/api/health":
+            self._send_json_resp(200, "success", dict(SERVER_STATE))
+            return
+
         # 静态资源请求
         return super().do_GET()
 
@@ -341,9 +435,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             status = body_data.get("status") or "待开始"
-            assignee = body_data.get("assignee") or "李开发"
+            assignee = normalize_role_name(body_data.get("assignee")) or "李开发"
             remarks = body_data.get("remarks", "")
-            init_process = body_data.get("process") or f"[{now_str}] [{status}] 手动新增任务{f' — {remarks}' if remarks else ''}"
 
             new_card = {
                 "id": new_id,
@@ -355,13 +448,19 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 "assignee": assignee,
                 "status": status,
                 "handler": body_data.get("handler", assignee),
-                "est_hours": body_data.get("est_hours", 2),
                 "act_hours": body_data.get("act_hours", 0),
                 "start_date": body_data.get("start_date", now_str),
                 "end_date": body_data.get("end_date", ""),
                 "remarks": remarks,
-                "process": init_process
+                "process": ""
             }
+
+            # 建单即写首条节点（新建→待开始）——时间线从建卡起步，不再缺第一环
+            node_id = f"{new_id}-N01"
+            init_process = body_data.get("process") or \
+                f"[{node_id}]  [{now_str}]  建单并进入【{status}】，操作人: {assignee}" + \
+                (f"\n操作说明: {remarks}" if remarks else "")
+            new_card["process"] = init_process
 
             cards.append(new_card)
             if atomic_write_board_data(cards):
@@ -404,8 +503,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(400, "缺少 target_status 目标状态", None, http_status=400)
                 return
 
-            operator_name = body_data.get("operator_name") or "李开发"
-            operator_role = body_data.get("operator_role") or "DEV"
+            operator_name = normalize_role_name(body_data.get("operator_name")) or "李开发"
             comment = body_data.get("comment", "").strip()
 
             cards = read_board_data()
@@ -417,23 +515,29 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             from_status = card.get("status", "待开始")
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            # 更新卡片状态
+            # 更新卡片状态 + 处理人（编码归一化为角色名，assignee 恒中文）
             card["status"] = target_status
+            new_assignee = normalize_role_name(body_data.get("assignee"))
+            if new_assignee:
+                card["assignee"] = new_assignee
             if target_status in ("已完成", "已验收"):
                 card["end_date"] = now_str
 
-            # 追加流转记录
-            log_text = f"[{now_str}] [{operator_name}] 将状态由【{from_status}】更新至【{target_status}】"
+            # 追加流转节点（任务ID-N序号 双标识；说明独立成行）
+            node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
+            log_text = f"[{node_id}]  [{now_str}]  状态由【{from_status}】更新至【{target_status}】，操作人: {operator_name}"
             if comment:
-                log_text += f" (说明: {comment})"
+                log_text += f"\n操作说明: {comment}"
 
             current_process = card.get("process", "")
             card["process"] = f"{current_process}\n{log_text}".strip()
 
             if atomic_write_board_data(cards):
-                append_audit_log(task_id, operator_role, from_status, target_status, operator_name, comment)
+                audit_role = body_data.get("operator_role") or "USER"
+                append_audit_log(task_id, audit_role, from_status, target_status, operator_name, comment)
                 self._send_json_resp(200, "状态流转成功", {
                     "id": task_id,
+                    "node_id": node_id,
                     "from_status": from_status,
                     "to_status": target_status,
                     "history_entry": log_text
@@ -560,42 +664,178 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         self._send_json_resp(404, "Not Found", None, http_status=404)
 
     def log_message(self, format, *args):
-        # 保持控制台日志简洁
-        sys.stderr.write(f" [Kanban HTTP 32886] {self.address_string()} - {format % args}\n")
+        # 保持控制台日志简洁（端口跟随实际绑定值）
+        try:
+            port = self.server.server_address[1]
+        except Exception:
+            port = "?"
+        sys.stderr.write(f" [Kanban HTTP {port}] {self.address_string()} - {format % args}\n")
 
 
 class ReusableHTTPServer(HTTPServer):
-    allow_reuse_address = True
+    # Windows 上 SO_REUSEADDR 允许两个活跃进程同时绑定同一端口（等效于 SO_REUSEPORT 的危害），
+    # 必须禁用；Unix 上仅允许复用 TIME_WAIT 端口，保留
+    allow_reuse_address = (sys.platform != "win32")
 
     def server_bind(self):
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        if hasattr(socket, "SO_REUSEPORT"):
-            try:
-                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            except Exception:
-                pass
+        if self.allow_reuse_address:
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # 注意：绝不设置 SO_REUSEPORT —— 它允许多实例同时绑定同一端口，
+        # 请求随机分发到不同项目实例，造成看板数据静默串写
         super().server_bind()
 
 
-def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0"):
-    """启动简易 HTTP 看板服务"""
+def _port_listening(port: int, timeout: float = 0.2) -> bool:
+    """探测 127.0.0.1:{port} 是否有进程监听（固定探测回环地址，避免 macOS 防火墙弹窗）"""
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+
+def _query_health(port: int, timeout: float = 0.8) -> dict | None:
+    """GET /api/health；非本服务（404/超时/非 JSON）返回 None。
+
+    显式禁用代理：系统/环境代理（http_proxy 等）会拦截 127.0.0.1 请求，
+    把 health 探测转发给代理进程，导致复用判定永远失败。
+    兼容统一响应体（{"code":200,"data":{...}}）与裸 health 载荷。
+    """
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(f"http://127.0.0.1:{port}/api/health", timeout=timeout) as resp:
+            if resp.status != 200:
+                return None
+            data = json.loads(resp.read().decode("utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("data"), dict):
+            data = data["data"]  # 统一响应体解包
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
+def _is_same_instance(health: dict | None, fingerprint: str) -> bool:
+    """判定监听者是否为同项目的本服务实例（指纹不区分指纹来源层）"""
+    if not health:
+        return False
+    return health.get("service") == SERVICE_NAME and health.get("fingerprint") == fingerprint
+
+
+class ProbeResult:
+    """端口探测结果：action ∈ {"bind", "reuse"}；bind 时携带已绑定的 server，reuse 时携带既有实例 health"""
+
+    def __init__(self, action: str, port: int, health: dict | None = None, httpd=None):
+        self.action = action
+        self.port = port
+        self.health = health
+        self.httpd = httpd
+
+
+def _is_addr_in_use(e: OSError) -> bool:
+    """跨平台判断"地址被占用"错误（macOS/Linux errno 48/98，Windows winerror 10048）"""
+    import errno as _errno
+    if e.errno == _errno.EADDRINUSE:
+        return True
+    if getattr(e, "winerror", None) == 10048:
+        return True
+    return "Address already in use" in str(e) or "only one usage" in str(e).lower()
+
+
+def probe_port(requested_port: int, fingerprint: str, pinned: bool = False) -> ProbeResult:
+    """端口探测与复用判定。
+
+    - pinned=True（显式 --port/KANBAN_PORT）：只试 requested_port；同指纹复用，否则硬失败
+    - pinned=False：requested_port 起向上探测 DEFAULT_PORT..DEFAULT_PORT+PROBE_RANGE
+    """
+    candidates = [requested_port] if pinned else list(
+        dict.fromkeys([requested_port] + list(range(DEFAULT_PORT, DEFAULT_PORT + PROBE_RANGE + 1)))
+    )
+
+    last_error = ""
+    for port in candidates:
+        if _port_listening(port):
+            health = _query_health(port)
+            if _is_same_instance(health, fingerprint):
+                return ProbeResult("reuse", port, health)
+            # 其他项目实例或无关服务 → 尝试下一端口
+            continue
+        try:
+            httpd = ReusableHTTPServer(("127.0.0.1", port), KanbanHTTPRequestHandler)
+            return ProbeResult("bind", port, httpd=httpd)
+        except OSError as e:
+            if _is_addr_in_use(e):
+                # bind-close 竞态：探测时空闲、绑定时被抢 → 落到下一候选
+                last_error = str(e)
+                continue
+            raise
+
+    print(f"[FAILED]  [ERROR] 候选端口全部不可用 (尝试了 {len(candidates)} 个): {last_error or '均被其他服务占用'}")
+    sys.exit(1)
+
+
+def _write_runtime_file(port: int, fingerprint: str):
+    """落盘运行时信息，供人工排障与后续工具查询（不做启动快速路径）"""
+    try:
+        os.makedirs(os.path.dirname(KANBAN_RUNTIME_FILE), exist_ok=True)
+        payload = {
+            "port": port,
+            "pid": os.getpid(),
+            "fingerprint": fingerprint,
+            "started_at": datetime.now().isoformat(),
+        }
+        with open(KANBAN_RUNTIME_FILE, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        sys.stderr.write(f"[WARN] 运行时文件写入失败 (不影响服务): {e}\n")
+
+
+def _remove_runtime_file():
+    try:
+        if os.path.exists(KANBAN_RUNTIME_FILE):
+            os.remove(KANBAN_RUNTIME_FILE)
+    except Exception:
+        pass
+
+
+def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool = False):
+    """启动简易 HTTP 看板服务（含端口探测与同项目复用）"""
     if not os.path.exists(KANBAN_DIR):
         print(f"[FAILED]  [ERROR] 无法找到看板目录: {KANBAN_DIR}")
         sys.exit(1)
 
-    server_address = (host, port)
-    try:
-        httpd = ReusableHTTPServer(server_address, KanbanHTTPRequestHandler)
-    except OSError as e:
-        if e.errno == 48 or "Address already in use" in str(e):
-            print(f"[FAILED]  [ERROR] 端口 {port} 被占用且无法复用: {e}")
-            sys.exit(1)
-        else:
-            print(f"[FAILED]  [ERROR] 启动 HTTP 服务失败: {e}")
+    fingerprint = compute_project_fingerprint(_DATA_ROOT)
+    result = probe_port(port, fingerprint, pinned=pinned)
+
+    if result.action == "reuse":
+        print("\n" + "=" * 70)
+        print(f"[REUSE]  本项目看板服务已在运行 (端口: {result.port})，直接复用既有实例")
+        print(f" 既有实例 PID: {result.health.get('pid', '未知')} | 启动于: {result.health.get('data_root', '')}")
+        print("=" * 70)
+        print_kanban_urls(result.port, get_local_ip())
+        return
+
+    # probe_port 在 127.0.0.1 上试探性绑定成功；若最终要求监听其他 host，重建监听
+    httpd = result.httpd
+    if host not in ("", "127.0.0.1", "localhost"):
+        httpd.server_close()
+        try:
+            httpd = ReusableHTTPServer((host, result.port), KanbanHTTPRequestHandler)
+        except OSError as e:
+            print(f"[FAILED]  [ERROR] 端口 {result.port} 绑定 {host} 失败: {e}")
             sys.exit(1)
 
+    SERVER_STATE.update(
+        fingerprint=fingerprint,
+        port=result.port,
+        pid=os.getpid(),
+        data_root=_DATA_ROOT,
+    )
+
+    _write_runtime_file(result.port, fingerprint)
+    atexit.register(_remove_runtime_file)
+
     local_ip = get_local_ip()
-    print_kanban_urls(port, local_ip)
+    print_kanban_urls(result.port, local_ip)
 
     try:
         httpd.serve_forever()
@@ -617,11 +857,20 @@ def print_kanban_urls(port: int, local_ip: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Multi-Agent Flow 看板简易 HTTP 服务")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"服务端口 (默认: {DEFAULT_PORT})")
+    parser.add_argument("--port", type=int, default=None,
+                        help=f"固定服务端口 (默认: 环境变量 KANBAN_PORT 或 {DEFAULT_PORT}+自动探测)")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="监听 Host (默认: 0.0.0.0)")
     args = parser.parse_args()
 
-    start_server(port=args.port, host=args.host)
+    env_port = os.environ.get("KANBAN_PORT", "").strip()
+    if args.port is not None:
+        port, pinned = args.port, True
+    elif env_port:
+        port, pinned = int(env_port), True
+    else:
+        port, pinned = DEFAULT_PORT, False
+
+    start_server(port=port, host=args.host, pinned=pinned)
 
 
 if __name__ == "__main__":
