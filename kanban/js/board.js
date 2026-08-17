@@ -226,21 +226,18 @@
         ];
 
         /* ==========================================================
-           Editable Board Title (persisted to localStorage)
+           Board Title Management (统一由 preferences.json 数据源驱动)
            ========================================================== */
         const DEFAULT_BOARD_TITLE = '多专家Agent协作任务看板';
-        const BOARD_TITLE_KEY = 'offline_board_title_v1';
         const BOARD_TITLE_MAX = 60;
         let boardTitleSnapshot = DEFAULT_BOARD_TITLE;
 
         function getBoardTitle() {
-            try {
-                const saved = localStorage.getItem(BOARD_TITLE_KEY);
-                const trimmed = (saved || '').trim();
-                return trimmed || DEFAULT_BOARD_TITLE;
-            } catch (e) {
-                return DEFAULT_BOARD_TITLE;
+            if (typeof kanbanPreferences === 'object' && kanbanPreferences && kanbanPreferences.title) {
+                const t = (kanbanPreferences.title || '').trim();
+                if (t) return t;
             }
+            return DEFAULT_BOARD_TITLE;
         }
 
         function applyBoardTitle(title) {
@@ -248,27 +245,30 @@
             if (el) el.textContent = title;
             document.title = title;
             boardTitleSnapshot = title;
+            if (typeof kanbanPreferences === 'object' && kanbanPreferences) {
+                kanbanPreferences.title = title;
+            }
         }
 
         function commitBoardTitle() {
             const el = document.getElementById('board-title');
             if (!el) return;
-            // Strip any pasted markup / newlines, clamp length
+            // 去除多余空格并限制长度
             let next = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, BOARD_TITLE_MAX);
             const restored = !next;
             if (restored) next = DEFAULT_BOARD_TITLE;
 
             const changed = next !== boardTitleSnapshot;
+            if (!changed) return; // 未修改失焦直接忽略，不触发多余落盘
+
             applyBoardTitle(next);
 
-            try {
-                if (next === DEFAULT_BOARD_TITLE) localStorage.removeItem(BOARD_TITLE_KEY);
-                else localStorage.setItem(BOARD_TITLE_KEY, next);
-            } catch (e) { /* storage full / disabled — title still applies in-session */ }
-
-            if (changed) {
-                showToast(restored ? '标题已恢复默认：' + DEFAULT_BOARD_TITLE : '标题已更新：' + next);
+            // 统一调用 REST API 异步持久化至服务端的 preferences.json
+            if (typeof apiSaveBoardMeta === 'function') {
+                apiSaveBoardMeta({ title: restored ? '' : next });
             }
+
+            showToast(restored ? '标题已恢复默认：' + DEFAULT_BOARD_TITLE : '标题已更新：' + next);
         }
 
         function initBoardTitle() {
