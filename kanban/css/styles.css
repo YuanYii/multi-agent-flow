@@ -765,7 +765,8 @@
         }
         
         .data-table {
-            width: 2245px;
+            width: 2195px;
+            min-width: 2195px;
             border-collapse: collapse;
             text-align: left;
             font-size: 13px;

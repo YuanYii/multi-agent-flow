@@ -6,6 +6,8 @@ __pycache__/
 # IDE and Editor files
 .idea/
 .vscode/
+.zcode/
+.opencode/
 *.swp
 *.swo
 

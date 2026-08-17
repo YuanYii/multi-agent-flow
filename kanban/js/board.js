@@ -1580,15 +1580,58 @@
         }
 
                 // Column & Row Resizable Drag Event Handlers
+        const DEFAULT_COL_WIDTHS = [40, 55, 90, 90, 110, 170, 320, 110, 110, 90, 80, 80, 105, 105, 260, 320, 70];
+
+        function applyColumnWidths(table, widths) {
+            if (!table) return;
+            const ths = table.querySelectorAll('thead th');
+            let totalW = 0;
+            ths.forEach((th, idx) => {
+                const w = widths[idx] || DEFAULT_COL_WIDTHS[idx] || 90;
+                th.style.width = w + 'px';
+                totalW += w;
+            });
+            table.style.width = totalW + 'px';
+            table.style.minWidth = totalW + 'px';
+        }
+
         function makeColumnsResizable() {
             const table = document.getElementById('main-data-table');
             if (!table) return;
             
-            const ths = table.querySelectorAll('th');
-            ths.forEach(th => {
+            // Load saved widths or apply standard defaults
+            let savedWidths = null;
+            try {
+                const raw = localStorage.getItem('kanban_col_widths');
+                if (raw) savedWidths = JSON.parse(raw);
+            } catch (e) {}
+
+            applyColumnWidths(table, Array.isArray(savedWidths) && savedWidths.length === DEFAULT_COL_WIDTHS.length ? savedWidths : DEFAULT_COL_WIDTHS);
+
+            const ths = table.querySelectorAll('thead th');
+            ths.forEach((th, idx) => {
                 th.setAttribute('scope', 'col');
                 const resizer = th.querySelector('.resizer');
                 if (!resizer) return;
+
+                // Double-click resizer to restore default standard width
+                resizer.addEventListener('dblclick', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const defW = DEFAULT_COL_WIDTHS[idx] || 90;
+                    th.style.width = defW + 'px';
+                    let currentWidths = [];
+                    let totalW = 0;
+                    table.querySelectorAll('thead th').forEach(t => {
+                        const w = t.offsetWidth;
+                        currentWidths.push(w);
+                        totalW += w;
+                    });
+                    table.style.width = totalW + 'px';
+                    table.style.minWidth = totalW + 'px';
+                    try { localStorage.setItem('kanban_col_widths', JSON.stringify(currentWidths)); } catch (err) {}
+                    showToast(`已重置 [${th.textContent.replace('▼','').replace('▲','').trim()}] 为标准默认宽度 (${defW}px)`);
+                });
 
                 resizer.addEventListener('mousedown', (e) => {
                     e.preventDefault();
@@ -1604,16 +1647,24 @@
                         
                         // Recalculate total table width
                         let totalW = 0;
-                        table.querySelectorAll('th').forEach(t => {
+                        table.querySelectorAll('thead th').forEach(t => {
                             totalW += t.offsetWidth;
                         });
                         table.style.width = totalW + 'px';
+                        table.style.minWidth = totalW + 'px';
                     }
 
                     function onMouseUp() {
                         resizer.classList.remove('resizing');
                         document.removeEventListener('mousemove', onMouseMove);
                         document.removeEventListener('mouseup', onMouseUp);
+
+                        // Persist customized widths
+                        let currentWidths = [];
+                        table.querySelectorAll('thead th').forEach(t => {
+                            currentWidths.push(t.offsetWidth);
+                        });
+                        try { localStorage.setItem('kanban_col_widths', JSON.stringify(currentWidths)); } catch (err) {}
                     }
 
                     document.addEventListener('mousemove', onMouseMove);
