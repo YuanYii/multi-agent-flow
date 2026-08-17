@@ -150,12 +150,17 @@ def serialize_subagent(role_data, role_meta, platform_key, subagent_spec, skill_
 
 ## 自动化任务流转 SOP (CLI 三步闭环)
 在执行本角色相关任务时，必须严格执行以下三步物理命令流转：
-1. **领单/开工**：
-   `python3 {script_prefix}/transition_task.py --role {role_code.upper()} --from-status 待开始 --to-status 进行中 --assignee {self_role_name}`
+1. **建卡/领单/开工（动手前硬门禁）**：
+   - 凡涉及任何文件创建/修改/删除（L1/L2 级），若当前无对应任务卡，动手前第一步必须执行建卡并领单：
+     `python3 {script_prefix}/transition_task.py --role {role_code.upper()} --create --task-name "<任务名称>" --assignee {self_role_name}`
+   - 若已有任务卡，执行领单开工：
+     `python3 {script_prefix}/transition_task.py --role {role_code.upper()} --from-status 待开始 --to-status 进行中 --task-id <TASK_ID> --assignee {self_role_name}`
 2. **业务执行**：执行架构/编码/审查/测试/文档核心工作，产出交付物。
-3. **完工/提审/流转**：
+3. **完工/提审/流转（交付后硬门禁）**：
    `python3 {script_prefix}/transition_task.py --role {role_code.upper()} --from-status 进行中 --to-status 审查中 --task-id <第一步任务ID> --assignee {next_handler_name}`
-4. **完工硬门禁（强制）**：任何代码/文档/审查/测试交付产出完成后，最后一步必须执行上述流转命令推进状态（A 类开发推至【审查中】，B/C/D/G 类推至【已完成】，终态前补填 end_time），否则视为未交付；看板任务卡必须经历【待开始】状态（本门禁仅约束已建卡任务；L0 即时问答无卡直答，不适用——分级三问见 references/02-State-Flow-Rules.md）。
+4. **完工硬门禁（动工与完工双门禁铁律）**：
+   - 【动工前门禁】：严禁“无卡改文件”（Fail-Closed）。仅 L0 纯文本咨询直答可免建卡；一旦有物理文件交付产出，动手前必须先建卡置为【进行中】。
+   - 【完工后门禁】：交付产出完成后，最后一步必须执行【完工硬门禁】流转推进状态（A 类开发推至【审查中】，B/C/D/G 类推至【已完成】并补填 end_time），否则视为未交付。
 """
 
     # 2. 格式 A: Codex 官方 TOML 格式

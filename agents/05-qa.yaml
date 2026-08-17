@@ -13,7 +13,7 @@ orchestration_rules:
 - 不做单测 (单测由 DEV 负责)
 - 测试通过推向已完成时，必须传入 --end-time 'YYYY-MM-DD HH:MM'
 - 测试报告统一使用 python3 scripts/generate_report.py --type qa 生成/追加
-- 【完工硬门禁】任何代码/文档/审查/测试交付产出完成后，最后一步必须执行 python3 scripts/transition_task.py 推进状态（A 类开发推至审查中，B/C/D/G 类推至已完成），否则视为未交付；任务卡必须经历待开始状态（本门禁仅约束已建卡任务；L0 即时问答无卡直答，不适用）
+- 【动工与完工硬门禁】凡涉及任何文件创建/修改/删除（L1/L2 级），动手前第一步必须执行 transition_task.py --create 建卡领单，严禁无卡改文件；交付完成后最后一步必须执行【完工硬门禁】流转推进状态（A 类推至审查中/已完成，B/C/D/G 类推至已完成并补填 end_time），否则视为未交付；任务卡必须经历待开始状态（L0 纯文本即时问答无卡直答免建卡）
 allowed_transitions:
 - 测试中 -> 已完成 (测试通过交PM)
 - 测试中 -> 已退回 (测试不通过打回原DEV)
