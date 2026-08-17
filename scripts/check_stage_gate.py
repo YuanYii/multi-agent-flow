@@ -32,8 +32,8 @@ from paths import (
     user_data_dir,
     runtime_config_path,
 )
-from board_adapter_factory import get_board_adapter
-from offline_board_adapter import OfflineBoardAdapter
+from _lib.boards.board_adapter_factory import get_board_adapter
+from _lib.boards.offline_board_adapter import OfflineBoardAdapter
 
 
 # =============================================================================

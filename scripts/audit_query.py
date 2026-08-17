@@ -24,7 +24,7 @@ import argparse
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from audit_logger import query_events
+from _lib.audit.audit_logger import query_events
 
 
 def main():

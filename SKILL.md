@@ -110,5 +110,5 @@ version: 1.0.0
 - [`agents/`](agents/)：8 大角色 YAML 定义 (`01-pm.yaml` ~ `08-frontend.yaml`)。
 - [`references/`](references/)：6 大全量提炼参考规约（路由、流转规则、防错闭环、Git 规范、文档治理规范、交接协议）。
 - [`templates/`](templates/)：标准化开发/审查/测试任务报告与工程文档模板。
-- [`scripts/`](scripts/)：看板工厂适配器 (`board_adapter_factory.py`)、门控强校验 (`validate_transition.py`)、报告生成器 (`generate_report.py`)、凭证安全扫描 (`check_secrets.py`) 与动态 Prompt 上下文合成器 (`build_agent_context.py`)。数据根统一解析 (`paths.py`：`--project-root`/`YY_FLOW_PROJECT_ROOT` > `.yy-flow` 自定位 > legacy > CWD；安装于 `.yy-flow/skill` 时数据自动落 `.yy-flow/user_data`，docs/ 留项目根)；多项目共享安装器 (`install_global.sh` / `.ps1`，详见 README「共享安装」)。
+- [`scripts/`](scripts/)：顶层为 CLI 入口与基石模块（门控流转 `transition_task.py`、报告生成器 `generate_report.py`、凭证安全扫描 `check_secrets.py`、动态 Prompt 上下文合成器 `build_agent_context.py`、数据根解析 `paths.py`、枚举 `enums.py`）；内部纯模块按职责归入私有包 `scripts/_lib/`（`_lib/boards/` 看板适配器与工厂、`_lib/audit/` 审计日志、`_lib/core/` 门控强校验 `validate_transition.py` / 文件锁 `file_lock.py` / 技术栈覆盖层 `agent_tech_overlay.py`，Agent 不应直接调用）。数据根统一解析 (`paths.py`：`--project-root`/`YY_FLOW_PROJECT_ROOT` > `.yy-flow` 自定位 > legacy > CWD；安装于 `.yy-flow/skill` 时数据自动落 `.yy-flow/user_data`，docs/ 留项目根)；多项目共享安装器 (`install_global.sh` / `.ps1`，详见 README「共享安装」)。
 

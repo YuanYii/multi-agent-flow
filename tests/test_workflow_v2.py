@@ -612,7 +612,7 @@ class TestWorkflowEnumsSolidification:
 class TestTaskCreatorTracking:
     def test_auto_detect_creator_on_create(self, env):
         """新建任务时未指定 creator 自动捕获当前 OS/Git 用户名。"""
-        from offline_board_adapter import get_current_os_user
+        from _lib.boards.offline_board_adapter import get_current_os_user
         expected_user = get_current_os_user()
 
         out = run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "创建人自动捕获测试", "--assignee", "DEV")

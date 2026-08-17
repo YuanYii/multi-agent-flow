@@ -8,10 +8,6 @@ import os
 import argparse
 from typing import List, Dict
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-if SCRIPT_DIR not in sys.path:
-    sys.path.insert(0, SCRIPT_DIR)
-
 from enums import TaskStatus, TaskType, RoleEnum, normalize_role
 
 ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {

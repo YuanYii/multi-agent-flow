@@ -58,7 +58,7 @@ def main():
     if os.path.abspath(data_root) != os.path.abspath(WORKFLOW_ROOT):
         scan_dirs += [
             os.path.join(data_root, "user_data"),
-            os.path.join(data_root, "docs"),
+            _paths.docs_root(),
         ]
 
     for s_dir in scan_dirs:

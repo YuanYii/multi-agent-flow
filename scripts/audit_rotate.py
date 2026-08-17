@@ -21,7 +21,7 @@ import json
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from audit_logger import rotate_if_needed, get_audit_log_file, get_archive_dir
+from _lib.audit.audit_logger import rotate_if_needed, get_audit_log_file, get_archive_dir
 
 
 def main():
@@ -31,7 +31,7 @@ def main():
     args = parser.parse_args()
 
     if args.dry_run:
-        from audit_logger import _current_log_date
+        from _lib.audit.audit_logger import _current_log_date
         audit_log_file = get_audit_log_file()
         if not os.path.exists(audit_log_file):
             print(f"[DRY-RUN] 日志文件不存在: {audit_log_file}")

@@ -17,10 +17,10 @@ from difflib import SequenceMatcher
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from validate_transition import validate, validate_delegation_authority
-from board_adapter_factory import get_board_adapter
-from audit_logger import record_audit_event
-from file_lock import acquire_lock, release_lock, remove_lock_file_if_free, LockBusyError
+from _lib.core.validate_transition import validate, validate_delegation_authority
+from _lib.boards.board_adapter_factory import get_board_adapter
+from _lib.audit.audit_logger import record_audit_event
+from _lib.core.file_lock import acquire_lock, release_lock, remove_lock_file_if_free, LockBusyError
 from enums import TaskStatus, TaskType, RoleEnum, normalize_role, ROLE_NORMALIZE_MAP
 import paths
 

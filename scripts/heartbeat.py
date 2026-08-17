@@ -25,7 +25,7 @@ from typing import Any, Dict, List
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from board_adapter_factory import get_board_adapter
+from _lib.boards.board_adapter_factory import get_board_adapter
 from enums import normalize_role
 
 

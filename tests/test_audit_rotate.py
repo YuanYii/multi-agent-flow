@@ -18,8 +18,8 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
 sys.path.insert(0, SCRIPTS_DIR)
 
-import audit_logger
-import file_lock
+from _lib.audit import audit_logger
+from _lib.core import file_lock
 
 
 @pytest.fixture

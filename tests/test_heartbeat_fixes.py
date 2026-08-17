@@ -18,7 +18,7 @@ SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
 sys.path.insert(0, SCRIPTS_DIR)
 
 import heartbeat
-from offline_board_adapter import OfflineBoardAdapter
+from _lib.boards.offline_board_adapter import OfflineBoardAdapter
 
 
 def test_heartbeat_import_safe():

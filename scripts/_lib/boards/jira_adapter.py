@@ -106,7 +106,8 @@ class JiraAdapter:
                 with urllib.request.urlopen(req_t, timeout=10) as resp_t:
                     success = resp_t.status in [200, 204]
             except Exception as e:
-                print(f"[JiraAdapter Warning] Jira transitions API call failed ({e}). Status was logged.")
+                print(f"[JiraAdapter Warning] Jira transitions API call failed ({e}).")
+                success = False
         return success
 
     def append_remarks(self, record_id: str, remarks_field_name: str, new_text: str) -> bool:

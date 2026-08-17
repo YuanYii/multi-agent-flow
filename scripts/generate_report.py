@@ -114,7 +114,7 @@ def resolve_report_dir(report_type: str) -> str:
         "pm": "summary_dir", "docs": "summary_dir",
         "arch": "task_breakdown_dir", "devops": "summary_dir",
     }
-    data_root = _paths.resolve_data_root()
+    proj_root = _paths.project_root()
     config_file = _paths.resolve_runtime_config()
     rel = None
     try:
@@ -124,8 +124,8 @@ def resolve_report_dir(report_type: str) -> str:
     except Exception:
         rel = None
     if rel:
-        return os.path.join(data_root, rel)
-    return os.path.join(data_root, "docs", "D04-研发过程", "D02-报告", report_type)
+        return os.path.join(proj_root, rel)
+    return os.path.join(proj_root, "docs", "D04-研发过程", "D02-报告", report_type)
 
 
 def main(args: list = None):

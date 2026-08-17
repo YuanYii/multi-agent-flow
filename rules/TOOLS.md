@@ -8,7 +8,7 @@
 - **用法**：`python3 init_field_mapping.py --base-token XXX --table-id YYY`
 
 ## 2. 看板 API / CLI 抽象适配器
-- **路径**：`multi-agent-flow/scripts/feishu_base_adapter.py`
+- **路径**：`multi-agent-flow/scripts/_lib/boards/feishu_base_adapter.py`
 - **核心类**：`FeishuBaseAdapter`
 - **主要 API**：
   - `list_records(filter_json, limit, offset)`：支持防截断分页拉取；

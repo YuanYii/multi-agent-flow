@@ -13,7 +13,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
 import paths as _paths
-from agent_tech_overlay import load_arch_data, apply_tech_stack_to_role
+from _lib.core.agent_tech_overlay import load_arch_data, apply_tech_stack_to_role
 
 PROJECT_ROOT = _paths.skill_root()
 AGENTS_DIR = os.path.join(PROJECT_ROOT, "agents")
@@ -105,16 +105,14 @@ def detect_active_platforms(platforms_config, global_mode=False):
 
     return list(dict.fromkeys(active))
 
-def serialize_subagent(role_data, role_meta, platform_key, subagent_spec):
-    """
-    根据平台官方标准格式进行子代理序列化
-    """
+def serialize_subagent(role_data, role_meta, platform_key, subagent_spec, skill_target=None):
+    """根据目标平台格式要求，将角色定义序列化为对应格式的子代理指令文件"""
     agent_id = role_meta["id"]
     agent_name = role_meta["name"]
+    role_code = role_data.get("role_code") or role_data.get("role") or role_meta.get("role_code", "")
     fmt = subagent_spec.get("format", "markdown_frontmatter")
     use_frontmatter = subagent_spec.get("frontmatter_subagent", True)
 
-    role_code = role_data.get("role_code") or role_data.get("role") or role_meta.get("role_code", "")
     core_duties = role_data.get("core_duties") or role_data.get("responsibilities", [])
     duty_str = "\n".join([f"- {d}" for d in core_duties]) if isinstance(core_duties, list) else str(core_duties)
     redlines = role_data.get("redlines") or role_data.get("orchestration_rules", [])
@@ -129,8 +127,19 @@ def serialize_subagent(role_data, role_meta, platform_key, subagent_spec):
     self_role_name = role_name_map.get(role_code.upper(), agent_name.split()[0])
     next_handler_name = "周审查" if role_code.upper() in ["DEV", "FRONTEND"] else "严经理"
 
+    # 动态确定脚本执行路径前缀，确保宿主项目下直接执行有效
+    if skill_target:
+        script_prefix = f"{skill_target}/scripts"
+    elif platform_key == "antigravity":
+        script_prefix = ".agents/skills/yy-flow/scripts"
+    elif platform_key == "claude_code":
+        script_prefix = ".claude/skills/yy-flow/scripts"
+    elif os.path.basename(_paths.resolve_data_root()) == ".yy-flow":
+        script_prefix = ".yy-flow/skill/scripts"
+    else:
+        script_prefix = "scripts"
+
     # 1. 状态机 SOP 引导提示词 (三步闭环)
-    # 注: --config 省略，由 paths.resolve_runtime_config() 解析链定位配置（任意 CWD 均正确）
     sop_prompt = f"""# 角色定义：{agent_name} ({agent_id})
 
 ## 核心职责
@@ -141,12 +150,17 @@ def serialize_subagent(role_data, role_meta, platform_key, subagent_spec):
 
 ## 自动化任务流转 SOP (CLI 三步闭环)
 在执行本角色相关任务时，必须严格执行以下三步物理命令流转：
-1. **领单/开工**：
-   `python3 scripts/transition_task.py --role {role_code.upper()} --from-status 待开始 --to-status 进行中 --assignee {self_role_name}`
+1. **建卡/领单/开工（动手前硬门禁）**：
+   - 凡涉及任何文件创建/修改/删除（L1/L2 级），若当前无对应任务卡，动手前第一步必须执行建卡并领单：
+     `python3 {script_prefix}/transition_task.py --role {role_code.upper()} --create --task-name "<任务名称>" --assignee {self_role_name}`
+   - 若已有任务卡，执行领单开工：
+     `python3 {script_prefix}/transition_task.py --role {role_code.upper()} --from-status 待开始 --to-status 进行中 --task-id <TASK_ID> --assignee {self_role_name}`
 2. **业务执行**：执行架构/编码/审查/测试/文档核心工作，产出交付物。
-3. **完工/提审/流转**：
-   `python3 scripts/transition_task.py --role {role_code.upper()} --from-status 进行中 --to-status 审查中 --task-id <第一步任务ID> --assignee {next_handler_name}`
-4. **完工硬门禁（强制）**：任何代码/文档/审查/测试交付产出完成后，最后一步必须执行上述流转命令推进状态（A 类开发推至【审查中】，B/C/D/G 类推至【已完成】，终态前补填 end_time），否则视为未交付；看板任务卡必须经历【待开始】状态（本门禁仅约束已建卡任务；L0 即时问答无卡直答，不适用——分级三问见 references/02-State-Flow-Rules.md）。
+3. **完工/提审/流转（交付后硬门禁）**：
+   `python3 {script_prefix}/transition_task.py --role {role_code.upper()} --from-status 进行中 --to-status 审查中 --task-id <第一步任务ID> --assignee {next_handler_name}`
+4. **完工硬门禁（动工与完工双门禁铁律）**：
+   - 【动工前门禁】：严禁“无卡改文件”（Fail-Closed）。仅 L0 纯文本咨询直答可免建卡；一旦有物理文件交付产出，动手前必须先建卡置为【进行中】。
+   - 【完工后门禁】：交付产出完成后，最后一步必须执行【完工硬门禁】流转推进状态（A 类开发推至【审查中】，B/C/D/G 类推至【已完成】并补填 end_time），否则视为未交付。
 """
 
     # 2. 格式 A: Codex 官方 TOML 格式
@@ -313,7 +327,8 @@ def export_platform_assets(platforms_config, active_platforms, global_mode=False
             role_key = role_meta.get("role_code", "")
             role_data = apply_tech_stack_to_role(role_data, arch_data, role_key)
 
-            out_content = serialize_subagent(role_data, role_meta, p_key, subagent_spec or {})
+            st_val = spec.get("skill_target", "").format(skill_name=skill_name) if spec.get("skill_target") else None
+            out_content = serialize_subagent(role_data, role_meta, p_key, subagent_spec or {}, skill_target=st_val)
             out_rel_path = pattern.format(agent_id=role_meta["id"])
             if global_mode:
                 out_abs_path = os.path.expanduser(out_rel_path)

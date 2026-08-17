@@ -77,7 +77,7 @@ SERVER_STATE = {
 }
 
 
-import file_lock
+from _lib.core import file_lock
 
 
 def read_board_data() -> list:

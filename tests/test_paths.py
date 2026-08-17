@@ -176,3 +176,24 @@ class TestYyFlowLayout:
         monkeypatch.setattr(paths, "_SCRIPT_DIR", str(legacy_skill))
         got = paths.resolve_data_root(env={}, cwd="/anywhere")
         assert got == str(tmp_path / "legacyskill")
+
+    def test_symlink_yyflow_layout_resolution(self, tmp_path):
+        """验证通过 .agents/skills/yy-flow 软链接调用时，realpath 能够正确解析为 .yy-flow 数据根"""
+        real_skill = tmp_path / ".yy-flow" / "skill"
+        real_scripts = real_skill / "scripts"
+        real_scripts.mkdir(parents=True)
+        
+        # 创建符号链接 .agents/skills/yy-flow -> ../../.yy-flow/skill
+        symlink_dir = tmp_path / ".agents" / "skills"
+        symlink_dir.mkdir(parents=True)
+        symlink_path = symlink_dir / "yy-flow"
+        os.symlink(str(real_skill), str(symlink_path))
+        
+        # 模拟从软链接脚本目录获取 realpath
+        symlinked_script = symlink_path / "scripts" / "paths.py"
+        real_script_dir = os.path.dirname(os.path.realpath(str(symlinked_script)))
+        assert real_script_dir == str(real_scripts)
+        
+        # 验证推导出的数据根为 .yy-flow
+        real_skill_root = os.path.abspath(os.path.join(real_script_dir, ".."))
+        assert os.path.basename(os.path.dirname(real_skill_root)) == ".yy-flow"
