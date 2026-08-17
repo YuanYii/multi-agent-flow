@@ -98,7 +98,7 @@ version: 1.0.0
 3. **校验角色权限与门控** -> 调阅 [`references/03-Anti-Error-Mechanism.md`](references/03-Anti-Error-Mechanism.md)
 4. **校验分支与 Git 规范** -> 调阅 [`references/04-Git-Workflow-Spec.md`](references/04-Git-Workflow-Spec.md)
 5. **校验文档结构与元数据** -> 调阅 [`references/05-Document-Management-Spec.md`](references/05-Document-Management-Spec.md)
-6. **校验交接契约与 Message 载荷** -> 调阅 [`references/06-Inter-Agent-Handover-Protocol.md`](references/06-Inter-Agent-Handover-Protocol.md)
+6. **校验交接契约、Message 载荷与虚拟角色通知边界** -> 调阅 [`references/06-Inter-Agent-Handover-Protocol.md`](references/06-Inter-Agent-Handover-Protocol.md)
 
 ---
 

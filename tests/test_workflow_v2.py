@@ -476,3 +476,71 @@ class TestOwnerAndHandlerSemantics:
         assert c.get("assignee") == "李开发"
         assert c.get("handler") == "李开发"
 
+
+# =====================================================================
+# 组 11 · 虚拟角色与外部通信边界 (Virtual Agent vs External IM)
+# =====================================================================
+class TestVirtualAgentNotificationBoundary:
+    def test_handover_protocol_contains_virtual_agent_rules(self):
+        """06-Inter-Agent-Handover-Protocol.md 必须包含虚拟专家与外部 IM 边界规约。"""
+        src = open(os.path.join(REPO_ROOT, "references", "06-Inter-Agent-Handover-Protocol.md"), encoding="utf-8").read()
+        assert "虚拟角色边界" in src
+        assert "虚拟专家身份定界" in src
+        assert "看板任务卡指派即通知" in src
+
+    def test_agents_rule_contains_redline_seven(self):
+        """rules/AGENTS.md 必须包含红线 7：虚拟专家身份与外部通信铁律。"""
+        src = open(os.path.join(REPO_ROOT, "rules", "AGENTS.md"), encoding="utf-8").read()
+        assert "虚拟专家身份与外部通信铁律" in src
+        assert "严禁" in src and "通讯录" in src
+
+
+# =====================================================================
+# 组 12 · 独立专家任务与自定义字段映射安全 (Independent Tasks & Field Map Safety)
+# =====================================================================
+class TestIndependentTasksAndFieldMappingSafety:
+    def test_reviewer_independent_review_task(self, env):
+        """周审查独立专项审查任务：待开始 -> 进行中 -> 已完成 -> 已验收，负责人恒为周审查。"""
+        # 1. PM 分派专项审查任务给周审查
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "代码规范与安全专项审计", "--assignee", "REVIEWER", "--type", "B")
+        c = find(env, "T0001")
+        assert c.get("assignee") == "周审查"
+        assert c.get("handler") == "周审查"
+
+        # 2. 周审查自领取开工: 待开始 -> 进行中
+        out = run(env, "transition_task.py", "--role", "REVIEWER", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "REVIEWER", "--task-id", "T0001", "--type", "B")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("status") == "进行中"
+        assert c.get("assignee") == "周审查"
+        assert c.get("handler") == "周审查"
+
+        # 3. 周审查完工提交 PM 验收: 进行中 -> 已完成
+        out = run(env, "transition_task.py", "--role", "REVIEWER", "--from-status", "进行中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", "2026-08-17 10:00:00")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("status") == "已完成"
+        assert c.get("assignee") == "周审查"  # 负责人仍为周审查
+        assert c.get("handler") == "严经理"   # 处理人收敛至严经理
+
+        # 4. PM 验收: 已完成 -> 已验收
+        out = run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", "2026-08-17 10:00:00")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("status") == "已验收"
+        assert c.get("assignee") == "周审查"  # 负责人终态依然为周审查！
+        assert c.get("handler") == "严经理"
+
+    def test_qa_independent_testcase_task(self, env):
+        """章测试独立用例编写任务：待开始 -> 进行中 -> 已完成 -> 已验收，负责人恒为章测试。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "全链路用例设计与梳理", "--assignee", "QA", "--type", "C")
+        # QA 开工
+        out = run(env, "transition_task.py", "--role", "QA", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "QA", "--task-id", "T0001", "--type", "C")
+        assert out.returncode == 0
+        # QA 完工
+        out = run(env, "transition_task.py", "--role", "QA", "--from-status", "进行中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", "2026-08-17 10:00:00")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("assignee") == "章测试"
+        assert c.get("handler") == "严经理"
+

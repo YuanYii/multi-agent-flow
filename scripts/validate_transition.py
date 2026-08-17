@@ -12,6 +12,8 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
         "待开始 -> 进行中",
         "待开始 -> 已验收",
         "进行中 -> 已验收",
+        "审查中 -> 测试中",
+        "审查中 -> 已退回",
         "已完成 -> 已验收",
         "已完成 -> 已退回",
         "进行中 -> 已阻塞",
@@ -21,6 +23,7 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
         "待开始 -> 进行中",
         "进行中 -> 已完成",
         "进行中 -> 审查中",
+        "已退回 -> 进行中",
         "进行中 -> 已阻塞",
         "已阻塞 -> 进行中"
     ],
@@ -39,6 +42,9 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
         "已阻塞 -> 进行中"
     ],
     "REVIEWER": [
+        "待开始 -> 进行中",
+        "进行中 -> 已完成",
+        "已退回 -> 进行中",
         "审查中 -> 测试中",
         "审查中 -> 已退回",
         "审查中 -> 已阻塞",
@@ -46,6 +52,9 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
         "已阻塞 -> 进行中"
     ],
     "QA": [
+        "待开始 -> 进行中",
+        "进行中 -> 已完成",
+        "已退回 -> 进行中",
         "测试中 -> 已完成",
         "测试中 -> 已退回",
         "测试中 -> 已阻塞",
@@ -55,12 +64,14 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
     "DOCS": [
         "待开始 -> 进行中",
         "进行中 -> 已完成",
+        "已退回 -> 进行中",
         "进行中 -> 已阻塞",
         "已阻塞 -> 进行中"
     ],
     "DEVOPS": [
         "待开始 -> 进行中",
         "进行中 -> 已完成",
+        "已退回 -> 进行中",
         "进行中 -> 已阻塞",
         "已阻塞 -> 进行中"
     ]
@@ -131,8 +142,8 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
     if role_upper in ["DEV", "FRONTEND"] and type_upper in direct_types:
         allowed_list.append("进行中 -> 已完成")
 
-    # A 类 (常规代码开发) 任务 DEV/FRONTEND 强行推已完成判断为违规越权 (HOTFIX 豁免)
-    if role_upper in ["DEV", "FRONTEND"] and type_upper == "A" and transition_key == "进行中 -> 已完成" and not is_hotfix:
+    # A 类 (常规代码开发) 任务各执行角色强行推已完成判断为违规越权 (HOTFIX 豁免)
+    if role_upper in ["DEV", "FRONTEND", "REVIEWER", "QA", "ARCHITECT"] and type_upper == "A" and transition_key == "进行中 -> 已完成" and not is_hotfix:
         print(f"[REJECT 越权拦截] {role_upper} 角色在 A 类 (常规代码开发) 任务中禁止直接推动至 '已完成'！必须先提交审查 (审查中 -> 测试中)！")
         return False
 

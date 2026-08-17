@@ -108,3 +108,12 @@ duplicate_check:
 # 心跳巡检阈值（孤儿产出检测：交付目录近 N 小时新增文件无对应卡片则报警）
 heartbeat:
   orphan_output_hours: 48
+
+# 通知通道策略配置（内部虚拟角色以看板流转为唯一法定通道，严禁外部通讯录单聊）
+notification:
+  mode: "kanban_only"       # 通信模式: kanban_only (仅看板/总线流转，默认) | webhook (群机器人广播)
+  feishu_webhook_url: ""    # 飞书群机器人 Webhook 地址（可选，仅用于群广播阶段进度）
+  dingtalk_webhook_url: ""  # 钉钉群机器人 Webhook 地址（可选）
+  human_contacts:           # 真实人类成员映射（外部通知专用，虚拟专家严禁填入）
+    PM_User: ""
+    Dev_User: ""

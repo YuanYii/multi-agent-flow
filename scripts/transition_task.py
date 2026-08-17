@@ -436,11 +436,11 @@ def transition_task_pipeline(
             if orig_owner:
                 target_handler = normalize_role_name(orig_owner)
 
-        update_fields = {status_key: to_status, "handler": target_handler}
-        if assignee_key and assignee_key != "assignee":
-            update_fields[assignee_key] = target_handler
+        handler_key = field_mapping.get("handler", "handler")
+        owner_key = field_mapping.get("owner") or field_mapping.get("assignee", "assignee")
+        update_fields = {status_key: to_status, handler_key: target_handler}
         if owner:
-            update_fields["assignee"] = normalize_role_name(owner)
+            update_fields[owner_key] = normalize_role_name(owner)
         if end_time: update_fields[end_time_key] = end_time
         if stage: update_fields[field_mapping.get("stage", "stage")] = stage
         if wp: update_fields[field_mapping.get("workpackage", "workpackage")] = wp
@@ -454,7 +454,7 @@ def transition_task_pipeline(
             if not current_start:
                 update_fields[start_time_key] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        orig_assignee = (existing.get("fields", {}).get(assignee_key) if existing else None) or current_role
+        orig_handler = (existing.get("fields", {}).get(handler_key) or existing.get("fields", {}).get("handler") if existing else None) or current_role
 
         try:
             success = adapter.update_record(resolved_record_id, update_fields)
@@ -474,7 +474,7 @@ def transition_task_pipeline(
                 rem_ok = adapter.append_remarks(resolved_record_id, remarks_key, remarks)
                 if not rem_ok:
                     logger.warning("[WARN]  结构化缺陷备注追加失败，准备执行物理原子补偿回滚...", extra=extra_log)
-                    rollback_fields = {status_key: from_status, assignee_key: orig_assignee}
+                    rollback_fields = {status_key: from_status, handler_key: orig_handler}
                     # 回滚必须写回 resolved_record_id（auto-create 场景 record_id 为 None，原实现回滚静默失效）
                     adapter.update_record(resolved_record_id, rollback_fields)
                     logger.error("[SYNC]  状态已物理回滚还原至原状态，拒绝非原子性中间态落库！", extra=extra_log)
@@ -482,7 +482,7 @@ def transition_task_pipeline(
                     return False
             except Exception as e:
                 logger.error(f"[WARN]  备注追加抛出异常 ({e})，执行物理原子补偿回滚...", extra=extra_log)
-                adapter.update_record(resolved_record_id, {status_key: from_status, assignee_key: orig_assignee})
+                adapter.update_record(resolved_record_id, {status_key: from_status, handler_key: orig_handler})
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"备注异常回滚: {e}", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
 
