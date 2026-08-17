@@ -175,6 +175,7 @@ def transition_task_pipeline(
     wp: str = None,
     wbs: str = None,
     owner: str = None,
+    creator: str = None,
     delegated_by: str = "",
     delegation_reason: str = "",
     create_only: bool = False,
@@ -268,6 +269,7 @@ def transition_task_pipeline(
                 "stage": stage or "-",
                 "workpackage": wp or "-",
                 "wbs_id": wbs or "-",
+                "creator": creator or None,
                 "start_date": None,
                 "process": remarks or None,
                 "remarks": remarks or None,
@@ -515,6 +517,7 @@ def main():
     parser.add_argument("--remarks", help="追加结构化缺陷或备注描述")
     parser.add_argument("--active-dev-count", type=int, default=1, help="当前开发人员'进行中'任务数 (并发上限校验用)")
     parser.add_argument("--dry-run", action="store_true", help="开启预检测试模式而不物理写卡")
+    parser.add_argument("--creator", default=None, help="真人创建人/系统用户名 (任务新建时记录)")
     parser.add_argument("--delegated-by", default="", help="提权代行来源角色 (如 PM/USER),留痕到 audit,需在白名单内")
     parser.add_argument("--delegation-reason", default="", help="提权代行理由 (人类用户显式授权时必填)")
     parser.add_argument("--create", action="store_true", help="显式建单模式：创建任务卡【待开始】并分配处理人，不执行流转")
@@ -541,6 +544,7 @@ def main():
         wp=args.wp,
         wbs=args.wbs,
         owner=args.owner,
+        creator=args.creator,
         delegated_by=args.delegated_by,
         delegation_reason=args.delegation_reason,
         create_only=args.create,

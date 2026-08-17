@@ -604,3 +604,32 @@ class TestWorkflowEnumsSolidification:
         assert len(loaded["task_statuses"]) == 9
 
 
+# =====================================================================
+# 组 14 · 真人操作者/创建人自动捕获与流转不可变性 (Task Creator Tracking)
+# =====================================================================
+class TestTaskCreatorTracking:
+    def test_auto_detect_creator_on_create(self, env):
+        """新建任务时未指定 creator 自动捕获当前 OS/Git 用户名。"""
+        from offline_board_adapter import get_current_os_user
+        expected_user = get_current_os_user()
+
+        out = run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "创建人自动捕获测试", "--assignee", "DEV")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("creator") == expected_user
+
+        # 历经流转: DEV 开工 -> 提审
+        out = run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "DEV", "--task-id", "T0001")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("creator") == expected_user  # 流转后 creator 依然不可变！
+
+    def test_explicit_creator_override(self, env):
+        """显式传入 --creator 时精确记录并持久化。"""
+        out = run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "自定义创建人测试", "--assignee", "DEV", "--creator", "alice_developer")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("creator") == "alice_developer"
+
+
+

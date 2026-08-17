@@ -19,6 +19,8 @@ import sys
 import json
 import tempfile
 import datetime
+import subprocess
+import getpass
 from typing import Dict, Any, List, Optional
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -26,6 +28,25 @@ if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
 from enums import TaskStatus
+
+
+def get_current_os_user() -> str:
+    """自动获取当前真人操作者名称（Git用户名优先，OS系统登录名兜底）"""
+    try:
+        git_user = subprocess.check_output(
+            ["git", "config", "user.name"],
+            stderr=subprocess.DEVNULL, timeout=1
+        ).decode("utf-8").strip()
+        if git_user:
+            return git_user
+    except Exception:
+        pass
+
+    try:
+        return getpass.getuser()
+    except Exception:
+        return os.environ.get("USER") or os.environ.get("USERNAME") or "system"
+
 
 # skill 逻辑字段 key → 离线看板 JSON 字段名 (None = 看板无对应字段，写入时跳过)
 KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
@@ -36,6 +57,7 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
     "assignee": "assignee",
     "owner": "assignee",
     "handler": "handler",
+    "creator": "creator",
     "priority": None,
     "estimated_hours": "est_hours",
     "actual_hours": "act_hours",
@@ -51,7 +73,7 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
 
 # 看板原生字段集合（直接透传的白名单）
 KANBAN_NATIVE_FIELDS = {
-    "id", "name", "wbs", "status", "assignee", "handler", "est_hours", "act_hours",
+    "id", "name", "wbs", "status", "assignee", "handler", "creator", "est_hours", "act_hours",
     "start_date", "end_date", "stage", "wp", "process", "remarks", "pretask", "seq",
 }
 
@@ -334,6 +356,7 @@ class OfflineBoardAdapter:
             translated.setdefault("stage", merged_fields.get("stage") or "-")
             translated.setdefault("est_hours", "-")
             translated.setdefault("act_hours", 0)
+            translated.setdefault("creator", merged_fields.get("creator") or get_current_os_user())
 
             # 时间计算
             st = translated.get("start_date") or translated.get("start_time")
