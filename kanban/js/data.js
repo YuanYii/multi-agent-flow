@@ -27,30 +27,28 @@ const defaultCardsData = [
 ];
 
 let rawCardsData = [];
-let kanbanMetaConfig = null;
 let kanbanPreferences = {
     title: "多专家Agent协作任务看板",
     theme: "light",
     row_height: 55,
     card_visible_fields: ["id", "name", "assignee", "est_hours", "status"],
-    column_widths: {}
+    card_field_config: null,
+    column_widths: {},
+    filters: null,
+    sort: null
 };
 
 // -------------------------------------------------------------
-// 1. 初始化元数据与数据加载
+// 1. 初始化偏好与数据加载
 // -------------------------------------------------------------
-async function fetchKanbanMetaConfig() {
-    try {
-        const res = await fetch('./json/kanban_meta.json?t=' + Date.now());
-        if (res.ok) {
-            kanbanMetaConfig = await res.json();
-        }
-    } catch (err) {}
-}
-
 async function loadStorageData() {
-    await fetchKanbanMetaConfig();
     await loadBoardPreferences();
+    if (typeof restoreCardFieldConfig === 'function') {
+        restoreCardFieldConfig();
+    }
+    if (typeof renderFieldConfigPopover === 'function') {
+        renderFieldConfigPopover();
+    }
     applyServerBoardTitle();
     await fetchBackgroundData();
 }

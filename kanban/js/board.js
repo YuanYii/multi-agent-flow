@@ -83,8 +83,19 @@
         // Card display config: one flag per BOARD_FIELDS entry + a label-prefix toggle
         let cardFieldConfig = BOARD_FIELDS.reduce((acc, f) => { acc[f.key] = true; return acc; }, { showLabels: true });
 
+        function restoreCardFieldConfig() {
+            if (typeof kanbanPreferences !== 'undefined' && kanbanPreferences && kanbanPreferences.card_field_config && typeof kanbanPreferences.card_field_config === 'object') {
+                cardFieldConfig = Object.assign(cardFieldConfig, kanbanPreferences.card_field_config);
+            }
+        }
+
         // Build the field-config popover from the registry so it can never drift from the table
         function renderFieldConfigPopover() {
+            restoreCardFieldConfig();
+            const showLabelsCb = document.querySelector('#field-popover input[data-field="showLabels"]');
+            if (showLabelsCb) {
+                showLabelsCb.checked = cardFieldConfig.showLabels !== false;
+            }
             const container = document.getElementById('field-checkbox-list');
             if (!container) return;
             container.innerHTML = BOARD_FIELDS.map(f =>
@@ -769,6 +780,78 @@
             }
         }
 
+        const DEFAULT_SAVED_FILTERS = {
+            query: '', status: '', stage: '', handler: '', creator: '',
+            selected_persons: [], start_from: '', start_to: '', end_from: '', end_to: ''
+        };
+        const DEFAULT_SAVED_SORT = { field: 'seq', order: 'asc' };
+
+        let filterPersistTimer = null;
+        function debouncedPersistFilterAndSort() {
+            if (filterPersistTimer) clearTimeout(filterPersistTimer);
+            filterPersistTimer = setTimeout(() => {
+                persistCurrentFilterAndSortState();
+            }, 350);
+        }
+
+        function persistCurrentFilterAndSortState() {
+            if (typeof apiSaveBoardMeta !== 'function') return;
+            const filters = {
+                query: (document.getElementById('search-box')?.value || '').trim(),
+                status: document.getElementById('filter-status')?.value || '',
+                stage: document.getElementById('filter-stage')?.value || '',
+                handler: document.getElementById('filter-handler')?.value || '',
+                creator: document.getElementById('filter-creator')?.value || '',
+                selected_persons: Array.from(selectedPersons),
+                start_from: document.getElementById('filter-start-from')?.value || '',
+                start_to: document.getElementById('filter-start-to')?.value || '',
+                end_from: document.getElementById('filter-end-from')?.value || '',
+                end_to: document.getElementById('filter-end-to')?.value || ''
+            };
+            const sort = {
+                field: document.getElementById('sort-field')?.value || 'seq',
+                order: document.getElementById('sort-order')?.value || 'asc'
+            };
+            apiSaveBoardMeta({ filters, sort });
+        }
+
+        let hasRestoredInitialFilters = false;
+        let isRestoringFilterState = false;
+        function restoreFilterAndSortState(force = false) {
+            if (hasRestoredInitialFilters && !force) return;
+            hasRestoredInitialFilters = true;
+
+            const f = (typeof kanbanPreferences !== 'undefined' && kanbanPreferences && kanbanPreferences.filters && typeof kanbanPreferences.filters === 'object') ? kanbanPreferences.filters : DEFAULT_SAVED_FILTERS;
+            const s = (typeof kanbanPreferences !== 'undefined' && kanbanPreferences && kanbanPreferences.sort && typeof kanbanPreferences.sort === 'object') ? kanbanPreferences.sort : DEFAULT_SAVED_SORT;
+
+            isRestoringFilterState = true;
+            try {
+                if (document.getElementById('search-box')) document.getElementById('search-box').value = f.query || '';
+                if (document.getElementById('filter-status')) document.getElementById('filter-status').value = f.status || '';
+                if (document.getElementById('filter-stage') && f.stage) document.getElementById('filter-stage').value = f.stage;
+                if (document.getElementById('filter-handler')) document.getElementById('filter-handler').value = f.handler || '';
+                if (document.getElementById('filter-creator') && f.creator) document.getElementById('filter-creator').value = f.creator;
+                if (document.getElementById('filter-start-from')) document.getElementById('filter-start-from').value = f.start_from || '';
+                if (document.getElementById('filter-start-to')) document.getElementById('filter-start-to').value = f.start_to || '';
+                if (document.getElementById('filter-end-from')) document.getElementById('filter-end-from').value = f.end_from || '';
+                if (document.getElementById('filter-end-to')) document.getElementById('filter-end-to').value = f.end_to || '';
+
+                if (Array.isArray(f.selected_persons) && f.selected_persons.length > 0) {
+                    selectedPersons = new Set(f.selected_persons);
+                } else {
+                    selectedPersons.clear();
+                }
+                renderPersonCheckboxList();
+
+                if (document.getElementById('sort-field')) document.getElementById('sort-field').value = s.field || 'seq';
+                if (document.getElementById('sort-order')) document.getElementById('sort-order').value = s.order || 'asc';
+
+                if (typeof refreshUiSelects === 'function') refreshUiSelects();
+            } finally {
+                isRestoringFilterState = false;
+            }
+        }
+
         function initRender() {
             // 1. Kanban Assignee
             renderKanban("board-assignee", assigneeColsConfig, "assignee");
@@ -786,6 +869,7 @@
             renderPersonCheckboxList();
             renderStageFilterOptions();
             renderCreatorFilterOptions();
+            restoreFilterAndSortState();
             updateCounter();
             refreshModalTagSelectors();
         }
@@ -854,6 +938,9 @@
             });
 
             updateActiveFilterHint(query, statusFilter, stageFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo);
+            if (!isRestoringFilterState) {
+                debouncedPersistFilterAndSort();
+            }
             applySort();
         }
 
@@ -908,6 +995,9 @@
             renderStageFilterOptions();
             renderCreatorFilterOptions();
             refreshUiSelects();
+            if (typeof apiSaveBoardMeta === 'function') {
+                apiSaveBoardMeta({ filters: DEFAULT_SAVED_FILTERS, sort: DEFAULT_SAVED_SORT });
+            }
             applyFilters();
             closeAllCustomPopovers();
             showToast('已重置所有筛选条件！');
@@ -933,6 +1023,10 @@
                 });
             } else {
                 currentCardsData.sort((a, b) => order === 'asc' ? a.seq - b.seq : b.seq - a.seq);
+            }
+
+            if (!isRestoringFilterState) {
+                debouncedPersistFilterAndSort();
             }
 
             initRender();
@@ -1048,11 +1142,17 @@
                 const field = cb.getAttribute('data-field');
                 if (field) cardFieldConfig[field] = cb.checked;
             });
+            if (typeof apiSaveBoardMeta === 'function') {
+                apiSaveBoardMeta({ card_field_config: cardFieldConfig });
+            }
             initRender();
         }
 
         function setAllCardFields(checked) {
             BOARD_FIELDS.forEach(f => { cardFieldConfig[f.key] = checked; });
+            if (typeof apiSaveBoardMeta === 'function') {
+                apiSaveBoardMeta({ card_field_config: cardFieldConfig });
+            }
             renderFieldConfigPopover();
             initRender();
         }
@@ -1188,6 +1288,15 @@
 
             const rowHeightDivider = document.getElementById('row-height-divider');
             if (rowHeightDivider) rowHeightDivider.style.display = isTable ? 'inline-block' : 'none';
+
+            const importBtn = document.getElementById('import-json-btn');
+            if (importBtn) importBtn.style.display = isTable ? 'inline-flex' : 'none';
+
+            const exportBtn = document.getElementById('export-json-btn');
+            if (exportBtn) exportBtn.style.display = isTable ? 'inline-flex' : 'none';
+
+            const ioDivider = document.getElementById('import-export-divider');
+            if (ioDivider) ioDivider.style.display = isTable ? 'inline-block' : 'none';
         }
 
         // Tab Switching Logic
@@ -1201,18 +1310,6 @@
                 
                 const targetId = targetTab.getAttribute('data-target');
                 document.getElementById(targetId).classList.add('active');
-
-                const filterTag = document.getElementById('filter-label');
-
-                if (targetId === 'view-table') {
-                    filterTag.innerText = "分组依据: 明细表格";
-                } else if (targetId === 'view-kanban-status') {
-                    filterTag.innerText = "分组依据: 状态";
-                } else if (targetId === 'view-kanban-assignee') {
-                    filterTag.innerText = "分组依据: 负责人";
-                } else if (targetId === 'view-kanban-stage') {
-                    filterTag.innerText = "分组依据: 阶段工作包";
-                }
 
                 syncToolbarForActiveView(targetId);
             });
