@@ -23,6 +23,14 @@ import subprocess
 import getpass
 from typing import Dict, Any, List, Optional
 
+# CLI 直接执行本文件时（__package__ 为空），先把 scripts 根目录注入搜索路径，
+# 确保 enums / _lib.core 等平级模块可导入；作为库被 import 时此注入无害。
+if __package__ in (None, ""):
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    _scripts_root = os.path.abspath(os.path.join(_script_dir, "..", ".."))
+    if _scripts_root not in sys.path:
+        sys.path.insert(0, _scripts_root)
+
 from enums import TaskStatus
 from _lib.core import file_lock
 

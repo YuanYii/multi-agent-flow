@@ -13,13 +13,16 @@ import os
 import sys
 import json
 import pytest
+import urllib.request
 from datetime import datetime, timedelta
+from unittest import mock
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
 sys.path.insert(0, SCRIPTS_DIR)
 
 from _lib.boards.offline_board_adapter import OfflineBoardAdapter
+from _lib.boards.jira_adapter import JiraAdapter
 import metrics_analyzer
 import migrate_legacy_docs
 from check_stage_gate import StageContext, check_arch_summary
@@ -121,6 +124,62 @@ def test_migrate_legacy_docs_d_prefix():
     # 未命中文档兜底
     cat_fallback = migrate_legacy_docs.classify_document("unknown_file_xyz.md")
     assert cat_fallback == "D03-业务模块"
+
+
+class _FakeJiraResp:
+    """模拟 Jira 成功 HTTP 响应 (urlopen 返回的 context manager)"""
+
+    def __init__(self, status=200, payload=b'{"issues": []}'):
+        self.status = status
+        self._payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self):
+        return self._payload
+
+
+def test_jira_adapter_all_urlopen_calls_have_timeout():
+    """验证 JiraAdapter 全部 6 处 urlopen 调用均携带 timeout=10"""
+    adapter = JiraAdapter("https://jira.example.com", "PROJ",
+                          user_email="a@b.c", api_token="tok")
+    captured = []
+
+    def fake_urlopen(req, timeout=None):
+        captured.append(timeout)
+        return _FakeJiraResp()
+
+    with mock.patch.object(urllib.request, "urlopen", side_effect=fake_urlopen):
+        adapter.list_records()
+        adapter.get_record("PROJ-1")
+        adapter.create_record({"task_name": "x"})
+        # update_record: 字段更新 + 状态流转两次请求
+        adapter.update_record("PROJ-1", {"task_name": "y", "status": "In Progress"})
+        adapter.append_remarks("PROJ-1", "remarks", "note")
+
+    assert len(captured) == 6, f"预期 6 处 urlopen 调用，实际 {len(captured)}"
+    assert all(t == 10 for t in captured), f"timeout 参数异常: {captured}"
+
+
+def test_jira_adapter_fail_closed_on_network_error():
+    """验证 JiraAdapter 网络异常时 Fail-Closed：绝不返回伪造成功"""
+    adapter = JiraAdapter("https://jira.example.com", "PROJ",
+                          user_email="a@b.c", api_token="tok")
+
+    def boom(req, timeout=None):
+        raise urllib.error.URLError("network down")
+
+    with mock.patch.object(urllib.request, "urlopen", side_effect=boom):
+        assert adapter.list_records() == []
+        assert adapter.get_record("PROJ-1") is None
+        assert adapter.create_record({"task_name": "x"}) is None
+        assert adapter.update_record("PROJ-1", {"task_name": "y"}) is False
+        assert adapter.update_record("PROJ-1", {"status": "In Progress"}) is False
+        assert adapter.append_remarks("PROJ-1", "remarks", "note") is False
 
 
 def test_check_stage_gate_dual_track_summary(tmp_path):
