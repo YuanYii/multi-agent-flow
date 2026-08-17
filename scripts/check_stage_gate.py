@@ -318,7 +318,10 @@ def check_wbs_reconciliation(ctx: StageContext) -> CheckResult:
     # 2. 尝试扫描 WBS-*.md 实体文档进行双向对账
     wbs_candidates = [
         "D04-研发过程/D01-任务/WBS-*.md",
+        "04-研发过程/01-任务/WBS-*.md",
+        "04-研发过程/任务/WBS-*.md",
         "D01-项目管理/D01-需求/WBS-*.md",
+        "01-项目管理/01-需求/WBS-*.md",
         "**/WBS-*.md",
         "WBS-*.md",
     ]
@@ -385,8 +388,14 @@ def check_arch_summary(ctx: StageContext) -> CheckResult:
     candidates = [
         "D04-研发过程/D02-报告/summary/*架构*",
         "D04-研发过程/D02-报告/summary/*技术*",
+        "04-研发过程/02-报告/summary/*架构*",
+        "04-研发过程/02-报告/summary/*技术*",
+        "04-研发过程/报告/summary/*架构*",
+        "04-研发过程/报告/summary/*技术*",
         "D02-架构设计/*总结*",
         "D02-架构设计/*",
+        "02-架构设计/*总结*",
+        "02-架构设计/*",
         "summary/*架构*",
         "**/*架构*总结*.md",
         "**/*技术*总结*.md",
@@ -450,9 +459,17 @@ def check_pm_summary(ctx: StageContext) -> CheckResult:
 
     candidates = [
         "D01-项目管理/D02-状态报告/*",
+        "01-项目管理/02-状态报告/*",
+        "01-项目管理/状态报告/*",
         "D04-研发过程/D02-报告/summary/*管理*",
         "D04-研发过程/D02-报告/summary/*阶段*",
         "D04-研发过程/D02-报告/summary/*复盘*",
+        "04-研发过程/02-报告/summary/*管理*",
+        "04-研发过程/02-报告/summary/*阶段*",
+        "04-研发过程/02-报告/summary/*复盘*",
+        "04-研发过程/报告/summary/*管理*",
+        "04-研发过程/报告/summary/*阶段*",
+        "04-研发过程/报告/summary/*复盘*",
         "01-项目管理/*",
         "summary/*",
         "**/*阶段*总结*.md",

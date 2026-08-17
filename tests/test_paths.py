@@ -61,7 +61,6 @@ class TestResolveDataRoot:
     def test_cwd_fallback(self, tmp_path):
         fake_skill = tmp_path / "fakeskill"
         monkeypatch_skill = tmp_path / "nowhere"  # 无 legacy
-        import tests.test_paths as _self  # noqa: F401
         got = paths.resolve_data_root(env={}, cwd=str(tmp_path))
         # 本仓库存在 legacy board.json，此处走注入 cwd 需先屏蔽 legacy——
         # 直接验证本仓库场景下的语义: 无 env 无 explicit 时返回 skill_root（legacy）

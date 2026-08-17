@@ -70,11 +70,11 @@ def classify_document(filepath: str) -> str:
             if dkw in parent_dir:
                 scores[cat] += 10
 
-        # 2. 文件名匹配 (权重: +5，若为完整命中的架构关键词加给 02-架构设计 +8)
+        # 2. 文件名匹配 (权重: +5，若为完整命中的架构关键词加给 D02-架构设计 +8)
         for tkw in kw_dict["text_keywords"]:
             if tkw in fname:
                 scores[cat] += 5
-                if cat == "02-架构设计" and ("design" in fname or "arch" in fname):
+                if cat == "D02-架构设计" and ("design" in fname or "arch" in fname):
                     scores[cat] += 3
 
         # 3. 文本内容匹配 (权重: +1)
@@ -85,7 +85,7 @@ def classify_document(filepath: str) -> str:
     best_cat = max(scores, key=scores.get)
     if scores[best_cat] > 0:
         return best_cat
-    return "03-业务模块"
+    return "D03-业务模块"
 
 
 def scan_and_migrate_legacy_docs(target_project_dir: str = None):
