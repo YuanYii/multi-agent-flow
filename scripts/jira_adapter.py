@@ -35,7 +35,7 @@ class JiraAdapter:
         req = urllib.request.Request(url, headers=self._headers(), method="GET")
         
         try:
-            with urllib.request.urlopen(req) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
                 return data.get("issues", [])
         except Exception as e:
@@ -46,7 +46,7 @@ class JiraAdapter:
         url = f"{self.domain}/rest/api/3/issue/{record_id}"
         req = urllib.request.Request(url, headers=self._headers(), method="GET")
         try:
-            with urllib.request.urlopen(req) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 return json.loads(resp.read().decode('utf-8'))
         except Exception as e:
             print(f"[JiraAdapter Error] get_record failed: {e}")
@@ -71,7 +71,7 @@ class JiraAdapter:
         }
         req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=self._headers(), method="POST")
         try:
-            with urllib.request.urlopen(req) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
                 return data.get("key") or data.get("id")
         except Exception as e:
@@ -90,7 +90,7 @@ class JiraAdapter:
         if payload["fields"]:
             req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=self._headers(), method="PUT")
             try:
-                with urllib.request.urlopen(req) as resp:
+                with urllib.request.urlopen(req, timeout=10) as resp:
                     success = resp.status in [200, 204]
             except Exception as e:
                 print(f"[JiraAdapter Error] update_record fields failed: {e}")
@@ -103,7 +103,7 @@ class JiraAdapter:
             trans_payload = {"transition": {"name": new_status}}
             req_t = urllib.request.Request(trans_url, data=json.dumps(trans_payload).encode('utf-8'), headers=self._headers(), method="POST")
             try:
-                with urllib.request.urlopen(req_t) as resp_t:
+                with urllib.request.urlopen(req_t, timeout=10) as resp_t:
                     success = resp_t.status in [200, 204]
             except Exception as e:
                 print(f"[JiraAdapter Warning] Jira transitions API call failed ({e}). Status was logged.")
@@ -124,7 +124,7 @@ class JiraAdapter:
         }
         req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=self._headers(), method="POST")
         try:
-            with urllib.request.urlopen(req) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 return resp.status in [200, 201]
         except Exception as e:
             print(f"[JiraAdapter Error] append_remarks failed: {e}")
