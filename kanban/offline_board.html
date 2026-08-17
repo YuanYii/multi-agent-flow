@@ -122,7 +122,7 @@
         </div>
 
         <!-- Filter Popover -->
-        <div class="popover" id="filter-popover">
+        <div class="popover" id="filter-popover" style="min-width: 290px;">
             <div class="popover-title">多维筛选条件</div>
             <div class="form-item">
                 <label>按状态:</label>
@@ -151,9 +151,42 @@
                     <option value="章测试">章测试</option>
                     <option value="李文通">李文通</option>
                     <option value="吕改特">吕改特</option>
+                    <option value="用户">用户</option>
                 </select>
             </div>
-            <button class="btn" onclick="resetFilters()">重置筛选</button>
+            <div class="form-item">
+                <label>按处理人:</label>
+                <select id="filter-handler" onchange="applyFilters()">
+                    <option value="">全部处理人</option>
+                    <option value="严经理">严经理</option>
+                    <option value="钱架构">钱架构</option>
+                    <option value="李开发">李开发</option>
+                    <option value="马前端">马前端</option>
+                    <option value="周审查">周审查</option>
+                    <option value="章测试">章测试</option>
+                    <option value="李文通">李文通</option>
+                    <option value="吕改特">吕改特</option>
+                    <option value="用户">用户</option>
+                    <option value="未分配">未分配</option>
+                </select>
+            </div>
+            <div class="form-item date-range-form-item">
+                <label>开始时间范围:</label>
+                <div class="date-range-inputs">
+                    <input type="date" id="filter-start-from" onchange="applyFilters()" title="开始时间下限">
+                    <span class="range-separator">至</span>
+                    <input type="date" id="filter-start-to" onchange="applyFilters()" title="开始时间上限">
+                </div>
+            </div>
+            <div class="form-item date-range-form-item">
+                <label>结束时间范围:</label>
+                <div class="date-range-inputs">
+                    <input type="date" id="filter-end-from" onchange="applyFilters()" title="结束时间下限">
+                    <span class="range-separator">至</span>
+                    <input type="date" id="filter-end-to" onchange="applyFilters()" title="结束时间上限">
+                </div>
+            </div>
+            <button class="btn" style="width:100%; margin-top:8px;" onclick="resetFilters()">重置所有筛选</button>
         </div>
 
         <!-- Sort Popover -->

@@ -745,8 +745,13 @@
 
         function applyFilters() {
             const query = document.getElementById('search-box').value.trim().toLowerCase();
-            const statusFilter = document.getElementById('filter-status').value;
-            const assigneeFilter = document.getElementById('filter-assignee').value;
+            const statusFilter = document.getElementById('filter-status') ? document.getElementById('filter-status').value : '';
+            const assigneeFilter = document.getElementById('filter-assignee') ? document.getElementById('filter-assignee').value : '';
+            const handlerFilter = document.getElementById('filter-handler') ? document.getElementById('filter-handler').value : '';
+            const startFrom = document.getElementById('filter-start-from') ? document.getElementById('filter-start-from').value : '';
+            const startTo = document.getElementById('filter-start-to') ? document.getElementById('filter-start-to').value : '';
+            const endFrom = document.getElementById('filter-end-from') ? document.getElementById('filter-end-from').value : '';
+            const endTo = document.getElementById('filter-end-to') ? document.getElementById('filter-end-to').value : '';
             const personFocusActive = isPersonFocusActive();
 
             currentCardsData = rawCardsData.filter(c => {
@@ -754,6 +759,7 @@
                     (c.id && c.id.toLowerCase().includes(query)) ||
                     (c.name && c.name.toLowerCase().includes(query)) ||
                     (c.assignee && c.assignee.toLowerCase().includes(query)) ||
+                    (c.handler && c.handler.toLowerCase().includes(query)) ||
                     (c.status && c.status.toLowerCase().includes(query)) ||
                     (c.stage && c.stage.toLowerCase().includes(query)) ||
                     (c.wbs && c.wbs.toLowerCase().includes(query)) ||
@@ -762,13 +768,35 @@
                 );
                 const matchStatus = !statusFilter || c.status === statusFilter;
                 // Each assignee filter is a no-op when unset; when both are set they intersect (AND).
-                const matchDropdownAssignee = !assigneeFilter || c.assignee === assigneeFilter;
-                const matchMultiPerson = !personFocusActive || selectedPersons.has(c.assignee);
+                const matchDropdownAssignee = !assigneeFilter || (c.assignee && normalizeRoleName(c.assignee) === normalizeRoleName(assigneeFilter));
 
-                return matchQuery && matchStatus && matchDropdownAssignee && matchMultiPerson;
+                // Handler matching:
+                let matchHandler = true;
+                if (handlerFilter) {
+                    if (handlerFilter === '未分配') {
+                        matchHandler = !c.handler || c.handler === '未分配' || (!c.handler && !c.assignee);
+                    } else {
+                        const eff = normalizeRoleName(c.handler || c.assignee);
+                        matchHandler = eff === normalizeRoleName(handlerFilter);
+                    }
+                }
+
+                const matchMultiPerson = !personFocusActive || selectedPersons.has(c.assignee) || selectedPersons.has(normalizeRoleName(c.assignee));
+
+                // Date range comparisons (pure ISO string prefix comparison)
+                const cStartDate = (c.start_date || c.start_time || '').slice(0, 10);
+                const matchStartFrom = !startFrom || (cStartDate && cStartDate >= startFrom);
+                const matchStartTo = !startTo || (cStartDate && cStartDate <= startTo);
+
+                const cEndDate = (c.end_date || c.end_time || '').slice(0, 10);
+                const matchEndFrom = !endFrom || (cEndDate && cEndDate >= endFrom);
+                const matchEndTo = !endTo || (cEndDate && cEndDate <= endTo);
+
+                return matchQuery && matchStatus && matchDropdownAssignee && matchHandler &&
+                       matchMultiPerson && matchStartFrom && matchStartTo && matchEndFrom && matchEndTo;
             });
 
-            updateActiveFilterHint(query, statusFilter, assigneeFilter);
+            updateActiveFilterHint(query, statusFilter, assigneeFilter, handlerFilter, startFrom, startTo, endFrom, endTo);
             applySort();
         }
 
@@ -780,7 +808,7 @@
 
         // Surface which filters are currently narrowing the result set, so an empty
         // result never looks like "the data vanished".
-        function updateActiveFilterHint(query, statusFilter, assigneeFilter) {
+        function updateActiveFilterHint(query, statusFilter, assigneeFilter, handlerFilter, startFrom, startTo, endFrom, endTo) {
             const el = document.getElementById('active-filter-hint');
             if (!el) return;
 
@@ -788,7 +816,10 @@
             if (query) parts.push(`搜索"${query}"`);
             if (statusFilter) parts.push(`状态=${statusFilter}`);
             if (assigneeFilter) parts.push(`负责人=${assigneeFilter}`);
+            if (handlerFilter) parts.push(`处理人=${handlerFilter}`);
             if (isPersonFocusActive()) parts.push(`聚焦人员=${Array.from(selectedPersons).join('/')}`);
+            if (startFrom || startTo) parts.push(`开始时间=${startFrom || '...'}~${startTo || '...'}`);
+            if (endFrom || endTo) parts.push(`结束时间=${endFrom || '...'}~${endTo || '...'}`);
 
             if (parts.length === 0) {
                 el.style.display = 'none';
@@ -810,8 +841,13 @@
 
         function resetFilters() {
             document.getElementById('search-box').value = '';
-            document.getElementById('filter-status').value = '';
-            document.getElementById('filter-assignee').value = '';
+            const st = document.getElementById('filter-status'); if (st) st.value = '';
+            const as = document.getElementById('filter-assignee'); if (as) as.value = '';
+            const hd = document.getElementById('filter-handler'); if (hd) hd.value = '';
+            const sf = document.getElementById('filter-start-from'); if (sf) sf.value = '';
+            const st_to = document.getElementById('filter-start-to'); if (st_to) st_to.value = '';
+            const ef = document.getElementById('filter-end-from'); if (ef) ef.value = '';
+            const et = document.getElementById('filter-end-to'); if (et) et.value = '';
             document.getElementById('sort-field').value = 'seq';
             document.getElementById('sort-order').value = 'asc';
             selectedPersons.clear();

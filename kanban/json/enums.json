@@ -214,15 +214,15 @@
   ],
   "terminal_statuses": [
     "已取消",
-    "已验收",
-    "已完成"
+    "已完成",
+    "已验收"
   ],
   "short_chain_types": [
     "B",
-    "D",
-    "G",
     "C",
-    "F"
+    "D",
+    "F",
+    "G"
   ],
   "role_normalize_map": {
     "flow-pm": "严经理",

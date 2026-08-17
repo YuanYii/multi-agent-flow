@@ -172,8 +172,8 @@ def dump_enums_dict() -> Dict[str, Any]:
             {"key": k, "label": k, "colors": ROLE_COLORS.get(k, {})}
             for k in RoleEnum.all_values()
         ],
-        "terminal_statuses": list(TaskStatus.terminal_statuses()),
-        "short_chain_types": list(TaskType.short_chain_types()),
+        "terminal_statuses": sorted(list(TaskStatus.terminal_statuses())),
+        "short_chain_types": sorted(list(TaskType.short_chain_types())),
         "role_normalize_map": ROLE_NORMALIZE_MAP
     }
 
