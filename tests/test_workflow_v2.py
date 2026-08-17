@@ -532,15 +532,75 @@ class TestIndependentTasksAndFieldMappingSafety:
         assert c.get("handler") == "严经理"
 
     def test_qa_independent_testcase_task(self, env):
-        """章测试独立用例编写任务：待开始 -> 进行中 -> 已完成 -> 已验收，负责人恒为章测试。"""
+        # 1. PM 分派用例编写任务给 QA
         run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "全链路用例设计与梳理", "--assignee", "QA", "--type", "C")
-        # QA 开工
+        # 2. QA 开工
         out = run(env, "transition_task.py", "--role", "QA", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "QA", "--task-id", "T0001", "--type", "C")
         assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("status") == "进行中"
+        assert c.get("assignee") == "章测试"
+        assert c.get("handler") == "章测试"
+
         # QA 完工
         out = run(env, "transition_task.py", "--role", "QA", "--from-status", "进行中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", "2026-08-17 10:00:00")
         assert out.returncode == 0
         c = find(env, "T0001")
+        assert c.get("status") == "已完成"
         assert c.get("assignee") == "章测试"
         assert c.get("handler") == "严经理"
+
+        # PM 验收
+        out = run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", "2026-08-17 10:00:00")
+        assert out.returncode == 0
+        c = find(env, "T0001")
+        assert c.get("status") == "已验收"
+        assert c.get("assignee") == "章测试"
+        assert c.get("handler") == "严经理"
+
+
+# =====================================================================
+# 组 13 · 任务流转标签状态与领域枚举固化 (Workflow Enums Solidification)
+# =====================================================================
+class TestWorkflowEnumsSolidification:
+    def test_task_status_enum_completeness(self):
+        """TaskStatus 必须包含 9 大标准状态枚举。"""
+        from enums import TaskStatus
+        expected = ["待开始", "进行中", "审查中", "测试中", "已完成", "已验收", "已退回", "已阻塞", "已取消"]
+        assert TaskStatus.all_values() == expected
+        assert TaskStatus.terminal_statuses() == {"已完成", "已验收", "已取消"}
+        assert TaskStatus.active_statuses() == {"进行中", "审查中", "测试中"}
+
+    def test_task_type_enum_completeness(self):
+        """TaskType 必须包含 A-G 7 类标准任务类型。"""
+        from enums import TaskType
+        assert TaskType.all_values() == ["A", "B", "C", "D", "E", "F", "G"]
+        assert TaskType.short_chain_types() == {"B", "C", "D", "F", "G"}
+
+    def test_role_enum_and_normalization(self):
+        """RoleEnum 必须包含 8 大 AI 专家角色及用户规范中文名，并支持别名归一化。"""
+        from enums import RoleEnum, normalize_role
+        assert len(RoleEnum.expert_roles()) == 8
+        assert normalize_role("flow-dev") == "李开发"
+        assert normalize_role("DEV") == "李开发"
+        assert normalize_role("dev_user_1") == "李开发"
+        assert normalize_role("flow-reviewer") == "周审查"
+        assert normalize_role("pm") == "严经理"
+        assert normalize_role(None) == "未分配"
+
+    def test_enums_json_metadata_export(self):
+        """enums.json 必须成功导出并包含完整字段元数据。"""
+        from enums import dump_enums_dict, export_enums_json
+        data = dump_enums_dict()
+        assert len(data["task_statuses"]) == 9
+        assert len(data["task_types"]) == 7
+        assert len(data["roles"]) == 9
+        assert "已退回" in [s["key"] for s in data["task_statuses"]]
+
+        exported_file = export_enums_json()
+        assert os.path.exists(exported_file)
+        with open(exported_file, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+        assert len(loaded["task_statuses"]) == 9
+
 

@@ -4,8 +4,15 @@
 支持 A-G 全量 7 类任务类型 (task_type) 转换权限矩阵防越权物理硬拦截。
 """
 import sys
+import os
 import argparse
 from typing import List, Dict
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+from enums import TaskStatus, TaskType, RoleEnum, normalize_role
 
 ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
     "PM": [
@@ -78,7 +85,7 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
 }
 
 
-SPECIAL_DIRECT_COMPLETE_TYPES = ["B", "C", "D", "G"]
+SPECIAL_DIRECT_COMPLETE_TYPES = sorted(list(TaskType.short_chain_types()))
 
 
 # 代行白名单:当前 role (即"被代行目标角色") → 哪些"代行来源角色"是合法的

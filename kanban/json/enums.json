@@ -1,0 +1,276 @@
+{
+  "task_statuses": [
+    {
+      "key": "待开始",
+      "label": "待开始",
+      "colors": {
+        "bg": "#f2f3f5",
+        "text": "#4e5969"
+      }
+    },
+    {
+      "key": "进行中",
+      "label": "进行中",
+      "colors": {
+        "bg": "#e8f0fe",
+        "text": "#3370ff"
+      }
+    },
+    {
+      "key": "审查中",
+      "label": "审查中",
+      "colors": {
+        "bg": "#e8eaff",
+        "text": "#3a5bdb"
+      }
+    },
+    {
+      "key": "测试中",
+      "label": "测试中",
+      "colors": {
+        "bg": "#e6fffb",
+        "text": "#08979c"
+      }
+    },
+    {
+      "key": "已完成",
+      "label": "已完成",
+      "colors": {
+        "bg": "#e8ffea",
+        "text": "#00a854"
+      }
+    },
+    {
+      "key": "已验收",
+      "label": "已验收",
+      "colors": {
+        "bg": "#e6fae8",
+        "text": "#2f9e44"
+      }
+    },
+    {
+      "key": "已退回",
+      "label": "已退回",
+      "colors": {
+        "bg": "#fff7e6",
+        "text": "#d97706"
+      }
+    },
+    {
+      "key": "已阻塞",
+      "label": "已阻塞",
+      "colors": {
+        "bg": "#fff1f0",
+        "text": "#f53f3f"
+      }
+    },
+    {
+      "key": "已取消",
+      "label": "已取消",
+      "colors": {
+        "bg": "#f5f5f5",
+        "text": "#8c8c8c"
+      }
+    }
+  ],
+  "task_types": [
+    {
+      "key": "A",
+      "label": "A (常规开发)",
+      "colors": {
+        "bg": "#e6f4ff",
+        "text": "#0958d9",
+        "label": "A (常规开发)"
+      }
+    },
+    {
+      "key": "B",
+      "label": "B (架构/审计)",
+      "colors": {
+        "bg": "#f9f0ff",
+        "text": "#722ed1",
+        "label": "B (架构/审计)"
+      }
+    },
+    {
+      "key": "C",
+      "label": "C (文档工程)",
+      "colors": {
+        "bg": "#fff7e6",
+        "text": "#d46b08",
+        "label": "C (文档工程)"
+      }
+    },
+    {
+      "key": "D",
+      "label": "D (运维/Git)",
+      "colors": {
+        "bg": "#e6fffb",
+        "text": "#08979c",
+        "label": "D (运维/Git)"
+      }
+    },
+    {
+      "key": "E",
+      "label": "E (用户自建)",
+      "colors": {
+        "bg": "#f6ffed",
+        "text": "#389e0d",
+        "label": "E (用户自建)"
+      }
+    },
+    {
+      "key": "F",
+      "label": "F (阶段总结)",
+      "colors": {
+        "bg": "#feffe6",
+        "text": "#7cb305",
+        "label": "F (阶段总结)"
+      }
+    },
+    {
+      "key": "G",
+      "label": "G (环境治理)",
+      "colors": {
+        "bg": "#fff0f6",
+        "text": "#c41d7f",
+        "label": "G (环境治理)"
+      }
+    }
+  ],
+  "roles": [
+    {
+      "key": "严经理",
+      "label": "严经理",
+      "colors": {
+        "bg": "#e6f6eb",
+        "text": "#248a3d"
+      }
+    },
+    {
+      "key": "钱架构",
+      "label": "钱架构",
+      "colors": {
+        "bg": "#e1eaff",
+        "text": "#3a5bdb"
+      }
+    },
+    {
+      "key": "李开发",
+      "label": "李开发",
+      "colors": {
+        "bg": "#fff0e0",
+        "text": "#d97706"
+      }
+    },
+    {
+      "key": "马前端",
+      "label": "马前端",
+      "colors": {
+        "bg": "#e0e7ff",
+        "text": "#4338ca"
+      }
+    },
+    {
+      "key": "周审查",
+      "label": "周审查",
+      "colors": {
+        "bg": "#e0f2fe",
+        "text": "#0284c7"
+      }
+    },
+    {
+      "key": "章测试",
+      "label": "章测试",
+      "colors": {
+        "bg": "#fce8f8",
+        "text": "#c21897"
+      }
+    },
+    {
+      "key": "李文通",
+      "label": "李文通",
+      "colors": {
+        "bg": "#fff7e6",
+        "text": "#b45309"
+      }
+    },
+    {
+      "key": "吕改特",
+      "label": "吕改特",
+      "colors": {
+        "bg": "#f0f0f0",
+        "text": "#595959"
+      }
+    },
+    {
+      "key": "用户",
+      "label": "用户",
+      "colors": {
+        "bg": "#f3e8ff",
+        "text": "#7c3aed"
+      }
+    }
+  ],
+  "terminal_statuses": [
+    "已取消",
+    "已验收",
+    "已完成"
+  ],
+  "short_chain_types": [
+    "B",
+    "D",
+    "G",
+    "C",
+    "F"
+  ],
+  "role_normalize_map": {
+    "flow-pm": "严经理",
+    "pm": "严经理",
+    "PM": "严经理",
+    "pm_user": "严经理",
+    "严经理": "严经理",
+    "flow-architect": "钱架构",
+    "architect": "钱架构",
+    "ARCHITECT": "钱架构",
+    "architect_user": "钱架构",
+    "钱架构": "钱架构",
+    "flow-dev": "李开发",
+    "dev": "李开发",
+    "DEV": "李开发",
+    "dev_user": "李开发",
+    "dev_user_1": "李开发",
+    "dev_user_2": "李开发",
+    "李开发": "李开发",
+    "flow-frontend": "马前端",
+    "frontend": "马前端",
+    "FRONTEND": "马前端",
+    "前端开发": "马前端",
+    "frontend_user": "马前端",
+    "马前端": "马前端",
+    "flow-reviewer": "周审查",
+    "reviewer": "周审查",
+    "REVIEWER": "周审查",
+    "reviewer_user": "周审查",
+    "reviewer_user_1": "周审查",
+    "周审查": "周审查",
+    "flow-qa": "章测试",
+    "qa": "章测试",
+    "QA": "章测试",
+    "qa_user": "章测试",
+    "章测试": "章测试",
+    "flow-docs": "李文通",
+    "docs": "李文通",
+    "DOCS": "李文通",
+    "docs_user": "李文通",
+    "李文通": "李文通",
+    "flow-devops": "吕改特",
+    "devops": "吕改特",
+    "DEVOPS": "吕改特",
+    "devops_user": "吕改特",
+    "吕改特": "吕改特",
+    "user": "用户",
+    "USER": "用户",
+    "用户": "用户"
+  }
+}

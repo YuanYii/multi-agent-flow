@@ -21,6 +21,12 @@ import tempfile
 import datetime
 from typing import Dict, Any, List, Optional
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+from enums import TaskStatus
+
 # skill 逻辑字段 key → 离线看板 JSON 字段名 (None = 看板无对应字段，写入时跳过)
 KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
     "task_id": "id",

@@ -91,10 +91,25 @@ const STAGE_COLORS = {
     '-':        { bg:'#f2f3f5', text:'#8c8c8c' }
 };
 
+const TASK_TYPE_OPTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+const TASK_TYPE_COLORS = {
+    'A': { bg:'#e6f4ff', text:'#0958d9', label:'A (常规开发)' },
+    'B': { bg:'#f9f0ff', text:'#722ed1', label:'B (架构/审计)' },
+    'C': { bg:'#fff7e6', text:'#d46b08', label:'C (文档工程)' },
+    'D': { bg:'#e6fffb', text:'#08979c', label:'D (运维/Git)' },
+    'E': { bg:'#f6ffed', text:'#389e0d', label:'E (用户自建)' },
+    'F': { bg:'#feffe6', text:'#7cb305', label:'F (阶段总结)' },
+    'G': { bg:'#fff0f6', text:'#c41d7f', label:'G (环境治理)' }
+};
+
 function getBadgeStyle(type, value) {
     if (type === 'person') {
         const norm = normalizeRoleName(value);
         return PERSON_COLORS[norm] || PERSON_COLORS[value] || { bg:'#e8f0fe', text:'#3370ff' };
+    }
+    if (type === 'task_type' || type === 'type') {
+        const valUpper = String(value || 'A').toUpperCase();
+        return TASK_TYPE_COLORS[valUpper] || { bg:'#e8f0fe', text:'#3370ff' };
     }
     const map = type === 'status' ? STATUS_COLORS : (type === 'stage' ? STAGE_COLORS : PERSON_COLORS);
     return map[value] || { bg:'#e8f0fe', text:'#3370ff' };

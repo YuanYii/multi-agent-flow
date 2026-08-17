@@ -21,6 +21,7 @@ from validate_transition import validate, validate_delegation_authority
 from board_adapter_factory import get_board_adapter
 from audit_logger import record_audit_event
 from file_lock import acquire_lock, release_lock, remove_lock_file_if_free, LockBusyError
+from enums import TaskStatus, TaskType, RoleEnum, normalize_role, ROLE_NORMALIZE_MAP
 import paths
 
 # 容错型日志格式化类，防 traceback 泄漏
@@ -92,29 +93,14 @@ def release_concurrency_lock(lock_tuple):
     release_lock(handle)
 
 
-ROLE_NAME_MAP = {
-    "PM": "严经理", "ARCHITECT": "钱架构", "DEV": "李开发",
-    "FRONTEND": "马前端", "REVIEWER": "周审查", "QA": "章测试",
-    "DOCS": "李文通", "DEVOPS": "吕改特",
-    "pm": "严经理", "architect": "钱架构", "dev": "李开发",
-    "frontend": "马前端", "reviewer": "周审查", "qa": "章测试",
-    "docs": "李文通", "devops": "吕改特",
-    "flow-pm": "严经理", "flow-architect": "钱架构", "flow-dev": "李开发",
-    "flow-frontend": "马前端", "flow-reviewer": "周审查", "flow-qa": "章测试",
-    "flow-docs": "李文通", "flow-devops": "吕改特",
-    "pm_user": "严经理", "architect_user": "钱架构",
-    "dev_user": "李开发", "dev_user_1": "李开发", "dev_user_2": "李开发",
-    "frontend_user": "马前端", "reviewer_user": "周审查", "reviewer_user_1": "周审查",
-    "qa_user": "章测试", "docs_user": "李文通", "devops_user": "吕改特",
-}
+ROLE_NAME_MAP = ROLE_NORMALIZE_MAP
 
 
 def normalize_role_name(val: Any) -> str:
-    """角色编码/子代理 ID/占位符 归一化为中文角色名；未命中原样返回"""
+    """角色编码/子代理 ID/占位符 归一化为中文角色名"""
     if not val:
         return ""
-    key = str(val).strip()
-    return ROLE_NAME_MAP.get(key, ROLE_NAME_MAP.get(key.lower(), ROLE_NAME_MAP.get(key.upper(), key)))
+    return normalize_role(val)
 
 PLACEHOLDER_TASK_NAMES = {"", "工作包任务", "-", "暂无", "新建任务", "未命名任务"}
 
