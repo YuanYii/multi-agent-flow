@@ -28,6 +28,7 @@ if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
 from enums import TaskStatus
+import file_lock
 
 
 def get_current_os_user() -> str:
@@ -99,38 +100,8 @@ class OfflineBoardAdapter:
             self._value_to_kanban[str(config_value)] = KANBAN_FIELD_MAP.get(skill_key)
 
     # ------------------------------------------------------------------
-    # 内部工具：锁 / 读写
+    # 内部工具：读写
     # ------------------------------------------------------------------
-    def _acquire_seq_lock(self):
-        """获取全局排他锁（阻塞式）。所有读-改-写操作必须持锁，保证原子性。"""
-        f = open(self.seq_lock_file, "w")
-        try:
-            if sys.platform == "win32":
-                import msvcrt
-                msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(f, fcntl.LOCK_EX)
-        except Exception:
-            f.close()
-            raise
-        return f
-
-    def _release_seq_lock(self, lock_f):
-        try:
-            if sys.platform == "win32":
-                import msvcrt
-                msvcrt.locking(lock_f.fileno(), msvcrt.LK_UNLCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(lock_f, fcntl.LOCK_UN)
-        except Exception:
-            pass
-        try:
-            lock_f.close()
-        except Exception:
-            pass
-
     def _read_cards(self) -> List[Dict[str, Any]]:
         """读取看板全部卡片（JSON 数组）。文件不存在返回空列表。"""
         if not os.path.exists(self.board_file):
@@ -216,8 +187,7 @@ class OfflineBoardAdapter:
     def list_records(self, filter_json: Optional[Dict[str, Any]] = None,
                      limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
         """检索看板记录（支持按 status/assignee 等字段的简单等值过滤）。"""
-        lock_f = self._acquire_seq_lock()
-        try:
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             cards = self._read_cards()
             items = [{"record_id": c.get("id"), "fields": c} for c in cards]
 
@@ -246,24 +216,18 @@ class OfflineBoardAdapter:
                                 filtered.append(item)
                     items = filtered
             return items[offset:offset + limit]
-        finally:
-            self._release_seq_lock(lock_f)
 
     def get_record(self, record_id: str) -> Optional[Dict[str, Any]]:
         """获取指定任务编号的详情记录；不存在返回 None。"""
-        lock_f = self._acquire_seq_lock()
-        try:
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             for c in self._read_cards():
                 if str(c.get("id")) == str(record_id):
                     return {"record_id": c.get("id"), "fields": c}
             return None
-        finally:
-            self._release_seq_lock(lock_f)
 
     def update_record(self, record_id: str, fields: Dict[str, Any]) -> bool:
         """更新指定任务的状态/处理人/描述等字段；记录不存在或企图篡改已验收终态核心状态时返回 False。"""
-        lock_f = self._acquire_seq_lock()
-        try:
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             cards = self._read_cards()
             for c in cards:
                 if str(c.get("id")) == str(record_id):
@@ -284,8 +248,6 @@ class OfflineBoardAdapter:
                             c["act_hours"] = f"{mins} min"
                     return self._write_cards(cards)
             return False
-        finally:
-            self._release_seq_lock(lock_f)
 
     @staticmethod
     def _calc_minutes(start_str: str, end_str: str) -> Optional[int]:
@@ -337,8 +299,7 @@ class OfflineBoardAdapter:
         if "task_name" in merged_fields and "name" not in merged_fields:
             merged_fields["name"] = merged_fields["task_name"]
 
-        lock_f = self._acquire_seq_lock()
-        try:
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             cards = self._read_cards()
 
             task_id = str(merged_fields.get("task_id") or merged_fields.get("id") or "").strip()
@@ -372,24 +333,19 @@ class OfflineBoardAdapter:
             if not self._write_cards(cards):
                 return None
             return task_id
-        finally:
-            self._release_seq_lock(lock_f)
 
     def append_remarks(self, record_id: str, remarks_field_name: str, new_text: str) -> bool:
         """原子级追加备注（打回缺陷信息等）；记录不存在返回 False。"""
-        lock_f = self._acquire_seq_lock()
-        try:
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             kanban_field = self._value_to_kanban.get(str(remarks_field_name)) or "remarks"
             cards = self._read_cards()
             for c in cards:
                 if str(c.get("id")) == str(record_id):
                     existing = c.get(kanban_field) or ""
-                    combined = f"{existing}\\n\\n{new_text}".strip() if existing else new_text
+                    combined = f"{existing}\n\n{new_text}".strip() if existing else new_text
                     c[kanban_field] = combined
                     return self._write_cards(cards)
             return False
-        finally:
-            self._release_seq_lock(lock_f)
 
     def append_process_node(self, record_id: str, role: str,
                             from_status: str, to_status: str,
@@ -404,8 +360,7 @@ class OfflineBoardAdapter:
         单调递增、只追加、回滚烧号不复用。
         返回完整节点 ID（如 "T0001-N03"）；记录不存在返回 None。
         """
-        lock_f = self._acquire_seq_lock()
-        try:
+        with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             cards = self._read_cards()
             for c in cards:
                 if str(c.get("id")) == str(record_id):
@@ -421,8 +376,6 @@ class OfflineBoardAdapter:
                         return node_id
                     return None
             return None
-        finally:
-            self._release_seq_lock(lock_f)
 
 
 def init_board_file(board_file: str) -> str:
