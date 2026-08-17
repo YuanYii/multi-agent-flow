@@ -26,6 +26,25 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
 from board_adapter_factory import get_board_adapter
+from enums import normalize_role
+
+
+def _get_status_entry_time(t: Dict[str, Any], status: str) -> datetime | None:
+    """从任务 process 节点中倒序解析进入当前 status 的时间戳；无节点时回退至 start_date / start_time"""
+    import re as _re
+    process = t.get("process")
+    if process and isinstance(process, str):
+        lines = [line.strip() for line in process.split("\n") if line.strip()]
+        for line in reversed(lines):
+            if f"更新至【{status}】" in line:
+                m = _re.search(r"\[(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)", line)
+                if m:
+                    dt = _parse_dt(m.group(1))
+                    if dt:
+                        return dt
+    # 兜底：新任务卡或无节点历史时，回退至 start_date / start_time
+    start_date = t.get("start_date") or t.get("start_time")
+    return _parse_dt(start_date)
 
 
 # 默认阈值 (可被 workflow.config.yaml 的 heartbeat 段覆盖)
@@ -160,10 +179,11 @@ def run_heartbeat(
         end_date = t.get("end_date") or t.get("end_time")
         start_dt = _parse_dt(start_date)
         end_dt = _parse_dt(end_date)
+        status_entry_dt = _get_status_entry_time(t, status)
 
         # ---- 巡检 1: 滞留任务 ----
-        if status == "进行中" and start_dt:
-            hours = (now - start_dt).total_seconds() / 3600
+        if status == "进行中" and status_entry_dt:
+            hours = (now - status_entry_dt).total_seconds() / 3600
             if hours > thresholds["stale_in_progress_hours"]:
                 alerts.append({
                     "severity": "warning",
@@ -171,8 +191,8 @@ def run_heartbeat(
                     "task_id": tid,
                     "message": f"任务 {tid} 已进行中 {hours:.1f}h (阈值 {thresholds['stale_in_progress_hours']}h),处理人 {assignee}",
                 })
-        elif status in ("审查中", "测试中") and start_dt:
-            hours = (now - start_dt).total_seconds() / 3600
+        elif status in ("审查中", "测试中") and status_entry_dt:
+            hours = (now - status_entry_dt).total_seconds() / 3600
             if hours > thresholds["stale_review_or_test_hours"]:
                 alerts.append({
                     "severity": "warning",
@@ -183,12 +203,13 @@ def run_heartbeat(
 
         # ---- 巡检 2: 并发上限 (累计) ----
         if status == "进行中":
+            norm_who = normalize_role(assignee)
+            who = assignee if norm_who == "未分配" else norm_who
             role_hint = (t.get("role_hint") or "").upper()
-            # 启发式:assignee 名称含"前端/Frontend" → FRONTEND,否则 DEV
-            if "前端" in str(assignee) or "frontend" in str(assignee).lower() or role_hint == "FRONTEND":
-                fe_active_count[assignee] += 1
+            if "前端" in who or "frontend" in str(assignee).lower() or role_hint == "FRONTEND" or who == "马前端":
+                fe_active_count[who] += 1
             else:
-                dev_active_count[assignee] += 1
+                dev_active_count[who] += 1
 
         # ---- 巡检 3: 状态-处理人一致性 ----
         assignee_str = str(assignee).strip().upper()
