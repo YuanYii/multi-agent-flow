@@ -1566,7 +1566,6 @@
                         <span class="tag" style="background:${getBadgeStyle('status', card.status).bg}; color:${getBadgeStyle('status', card.status).text}; border:1px solid rgba(0,0,0,0.06);">${esc(card.status || '待开始')}</span>
                         <span class="tag" style="background:${getBadgeStyle('person', card.assignee).bg}; color:${getBadgeStyle('person', card.assignee).text}; border:1px solid rgba(0,0,0,0.06);">负责人: ${esc(card.assignee || '未分配')}</span>
                         ${card.handler ? `<span class="tag" style="background:${getBadgeStyle('person', card.handler).bg}; color:${getBadgeStyle('person', card.handler).text}; border:1px solid rgba(0,0,0,0.06);">处理人: ${esc(card.handler)}</span>` : ''}
-                        ${card.creator ? `<span class="tag" style="background:#f4f5f7; color:#4e5969; border:1px solid rgba(0,0,0,0.06);">创建人: ${esc(card.creator)}</span>` : ''}
                         ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${esc(card.wbs)}</span>` : ''}
                     </div>
                 `;
