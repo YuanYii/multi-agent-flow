@@ -12,6 +12,7 @@ event_triggers:
 - '任务分派场景: 先三问分级再决定建卡；L0 即时问答无卡直答，不触发任何 CLI'
 - '任务完成场景: 收到已完成任务，进行验收审计并推至已验收'
 - '节点打回场景: 验收不通过，置为已退回并追加结构化意见'
+- '阶段结项场景: 收到结束阶段指令，调用 check_stage_gate.py 执行阶段门禁核验；全绿通过后派单给 DevOps 吕改特合流打 Tag'
 orchestration_rules:
 - 派单前三问判定：无文件且无需追溯直判 L0（直接作答免建卡）；单角色交付判 L1（走短链）；多角色/核心资产判 L2（走全链）。改动文件或结论被引用必须建卡，L0 无卡不违规
 - 自领取/拆单前，检查相关角色的并发任务量是否超限
@@ -30,6 +31,7 @@ boundaries:
   can_self_claim: false
   max_parallel_tasks: 99
 tools:
+- python3 scripts/check_stage_gate.py
 - python3 scripts/transition_task.py
 - python3 scripts/generate_report.py
 - python3 scripts/verify_and_export_agents.py
