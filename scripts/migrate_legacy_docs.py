@@ -89,11 +89,11 @@ def classify_document(filepath: str) -> str:
 
 
 def scan_and_migrate_legacy_docs(target_project_dir: str = None):
-    """扫描 target_project_dir（默认 data_root=宿主项目）散落文档，镜像归档至其 docs/。
+    """扫描 target_project_dir（默认 project_root=宿主项目根）散落文档，镜像归档至其 docs/。
     宿主内嵌 skill 目录（per-project 安装）整棵剪枝，防止把技能包文档当历史文档归档。"""
     if target_project_dir is None:
-        target_project_dir = _paths.resolve_data_root()
-    docs_root = os.path.join(target_project_dir, "docs")
+        target_project_dir = _paths.project_root()
+    docs_root = _paths.docs_root() if target_project_dir == _paths.project_root() else os.path.join(target_project_dir, "docs")
 
     print("[SCAN]  [原项目文档识别] 正在结合目录语义扫描工程中散落的历史文档...")
 

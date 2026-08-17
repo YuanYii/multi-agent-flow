@@ -31,11 +31,11 @@ import os
 
 _ENV_PROJECT_ROOT = "YY_FLOW_PROJECT_ROOT"
 
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 def skill_root(env=None) -> str:
-    """技能代码根目录（本文件所在 scripts/ 的上一级）"""
+    """技能代码根目录（本文件所在 scripts/ 的上一级，支持符号软链接解引用）"""
     return os.path.abspath(os.path.join(_SCRIPT_DIR, ".."))
 
 

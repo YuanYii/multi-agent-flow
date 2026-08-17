@@ -17,9 +17,9 @@ import paths as _paths
 
 
 def scan_project_stack(target_dir: str = None) -> dict:
-    """扫描目标项目技术栈；默认目标为解析后的 data_root（宿主项目），而非 skill 拷贝自身"""
+    """扫描目标项目技术栈；默认目标为宿主项目根目录，而非 skill 拷贝自身"""
     if target_dir is None:
-        target_dir = _paths.resolve_data_root()
+        target_dir = _paths.project_root()
     info = {
         "project_name": "未知应用",
         "languages": [],
@@ -29,20 +29,32 @@ def scan_project_stack(target_dir: str = None) -> dict:
         "readme_title": None
     }
 
+    default_name = os.path.basename(os.path.abspath(target_dir))
+    if default_name and default_name not in [".", "/", ""]:
+        info["project_name"] = default_name
+
     # 1. 解析 README.md 中的物理项目名称
-    readme_path = os.path.join(target_dir, "README.md")
-    if os.path.exists(readme_path):
-        try:
-            with open(readme_path, "r", encoding="utf-8", errors="ignore") as f:
-                for line in f:
-                    line_str = line.strip()
-                    if line_str.startswith("# "):
-                        clean_title = line_str.replace("# ", "").split("\n")[0].split("\r")[0].strip()
-                        info["readme_title"] = clean_title
-                        info["project_name"] = clean_title
-                        break
-        except Exception:
-            pass
+    readme_candidates = [
+        os.path.join(target_dir, "README.md"),
+        os.path.join(target_dir, "README.zh-CN.md"),
+        os.path.join(target_dir, default_name, "README.md"),
+        os.path.join(target_dir, "docs", "README.md"),
+    ]
+    for r_path in readme_candidates:
+        if os.path.exists(r_path):
+            try:
+                with open(r_path, "r", encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        line_str = line.strip()
+                        if line_str.startswith("# "):
+                            clean_title = line_str.replace("# ", "").split("\n")[0].split("\r")[0].strip()
+                            info["readme_title"] = clean_title
+                            info["project_name"] = clean_title
+                            break
+                if info["readme_title"]:
+                    break
+            except Exception:
+                pass
 
     # 2. 解析 Python (pyproject.toml / setup.py / requirements.txt)
     pyproject_path = os.path.join(target_dir, "pyproject.toml")
@@ -139,6 +151,25 @@ def sync_stack_to_config(info: dict, target_project_dir: str = None) -> bool:
         with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
         print(f" [配置同步] 已成功将识别出的技术栈写回 {config_path}")
+
+        # 同步回填识别出的项目名至 workflow.config.yaml (消除 Sample-Project 模板残留)
+        proj_name = info.get("project_name") or info.get("readme_title")
+        if proj_name and proj_name != "未知应用":
+            workflow_path = _paths.runtime_config_path()
+            if os.path.exists(workflow_path):
+                try:
+                    with open(workflow_path, "r", encoding="utf-8") as wf:
+                        wcfg = yaml.safe_load(wf) or {}
+                    curr_name = (wcfg.get("project") or {}).get("name", "")
+                    if curr_name in ["Sample-Project", "", None]:
+                        if "project" not in wcfg:
+                            wcfg["project"] = {}
+                        wcfg["project"]["name"] = proj_name
+                        with open(workflow_path, "w", encoding="utf-8") as wf:
+                            yaml.dump(wcfg, wf, allow_unicode=True, sort_keys=False)
+                        print(f" [项目名同步] 已成功将项目名称 【{proj_name}】 写回 {workflow_path}")
+                except Exception as e:
+                    print(f"[WARN]  同步项目名称至 workflow.config.yaml 失败: {e}")
 
         # 联动触发 update_agent_tech_stacks.py 同步更新 agents/*.yaml
         update_script = os.path.join(SCRIPT_DIR, "update_agent_tech_stacks.py")
