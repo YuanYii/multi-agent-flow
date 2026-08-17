@@ -110,7 +110,7 @@ def normalize_task_name(name: str) -> str:
     return re.sub(r"[\s\u3000，,。.;；:：()（）\[\]【】{}<>《》\"'`~!！?？\-_/\\|]", "", str(name)).lower()
 
 
-def check_duplicate_tasks(adapter, task_name, cfg_dup, limit=10, threshold=0.8):
+def check_duplicate_tasks(adapter, task_name, cfg_dup, limit=10, threshold=0.8, exclude_task_id=None):
     """重复任务校验：取看板最近 N 条任务（按 seq 倒序），与 task_name 做三级命中比对。
     返回命中候选列表 [{task_id, name, level}]；无命中或未启用返回空列表。
     配置：duplicate_check.enabled / limit / threshold（workflow.config.yaml）。"""
@@ -131,6 +131,9 @@ def check_duplicate_tasks(adapter, task_name, cfg_dup, limit=10, threshold=0.8):
     hits = []
     for r in recs[:limit]:
         f = r.get("fields", {})
+        tid = str(f.get("id") or r.get("record_id") or "")
+        if exclude_task_id and tid.upper() == str(exclude_task_id).upper():
+            continue
         name = str(f.get("name") or f.get("task_name") or "")
         if not name:
             continue
@@ -245,7 +248,7 @@ def transition_task_pipeline(
                 return False
             # 重复任务校验：命中时输出重复内容并终止命令（无弹窗），用户决策后以 --force 重跑
             if not no_dup_check:
-                dup_hits = check_duplicate_tasks(adapter, task_name, dup_cfg)
+                dup_hits = check_duplicate_tasks(adapter, task_name, dup_cfg, exclude_task_id=task_id)
                 if dup_hits:
                     print_duplicate_protocol(task_name, dup_hits)
                     if not force:
@@ -427,6 +430,8 @@ def transition_task_pipeline(
         handler_key = field_mapping.get("handler", "handler")
         owner_key = field_mapping.get("owner") or field_mapping.get("assignee", "assignee")
         update_fields = {status_key: to_status, handler_key: target_handler}
+        if "status" not in update_fields:
+            update_fields["status"] = to_status
         if owner:
             update_fields[owner_key] = normalize_role_name(owner)
         if end_time: update_fields[end_time_key] = end_time

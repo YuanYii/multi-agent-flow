@@ -14,6 +14,7 @@ class GitHubProjectsAdapter:
         self.owner = owner
         self.project_number = project_number
         self.github_token = github_token or os.environ.get("GITHUB_TOKEN", "")
+        self._status_option_cache: Dict[str, Dict[str, Dict[str, str]]] = {}
 
     def _headers(self) -> Dict[str, str]:
         return {
@@ -40,6 +41,42 @@ class GitHubProjectsAdapter:
         except Exception as e:
             print(f"[GitHubProjectsAdapter Error] GraphQL Exception: {e}")
             return {}
+
+    def _resolve_status_options(self, project_id: str) -> Dict[str, Dict[str, str]]:
+        """查询 ProjectV2 单选 Status 字段的所有 Option 映射并缓存"""
+        if project_id in self._status_option_cache:
+            return self._status_option_cache[project_id]
+
+        query = """
+        query($projectId: ID!) {
+          node(id: $projectId) {
+            ... on ProjectV2 {
+              fields(first: 30) {
+                nodes {
+                  ... on ProjectV2SingleSelectField {
+                    id
+                    name
+                    options { id name }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+        data = self._graphql_query(query, {"projectId": project_id})
+        mapping: Dict[str, Dict[str, str]] = {}
+        try:
+            fields_nodes = data.get("node", {}).get("fields", {}).get("nodes", [])
+            for f in fields_nodes:
+                if f.get("name", "").lower() in ("status", "状态"):
+                    f_id = f.get("id")
+                    for opt in f.get("options", []):
+                        mapping[opt.get("name")] = {"field_id": f_id, "option_id": opt.get("id")}
+        except Exception:
+            pass
+        self._status_option_cache[project_id] = mapping
+        return mapping
 
     def list_records(self, filter_json: Optional[Dict[str, Any]] = None, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
         query = """
@@ -100,6 +137,15 @@ class GitHubProjectsAdapter:
         project_id = fields.get("project_id") or os.environ.get("GITHUB_PROJECT_ID", "")
         status_field_id = fields.get("status_field_id")
         status_option_id = fields.get("status_option_id")
+
+        if not status_field_id or not status_option_id:
+            status_val = fields.get("status")
+            if project_id and status_val:
+                opts = self._resolve_status_options(project_id)
+                opt_info = opts.get(status_val)
+                if opt_info:
+                    status_field_id = status_field_id or opt_info.get("field_id")
+                    status_option_id = status_option_id or opt_info.get("option_id")
 
         if not project_id or not status_field_id or not status_option_id:
             print(f"[GitHubProjectsAdapter Error] update_record 缺少必需参数 (project_id, status_field_id, status_option_id)。拦截假成功更新！")

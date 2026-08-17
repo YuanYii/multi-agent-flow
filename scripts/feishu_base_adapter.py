@@ -61,13 +61,16 @@ class FeishuBaseAdapter:
             "--as", "user",
             "--format", "json"
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        if res.returncode == 0:
-            try:
-                data = json.loads(res.stdout)
-                return data.get("data", {}).get("record", {})
-            except Exception:
-                return None
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if res.returncode == 0:
+                try:
+                    data = json.loads(res.stdout)
+                    return data.get("data", {}).get("record", {})
+                except Exception:
+                    return None
+        except Exception:
+            return None
         return None
 
     def update_record(self, record_id: str, fields: Dict[str, Any]) -> bool:
@@ -83,7 +86,7 @@ class FeishuBaseAdapter:
             "--format", "json"
         ]
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if res.returncode != 0:
                 return False
             # 优先进行结构化 JSON 响应断言
@@ -110,15 +113,18 @@ class FeishuBaseAdapter:
             "--as", "user",
             "--format", "json"
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        if res.returncode == 0:
-            try:
-                data = json.loads(res.stdout)
-                # 兼容返回结构
-                rec_id = data.get("data", {}).get("record", {}).get("record_id") or data.get("data", {}).get("record_id")
-                return rec_id
-            except Exception:
-                return None
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if res.returncode == 0:
+                try:
+                    data = json.loads(res.stdout)
+                    # 兼容返回结构
+                    rec_id = data.get("data", {}).get("record", {}).get("record_id") or data.get("data", {}).get("record_id")
+                    return rec_id
+                except Exception:
+                    return None
+        except Exception:
+            return None
         return None
 
     def append_remarks(self, record_id: str, remarks_field_name: str, new_text: str) -> bool:
