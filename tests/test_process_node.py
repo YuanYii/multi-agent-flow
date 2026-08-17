@@ -140,6 +140,13 @@ class TestTransitionWritesNodes:
         for i, line in enumerate(node_lines, start=1):
             assert f"T0001-N{i:02d}" in line
 
+        # 严格验证操作人对应当前触发角色（而非下一环节的 assignee 接手人）
+        assert "操作人: 李开发" in node_lines[0]
+        assert "操作人: 李开发" in node_lines[1]
+        assert "操作人: 周审查" in node_lines[2]
+        assert "操作人: 章测试" in node_lines[3]
+        assert "操作人: 严经理" in node_lines[4]
+
     def test_create_does_not_consume_node(self, tmp_path):
         """建单是卡片诞生非流程节点 → 不写节点行、不占号"""
         board, cfg = self._setup(tmp_path)

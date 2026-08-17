@@ -484,9 +484,10 @@ def transition_task_pipeline(
         #     但烧掉的节点号不复用，审计日志仍有完整记录
         try:
             if hasattr(adapter, "append_process_node"):
+                operator_display = normalize_role(current_role) or current_role
                 node_id = adapter.append_process_node(
                     resolved_record_id, current_role.upper(),
-                    from_status or "-", to_status, assignee,
+                    from_status or "-", to_status, operator_display,
                     comment=remarks or "")
                 if node_id:
                     logger.info(f" [NODE]  已追加流程节点 {node_id}", extra=extra_log)
