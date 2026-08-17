@@ -354,7 +354,6 @@ class OfflineBoardAdapter:
             translated.setdefault("wbs", "-")
             translated.setdefault("wp", "-")
             translated.setdefault("stage", merged_fields.get("stage") or "-")
-            translated.setdefault("est_hours", "-")
             translated.setdefault("act_hours", 0)
             translated.setdefault("creator", merged_fields.get("creator") or get_current_os_user())
 

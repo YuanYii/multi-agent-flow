@@ -72,13 +72,92 @@
             { key: 'assignee',   th: '负责人',        label: '负责人 (Assignee)' },
             { key: 'handler',    th: '处理人',        label: '处理人 (Handler)' },
             { key: 'creator',    th: '创建人',        label: '创建人 (Creator)' },
-            { key: 'est_hours',  th: '预估(h)',       label: '预估工时 (Est Hours)' },
-            { key: 'act_hours',  th: '实际(h)',       label: '实际工时 (Act Hours)' },
+            { key: 'act_hours',  th: '任务耗时(m)',   label: '任务耗时 (Duration)' },
             { key: 'start_date', th: '开始时间',      label: '开始时间 (Start Date)' },
             { key: 'end_date',   th: '结束时间',      label: '结束时间 (End Date)' },
             { key: 'remarks',    th: '备注',          label: '备注 (Remarks)' },
             { key: 'process',    th: '过程描述',      label: '过程描述 (Process)' }
         ];
+
+        /**
+         * 精确计算任务耗时（分钟）
+         * 口径：从首次进入【进行中】到进入【已完成】的时间跨度，严格不含【已验收】
+         */
+        function computeCardDuration(card) {
+            if (!card) return;
+            // 仅对【已完成】或【已验收】的任务计算闭环耗时；在途任务不提前结算，返回 null (显示 '-')
+            if (card.status !== '已完成' && card.status !== '已验收') {
+                card._duration_mins = null;
+                return;
+            }
+
+            // 1. 优先从 process 审计日志中提取 开工时刻 与 完工时刻（严格排除【已验收】）
+            if (card.process) {
+                const lines = String(card.process).split(/\n|\\n/);
+                let inProgressTs = null;
+                let completedTs = null;
+                const timeRegex = /\[(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?(?:[+-]\d{2}:?\d{2}|Z)?)\]/i;
+
+                for (const line of lines) {
+                    const tm = line.match(timeRegex);
+                    if (!tm) continue;
+                    const tsStr = tm[1].replace('T', ' ');
+                    const dt = new Date(tsStr.replace(/-/g, '/')).getTime();
+                    if (isNaN(dt)) continue;
+
+                    if (line.includes('更新至【进行中】') || line.includes('初始状态【进行中】')) {
+                        if (inProgressTs === null || dt < inProgressTs) inProgressTs = dt;
+                    }
+                    if (line.includes('更新至【已完成】') || line.includes('初始状态【已完成】')) {
+                        if (completedTs === null || dt > completedTs) completedTs = dt;
+                    }
+                }
+
+                if (inProgressTs !== null && completedTs !== null && completedTs >= inProgressTs) {
+                    card._duration_mins = Math.max(1, Math.round((completedTs - inProgressTs) / (1000 * 60)));
+                    return;
+                }
+            }
+
+            // 2. 兜底：若 process 无精确记录，读取 start_date 与 end_date
+            const st = card.start_date || card.start_time;
+            const et = card.end_date || card.end_time;
+            if (st && et) {
+                const sTime = new Date(String(st).replace('T', ' ').replace(/-/g, '/')).getTime();
+                const eTime = new Date(String(et).replace('T', ' ').replace(/-/g, '/')).getTime();
+                if (!isNaN(sTime) && !isNaN(eTime) && eTime >= sTime) {
+                    card._duration_mins = Math.max(1, Math.round((eTime - sTime) / (1000 * 60)));
+                    return;
+                }
+            }
+
+            // 3. 兜底：读取历史已有 act_hours
+            if (card.act_hours !== undefined && card.act_hours !== null && card.act_hours !== '' && card.act_hours !== '-') {
+                const s = String(card.act_hours).trim();
+                const m = s.match(/^(\d+(?:\.\d+)?)/);
+                if (m) {
+                    let val = parseFloat(m[1]);
+                    if (s.includes('h') && !s.includes('min') && !s.includes('m')) val = Math.round(val * 60);
+                    card._duration_mins = Math.round(val);
+                    return;
+                }
+            }
+
+            card._duration_mins = null;
+        }
+
+        function formatTaskDuration(card) {
+            if (!card) return '-';
+            if (card._duration_mins === undefined) {
+                computeCardDuration(card);
+            }
+            return (card._duration_mins !== null && card._duration_mins !== undefined) ? `${card._duration_mins}m` : '-';
+        }
+
+        function computeAllCardsDuration(cards) {
+            if (!Array.isArray(cards)) return;
+            cards.forEach(c => computeCardDuration(c));
+        }
 
         // Card display config: one flag per BOARD_FIELDS entry + a label-prefix toggle
         let cardFieldConfig = BOARD_FIELDS.reduce((acc, f) => { acc[f.key] = true; return acc; }, { showLabels: true });
@@ -445,13 +524,13 @@
             let remarksHtml = (cardFieldConfig.remarks && card.remarks) ? `<div style="margin-top:4px; font-size:12px; color:#4e5969; line-height:1.4;">${lbl ? '备注: ' : ''}${esc(card.remarks.length > 60 ? card.remarks.substring(0, 60) + '...' : card.remarks)}</div>` : '';
             let processHtml = (cardFieldConfig.process && card.process) ? `<div style="margin-top:4px; font-size:12px; color:#4e5969; line-height:1.4;">${lbl ? '过程: ' : ''}${esc(card.process.length > 60 ? card.process.substring(0, 60) + '...' : card.process)}</div>` : '';
 
-            // --- 预估工时 / 实际工时 (independently toggleable) ---
+            // --- 任务耗时 (m) ---
             let hoursHtml = '';
-            if (cardFieldConfig.est_hours || cardFieldConfig.act_hours) {
-                const parts = [];
-                if (cardFieldConfig.est_hours) parts.push(`${esc(card.est_hours || '0')}h (预)`);
-                if (cardFieldConfig.act_hours) parts.push(`${esc(card.act_hours || '0')}h (实)`);
-                hoursHtml = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${lbl ? '工时: ' : ''}${parts.join(' / ')}`;
+            if (cardFieldConfig.act_hours) {
+                const durText = formatTaskDuration(card);
+                if (durText !== '-') {
+                    hoursHtml = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${lbl ? '耗时: ' : ''}${durText}`;
+                }
             }
 
             let metaHtml = (hoursHtml || datesHtml || remarksHtml || processHtml) ? `
@@ -711,8 +790,7 @@
                             ${tagSelectTriggerHTML('person', card.handler || card.assignee || '未分配', `data-card-id="${esc(card.id)}" data-field="handler"`)}
                         </td>
                         <td><small style="color:var(--text-muted); font-family:inherit;">${esc(card.creator || '-')}</small></td>
-                        <td>${esc(card.est_hours)}</td>
-                        <td>${esc(card.act_hours)}</td>
+                        <td>${formatTaskDuration(card)}</td>
                         <td><small style="color:#4e5969;">${esc(card.start_date) || '-'}</small></td>
                         <td><small style="color:#4e5969;">${esc(card.end_date) || '-'}</small></td>
                         <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${esc(card.remarks) || '-'}</div></td>
@@ -853,6 +931,9 @@
         }
 
         function initRender() {
+            // 0. Pre-calculate duration for all cards for O(1) renders and sorts
+            computeAllCardsDuration(rawCardsData);
+
             // 1. Kanban Assignee
             renderKanban("board-assignee", assigneeColsConfig, "assignee");
 
@@ -1011,10 +1092,9 @@
                 currentCardsData.sort((a, b) => {
                     let valA = a[field] || '';
                     let valB = b[field] || '';
-
-                    if (field === 'est_hours' || field === 'act_hours') {
-                        valA = parseFloat(valA) || 0;
-                        valB = parseFloat(valB) || 0;
+                    if (field === 'act_hours') {
+                        valA = (a._duration_mins !== undefined && a._duration_mins !== null) ? a._duration_mins : -1;
+                        valB = (b._duration_mins !== undefined && b._duration_mins !== null) ? b._duration_mins : -1;
                     }
 
                     if (valA < valB) return order === 'asc' ? -1 : 1;
@@ -1400,11 +1480,11 @@
                 assignee: initAssignee,
                 status: initStatus,
                 handler: '严经理',
-                est_hours: document.getElementById('new-est').value || '2',
                 act_hours: document.getElementById('new-act').value || '0',
                 remarks: document.getElementById('new-desc').value,
                 process: `[${nowStr}] [${initStatus}] 手动创建任务 [${id}]，初始状态【${initStatus}】，负责人: ${initAssignee}`
             };
+            computeCardDuration(newCard);
             rawCardsData.push(newCard);
             saveStorageData();
             applyFilters();
@@ -1453,7 +1533,6 @@
             const editName = document.getElementById('edit-name');
             const editWp = document.getElementById('edit-wp');
             const editWbs = document.getElementById('edit-wbs');
-            const editEst = document.getElementById('edit-est');
             const editAct = document.getElementById('edit-act');
             const editProcess = document.getElementById('edit-process');
             const editOriginalId = document.getElementById('edit-original-id');
@@ -1463,7 +1542,6 @@
             if (editName) editName.value = card.name;
             if (editWp) editWp.value = card.wp || card.stage || '';
             if (editWbs) editWbs.value = card.wbs || '';
-            if (editEst) editEst.value = card.est_hours || 0;
             if (editAct) editAct.value = card.act_hours || 0;
             if (editProcess) editProcess.value = card.process || card.remarks || '';
             if (editOriginalId) editOriginalId.value = card.id;
@@ -1514,8 +1592,8 @@
                         <span class="detail-value">${esc(card.pre_tasks || card.prerequisite || '无前置')}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">工时消耗 (预估/实际)</span>
-                        <span class="detail-value">${card.est_hours || 0}h / ${card.act_hours || 0}h</span>
+                        <span class="detail-label">任务耗时 (Duration)</span>
+                        <span class="detail-value" style="font-weight:600; color:var(--primary);">${formatTaskDuration(card)}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">时间周期</span>
@@ -1768,9 +1846,9 @@
             card.wbs = document.getElementById('edit-wbs').value.trim();
             card.assignee = document.getElementById('edit-assignee').value;
             card.status = document.getElementById('edit-status').value;
-            card.est_hours = document.getElementById('edit-est').value;
             card.act_hours = document.getElementById('edit-act').value;
             card.process = document.getElementById('edit-process').value;
+            computeCardDuration(card);
 
             saveStorageData();
             applyFilters();
@@ -1790,7 +1868,7 @@
         }
 
         // Column & Row Resizable Drag Event Handlers
-        const DEFAULT_COL_WIDTHS = [40, 55, 90, 90, 110, 170, 320, 110, 110, 110, 90, 80, 80, 105, 105, 260, 320, 70];
+        const DEFAULT_COL_WIDTHS = [40, 55, 90, 90, 110, 170, 320, 110, 110, 110, 90, 95, 105, 105, 260, 320, 70];
 
         function applyColumnWidths(table, widths) {
             if (!table) return;

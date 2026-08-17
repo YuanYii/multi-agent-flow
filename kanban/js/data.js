@@ -19,8 +19,7 @@ const defaultCardsData = [
         wbs: "1.1",
         start_date: "2026-08-14 09:00:00",
         end_date: "2026-08-15 18:00:00",
-        est_hours: 8,
-        act_hours: 2,
+        act_hours: "120 min",
         remarks: "执行系统解耦分析与 ADR 架构决策制定",
         process: "[2026-08-14 09:00:00] [系统初始化] 任务 [T0000] 已推入看板，当前状态【待开始】，负责人: 钱架构\n[2026-08-14 09:30:00] [钱架构] 领取任务并开始执行，状态由【待开始】更新至【进行中】"
     }
@@ -31,7 +30,7 @@ let kanbanPreferences = {
     title: "多专家Agent协作任务看板",
     theme: "light",
     row_height: 55,
-    card_visible_fields: ["id", "name", "assignee", "est_hours", "status"],
+    card_visible_fields: ["id", "name", "assignee", "act_hours", "status"],
     card_field_config: null,
     column_widths: {},
     filters: null,

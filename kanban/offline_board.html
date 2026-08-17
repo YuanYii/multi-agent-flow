@@ -190,8 +190,7 @@
                 <select id="sort-field" onchange="applySort()">
                     <option value="seq">默认 (序号/导入顺序)</option>
                     <option value="id">任务编号</option>
-                    <option value="est_hours">预估工时</option>
-                    <option value="act_hours">实际工时</option>
+                    <option value="act_hours">任务耗时(m)</option>
                 </select>
             </div>
             <div class="form-item">
@@ -221,8 +220,7 @@
                         <th style="width: 110px;">负责人<div class="resizer"></div></th>
                         <th style="width: 110px;">处理人<div class="resizer"></div></th>
                         <th style="width: 90px;">创建人<div class="resizer"></div></th>
-                        <th style="width: 80px;">预估(h)<div class="resizer"></div></th>
-                        <th style="width: 80px;">实际(h)<div class="resizer"></div></th>
+                        <th style="width: 95px;">任务耗时(m)<div class="resizer"></div></th>
                         <th style="width: 105px;">开始时间<div class="resizer"></div></th>
                         <th style="width: 105px;">结束时间<div class="resizer"></div></th>
                         <th style="width: 260px;">备注<div class="resizer"></div></th>
@@ -296,15 +294,9 @@
                     <div class="tag-select" data-type="status" data-target="new-status" data-value="待开始"></div>
                 </div>
             </div>
-            <div style="display:flex; gap:10px;">
-                <div class="form-item" style="flex:1;">
-                    <label>预估工时(h)</label>
-                    <input type="number" step="0.5" id="new-est" value="2">
-                </div>
-                <div class="form-item" style="flex:1;">
-                    <label>实际工时(h)</label>
-                    <input type="number" step="0.5" id="new-act" value="0">
-                </div>
+            <div class="form-item">
+                <label>任务耗时(m) <span style="color:var(--text-muted); font-weight:normal;">(选填，流转至已完成时将自动计算)</span></label>
+                <input type="number" step="1" id="new-act" value="0" placeholder="默认自动计算(m)">
             </div>
             <div class="form-item">
                 <label>过程描述 / 备注</label>
@@ -386,15 +378,9 @@
                         <div class="tag-select" data-type="status" data-target="edit-status" data-value="待开始"></div>
                     </div>
                 </div>
-                <div style="display:flex; gap:10px;">
-                    <div class="form-item" style="flex:1;">
-                        <label>预估工时(h)</label>
-                        <input type="number" step="0.5" id="edit-est">
-                    </div>
-                    <div class="form-item" style="flex:1;">
-                        <label>实际工时(h)</label>
-                        <input type="number" step="0.5" id="edit-act">
-                    </div>
+                <div class="form-item">
+                    <label>任务耗时(m) <span style="color:var(--text-muted); font-weight:normal;">(分钟)</span></label>
+                    <input type="number" step="1" id="edit-act" placeholder="耗时分钟数">
                 </div>
                 <div class="form-item">
                     <label>过程描述 / 备注 / 验证结论</label>

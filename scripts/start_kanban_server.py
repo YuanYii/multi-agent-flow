@@ -177,7 +177,7 @@ def read_preferences_data() -> dict:
             "title": dynamic_default,
             "theme": "light",
             "row_height": 55,
-            "card_visible_fields": ["id", "name", "assignee", "est_hours", "status"],
+            "card_visible_fields": ["id", "name", "assignee", "act_hours", "status"],
             "column_widths": {}
         }
     try:
@@ -469,7 +469,6 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 "assignee": assignee,
                 "status": status,
                 "handler": body_data.get("handler", assignee),
-                "est_hours": body_data.get("est_hours", 2),
                 "act_hours": body_data.get("act_hours", 0),
                 "start_date": body_data.get("start_date", now_str),
                 "end_date": body_data.get("end_date", ""),
