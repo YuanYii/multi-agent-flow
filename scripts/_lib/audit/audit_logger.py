@@ -20,9 +20,6 @@ import logging
 from datetime import datetime, date
 from typing import Any, Dict, List, Optional
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, SCRIPT_DIR)
-
 import paths as _paths
 
 def get_logs_dir() -> str:
@@ -64,7 +61,7 @@ def record_audit_event(
         "delegation_reason": delegation_reason or "",
     }
     
-    import file_lock
+    from _lib.core import file_lock
     lock_file = current_audit_file + ".lock"
     for attempt in range(1, 4):
         handle = None
@@ -228,7 +225,7 @@ def rotate_if_needed(max_size_mb: int = 50) -> Dict[str, Any]:
     os.makedirs(archive_dir, exist_ok=True)
     handle = None
     try:
-        import file_lock
+        from _lib.core import file_lock
         handle = file_lock.acquire_lock(lock_file, blocking=True, timeout=5.0)
 
         if should_rotate_daily:

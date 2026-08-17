@@ -23,12 +23,8 @@ import subprocess
 import getpass
 from typing import Dict, Any, List, Optional
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-if SCRIPT_DIR not in sys.path:
-    sys.path.insert(0, SCRIPT_DIR)
-
 from enums import TaskStatus
-import file_lock
+from _lib.core import file_lock
 
 
 def get_current_os_user() -> str:

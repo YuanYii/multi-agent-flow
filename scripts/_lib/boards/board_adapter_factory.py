@@ -8,10 +8,10 @@ import json
 import yaml
 from typing import Any
 import paths
-from feishu_base_adapter import FeishuBaseAdapter
-from jira_adapter import JiraAdapter
-from github_projects_adapter import GitHubProjectsAdapter
-from offline_board_adapter import OfflineBoardAdapter
+from _lib.boards.feishu_base_adapter import FeishuBaseAdapter
+from _lib.boards.jira_adapter import JiraAdapter
+from _lib.boards.github_projects_adapter import GitHubProjectsAdapter
+from _lib.boards.offline_board_adapter import OfflineBoardAdapter
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -52,7 +52,7 @@ def get_board_adapter(config_file: str = None) -> Any:
         config = yaml.safe_load(f)
 
     # 物理硬校验：调用 config.schema.json 执行 Schema 格式验证
-    schema_file = os.path.join(SCRIPT_DIR, "..", "config", "config.schema.json")
+    schema_file = os.path.join(paths.skill_root(), "config", "config.schema.json")
     if os.path.exists(schema_file):
         try:
             import jsonschema

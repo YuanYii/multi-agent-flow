@@ -13,7 +13,7 @@ import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from agent_tech_overlay import load_arch_data
+from _lib.core.agent_tech_overlay import load_arch_data
 
 
 def main():

@@ -19,7 +19,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
 sys.path.insert(0, SCRIPTS_DIR)
 
-from offline_board_adapter import OfflineBoardAdapter
+from _lib.boards.offline_board_adapter import OfflineBoardAdapter
 import metrics_analyzer
 import migrate_legacy_docs
 from check_stage_gate import StageContext, check_arch_summary

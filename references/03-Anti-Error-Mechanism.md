@@ -64,7 +64,7 @@
      > [NOTICE] "检测到跨角色指令。按规范该操作需【项目经理】执行。根据您的明确授权，由我临时代行该操作，执行 [已完成 → 已验收] 流转..."
    - **CLI 强制门控**（代码层硬拦截，无声明即拒绝）：
      - 调用 `transition_task.py` 时必须显式传 `--delegated-by <来源角色>` 与 `--delegation-reason "<理由>"`；
-     - `--delegated-by` 取值必须在 `validate_transition.py:DELEGATION_ALLOW_MATRIX` 白名单内，否则代码层 Fail-Closed 拒绝（典型合法组合：`--role PM --delegated-by DEV`、`--role QA --delegated-by PM`、`--role PM --delegated-by USER`）；
+     - `--delegated-by` 取值必须在 `_lib/core/validate_transition.py:DELEGATION_ALLOW_MATRIX` 白名单内，否则代码层 Fail-Closed 拒绝（典型合法组合：`--role PM --delegated-by DEV`、`--role QA --delegated-by PM`、`--role PM --delegated-by USER`）；
      - 跨级别互代行（如 `DEV` 代行 `FRONTEND`）允许；任意角色代行 `PM` 允许（PM 是通用收口角色）；`USER` 表示"人类用户授权代行"，优先级最高。
    - **留痕与限制**：
      - 在看板「过程描述」或日志中注明：`[代行记录] Agent代行PM执行验收 | 授权依据: 用户显式指令 | 授权时间: YYYY-MM-DD`；

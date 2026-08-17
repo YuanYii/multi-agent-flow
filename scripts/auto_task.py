@@ -32,7 +32,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
 from transition_task import transition_task_pipeline, ROLE_NAME_MAP, check_duplicate_tasks
-from board_adapter_factory import get_board_adapter
+from _lib.boards.board_adapter_factory import get_board_adapter
 import paths
 
 CHAIN_A = ["待开始", "进行中", "审查中", "测试中", "已完成", "已验收"]
@@ -131,8 +131,8 @@ def main():
     delegation_reason = args.delegation_reason or "auto"
 
     # 链级互斥锁（防多链/人工并发改同一任务）；锁落 data_root/user_data/locks/
-    import file_lock
-    from file_lock import LockBusyError
+    from _lib.core import file_lock
+    from _lib.core.file_lock import LockBusyError
 
     chain_lock_handle = None
     try:

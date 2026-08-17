@@ -66,6 +66,10 @@ class TestLegacyInstallUnchanged:
         for f in os.listdir(SCRIPTS):
             if f.endswith(".py"):
                 shutil.copy2(os.path.join(SCRIPTS, f), skill_copy / "scripts" / f)
+        # _lib 私有包递归拷贝（factory/adapter/file_lock 等下沉模块依赖）
+        _lib_src = os.path.join(SCRIPTS, "_lib")
+        if os.path.isdir(_lib_src):
+            shutil.copytree(_lib_src, skill_copy / "scripts" / "_lib")
 
         host_cfg = skill_copy / "user_data" / "workflow.config.yaml"
         with open(os.path.join(REPO_ROOT, "config", "workflow.config.template.yaml"),

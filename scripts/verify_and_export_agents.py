@@ -13,7 +13,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
 import paths as _paths
-from agent_tech_overlay import load_arch_data, apply_tech_stack_to_role
+from _lib.core.agent_tech_overlay import load_arch_data, apply_tech_stack_to_role
 
 PROJECT_ROOT = _paths.skill_root()
 AGENTS_DIR = os.path.join(PROJECT_ROOT, "agents")

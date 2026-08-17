@@ -21,7 +21,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(REPO_ROOT, "scripts")
 sys.path.insert(0, SCRIPTS)
 
-from offline_board_adapter import OfflineBoardAdapter  # noqa: E402
+from _lib.boards.offline_board_adapter import OfflineBoardAdapter  # noqa: E402
 
 
 def _mk_board(tmp_path, cards):
