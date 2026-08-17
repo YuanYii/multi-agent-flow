@@ -7,7 +7,7 @@
   { "key": "name", "th": "任务名称", "label": "任务名称 (Task Name)", "default_width": "320px" },
   { "key": "status", "th": "状态", "label": "状态 (Status)", "default_width": "110px" },
   { "key": "assignee", "th": "负责人", "label": "负责人 (Assignee)", "default_width": "110px" },
-  { "key": "handler", "th": "处理人", "label": "处理人 (Handler)", "default_width": "90px" },
+  { "key": "handler", "th": "处理人", "label": "处理人 (Handler)", "default_width": "110px" },
   { "key": "creator", "th": "创建人", "label": "创建人 (Creator)", "default_width": "90px" },
   { "key": "est_hours", "th": "预估(h)", "label": "预估工时 (Est Hours)", "default_width": "80px" },
   { "key": "act_hours", "th": "实际(h)", "label": "实际工时 (Act Hours)", "default_width": "80px" },

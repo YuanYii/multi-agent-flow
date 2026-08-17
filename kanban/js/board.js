@@ -721,6 +721,30 @@
             document.getElementById('raw-count').innerText = rawCardsData.length;
         }
 
+        function renderStageFilterOptions() {
+            const selectEl = document.getElementById('filter-stage');
+            if (!selectEl) return;
+
+            const currentVal = selectEl.value;
+            const stageSet = new Set();
+            rawCardsData.forEach(c => {
+                const stg = (c.stage || '').trim();
+                if (stg && stg !== '-') stageSet.add(stg);
+            });
+            const sorted = Array.from(stageSet).sort();
+            let html = '<option value="">全部阶段</option>';
+            sorted.forEach(name => {
+                html += `<option value="${esc(name)}">${esc(name)}</option>`;
+            });
+            selectEl.innerHTML = html;
+            if (sorted.includes(currentVal)) {
+                selectEl.value = currentVal;
+            }
+            if (typeof refreshUiSelects === 'function') {
+                refreshUiSelects();
+            }
+        }
+
         function renderCreatorFilterOptions() {
             const selectEl = document.getElementById('filter-creator');
             if (!selectEl) return;
@@ -760,6 +784,7 @@
             // 4. Data Table & Filters
             renderTable();
             renderPersonCheckboxList();
+            renderStageFilterOptions();
             renderCreatorFilterOptions();
             updateCounter();
             refreshModalTagSelectors();
@@ -773,6 +798,7 @@
         function applyFilters() {
             const query = document.getElementById('search-box').value.trim().toLowerCase();
             const statusFilter = document.getElementById('filter-status') ? document.getElementById('filter-status').value : '';
+            const stageFilter = document.getElementById('filter-stage') ? document.getElementById('filter-stage').value : '';
             const assigneeFilter = document.getElementById('filter-assignee') ? document.getElementById('filter-assignee').value : '';
             const handlerFilter = document.getElementById('filter-handler') ? document.getElementById('filter-handler').value : '';
             const creatorFilter = document.getElementById('filter-creator') ? document.getElementById('filter-creator').value : '';
@@ -796,6 +822,7 @@
                     (c.process && c.process.toLowerCase().includes(query))
                 );
                 const matchStatus = !statusFilter || c.status === statusFilter;
+                const matchStage = !stageFilter || (c.stage && c.stage === stageFilter);
                 // Each assignee filter is a no-op when unset; when both are set they intersect (AND).
                 const matchDropdownAssignee = !assigneeFilter || (c.assignee && normalizeRoleName(c.assignee) === normalizeRoleName(assigneeFilter));
 
@@ -824,11 +851,11 @@
                 const matchEndFrom = !endFrom || (cEndDate && cEndDate >= endFrom);
                 const matchEndTo = !endTo || (cEndDate && cEndDate <= endTo);
 
-                return matchQuery && matchStatus && matchDropdownAssignee && matchHandler && matchCreator &&
+                return matchQuery && matchStatus && matchStage && matchDropdownAssignee && matchHandler && matchCreator &&
                        matchMultiPerson && matchStartFrom && matchStartTo && matchEndFrom && matchEndTo;
             });
 
-            updateActiveFilterHint(query, statusFilter, assigneeFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo);
+            updateActiveFilterHint(query, statusFilter, stageFilter, assigneeFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo);
             applySort();
         }
 
@@ -840,13 +867,14 @@
 
         // Surface which filters are currently narrowing the result set, so an empty
         // result never looks like "the data vanished".
-        function updateActiveFilterHint(query, statusFilter, assigneeFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo) {
+        function updateActiveFilterHint(query, statusFilter, stageFilter, assigneeFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo) {
             const el = document.getElementById('active-filter-hint');
             if (!el) return;
 
             const parts = [];
             if (query) parts.push(`搜索"${query}"`);
             if (statusFilter) parts.push(`状态=${statusFilter}`);
+            if (stageFilter) parts.push(`阶段=${stageFilter}`);
             if (assigneeFilter) parts.push(`负责人=${assigneeFilter}`);
             if (handlerFilter) parts.push(`处理人=${handlerFilter}`);
             if (creatorFilter) parts.push(`创建人=${creatorFilter}`);
@@ -875,6 +903,7 @@
         function resetFilters() {
             document.getElementById('search-box').value = '';
             const st = document.getElementById('filter-status'); if (st) st.value = '';
+            const stg = document.getElementById('filter-stage'); if (stg) stg.value = '';
             const as = document.getElementById('filter-assignee'); if (as) as.value = '';
             const hd = document.getElementById('filter-handler'); if (hd) hd.value = '';
             const cr = document.getElementById('filter-creator'); if (cr) cr.value = '';
@@ -886,6 +915,7 @@
             document.getElementById('sort-order').value = 'asc';
             selectedPersons.clear();
             renderPersonCheckboxList();
+            renderStageFilterOptions();
             renderCreatorFilterOptions();
             refreshUiSelects();
             applyFilters();
@@ -1656,7 +1686,7 @@
         }
 
         // Column & Row Resizable Drag Event Handlers
-        const DEFAULT_COL_WIDTHS = [40, 55, 90, 90, 110, 170, 320, 110, 110, 90, 90, 80, 80, 105, 105, 260, 320, 70];
+        const DEFAULT_COL_WIDTHS = [40, 55, 90, 90, 110, 170, 320, 110, 110, 110, 90, 80, 80, 105, 105, 260, 320, 70];
 
         function applyColumnWidths(table, widths) {
             if (!table) return;

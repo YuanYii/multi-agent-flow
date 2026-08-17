@@ -90,10 +90,13 @@ class TestNodeAllocation:
 
 
 def _run_flow(cfg_path, *args):
+    sub_env = os.environ.copy()
+    if os.path.isabs(cfg_path):
+        sub_env["YY_FLOW_PROJECT_ROOT"] = os.path.dirname(cfg_path)
     return subprocess.run(
         [sys.executable, os.path.join(SCRIPTS, "transition_task.py"),
          "--config", cfg_path] + list(args),
-        capture_output=True, text=True)
+        capture_output=True, text=True, env=sub_env)
 
 
 class TestTransitionWritesNodes:

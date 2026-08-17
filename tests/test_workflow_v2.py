@@ -27,7 +27,7 @@ def env(tmp_path):
         base = yaml.safe_load(f)
     base["board"]["board_file"] = str(board)
     cfg.write_text(yaml.safe_dump(base, allow_unicode=True, sort_keys=False), encoding="utf-8")
-    return {"board": board, "cfg": cfg}
+    return {"board": board, "cfg": cfg, "tmp": tmp_path}
 
 
 def run(env, *args, expect=0):
@@ -39,7 +39,9 @@ def run(env, *args, expect=0):
         cmd = [sys.executable, os.path.join(SCRIPTS, script), rest[0], "--config", str(env["cfg"]), *rest[1:]]
     else:
         cmd = [sys.executable, os.path.join(SCRIPTS, script), "--config", str(env["cfg"]), *rest]
-    r = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
+    sub_env = os.environ.copy()
+    sub_env["YY_FLOW_PROJECT_ROOT"] = str(env.get("tmp") or env["board"].parent)
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT, env=sub_env)
     assert r.returncode == expect, f"exit={r.returncode} (期望 {expect})\nstdout={r.stdout}\nstderr={r.stderr}"
     return r
 

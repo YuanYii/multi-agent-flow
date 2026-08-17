@@ -140,6 +140,12 @@
                 </select>
             </div>
             <div class="form-item">
+                <label>按阶段:</label>
+                <select id="filter-stage" onchange="applyFilters()">
+                    <option value="">全部阶段</option>
+                </select>
+            </div>
+            <div class="form-item">
                 <label>按负责人:</label>
                 <select id="filter-assignee" onchange="applyFilters()">
                     <option value="">全部负责人</option>
@@ -232,7 +238,7 @@
                         <th style="width: 320px;">任务名称<div class="resizer"></div></th>
                         <th style="width: 110px;">状态<div class="resizer"></div></th>
                         <th style="width: 110px;">负责人<div class="resizer"></div></th>
-                        <th style="width: 90px;">处理人<div class="resizer"></div></th>
+                        <th style="width: 110px;">处理人<div class="resizer"></div></th>
                         <th style="width: 90px;">创建人<div class="resizer"></div></th>
                         <th style="width: 80px;">预估(h)<div class="resizer"></div></th>
                         <th style="width: 80px;">实际(h)<div class="resizer"></div></th>
