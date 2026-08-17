@@ -97,6 +97,7 @@ async function fetchBackgroundData() {
             if (resp && resp.data && Array.isArray(resp.data.items) && resp.data.items.length > 0) {
                 rawCardsData = resp.data.items;
                 localStorage.setItem('offline_board_cards_v3', JSON.stringify(rawCardsData));
+                if (typeof initRender === 'function') initRender();
                 applyFilters();
                 return;
             }
@@ -111,6 +112,7 @@ async function fetchBackgroundData() {
             if (Array.isArray(fileData) && fileData.length > 0) {
                 rawCardsData = fileData;
                 localStorage.setItem('offline_board_cards_v3', JSON.stringify(rawCardsData));
+                if (typeof initRender === 'function') initRender();
                 applyFilters();
                 return;
             }
@@ -124,6 +126,7 @@ async function fetchBackgroundData() {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {
                 rawCardsData = parsed;
+                if (typeof initRender === 'function') initRender();
                 applyFilters();
                 return;
             }
@@ -134,6 +137,7 @@ async function fetchBackgroundData() {
     if (!Array.isArray(rawCardsData) || rawCardsData.length === 0) {
         rawCardsData = JSON.parse(JSON.stringify(defaultCardsData));
     }
+    if (typeof initRender === 'function') initRender();
     applyFilters();
 }
 

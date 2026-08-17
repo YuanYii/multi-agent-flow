@@ -799,7 +799,6 @@
             const query = document.getElementById('search-box').value.trim().toLowerCase();
             const statusFilter = document.getElementById('filter-status') ? document.getElementById('filter-status').value : '';
             const stageFilter = document.getElementById('filter-stage') ? document.getElementById('filter-stage').value : '';
-            const assigneeFilter = document.getElementById('filter-assignee') ? document.getElementById('filter-assignee').value : '';
             const handlerFilter = document.getElementById('filter-handler') ? document.getElementById('filter-handler').value : '';
             const creatorFilter = document.getElementById('filter-creator') ? document.getElementById('filter-creator').value : '';
             const startFrom = document.getElementById('filter-start-from') ? document.getElementById('filter-start-from').value : '';
@@ -823,8 +822,6 @@
                 );
                 const matchStatus = !statusFilter || c.status === statusFilter;
                 const matchStage = !stageFilter || (c.stage && c.stage === stageFilter);
-                // Each assignee filter is a no-op when unset; when both are set they intersect (AND).
-                const matchDropdownAssignee = !assigneeFilter || (c.assignee && normalizeRoleName(c.assignee) === normalizeRoleName(assigneeFilter));
 
                 // Handler matching:
                 let matchHandler = true;
@@ -840,6 +837,7 @@
                 // Creator matching:
                 const matchCreator = !creatorFilter || (c.creator && c.creator === creatorFilter);
 
+                // Person focus matching (Assignee multi-select from toolbar):
                 const matchMultiPerson = !personFocusActive || selectedPersons.has(c.assignee) || selectedPersons.has(normalizeRoleName(c.assignee));
 
                 // Date range comparisons (pure ISO string prefix comparison)
@@ -851,11 +849,11 @@
                 const matchEndFrom = !endFrom || (cEndDate && cEndDate >= endFrom);
                 const matchEndTo = !endTo || (cEndDate && cEndDate <= endTo);
 
-                return matchQuery && matchStatus && matchStage && matchDropdownAssignee && matchHandler && matchCreator &&
+                return matchQuery && matchStatus && matchStage && matchHandler && matchCreator &&
                        matchMultiPerson && matchStartFrom && matchStartTo && matchEndFrom && matchEndTo;
             });
 
-            updateActiveFilterHint(query, statusFilter, stageFilter, assigneeFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo);
+            updateActiveFilterHint(query, statusFilter, stageFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo);
             applySort();
         }
 
@@ -867,7 +865,7 @@
 
         // Surface which filters are currently narrowing the result set, so an empty
         // result never looks like "the data vanished".
-        function updateActiveFilterHint(query, statusFilter, stageFilter, assigneeFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo) {
+        function updateActiveFilterHint(query, statusFilter, stageFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo) {
             const el = document.getElementById('active-filter-hint');
             if (!el) return;
 
@@ -875,7 +873,6 @@
             if (query) parts.push(`搜索"${query}"`);
             if (statusFilter) parts.push(`状态=${statusFilter}`);
             if (stageFilter) parts.push(`阶段=${stageFilter}`);
-            if (assigneeFilter) parts.push(`负责人=${assigneeFilter}`);
             if (handlerFilter) parts.push(`处理人=${handlerFilter}`);
             if (creatorFilter) parts.push(`创建人=${creatorFilter}`);
             if (isPersonFocusActive()) parts.push(`聚焦人员=${Array.from(selectedPersons).join('/')}`);
@@ -890,21 +887,14 @@
             }
 
             el.style.display = 'inline-flex';
-            const conflict = assigneeFilter && isPersonFocusActive() && !selectedPersons.has(assigneeFilter);
-            if (conflict) {
-                el.setAttribute('data-conflict', 'true');
-                el.innerText = `筛选冲突：${parts.join(' 且 ')} — 两个负责人条件互斥，结果必然为空`;
-            } else {
-                el.removeAttribute('data-conflict');
-                el.innerText = `筛选中：${parts.join(' 且 ')}（${currentCardsData.length} 条）`;
-            }
+            el.removeAttribute('data-conflict');
+            el.innerText = `筛选中：${parts.join(' 且 ')}（${currentCardsData.length} 条）`;
         }
 
         function resetFilters() {
             document.getElementById('search-box').value = '';
             const st = document.getElementById('filter-status'); if (st) st.value = '';
             const stg = document.getElementById('filter-stage'); if (stg) stg.value = '';
-            const as = document.getElementById('filter-assignee'); if (as) as.value = '';
             const hd = document.getElementById('filter-handler'); if (hd) hd.value = '';
             const cr = document.getElementById('filter-creator'); if (cr) cr.value = '';
             const sf = document.getElementById('filter-start-from'); if (sf) sf.value = '';
@@ -1188,6 +1178,18 @@
             if (btn) btn.setAttribute('aria-expanded', 'false');
         }
 
+        function syncToolbarForActiveView(targetId) {
+            const isTable = targetId === 'view-table';
+            const fieldConfigBtn = document.getElementById('field-config-btn');
+            if (fieldConfigBtn) fieldConfigBtn.style.display = isTable ? 'none' : 'inline-flex';
+
+            const rowHeightBtn = document.getElementById('row-height-btn');
+            if (rowHeightBtn) rowHeightBtn.style.display = isTable ? 'inline-flex' : 'none';
+
+            const rowHeightDivider = document.getElementById('row-height-divider');
+            if (rowHeightDivider) rowHeightDivider.style.display = isTable ? 'inline-block' : 'none';
+        }
+
         // Tab Switching Logic
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
@@ -1211,8 +1213,13 @@
                 } else if (targetId === 'view-kanban-stage') {
                     filterTag.innerText = "分组依据: 阶段工作包";
                 }
+
+                syncToolbarForActiveView(targetId);
             });
         });
+
+        // Initialize toolbar visibility according to active view
+        syncToolbarForActiveView('view-table');
 
         // Popover Controls with dynamic positioning relative to trigger button
         function toggleCustomPopover(event, id) {
