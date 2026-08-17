@@ -74,13 +74,19 @@ def _write_meta(f):
 
 
 class LockHandle:
-    """锁句柄：path = 锁文件路径, file = 底层文件对象"""
+    """锁句柄：path = 锁文件路径, file = 底层文件对象，支持 with 上下文管理"""
 
     __slots__ = ("path", "file")
 
     def __init__(self, path, f):
         self.path = path
         self.file = f
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        release_lock(self)
 
 
 def acquire_lock(lock_path, blocking=False, timeout=0.0, write_meta=True):

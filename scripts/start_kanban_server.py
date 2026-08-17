@@ -77,28 +77,7 @@ SERVER_STATE = {
 }
 
 
-def _acquire_lock(f):
-    try:
-        if sys.platform == "win32":
-            import msvcrt
-            msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-    except Exception:
-        pass
-
-
-def _release_lock(f):
-    try:
-        if sys.platform == "win32":
-            import msvcrt
-            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-    except Exception:
-        pass
+import file_lock
 
 
 def read_board_data() -> list:
@@ -128,9 +107,9 @@ def atomic_write_board_data(cards: list) -> bool:
     for idx, card in enumerate(cards, start=1):
         card["seq"] = idx
 
-    lock_f = open(LOCK_FILE, "w")
+    handle = None
     try:
-        _acquire_lock(lock_f)
+        handle = file_lock.acquire_lock(LOCK_FILE, blocking=True, timeout=5.0)
         with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
             json.dump(cards, tf, indent=2, ensure_ascii=False)
             tmp_name = tf.name
@@ -140,8 +119,8 @@ def atomic_write_board_data(cards: list) -> bool:
         sys.stderr.write(f"[ERROR] atomic_write_board_data failed: {e}\n")
         return False
     finally:
-        _release_lock(lock_f)
-        lock_f.close()
+        if handle:
+            file_lock.release_lock(handle)
 
 
 BOARD_TITLE_SUFFIX = "Multi Agent任务看板"

@@ -131,15 +131,16 @@ def main():
     delegation_reason = args.delegation_reason or "auto"
 
     # 链级互斥锁（防多链/人工并发改同一任务）；锁落 data_root/user_data/locks/
-    chain_lock = None
+    import file_lock
+    from file_lock import LockBusyError
+
+    chain_lock_handle = None
     try:
-        import fcntl
         locks_dir = paths.locks_dir()
         os.makedirs(locks_dir, exist_ok=True)
         lock_path = os.path.join(locks_dir, ".lock_auto_chain.lock")
-        chain_lock = open(lock_path, "a+b")
-        fcntl.flock(chain_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except Exception:
+        chain_lock_handle = file_lock.acquire_lock(lock_path, blocking=False)
+    except (LockBusyError, OSError):
         print("[FAILED]  另一条自动链正在执行或锁不可用，物理阻断！")
         sys.exit(1)
 
@@ -277,13 +278,8 @@ def main():
         print(f"[AUTO]  ✅ 任务 {task_id} 自动链完成，终态【{prev}】" if prev == "已验收" else f"[AUTO]  任务 {task_id} 到达【{prev}】")
         sys.exit(0)
     finally:
-        if chain_lock:
-            try:
-                import fcntl
-                fcntl.flock(chain_lock, fcntl.LOCK_UN)
-            except Exception:
-                pass
-            chain_lock.close()
+        if chain_lock_handle:
+            file_lock.release_lock(chain_lock_handle)
 
 
 if __name__ == "__main__":
