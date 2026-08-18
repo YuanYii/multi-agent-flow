@@ -18,10 +18,10 @@
 
 ## 巡检脚本使用 (heartbeat.py)
 
-上述 4 项已代码化为 `scripts/heartbeat.py`,只读扫描不写盘,支持阈值可配置：
+上述 4 项已代码化为 `scripts/heartbeat.py`,只读扫描不写盘,支持阈值可配置（Windows 下统一使用 `python` 替代 `python3`）：
 
 ```bash
-# 默认阈值 (24h/12h) 走全量 4 项检查
+# 默认阈值 (24h/12h) 走全量 4 项检查 (Windows: python scripts/heartbeat.py)
 python3 scripts/heartbeat.py
 
 # 自定义滞留阈值 (如 12h/6h 适配快速迭代项目)

@@ -1,11 +1,17 @@
 # TOOLS.md - 看板与工程工具链指引
 
+> [!IMPORTANT]
+> **【跨平台 Python 解释器执行铁律】**
+> AI Agent 调用 `run_command` 执行任何本工作流 CLI 命令时，**必须根据宿主操作系统动态适配解释器**：
+> - **Linux / macOS**：使用 `python3`（如 `python3 scripts/transition_task.py ...`）；
+> - **Windows**：必须使用 `python`（如 `python scripts/transition_task.py ...`），严禁硬编码 `python3` 导致 `CommandNotFound` 错误。
+
 本工作区配备的自动化工具与适配层说明：
 
 ## 1. 字段映射初始化工具
 - **路径**：`multi-agent-flow/scripts/init_field_mapping.py`
 - **用途**：自动扫描飞书 Base 提取字段 ID，生成 `workflow.config.yaml`。
-- **用法**：`python3 init_field_mapping.py --base-token XXX --table-id YYY`
+- **用法**：`python3 init_field_mapping.py --base-token XXX --table-id YYY`（Windows 下为 `python ...`）
 
 ## 2. 看板 API / CLI 抽象适配器
 - **路径**：`multi-agent-flow/scripts/_lib/boards/feishu_base_adapter.py`

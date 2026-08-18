@@ -44,6 +44,9 @@
 
 ## [SYNC] 2. 8 大角色标准交接动作矩阵
 
+> [!NOTE]
+> **跨平台提示**：以下命令在 Linux/macOS 下使用 `python3`，Windows 环境请自动替换为 `python`。
+
 | 流转方向 | 发起角色 | 接收角色 | 必填交接产物 (Required Artifacts) | 门控校验脚本调用命令 |
 | :--- | :--- | :--- | :--- | :--- |
 | **自领取** | PM/看板 | DEV / FRONTEND | WBS 任务包条目、需求约束 | `python3 scripts/transition_task.py --role DEV --from-status 待开始 --to-status 进行中 ...` (FRONTEND 同命令,仅 `--role` 改) |

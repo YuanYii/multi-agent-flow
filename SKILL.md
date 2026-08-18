@@ -26,6 +26,9 @@ version: 1.0.0
 
 ---
 
+> [!NOTE]
+> **跨平台 Python 解释器执行规范**：本文档与所有规则中涉及的 CLI 命令示例统一使用 Unix/macOS 的 `python3` 格式表述；在 **Windows 操作系统** 下，Agent 与用户执行时必须自动替换为 **`python`**（如 `python scripts/transition_task.py ...`）。
+
 ## 核心契约与全局规则 (Global Rules & Contracts)
 
 当 Agent 调用或执行本 Skill 时，必须加载并遵循 [`rules/`](rules/) 目录下的规则约束与交互协议：

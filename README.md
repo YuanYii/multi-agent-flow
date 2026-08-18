@@ -37,11 +37,15 @@
 ```bash
 cd /path/to/your-project
 
-# 方式 A: degit 安装（推荐）
+# 方式 A: degit 安装（推荐，Linux / macOS / Windows）
 npx -y degit YuanYii/multi-agent-flow /tmp/yy-flow-stage && mkdir -p .yy-flow && mv /tmp/yy-flow-stage .yy-flow/skill
 
-# 方式 B: tarball 安装（无 Node 环境时）
+# 方式 B: tarball 安装（无 Node 环境时，Linux / macOS）
 mkdir -p .yy-flow/skill && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/main.tar.gz | tar xz -C .yy-flow/skill --strip-components=1
+
+# 方式 C: Windows PowerShell 安装
+git clone https://github.com/YuanYii/multi-agent-flow.git .yy-flow\skill
+powershell -ExecutionPolicy Bypass -File .yy-flow\skill\scripts\init_skill.ps1
 ```
 
 安装后目录布局（数据与技能同根，升级删 `.yy-flow/skill` 重装不伤数据；`docs/` 是项目交付物留项目根）：
@@ -57,8 +61,11 @@ mkdir -p .yy-flow/skill && curl -L https://github.com/YuanYii/multi-agent-flow/a
 <summary><b>多项目共享安装（可选，单份只读正本 + 全局软链）</b></summary>
 
 ```bash
-# 一次性安装（Linux/macOS；Windows 用 scripts/install_global.ps1）
+# Linux / macOS 一次性全局共享安装：
 bash scripts/install_global.sh
+
+# Windows PowerShell 一次性全局共享安装：
+powershell -ExecutionPolicy Bypass -File .\scripts\install_global.ps1
 ```
 - **代码共享**：`~/agent-skills/multi-agent-flow` 正本只读；
 - **数据隔离**：每个项目的 `user_data/` 自动锚定各自项目根。
@@ -91,6 +98,27 @@ Agent 将自动执行 7 步标准初始化：
 | **提交审查** | “提交 T0001 代码审查” | 状态推【审查中】，处理人原子移交 Reviewer 周审查 |
 | **审查与测试** | “审查 T0001” | 通过→【测试中】/【已完成】；不通过→【已退回】回原责任人，备注写入 `DEF-T0001-1` |
 | **阶段结项** | “结束当前阶段 S1” / `/yy-flow gate S1` | 自动运行 `check_stage_gate.py` 进行 4 项硬核验，全绿后触发 DevOps 合流打 Tag |
+
+---
+
+## 🚀 本地可视化看板启动
+
+无需安装任何第三方库或 Node 依赖，一行命令启动本地实时可视化看板：
+
+```bash
+# Linux / macOS
+./kanban/start.sh
+
+# Windows PowerShell
+.\kanban\start.ps1
+
+# Windows CMD
+.\kanban\start.bat
+
+# 或直接运行 Python 核心脚本（全平台通用）
+python scripts/start_kanban_server.py
+```
+启动后在浏览器打开控制台输出的本地 Web URL（默认 `http://127.0.0.1:32886/`）即可。
 
 ---
 

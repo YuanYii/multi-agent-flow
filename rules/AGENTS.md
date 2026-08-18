@@ -13,6 +13,8 @@
 - `/yy-flow metrics` -> 运行 `metrics_analyzer.py` 并呈现效能报告。
 
 > [!IMPORTANT]
+> **跨平台 Python 解释器执行红线**：AI Agent 在调用 `run_command` 执行任何工作流 CLI 脚本时，必须根据宿主操作系统自适应前缀：**Linux/macOS 使用 `python3`，Windows 环境必须使用 `python`**，严禁硬编码导致命令找不到。
+>
 > **工单列表打印精简原则**：在聊天窗口回复或 CLI 工具输出工单大盘列表时，**严禁全量倾倒所有工单**；默认**只打印最新倒序的 5 条工单记录**（最近创建或流转的任务排在前），其余数据引导用户访问 Web 页面查看，避免刷屏与过度消耗 Token。
 
 ---
