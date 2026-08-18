@@ -619,6 +619,35 @@
             display: flex;
         }
 
+        /* Table View Layout — 垂直 flex 排布，使得表格与底部分页栏上下固定衔接 */
+        #view-table.active {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 14px 20px 14px 20px;
+        }
+
+        #view-table .table-container {
+            width: 100%;
+            flex: 1 1 0%;
+            min-height: 0;
+            overflow-x: auto;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+            box-sizing: border-box;
+            background: var(--card-bg) !important;
+        }
+
+        #view-table .pagination-bar {
+            width: 100%;
+            flex-shrink: 0;
+            border: 1px solid var(--border-color);
+            border-top: 1px solid var(--border-color);
+            border-radius: 0 0 8px 8px;
+        }
+
         /* Board Area */
         .board {
             display: flex;
@@ -1216,6 +1245,7 @@
         [data-theme="dark"] .modal-body select { background: #1e2126; color: var(--text-main); border-color: var(--border-color); }
         [data-theme="dark"] .toast { background: #30363e; color: var(--text-main); border-color: var(--border-color); }
         [data-theme="dark"] .toast-container { color: var(--text-main); }
+        [data-theme="dark"] .pagination-bar { background: var(--card-bg); border-color: var(--border-color); }
 
         /* Row Height Popover Options */
         #row-height-popover {
