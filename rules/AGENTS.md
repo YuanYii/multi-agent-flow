@@ -8,9 +8,12 @@
 
 当收到以 `/yy-flow` 开头的用户指令时，Agent 必须直接触发对应的确定性动作：
 - `/yy-flow` 或 `/yy-flow start` -> 立即执行初始化 7 步 SOP 并拉起 PM 严经理；
-- `/yy-flow status` -> 运行 `heartbeat.py` 巡检脚本并格式化输出在手任务与告警；
-- `/yy-flow kanban` -> 后台启动 `start_kanban_server.py`（默认不带 `--port`，自动探测/复用），并以脚本输出的实际端口在回复中展示访问链接；
+- `/yy-flow status` -> 运行 `heartbeat.py` 巡检脚本并格式化输出在手任务与告警（工单列表仅展示倒序最新 5 条）；
+- `/yy-flow kanban` -> 后台启动 `start_kanban_server.py`（默认不带 `--port`，自动探测/复用），并在回复中展示访问链接与大盘概览（工单列表仅展示倒序最新 5 条，引导通过 Web 查验全量）；
 - `/yy-flow metrics` -> 运行 `metrics_analyzer.py` 并呈现效能报告。
+
+> [!IMPORTANT]
+> **工单列表打印精简原则**：在聊天窗口回复或 CLI 工具输出工单大盘列表时，**严禁全量倾倒所有工单**；默认**只打印最新倒序的 5 条工单记录**（最近创建或流转的任务排在前），其余数据引导用户访问 Web 页面查看，避免刷屏与过度消耗 Token。
 
 ---
 

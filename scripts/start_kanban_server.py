@@ -1231,10 +1231,9 @@ def print_kanban_urls(port: int, local_ip: str):
     print("\n" + "=" * 70)
     print(f"[START]  Multi-Agent Flow 看板 Web 服务已就绪 (端口: {port})")
     print("=" * 70)
-    print(f" 本地访问地址  : http://localhost:{port}/")
-    print(f" 替代本地链接  : http://127.0.0.1:{port}/offline_board.html")
+    print(f" 本地 Web 访问直达: http://127.0.0.1:{port}/")
     if local_ip != "127.0.0.1":
-        print(f" 局域网访问地址: http://{local_ip}:{port}/")
+        print(f" 局域网访问地址    : http://{local_ip}:{port}/")
     print("=" * 70 + "\n")
 
 

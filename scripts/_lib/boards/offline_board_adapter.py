@@ -405,9 +405,12 @@ if __name__ == "__main__":
     elif args.list:
         adapter = OfflineBoardAdapter(args.list)
         items = adapter.list_records(limit=10000)
-        print(f"共 {len(items)} 条任务:")
-        for it in items:
+        print(f"共 {len(items)} 条任务（仅展示最新 5 条，倒序）:")
+        recent_items = items[-5:][::-1] if len(items) > 5 else items[::-1]
+        for it in recent_items:
             f = it["fields"]
             print(f"  {f.get('id'):<8} {f.get('status'):<6} {str(f.get('assignee','')):<10} {str(f.get('name',''))[:50]}")
+        if len(items) > 5:
+            print(f"  ... 其余 {len(items) - 5} 条请登录 Web 看板查看")
     else:
         parser.print_help()
