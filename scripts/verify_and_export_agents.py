@@ -18,7 +18,7 @@ from _lib.core.agent_tech_overlay import load_arch_data, apply_tech_stack_to_rol
 PROJECT_ROOT = _paths.skill_root()
 AGENTS_DIR = os.path.join(PROJECT_ROOT, "agents")
 CONFIG_PLATFORMS_FILE = os.path.join(PROJECT_ROOT, "config", "agent_platforms.yaml")
-TARGET_PROJECT_DIR = os.getcwd()
+TARGET_PROJECT_DIR = _paths.project_root()
 
 ROLES_MAP = {
     "01-pm.yaml": {"id": "flow-pm", "role_code": "pm", "name": "严经理 (项目经理)"},
