@@ -28,8 +28,8 @@ python "$ScriptDir\check_secrets.py"
 Write-Host "[SECURITY]  [Step 2/7] 动态 Agent 环境探测、官方文档实时查证与 Subagent 强规范落盘..." -ForegroundColor Yellow
 python "$ScriptDir\verify_and_export_agents.py"
 
-Write-Host "[SCAN]  [Step 3/7] 自动代码物理扫描工程基础设施、依赖文件与语言技术栈配置..." -ForegroundColor Yellow
-python "$ScriptDir\auto_scan_stack.py" --write
+Write-Host "[SCAN]  [Step 3/7] 自动代码物理扫描工程基础设施、依赖文件与语言技术栈配置 (只读预检)..." -ForegroundColor Yellow
+python "$ScriptDir\auto_scan_stack.py"
 
 Write-Host "[CONFIG]  [Step 4/7] 初始化宿主数据资产目录 user_data/ 并生成工作流与架构配置..." -ForegroundColor Yellow
 $UserDataDir = "$DataRoot\user_data"
@@ -99,8 +99,8 @@ python "$ScriptDir\migrate_legacy_docs.py"
 Write-Host "[SYNC]  [Step 6/7] 专家团队技术栈同步（导出时合并至各平台 Subagent）..." -ForegroundColor Yellow
 python "$ScriptDir\update_agent_tech_stacks.py"
 
-Write-Host "[PM]  [Step 7/7] 唤起 PM 专家确认项目鉴定定位..." -ForegroundColor Yellow
-Write-Host "  - PM 专家已完成项目范围核验，随时准备响应任务编排。" -ForegroundColor Green
+Write-Host "[PM]  [Step 7/7] 物理生成项目架构全景鉴定基线工单 (AUTO 自动编号) 并唤起 PM 调度..." -ForegroundColor Yellow
+python "$ScriptDir\quick_task.py" create --name "项目技术架构全景鉴定与选型定版" --role PM --assignee 钱架构 --type B
 
 Write-Host "==============================================================================" -ForegroundColor Cyan
 Write-Host "[SUCCESS]  [SOP 7 步全量就绪] multi-agent-flow 物理初始化顺利完成！" -ForegroundColor Cyan

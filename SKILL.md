@@ -55,22 +55,22 @@ version: 1.0.0
 2. **代码物理强拦截与 Subagent 官方规范落盘**：
    - **【代码层物理拦截】**：必须运行 `python3 scripts/verify_and_export_agents.py`。该脚本按 `config/agent_platforms.yaml` 声明的各平台官方导出路径与格式完成 8 大专家子代理落盘。
    - **本地格式断言 (Fail-Closed)**：脚本在导出后逐份执行确定性校验——Markdown frontmatter 可被 YAML 解析、Codex TOML 可被 tomllib 解析、`name`/`description` 必填、8 角色齐全；任一不满足即 `exit(1)` 阻断初始化（挂载失败降级为 WARN 提示）。此机制不依赖网络，从代码层解耦对 AI 纯文本“记忆力”的依赖。
-3. **自动扫描与识别**（若不存在配置文件）：
-   - 自动扫描工作区配置文件（如 `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `Dockerfile`, `README.md` 等）。
-   - 识别应用类型、开发语言、核心框架、单测/构建工具及目录架构模式。
+3. **自动代码物理预扫描**：
+   - 运行 `python3 scripts/auto_scan_stack.py` 对工作区工程依赖、配置文件与 README 进行只读预检分析。
 4. **模板复制与落库**：
    - 复制模板 [`config/project_architecture.template.yaml`](config/project_architecture.template.yaml) 生成 `user_data/project_architecture.config.yaml`（落**数据根** `.yy-flow/user_data`；存量内嵌安装为 Skill 目录，零迁移）。
-   - 将扫描识别出的真实技术架构结构化填充写入 `project_architecture.config.yaml`，作为后续 DEV / ARCHITECT / QA 等专家角色的统一技术事实依据。
 5. **项目工程文档骨架建立与原项目历史文档自动归档**：
    - 在目标项目下自动校验/建立 `docs/` 目录规范骨架（包含 `D01-项目管理/`(含D01-需求/D02-状态报告), `D02-架构设计/`, `D03-业务模块/`, `D04-研发过程/`(含D01-任务/D02-报告/D03-操作手册), `D05-规范标准/`, `D06-文档模板/` 及 `草稿箱/`）。
    - **历史文档隔离归档**：运行 `python3 scripts/migrate_legacy_docs.py` 自动扫描原项目中散落的历史文档，在对应的分类目录下创建 **`原项目文档/`** 专用文件夹进行拷贝分类隔离。
    - 在目标项目 `.gitignore` 中确保排除 `草稿箱/` 隔离区。
-6. **专家团队技术栈自动同步**：
-   - 运行脚本 `python3 scripts/update_agent_tech_stacks.py` 触发重新导出。
-   - 技术栈在**导出时**合并至各平台 Subagent 产物（6 个技术角色的职责与栈定制；PM/文档角色无技术栈绑定）；`agents/*.yaml` 为只读模板，不再被改写——多项目共享同一份 Skill 时互不覆盖。
-7. **唤起 PM 专家进行项目定位鉴定与显式响应契约**：
-   - 自动加载 `agents/01-pm.yaml` 身份，扫描解析当前项目的 `README.md`、配置文件与源码入口。
-   - 分析认定项目主要用途与核心功能，**强制在回复顶部输出标志行与官方查证凭据**：
+6. **物理派发架构全景鉴定工单与专家技术栈同步**：
+   - 运行 `python3 scripts/quick_task.py create --name "项目技术架构全景鉴定与选型定版" --role PM --assignee 钱架构 --type B` 物理建卡【待开始】（AUTO 自动编号防冲突）。
+   - 初始导出 8 大专家子代理至 `.agents/agents/`。
+7. **架构师深度鉴定、能力拓展与 PM 终态验收**：
+   - PM 严经理通过 `invoke_subagent` 派发任务至 **钱架构 (`@flow-architect`)**；
+   - 钱架构领单置为【进行中】，通读源码入口与依赖，编写 `docs/D02-架构设计/01-系统总体架构与技术栈选型.md`；
+   - 钱架构调用 `python3 scripts/save_project_architecture.py` 安全落盘，自动派生 6 大技术角色 3~5 项专属能力并刷新导出；
+   - 钱架构提交【已完成】，PM 严经理验收置为【已验收】，并在回复顶部输出标志行与官方查证凭据：
      > **`【已识别 xxxx 项目】`**
      >  **官方 Subagent 规范查证凭据**：`https://antigravity.google/docs/...` (查证物理路径：`{workspace}/.agents/agents/{name}/agent.md`)
    - **显式输出 8 大专家子 Agent 列表与完整写权限矩阵**：

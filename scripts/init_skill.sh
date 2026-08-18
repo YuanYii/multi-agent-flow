@@ -38,8 +38,8 @@ python3 "${SCRIPT_DIR}/check_secrets.py"
 echo "[SECURITY]  [Step 2/7] 动态 Agent 环境探测、Subagent 导出与本地格式断言 (Fail-Closed)..."
 python3 "${SCRIPT_DIR}/verify_and_export_agents.py"
 
-echo "[SCAN]  [Step 3/7] 自动代码物理扫描工程基础设施、依赖文件与语言技术栈配置..."
-python3 "${SCRIPT_DIR}/auto_scan_stack.py" --write
+echo "[SCAN]  [Step 3/7] 自动代码物理扫描工程基础设施、依赖文件与语言技术栈配置 (只读预检)..."
+python3 "${SCRIPT_DIR}/auto_scan_stack.py"
 
 echo "[CONFIG]  [Step 4/7] 初始化宿主数据资产目录 user_data/ 并生成工作流与架构配置..."
 mkdir -p "${DATA_ROOT}/user_data" "${DATA_ROOT}/user_data/logs" "${DATA_ROOT}/user_data/locks"
@@ -92,8 +92,8 @@ python3 "${SCRIPT_DIR}/migrate_legacy_docs.py"
 echo "[SYNC]  [Step 6/7] 专家团队技术栈同步（导出时合并至各平台 Subagent）..."
 python3 "${SCRIPT_DIR}/update_agent_tech_stacks.py"
 
-echo "[PM]  [Step 7/7] 唤起 PM 专家确认项目鉴定定位..."
-echo "  - PM 专家已完成项目范围核验，随时准备响应任务编排。"
+echo "[PM]  [Step 7/7] 物理生成项目架构全景鉴定基线工单 (AUTO 自动编号) 并唤起 PM 调度..."
+python3 "${SCRIPT_DIR}/quick_task.py" create --name "项目技术架构全景鉴定与选型定版" --role PM --assignee 钱架构 --type B || true
 
 echo "=============================================================================="
 echo "[SUCCESS]  [SOP 7 步全量就绪] multi-agent-flow 物理初始化顺利完成！"
