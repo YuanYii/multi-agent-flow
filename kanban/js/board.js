@@ -1310,7 +1310,11 @@
                 showToast(`已更新 ${cardId} 状态为: ${newStatus}`);
                 if (Array.isArray(rawCardsData)) {
                     const c = rawCardsData.find(x => x.id === cardId);
-                    if (c) c.status = newStatus;
+                    if (c) {
+                        c.status = newStatus;
+                        if (res.data && res.data.process) c.process = res.data.process;
+                        else if (res.data && res.data.card && res.data.card.process) c.process = res.data.card.process;
+                    }
                 }
                 await loadTablePage(tablePaginationState.page || 1);
             } else {
@@ -1324,7 +1328,11 @@
                 showToast(`已更新 ${cardId} 负责人为: ${newAssignee}`);
                 if (Array.isArray(rawCardsData)) {
                     const c = rawCardsData.find(x => x.id === cardId);
-                    if (c) c.assignee = newAssignee;
+                    if (c) {
+                        c.assignee = newAssignee;
+                        if (res.data && res.data.process) c.process = res.data.process;
+                        else if (res.data && res.data.card && res.data.card.process) c.process = res.data.card.process;
+                    }
                 }
                 await loadTablePage(tablePaginationState.page || 1);
             } else {
@@ -1338,7 +1346,11 @@
                 showToast(`已更新 ${cardId} 处理人为: ${newHandler}`);
                 if (Array.isArray(rawCardsData)) {
                     const c = rawCardsData.find(x => x.id === cardId);
-                    if (c) c.handler = newHandler;
+                    if (c) {
+                        c.handler = newHandler;
+                        if (res.data && res.data.process) c.process = res.data.process;
+                        else if (res.data && res.data.card && res.data.card.process) c.process = res.data.card.process;
+                    }
                 }
                 await loadTablePage(tablePaginationState.page || 1);
             } else {

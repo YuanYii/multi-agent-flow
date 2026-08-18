@@ -830,6 +830,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "node_id": node_id,
                     "from_status": from_status,
                     "to_status": target_status,
+                    "process": card["process"],
+                    "card": card,
                     "history_entry": log_text
                 }
 
@@ -904,6 +906,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 if not card:
                     return False, 404, f"未找到任务 [{task_id}]", None
 
+                old_status = card.get("status", "待开始")
+                old_assignee = card.get("assignee", "未分配")
+                old_handler = card.get("handler", "未分配")
+
                 updatable_fields = [
                     "name", "stage", "wp", "wbs", "assignee", "handler",
                     "status", "est_hours", "act_hours", "start_date",
@@ -915,11 +921,50 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                         card[k] = body_data[k]
                         updated_keys.append(k)
 
-                append_audit_log(task_id, "USER", card.get("status", "-"), card.get("status", "-"),
+                # 若客户端未显式覆盖 process，但修改了负责人、处理人或状态，自动追加结构化流转记录节点
+                if "process" not in body_data:
+                    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    operator_name = normalize_role_name(body_data.get("operator_name") or body_data.get("operator") or body_data.get("creator")) or "Corey"
+                    comment = (body_data.get("comment") or body_data.get("note") or body_data.get("remarks") or "").strip()
+
+                    new_status = card.get("status")
+                    new_assignee = card.get("assignee")
+                    new_handler = card.get("handler")
+
+                    added_logs = []
+                    if "status" in updated_keys and new_status != old_status:
+                        node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
+                        log_text = f"[{node_id}]  [{now_str}]  状态由【{old_status}】更新至【{new_status}】，操作人: {operator_name}"
+                        if comment:
+                            log_text += f"\n操作说明: {comment}"
+                        added_logs.append(log_text)
+                        if new_status in ("已完成", "已验收"):
+                            card["end_date"] = now_str
+
+                    if "assignee" in updated_keys and new_assignee != old_assignee:
+                        node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
+                        log_text = f"[{node_id}]  [{now_str}]  负责人由【{old_assignee or '未分配'}】调整为【{new_assignee or '未分配'}】，操作人: {operator_name}"
+                        if comment and "status" not in updated_keys:
+                            log_text += f"\n操作说明: {comment}"
+                        added_logs.append(log_text)
+
+                    if "handler" in updated_keys and new_handler != old_handler:
+                        node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
+                        log_text = f"[{node_id}]  [{now_str}]  处理人由【{old_handler or '未分配'}】调整为【{new_handler or '未分配'}】，操作人: {operator_name}"
+                        if comment and "status" not in updated_keys and "assignee" not in updated_keys:
+                            log_text += f"\n操作说明: {comment}"
+                        added_logs.append(log_text)
+
+                    if added_logs:
+                        current_process = card.get("process", "")
+                        card["process"] = f"{current_process}\n" + "\n".join(added_logs) if current_process else "\n".join(added_logs)
+
+                append_audit_log(task_id, "USER", old_status, card.get("status", "-"),
                                  card.get("assignee", "用户"), f"更新任务字段: {','.join(updated_keys)}")
                 return True, 200, f"任务 {task_id} 更新成功", {
                     "id": task_id,
                     "updated_fields": updated_keys,
+                    "process": card.get("process", ""),
                     "card": card
                 }
 
