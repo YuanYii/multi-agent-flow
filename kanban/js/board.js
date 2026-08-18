@@ -72,7 +72,7 @@
             { key: 'assignee',   th: '负责人',        label: '负责人 (Assignee)' },
             { key: 'handler',    th: '处理人',        label: '处理人 (Handler)' },
             { key: 'creator',    th: '创建人',        label: '创建人 (Creator)' },
-            { key: 'act_hours',  th: '任务耗时(m)',   label: '任务耗时 (Duration)' },
+            { key: 'act_hours',  th: '任务耗时(min)', label: '任务耗时 (Duration)' },
             { key: 'start_date', th: '开始时间',      label: '开始时间 (Start Date)' },
             { key: 'end_date',   th: '结束时间',      label: '结束时间 (End Date)' },
             { key: 'remarks',    th: '备注',          label: '备注 (Remarks)' },
@@ -151,7 +151,7 @@
             if (card._duration_mins === undefined) {
                 computeCardDuration(card);
             }
-            return (card._duration_mins !== null && card._duration_mins !== undefined) ? `${card._duration_mins}m` : '-';
+            return (card._duration_mins !== null && card._duration_mins !== undefined) ? `${card._duration_mins}min` : '-';
         }
 
         function computeAllCardsDuration(cards) {
