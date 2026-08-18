@@ -9,6 +9,14 @@
 const defaultCardsData = [];
 
 let rawCardsData = [];
+let currentBoardVersion = "";
+let isWriteInFlight = false;
+let versionPollingTimer = null;
+let activePollIntervalMs = 3000;
+let idlePollIntervalMs = 10000;
+let longIdlePollIntervalMs = 30000;
+let lastUserActivity = Date.now();
+
 let kanbanPreferences = {
     title: "多专家Agent协作任务看板",
     theme: "light",
@@ -32,7 +40,8 @@ async function loadStorageData() {
         renderFieldConfigPopover();
     }
     applyServerBoardTitle();
-    await fetchBackgroundData();
+    await fetchBackgroundData(true);
+    startVersionPolling();
 }
 
 async function loadBoardPreferences() {
@@ -64,17 +73,20 @@ function applyServerBoardTitle() {
     }
 }
 
-async function fetchBackgroundData() {
-    // 1. 优先通过 REST API /api/tasks 获取
+async function fetchBackgroundData(isInitial = false) {
+    // 1. 优先通过 REST API /api/tasks 获取 (size=all 全量集用于前端看板)
     try {
-        const res = await fetch('/api/tasks?t=' + Date.now());
+        const res = await fetch('/api/tasks?size=all&t=' + Date.now());
         if (res.ok) {
             const resp = await res.json();
             if (resp && resp.data && Array.isArray(resp.data.items)) {
                 rawCardsData = resp.data.items;
+                if (resp.data.v) {
+                    currentBoardVersion = resp.data.v;
+                }
                 try { localStorage.setItem('offline_board_cards_v3', JSON.stringify(rawCardsData)); } catch (e) {}
                 if (typeof initRender === 'function') initRender();
-                applyFilters();
+                if (typeof applyFilters === 'function') applyFilters();
                 return;
             }
         }
@@ -89,7 +101,7 @@ async function fetchBackgroundData() {
                 rawCardsData = fileData;
                 try { localStorage.setItem('offline_board_cards_v3', JSON.stringify(rawCardsData)); } catch (e) {}
                 if (typeof initRender === 'function') initRender();
-                applyFilters();
+                if (typeof applyFilters === 'function') applyFilters();
                 return;
             }
         }
@@ -103,7 +115,7 @@ async function fetchBackgroundData() {
             if (Array.isArray(parsed)) {
                 rawCardsData = parsed;
                 if (typeof initRender === 'function') initRender();
-                applyFilters();
+                if (typeof applyFilters === 'function') applyFilters();
                 return;
             }
         } catch (e) {}
@@ -112,34 +124,133 @@ async function fetchBackgroundData() {
     // 4. 默认种子数据兜底
     rawCardsData = [];
     if (typeof initRender === 'function') initRender();
-    applyFilters();
+    if (typeof applyFilters === 'function') applyFilters();
 }
 
 // -------------------------------------------------------------
-// 2. 看板 REST API 接口封装 (带优雅降级)
+// 2. 自适应版本轮询 (GET /api/version)
+// -------------------------------------------------------------
+function startVersionPolling() {
+    stopVersionPolling();
+    scheduleNextVersionPoll();
+}
+
+function stopVersionPolling() {
+    if (versionPollingTimer) {
+        clearTimeout(versionPollingTimer);
+        versionPollingTimer = null;
+    }
+}
+
+function scheduleNextVersionPoll() {
+    if (document.visibilityState === 'hidden') return;
+
+    const now = Date.now();
+    const idleDuration = now - lastUserActivity;
+    let nextDelay = activePollIntervalMs;
+    if (idleDuration > 60000) {
+        nextDelay = longIdlePollIntervalMs;
+    } else if (idleDuration > 15000) {
+        nextDelay = idlePollIntervalMs;
+    }
+
+    versionPollingTimer = setTimeout(async () => {
+        if (!isWriteInFlight && document.visibilityState === 'visible') {
+            await checkServerVersion();
+        }
+        scheduleNextVersionPoll();
+    }, nextDelay);
+}
+
+async function checkServerVersion() {
+    try {
+        const res = await fetch('/api/version?t=' + Date.now());
+        if (res.ok) {
+            const resp = await res.json();
+            if (resp && resp.data && resp.data.v) {
+                const serverV = resp.data.v;
+                if (currentBoardVersion && serverV !== currentBoardVersion) {
+                    currentBoardVersion = serverV;
+                    // 后台静默拉取并更新数据
+                    await fetchBackgroundData(false);
+                } else {
+                    currentBoardVersion = serverV;
+                }
+            }
+        }
+    } catch (e) {
+        // 离线/服务暂未启动
+    }
+}
+
+// 监听用户活跃动作以自适应轮询频次
+if (typeof window !== 'undefined') {
+    ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+        window.addEventListener(evt, () => {
+            lastUserActivity = Date.now();
+        }, { passive: true });
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            lastUserActivity = Date.now();
+            checkServerVersion();
+            startVersionPolling();
+        } else {
+            stopVersionPolling();
+        }
+    });
+}
+
+function handle409Conflict(conflictData) {
+    if (conflictData && conflictData.v) {
+        currentBoardVersion = conflictData.v;
+    }
+    if (typeof showToast === 'function') {
+        showToast('检测到数据已被外部修改发生版本冲突，已自动为您重载最新看板！', 'warning');
+    }
+    fetchBackgroundData(false);
+}
+
+// -------------------------------------------------------------
+// 3. 看板 REST API 接口封装 (带双层并发锁与 409 处理)
 // -------------------------------------------------------------
 
 /**
  * 接口 1: 创建新任务 (POST /api/tasks)
  */
 async function apiCreateTask(cardData) {
+    isWriteInFlight = true;
     try {
+        const payload = Object.assign({}, cardData);
+        if (currentBoardVersion) payload._v = currentBoardVersion;
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+
         const res = await fetch('/api/tasks', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(cardData)
+            headers: headers,
+            body: JSON.stringify(payload)
         });
         const resp = await res.json();
+        if (res.status === 409) {
+            handle409Conflict(resp.data);
+            throw new Error(resp.message || '版本冲突 (409)');
+        }
         if (res.ok && resp && resp.data) {
+            if (resp.data.v) currentBoardVersion = resp.data.v;
             return resp.data;
         } else {
             throw new Error(resp.message || `服务端返回状态码: ${res.status}`);
         }
     } catch (e) {
-        if (e.message && (e.message.includes('已存在') || e.message.includes('不能为空') || e.message.includes('服务端返回'))) {
+        if (e.message && (e.message.includes('已存在') || e.message.includes('不能为空') || e.message.includes('服务端返回') || e.message.includes('409'))) {
             throw e;
         }
         console.warn('[API] /api/tasks offline fallback', e);
+    } finally {
+        isWriteInFlight = false;
     }
 
     // 离线环境本地自增与保存兜底
@@ -159,17 +270,32 @@ async function apiCreateTask(cardData) {
  * 接口 2: 更新任务详情 (PUT /api/tasks/{id})
  */
 async function apiUpdateTask(taskId, patchData) {
+    isWriteInFlight = true;
     try {
+        const payload = Object.assign({}, patchData);
+        if (currentBoardVersion) payload._v = currentBoardVersion;
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+
         const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(patchData)
+            headers: headers,
+            body: JSON.stringify(payload)
         });
-        if (res.ok) {
-            return await res.json();
+        const resp = await res.json();
+        if (res.status === 409) {
+            handle409Conflict(resp.data);
+            return resp;
+        }
+        if (res.ok && resp) {
+            if (resp.data && resp.data.v) currentBoardVersion = resp.data.v;
+            return resp;
         }
     } catch (e) {
         console.warn(`[API] PUT /api/tasks/${taskId} offline`, e);
+    } finally {
+        isWriteInFlight = false;
     }
     return { code: 200, message: "本地更新完成" };
 }
@@ -178,15 +304,28 @@ async function apiUpdateTask(taskId, patchData) {
  * 接口 3: 删除任务 (DELETE /api/tasks/{id})
  */
 async function apiDeleteTask(taskId) {
+    isWriteInFlight = true;
     try {
+        const headers = {};
+        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+
         const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: headers
         });
-        if (res.ok) {
-            return await res.json();
+        const resp = await res.json();
+        if (res.status === 409) {
+            handle409Conflict(resp.data);
+            return resp;
+        }
+        if (res.ok && resp) {
+            if (resp.data && resp.data.v) currentBoardVersion = resp.data.v;
+            return resp;
         }
     } catch (e) {
         console.warn(`[API] DELETE /api/tasks/${taskId} offline`, e);
+    } finally {
+        isWriteInFlight = false;
     }
     return { code: 200, message: "本地删除完成" };
 }
@@ -195,17 +334,32 @@ async function apiDeleteTask(taskId) {
  * 接口 4: 批量删除任务 (POST /api/tasks/batch-delete)
  */
 async function apiBatchDeleteTasks(taskIds) {
+    isWriteInFlight = true;
     try {
+        const payload = { task_ids: taskIds };
+        if (currentBoardVersion) payload._v = currentBoardVersion;
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+
         const res = await fetch('/api/tasks/batch-delete', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ task_ids: taskIds })
+            headers: headers,
+            body: JSON.stringify(payload)
         });
-        if (res.ok) {
-            return await res.json();
+        const resp = await res.json();
+        if (res.status === 409) {
+            handle409Conflict(resp.data);
+            return resp;
+        }
+        if (res.ok && resp) {
+            if (resp.data && resp.data.v) currentBoardVersion = resp.data.v;
+            return resp;
         }
     } catch (e) {
         console.warn('[API] POST /api/tasks/batch-delete offline', e);
+    } finally {
+        isWriteInFlight = false;
     }
     return { code: 200, message: "本地批量删除完成" };
 }
@@ -214,17 +368,32 @@ async function apiBatchDeleteTasks(taskIds) {
  * 接口 5: 状态流转与审计落盘 (POST /api/tasks/{id}/transition)
  */
 async function apiTransitionTask(taskId, transitionData) {
+    isWriteInFlight = true;
     try {
+        const payload = Object.assign({}, transitionData);
+        if (currentBoardVersion) payload._v = currentBoardVersion;
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+
         const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/transition`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(transitionData)
+            headers: headers,
+            body: JSON.stringify(payload)
         });
-        if (res.ok) {
-            return await res.json();
+        const resp = await res.json();
+        if (res.status === 409) {
+            handle409Conflict(resp.data);
+            return resp;
+        }
+        if (res.ok && resp) {
+            if (resp.data && resp.data.v) currentBoardVersion = resp.data.v;
+            return resp;
         }
     } catch (e) {
         console.warn(`[API] POST /api/tasks/${taskId}/transition offline`, e);
+    } finally {
+        isWriteInFlight = false;
     }
     return { code: 200, message: "本地流转完成" };
 }
@@ -233,16 +402,31 @@ async function apiTransitionTask(taskId, transitionData) {
  * 接口 6: 拖拽重排序 (PUT /api/tasks/reorder)
  */
 async function apiReorderTasks(orderedTaskIds) {
+    isWriteInFlight = true;
     try {
+        const payload = { ordered_task_ids: orderedTaskIds };
+        if (currentBoardVersion) payload._v = currentBoardVersion;
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+
         const res = await fetch('/api/tasks/reorder', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ordered_task_ids: orderedTaskIds })
+            headers: headers,
+            body: JSON.stringify(payload)
         });
-        if (res.ok) {
-            return await res.json();
+        const resp = await res.json();
+        if (res.status === 409) {
+            handle409Conflict(resp.data);
+            return resp;
         }
-    } catch (e) {}
+        if (res.ok && resp) {
+            if (resp.data && resp.data.v) currentBoardVersion = resp.data.v;
+            return resp;
+        }
+    } catch (e) {} finally {
+        isWriteInFlight = false;
+    }
     return { code: 200, message: "本地重排完成" };
 }
 
@@ -265,7 +449,7 @@ async function apiSaveBoardMeta(prefData) {
 }
 
 // -------------------------------------------------------------
-// 3. 通用全量数据持久化 (保底兼容层)
+// 4. 通用全量数据持久化 (保底兼容层)
 // -------------------------------------------------------------
 let isSyncingToServer = false;
 let pendingSyncData = null;
@@ -284,15 +468,29 @@ async function syncBoardDataToServer() {
     }
 
     isSyncingToServer = true;
+    isWriteInFlight = true;
     try {
-        await fetch('./board.json', {
+        const headers = { 'Content-Type': 'application/json' };
+        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+
+        const res = await fetch('./board.json', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify(rawCardsData)
         });
+        if (res.status === 409) {
+            const resp = await res.json();
+            handle409Conflict(resp.data);
+        } else if (res.ok) {
+            const resp = await res.json();
+            if (resp && resp.data && resp.data.v) {
+                currentBoardVersion = resp.data.v;
+            }
+        }
     } catch (e) {
     } finally {
         isSyncingToServer = false;
+        isWriteInFlight = false;
         if (pendingSyncData) {
             const nextData = pendingSyncData;
             pendingSyncData = null;

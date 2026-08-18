@@ -1536,3 +1536,70 @@
             background-color: var(--primary-light) !important;
             transition: background-color 0.15s ease;
         }
+
+        /* Pagination Bar */
+        .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            background: var(--card-bg, #ffffff);
+            border-top: 1px solid var(--border-color, #e5e6eb);
+            border-radius: 0 0 8px 8px;
+            font-size: 13px;
+            color: var(--text-muted, #4e5969);
+            box-sizing: border-box;
+        }
+
+        .pagination-container {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .pagination-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .pagination-info strong {
+            color: var(--primary, #165dff);
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .pagination-size-selector {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pagination-pager {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .page-current-indicator {
+            padding: 0 4px;
+            font-size: 13px;
+        }
+
+        .page-current-indicator strong {
+            color: var(--text-color, #1d2129);
+        }
+
+        .pagination-jump {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }

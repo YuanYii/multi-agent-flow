@@ -758,23 +758,55 @@
             openTaskDetail(cardId);
         }
 
+        // -------------------------------------------------------------
+        // 表格分页状态与渲染
+        // -------------------------------------------------------------
+        let tablePaginationState = {
+            page: 1,
+            size: 20 // 10, 20, 50, 100, 或 'all'
+        };
+
         function renderTable() {
-            renderTableBody(currentCardsData);
+            const totalFiltered = currentCardsData.length;
+            const sizeParam = tablePaginationState.size;
+
+            let pageCards = currentCardsData;
+            let totalPages = 1;
+            let startIndex = 0;
+
+            if (sizeParam !== 'all') {
+                const sz = parseInt(sizeParam, 10) || 20;
+                totalPages = Math.max(1, Math.ceil(totalFiltered / sz));
+                if (tablePaginationState.page > totalPages) {
+                    tablePaginationState.page = totalPages;
+                }
+                if (tablePaginationState.page < 1) {
+                    tablePaginationState.page = 1;
+                }
+                startIndex = (tablePaginationState.page - 1) * sz;
+                pageCards = currentCardsData.slice(startIndex, startIndex + sz);
+            } else {
+                tablePaginationState.page = 1;
+            }
+
+            renderTableBody(pageCards, startIndex);
+            renderPaginationBar(totalFiltered, tablePaginationState.page, sizeParam, totalPages, pageCards.length, startIndex);
         }
 
-        function renderTableBody(currentCardsData) {
+        function renderTableBody(pageCards, startIndex = 0) {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
 
-            currentCardsData.forEach((card, idx) => {
+            pageCards.forEach((card, idx) => {
                 const isSelected = selectedTaskIds.has(card.id);
                 const savedH = rowHeights[card.id];
                 const trStyle = savedH ? rowHeightVars(savedH) : '';
+                const displaySeq = startIndex + idx + 1;
 
                 const tr = `
                     <tr data-id="${esc(card.id)}" style="${trStyle}; cursor:pointer;" class="clickable-row" onclick="onTableRowClick(event, '${esc(card.id)}')">
                         <td style="text-align:center;"><input type="checkbox" class="row-cb" value="${esc(card.id)}" ${isSelected ? 'checked' : ''} onchange="toggleSelectRow('${esc(card.id)}', this.checked)"></td>
-                        <td style="font-weight:600; color:var(--text-muted); position:relative;">${idx + 1}<div class="row-resizer" title="拖拽调节行高"></div></td>
+                        <td style="font-weight:600; color:var(--text-muted); position:relative;">${displaySeq}<div class="row-resizer" title="拖拽调节行高"></div></td>
                         <td><strong style="color:var(--primary);">${esc(card.id)}</strong></td>
                         <td>${esc(card.wbs) || '-'}</td>
                         <td><small style="color:var(--text-muted);">${esc(card.pretask) || '-'}</small></td>
@@ -803,6 +835,69 @@
 
             updateBatchDeleteBtn();
             makeRowsResizable();
+        }
+
+        function renderPaginationBar(total, page, size, totalPages, currentPageCount, startIndex) {
+            const barEl = document.getElementById('table-pagination-bar');
+            if (!barEl) return;
+
+            const endIdx = startIndex + currentPageCount;
+            const infoRange = total > 0 ? `（第 ${startIndex + 1} - ${endIdx} 条）` : '';
+
+            barEl.innerHTML = `
+                <div class="pagination-container">
+                    <div class="pagination-info">
+                        共 <strong id="pg-total-count">${total}</strong> 条任务 ${infoRange}
+                    </div>
+                    <div class="pagination-controls">
+                        <div class="pagination-size-selector">
+                            <span>每页展示：</span>
+                            <select id="pagination-size-select" onchange="onTablePageSizeChange(this.value)" class="form-control sm" style="width:auto; padding:2px 8px; height:28px;">
+                                <option value="10" ${String(size) === '10' ? 'selected' : ''}>10 条/页</option>
+                                <option value="20" ${String(size) === '20' ? 'selected' : ''}>20 条/页</option>
+                                <option value="50" ${String(size) === '50' ? 'selected' : ''}>50 条/页</option>
+                                <option value="100" ${String(size) === '100' ? 'selected' : ''}>100 条/页</option>
+                                <option value="all" ${String(size) === 'all' ? 'selected' : ''}>全部展示</option>
+                            </select>
+                        </div>
+                        ${size !== 'all' && totalPages > 1 ? `
+                        <div class="pagination-pager">
+                            <button class="btn sm" id="btn-prev-page" onclick="changeTablePage(-1)" ${page <= 1 ? 'disabled' : ''} style="padding:2px 10px; height:28px;">上一页</button>
+                            <span class="page-current-indicator">第 <strong>${page}</strong> / <strong>${totalPages}</strong> 页</span>
+                            <button class="btn sm" id="btn-next-page" onclick="changeTablePage(1)" ${page >= totalPages ? 'disabled' : ''} style="padding:2px 10px; height:28px;">下一页</button>
+                        </div>
+                        <div class="pagination-jump">
+                            <span>跳至</span>
+                            <input type="number" min="1" max="${totalPages}" value="${page}" class="form-control sm" style="width: 50px; text-align: center; height:28px; padding:2px;" onkeydown="if(event.key==='Enter') goToTablePage(this.value)">
+                            <span>页</span>
+                        </div>
+                        ` : (size !== 'all' ? `
+                        <div class="pagination-pager">
+                            <span class="page-current-indicator">第 <strong>1</strong> / <strong>1</strong> 页</span>
+                        </div>
+                        ` : '')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function onTablePageSizeChange(newSize) {
+            tablePaginationState.size = newSize === 'all' ? 'all' : (parseInt(newSize, 10) || 20);
+            tablePaginationState.page = 1;
+            renderTable();
+        }
+
+        function changeTablePage(delta) {
+            tablePaginationState.page += delta;
+            renderTable();
+        }
+
+        function goToTablePage(targetPage) {
+            const p = parseInt(targetPage, 10);
+            if (!isNaN(p) && p >= 1) {
+                tablePaginationState.page = p;
+                renderTable();
+            }
         }
 
         function updateCounter() {
@@ -1022,6 +1117,9 @@
             if (!isRestoringFilterState) {
                 debouncedPersistFilterAndSort();
             }
+            if (typeof tablePaginationState !== 'undefined') {
+                tablePaginationState.page = 1;
+            }
             applySort();
         }
 
@@ -1076,6 +1174,9 @@
             renderStageFilterOptions();
             renderCreatorFilterOptions();
             refreshUiSelects();
+            if (typeof tablePaginationState !== 'undefined') {
+                tablePaginationState.page = 1;
+            }
             if (typeof apiSaveBoardMeta === 'function') {
                 apiSaveBoardMeta({ filters: DEFAULT_SAVED_FILTERS, sort: DEFAULT_SAVED_SORT });
             }

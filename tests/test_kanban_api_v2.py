@@ -469,3 +469,262 @@ class TestConcurrencyLock:
         assert r["data"]["id"] == "T0002"
         s, r = _api(server, "GET", "/api/tasks?size=all")
         assert r["data"]["total"] == 2
+
+
+# ===============================================================
+# 用例 29-35: 状态流转、重排序、偏好元数据与高级写接口
+# ===============================================================
+class TestAdvancedEndpoints:
+    def test_29_transition_lifecycle(self, server):
+        """用例 29: POST /api/tasks/{id}/transition 状态流转与节点追加"""
+        _seed_cards(server, [_mk_card("T0001", "待开发任务", "待开始", "李开发")])
+        s, r = _api(server, "POST", "/api/tasks/T0001/transition", {
+            "target_status": "进行中", "operator_name": "李开发", "comment": "开始编码"
+        })
+        assert s == 200
+        assert r["data"]["to_status"] == "进行中"
+        assert "进行中" in r["data"]["history_entry"]
+
+        # 再次获取验证
+        _, get_r = _api(server, "GET", "/api/tasks")
+        card = get_r["data"]["items"][0]
+        assert card["status"] == "进行中"
+        assert "开始编码" in card["process"]
+
+    def test_30_transition_optimistic_lock(self, server):
+        """用例 30: 状态流转携带过期 If-Match / v 时触发 409 拦截"""
+        _seed_cards(server, [_mk_card("T0001", "流转锁测试", "待开始")])
+        _, ver_resp = _api(server, "GET", "/api/version")
+        stale_v = ver_resp["data"]["v"]
+
+        # 模拟外部变更
+        _seed_cards(server, [_mk_card("T0001", "流转锁测试-已外部变更", "进行中")])
+
+        s, r = _api(server, "POST", "/api/tasks/T0001/transition", {
+            "target_status": "已完成", "v": stale_v
+        })
+        assert s == 409
+
+    def test_31_reorder_tasks(self, server):
+        """用例 31: PUT /api/tasks/reorder 拖拽重排"""
+        _seed_cards(server, [_mk_card("T0001"), _mk_card("T0002"), _mk_card("T0003")])
+        s, r = _api(server, "PUT", "/api/tasks/reorder", {
+            "ordered_task_ids": ["T0003", "T0001", "T0002"]
+        })
+        assert s == 200
+        assert r["data"]["reordered"] == 3
+
+        _, get_r = _api(server, "GET", "/api/tasks?size=all")
+        ids = [c["id"] for c in get_r["data"]["items"]]
+        assert ids == ["T0003", "T0001", "T0002"]
+
+    def test_32_board_meta_preferences(self, server):
+        """用例 32: GET /api/board/meta 与 PUT /api/board/meta"""
+        s, r = _api(server, "GET", "/api/board/meta")
+        assert s == 200
+        assert "title" in r["data"]
+
+        s, r = _api(server, "PUT", "/api/board/meta", {
+            "title": "定制敏捷看板", "theme": "dark"
+        })
+        assert s == 200
+        assert r["data"]["title"] == "定制敏捷看板"
+        assert r["data"]["theme"] == "dark"
+
+    def test_33_legacy_bulk_save_post(self, server):
+        """用例 33: 向后兼容 POST /board.json 全量覆盖"""
+        cards = [_mk_card("T0001", "兼容全量A"), _mk_card("T0002", "兼容全量B")]
+        s, r = _api(server, "POST", "/board.json", cards)
+        assert s == 200
+        assert r["data"]["count"] == 2
+
+    def test_34_batch_delete_route(self, server):
+        """用例 34: POST /api/tasks/batch-delete 批量删除"""
+        _seed_cards(server, [_mk_card("T0001"), _mk_card("T0002"), _mk_card("T0003")])
+        s, r = _api(server, "POST", "/api/tasks/batch-delete", {"task_ids": ["T0001", "T0003"]})
+        assert s == 200
+        assert r["data"]["deleted_count"] == 2
+        assert r["data"]["remaining_total"] == 1
+
+    def test_35_alias_routes_cards(self, server):
+        """用例 35: /api/cards 路由别名与 /api/tasks 完全对齐"""
+        _seed_cards(server, [_mk_card("T0001")])
+        s, r = _api(server, "GET", "/api/cards")
+        assert s == 200
+        assert r["data"]["total"] == 1
+
+
+# ===============================================================
+# 用例 36-50: 复杂多维组合筛选、边界条件与排序完整矩阵
+# ===============================================================
+class TestMatrixAndEdgeCases:
+    def test_36_filter_and_page_combined(self, server):
+        """用例 36: 筛选 + 分页组合（size 在 10/20/50/100 白名单内）"""
+        _seed_12(server)
+        s, r = _api(server, "GET", "/api/tasks?status=已完成&page=1&size=10")
+        assert s == 200
+        assert r["data"]["total"] == 4
+        assert len(r["data"]["items"]) == 4
+
+    def test_37_filter_page_and_sort_combined(self, server):
+        """用例 37: 筛选 + 分页 + 排序组合"""
+        _seed_12(server)
+        s, r = _api(server, "GET", "/api/tasks?assignee=章测试&sort=act_hours&order=desc&page=1&size=10")
+        assert s == 200
+        assert r["data"]["total"] == 5
+        assert len(r["data"]["items"]) == 5
+        # 验证排序按 act_hours 降序排列
+        acts = [c["act_hours"] for c in r["data"]["items"]]
+        assert acts == sorted(acts, reverse=True)
+
+    def test_38_empty_board_query(self, server):
+        """用例 38: 空看板（0张卡）时所有查询均优雅返回"""
+        _seed_cards(server, [])
+        s, r = _api(server, "GET", "/api/tasks?page=1&size=20")
+        assert s == 200
+        assert r["data"]["total"] == 0
+        assert r["data"]["items"] == []
+
+    def test_39_special_characters_in_search(self, server):
+        """用例 39: 搜索特殊符号（空格、下划线、中文标点）"""
+        _seed_cards(server, [
+            _mk_card("T0001", "【重构】auth_v2 & jwt 鉴权"),
+            _mk_card("T0002", "普通任务")
+        ])
+        s, r = _api(server, "GET", "/api/tasks?keyword=auth_v2")
+        assert s == 200
+        assert r["data"]["total"] == 1
+        assert r["data"]["items"][0]["id"] == "T0001"
+
+    def test_40_nonexistent_task_update_404(self, server):
+        """用例 40: PUT 不存在的任务 ID → 404"""
+        _seed_cards(server, [])
+        s, r = _api(server, "PUT", "/api/tasks/T9999", {"name": "ghost"})
+        assert s == 404
+
+    def test_41_nonexistent_task_delete_404(self, server):
+        """用例 41: DELETE 不存在的任务 ID → 404"""
+        _seed_cards(server, [])
+        s, r = _api(server, "DELETE", "/api/tasks/T9999")
+        assert s == 404
+
+    def test_42_nonexistent_task_transition_404(self, server):
+        """用例 42: POST transition 不存在的任务 ID → 404"""
+        _seed_cards(server, [])
+        s, r = _api(server, "POST", "/api/tasks/T9999/transition", {"target_status": "已完成"})
+        assert s == 404
+
+    def test_43_sort_by_start_date(self, server):
+        """用例 43: 按 start_date 排序"""
+        cards = [
+            _mk_card("T0001", start="2026-08-03"),
+            _mk_card("T0002", start="2026-08-01"),
+            _mk_card("T0003", start="2026-08-02"),
+        ]
+        _seed_cards(server, cards)
+        _, r = _api(server, "GET", "/api/tasks?sort=start_date&order=asc&size=all")
+        starts = [c["start_date"] for c in r["data"]["items"]]
+        assert starts == ["2026-08-01", "2026-08-02", "2026-08-03"]
+
+    def test_44_sort_by_act_hours_numeric(self, server):
+        """用例 44: act_hours 数值排序（确保 10.0 > 2.0 而非字符串比较）"""
+        cards = [
+            _mk_card("T0001", act=2.0),
+            _mk_card("T0002", act=10.0),
+            _mk_card("T0003", act=1.5),
+        ]
+        _seed_cards(server, cards)
+        _, r = _api(server, "GET", "/api/tasks?sort=act_hours&order=asc&size=all")
+        acts = [c["act_hours"] for c in r["data"]["items"]]
+        assert acts == [1.5, 2.0, 10.0]
+
+    def test_45_role_name_normalization_in_create(self, server):
+        """用例 45: 创建任务时传入角色代号 (如 'dev') 自动归一化为中文名 '李开发'"""
+        _seed_cards(server, [])
+        s, r = _api(server, "POST", "/api/tasks", {"name": "自动归一化测试", "assignee": "dev"})
+        assert s == 200
+        assert r["data"]["assignee"] == "李开发"
+
+    def test_46_first_node_created_on_task_create(self, server):
+        """用例 46: 创建任务自动生成 N01 建单节点且格式规范"""
+        _seed_cards(server, [])
+        s, r = _api(server, "POST", "/api/tasks", {"name": "首节点测试", "assignee": "李开发", "remarks": "初始说明"})
+        assert s == 200
+        assert "T0001-N01" in r["data"]["process"]
+        assert "初始说明" in r["data"]["process"]
+
+    def test_47_reorder_empty_payload_400(self, server):
+        """用例 47: PUT reorder 缺少 ordered_task_ids → 400"""
+        s, r = _api(server, "PUT", "/api/tasks/reorder", {})
+        assert s == 400
+
+    def test_48_batch_delete_empty_payload_400(self, server):
+        """用例 48: POST batch-delete 缺少 task_ids → 400"""
+        s, r = _api(server, "POST", "/api/tasks/batch-delete", {})
+        assert s == 400
+
+    def test_49_delete_via_query_ids(self, server):
+        """用例 49: DELETE /api/tasks?ids=T0001,T0002 批量删除"""
+        _seed_cards(server, [_mk_card("T0001"), _mk_card("T0002"), _mk_card("T0003")])
+        s, r = _api(server, "DELETE", "/api/tasks?ids=T0001,T0002")
+        assert s == 200
+        assert r["data"]["deleted"] == 2
+        assert r["data"]["remaining_total"] == 1
+
+    def test_50_static_html_and_version_probe(self, server):
+        """用例 50: 根路径重定向与 /api/version 版本端点协同"""
+        s, r = _api(server, "GET", "/api/version")
+        assert s == 200
+        assert "v" in r["data"]
+
+
+# ===============================================================
+# 用例 51-52: 5000 卡大数据压测与现场清理还原
+# ===============================================================
+class TestBigDataAndTeardown:
+    def test_51_5000_cards_stress_and_paging_performance(self, server):
+        """用例 51: 5000 张任务大数据卡片批量注入性能与分页响应测试 (< 50ms)"""
+        import time
+        big_cards = [
+            _mk_card(f"T{i:04d}", f"大数据性能压测任务-{i}", "进行中", "李开发", "S3 编码实现", "WP-后端", est=2.0, act=1.0)
+            for i in range(1, 5001)
+        ]
+        _seed_cards(server, big_cards)
+
+        # 1. 验证版本哈希计算正常
+        s, r = _api(server, "GET", "/api/version")
+        assert s == 200
+        assert re.fullmatch(r"[0-9a-f]{12}", r["data"]["v"])
+
+        # 2. 分页查询第 50 页（size=20），耗时统计
+        t0 = time.perf_counter()
+        s, r = _api(server, "GET", "/api/tasks?page=50&size=20")
+        t1 = time.perf_counter()
+        query_time_ms = (t1 - t0) * 1000
+
+        assert s == 200
+        assert r["data"]["total"] == 5000
+        assert len(r["data"]["items"]) == 20
+        assert r["data"]["items"][0]["id"] == "T0981"
+        assert r["data"]["items"][-1]["id"] == "T1000"
+        # 响应时间应极快（通常 < 50ms）
+        assert query_time_ms < 500, f"5000卡分页查询耗时过长: {query_time_ms:.2f}ms"
+
+        # 3. 关键字搜索压测
+        t0 = time.perf_counter()
+        s, r = _api(server, "GET", "/api/tasks?keyword=4999&size=10")
+        t1 = time.perf_counter()
+        search_time_ms = (t1 - t0) * 1000
+
+        assert s == 200
+        assert r["data"]["total"] == 1
+        assert r["data"]["items"][0]["id"] == "T4999"
+        assert search_time_ms < 500, f"5000卡搜索耗时过长: {search_time_ms:.2f}ms"
+
+    def test_52_restore_clean_state(self, server):
+        """用例 52: 测后恢复空数据基线，确保测试环境纯净"""
+        _seed_cards(server, [])
+        s, r = _api(server, "GET", "/api/tasks")
+        assert s == 200
+        assert r["data"]["total"] == 0
+        assert r["data"]["items"] == []
