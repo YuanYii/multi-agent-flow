@@ -759,38 +759,80 @@
         }
 
         // -------------------------------------------------------------
-        // 表格分页状态与渲染
+        // 表格服务端分页状态与渲染
         // -------------------------------------------------------------
         let tablePaginationState = {
             page: 1,
             size: 20 // 10, 20, 50, 100, 或 'all'
         };
+        let isTablePageLoading = false;
 
-        function renderTable() {
-            const totalFiltered = currentCardsData.length;
-            const sizeParam = tablePaginationState.size;
+        async function loadTablePage(targetPage = 1) {
+            if (isTablePageLoading) return;
+            isTablePageLoading = true;
 
-            let pageCards = currentCardsData;
-            let totalPages = 1;
-            let startIndex = 0;
+            try {
+                const query = (document.getElementById('search-box')?.value || '').trim();
+                const statusFilter = document.getElementById('filter-status')?.value || '';
+                const stageFilter = document.getElementById('filter-stage')?.value || '';
+                const handlerFilter = document.getElementById('filter-handler')?.value || '';
+                const creatorFilter = document.getElementById('filter-creator')?.value || '';
+                const sortField = document.getElementById('sort-field')?.value || 'seq';
+                const sortOrder = document.getElementById('sort-order')?.value || 'asc';
 
-            if (sizeParam !== 'all') {
-                const sz = parseInt(sizeParam, 10) || 20;
-                totalPages = Math.max(1, Math.ceil(totalFiltered / sz));
-                if (tablePaginationState.page > totalPages) {
-                    tablePaginationState.page = totalPages;
+                let assigneeParam = '';
+                if (typeof isPersonFocusActive === 'function' && isPersonFocusActive()) {
+                    const arr = Array.from(selectedPersons);
+                    if (arr.length === 1) assigneeParam = arr[0];
                 }
-                if (tablePaginationState.page < 1) {
+
+                const sizeParam = tablePaginationState.size;
+                tablePaginationState.page = targetPage;
+
+                const data = await fetchTableTasksFromServer({
+                    page: targetPage,
+                    size: sizeParam,
+                    keyword: query,
+                    status: statusFilter,
+                    stage: stageFilter,
+                    assignee: assigneeParam || handlerFilter,
+                    sort: sortField,
+                    order: sortOrder
+                });
+
+                const total = data.total !== undefined ? data.total : (data.items || []).length;
+                const items = data.items || [];
+
+                let totalPages = 1;
+                let startIndex = 0;
+                if (sizeParam !== 'all') {
+                    const sz = parseInt(sizeParam, 10) || 20;
+                    totalPages = Math.max(1, Math.ceil(total / sz));
+                    if (tablePaginationState.page > totalPages) {
+                        tablePaginationState.page = totalPages;
+                    }
+                    if (tablePaginationState.page < 1) {
+                        tablePaginationState.page = 1;
+                    }
+                    startIndex = (tablePaginationState.page - 1) * sz;
+                } else {
                     tablePaginationState.page = 1;
                 }
-                startIndex = (tablePaginationState.page - 1) * sz;
-                pageCards = currentCardsData.slice(startIndex, startIndex + sz);
-            } else {
-                tablePaginationState.page = 1;
-            }
 
-            renderTableBody(pageCards, startIndex);
-            renderPaginationBar(totalFiltered, tablePaginationState.page, sizeParam, totalPages, pageCards.length, startIndex);
+                renderTableBody(items, startIndex);
+                renderPaginationBar(total, tablePaginationState.page, sizeParam, totalPages, items.length, startIndex);
+
+                const totalCountEl = document.getElementById('total-count');
+                if (totalCountEl) totalCountEl.innerText = total;
+                const rawCountEl = document.getElementById('raw-count');
+                if (rawCountEl) rawCountEl.innerText = total;
+            } finally {
+                isTablePageLoading = false;
+            }
+        }
+
+        function renderTable() {
+            loadTablePage(tablePaginationState.page || 1);
         }
 
         function renderTableBody(pageCards, startIndex = 0) {
@@ -884,19 +926,18 @@
         function onTablePageSizeChange(newSize) {
             tablePaginationState.size = newSize === 'all' ? 'all' : (parseInt(newSize, 10) || 20);
             tablePaginationState.page = 1;
-            renderTable();
+            loadTablePage(1);
         }
 
         function changeTablePage(delta) {
-            tablePaginationState.page += delta;
-            renderTable();
+            const cur = tablePaginationState.page || 1;
+            loadTablePage(cur + delta);
         }
 
         function goToTablePage(targetPage) {
             const p = parseInt(targetPage, 10);
             if (!isNaN(p) && p >= 1) {
-                tablePaginationState.page = p;
-                renderTable();
+                loadTablePage(p);
             }
         }
 
@@ -1025,8 +1066,8 @@
             }
         }
 
-        function initRender() {
-            // 0. Pre-calculate duration for all cards for O(1) renders and sorts
+        function renderKanbanViews() {
+            if (!rawCardsData || rawCardsData.length === 0) return;
             computeAllCardsDuration(rawCardsData);
 
             // 1. Kanban Assignee
@@ -1039,24 +1080,31 @@
 
             // 3. Kanban Status
             renderKanban("board-status", statusColsConfig, "status");
+        }
 
-            // 4. Data Table & Filters
+        function initRender() {
+            // 1. Data Table & Pagination
             renderTable();
+
+            // 2. Filter Selectors
             renderPersonCheckboxList();
             renderStageFilterOptions();
             renderCreatorFilterOptions();
             restoreFilterAndSortState();
-            updateCounter();
             refreshModalTagSelectors();
         }
 
         // Search, Filter, Sort Handlers
+        let searchDebounceTimer = null;
         function onSearch() {
-            applyFilters();
+            if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                applyFilters();
+            }, 300);
         }
 
         function applyFilters() {
-            const query = document.getElementById('search-box').value.trim().toLowerCase();
+            const query = (document.getElementById('search-box')?.value || '').trim();
             const statusFilter = document.getElementById('filter-status') ? document.getElementById('filter-status').value : '';
             const stageFilter = document.getElementById('filter-stage') ? document.getElementById('filter-stage').value : '';
             const handlerFilter = document.getElementById('filter-handler') ? document.getElementById('filter-handler').value : '';
@@ -1065,62 +1113,21 @@
             const startTo = document.getElementById('filter-start-to') ? document.getElementById('filter-start-to').value : '';
             const endFrom = document.getElementById('filter-end-from') ? document.getElementById('filter-end-from').value : '';
             const endTo = document.getElementById('filter-end-to') ? document.getElementById('filter-end-to').value : '';
-            const personFocusActive = isPersonFocusActive();
-
-            currentCardsData = rawCardsData.filter(c => {
-                const matchQuery = !query || (
-                    (c.id && c.id.toLowerCase().includes(query)) ||
-                    (c.name && c.name.toLowerCase().includes(query)) ||
-                    (c.assignee && c.assignee.toLowerCase().includes(query)) ||
-                    (c.handler && c.handler.toLowerCase().includes(query)) ||
-                    (c.creator && c.creator.toLowerCase().includes(query)) ||
-                    (c.status && c.status.toLowerCase().includes(query)) ||
-                    (c.stage && c.stage.toLowerCase().includes(query)) ||
-                    (c.wbs && c.wbs.toLowerCase().includes(query)) ||
-                    (c.remarks && c.remarks.toLowerCase().includes(query)) ||
-                    (c.process && c.process.toLowerCase().includes(query))
-                );
-                const matchStatus = !statusFilter || c.status === statusFilter;
-                const matchStage = !stageFilter || (c.stage && c.stage === stageFilter);
-
-                // Handler matching:
-                let matchHandler = true;
-                if (handlerFilter) {
-                    if (handlerFilter === '未分配') {
-                        matchHandler = !c.handler || c.handler === '未分配' || (!c.handler && !c.assignee);
-                    } else {
-                        const eff = normalizeRoleName(c.handler || c.assignee);
-                        matchHandler = eff === normalizeRoleName(handlerFilter);
-                    }
-                }
-
-                // Creator matching:
-                const matchCreator = !creatorFilter || (c.creator && c.creator === creatorFilter);
-
-                // Person focus matching (Assignee multi-select from toolbar):
-                const matchMultiPerson = !personFocusActive || selectedPersons.has(c.assignee) || selectedPersons.has(normalizeRoleName(c.assignee));
-
-                // Date range comparisons (pure ISO string prefix comparison)
-                const cStartDate = (c.start_date || c.start_time || '').slice(0, 10);
-                const matchStartFrom = !startFrom || (cStartDate && cStartDate >= startFrom);
-                const matchStartTo = !startTo || (cStartDate && cStartDate <= startTo);
-
-                const cEndDate = (c.end_date || c.end_time || '').slice(0, 10);
-                const matchEndFrom = !endFrom || (cEndDate && cEndDate >= endFrom);
-                const matchEndTo = !endTo || (cEndDate && cEndDate <= endTo);
-
-                return matchQuery && matchStatus && matchStage && matchHandler && matchCreator &&
-                       matchMultiPerson && matchStartFrom && matchStartTo && matchEndFrom && matchEndTo;
-            });
 
             updateActiveFilterHint(query, statusFilter, stageFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo);
             if (!isRestoringFilterState) {
                 debouncedPersistFilterAndSort();
             }
-            if (typeof tablePaginationState !== 'undefined') {
+
+            const activeView = document.querySelector('.view.active');
+            const isTableActive = !activeView || activeView.id === 'view-table';
+
+            if (isTableActive) {
                 tablePaginationState.page = 1;
+                loadTablePage(1);
+            } else {
+                renderKanbanViews();
             }
-            applySort();
         }
 
         // Is the "聚焦人员" multi-select actually narrowing anything?
@@ -1214,39 +1221,33 @@
         }
 
         // Quick Inline Updates from Data Table
-        function quickUpdateStatus(cardId, newStatus) {
-            const card = rawCardsData.find(c => c.id === cardId);
-            if (card && card.status !== newStatus) {
-                const oldStatus = card.status;
-                card.status = newStatus;
-                appendProcessLog(card, `[快捷状态变更] 状态由【${oldStatus || '未设定'}】调整为【${newStatus}】`);
-                saveStorageData();
-                applyFilters();
-                showToast(`已更新 ${card.id} 状态为: ${newStatus}`);
+        async function quickUpdateStatus(cardId, newStatus) {
+            const res = await apiTransitionTask(cardId, newStatus, 'Corey', '快捷状态调整');
+            if (res.ok) {
+                showToast(`已更新 ${cardId} 状态为: ${newStatus}`);
+                await loadTablePage(tablePaginationState.page || 1);
+            } else {
+                showToast(`更新状态失败: ${res.error || '未知错误'}`, 'error');
             }
         }
 
-        function quickUpdateAssignee(cardId, newAssignee) {
-            const card = rawCardsData.find(c => c.id === cardId);
-            if (card && card.assignee !== newAssignee) {
-                const oldAssignee = card.assignee;
-                card.assignee = newAssignee;
-                appendProcessLog(card, `[快捷负责人变更] 负责人由【${oldAssignee || '未设定'}】变更为【${newAssignee}】`);
-                saveStorageData();
-                applyFilters();
-                showToast(`已更新 ${card.id} 负责人为: ${newAssignee}`);
+        async function quickUpdateAssignee(cardId, newAssignee) {
+            const res = await apiUpdateTask(cardId, { assignee: newAssignee, remarks: `负责人调整为 ${newAssignee}` });
+            if (res.ok) {
+                showToast(`已更新 ${cardId} 负责人为: ${newAssignee}`);
+                await loadTablePage(tablePaginationState.page || 1);
+            } else {
+                showToast(`更新负责人失败: ${res.error || '未知错误'}`, 'error');
             }
         }
 
-        function quickUpdateHandler(cardId, newHandler) {
-            const card = rawCardsData.find(c => c.id === cardId);
-            if (card && card.handler !== newHandler) {
-                const oldHandler = card.handler;
-                card.handler = newHandler;
-                appendProcessLog(card, `[快捷处理人变更] 处理人由【${oldHandler || '未设定'}】变更为【${newHandler}】`);
-                saveStorageData();
-                applyFilters();
-                showToast(`已更新 ${card.id} 处理人为: ${newHandler}`);
+        async function quickUpdateHandler(cardId, newHandler) {
+            const res = await apiUpdateTask(cardId, { handler: newHandler, remarks: `处理人调整为 ${newHandler}` });
+            if (res.ok) {
+                showToast(`已更新 ${cardId} 处理人为: ${newHandler}`);
+                await loadTablePage(tablePaginationState.page || 1);
+            } else {
+                showToast(`更新处理人失败: ${res.error || '未知错误'}`, 'error');
             }
         }
 
@@ -1482,7 +1483,7 @@
 
         // Tab Switching Logic
         document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
+            tab.addEventListener('click', async (e) => {
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                 const targetTab = e.target.closest('.tab');
                 targetTab.classList.add('active');
@@ -1493,6 +1494,13 @@
                 document.getElementById(targetId).classList.add('active');
 
                 syncToolbarForActiveView(targetId);
+
+                if (targetId === 'view-table') {
+                    await loadTablePage(tablePaginationState.page || 1);
+                } else {
+                    await fetchKanbanTasksFromServer();
+                    renderKanbanViews();
+                }
             });
         });
 

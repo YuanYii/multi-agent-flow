@@ -92,19 +92,37 @@ SERVER_STATE = {
 from _lib.core import file_lock
 
 
+_BOARD_MEMORY_CACHE = {
+    "mtime": 0.0,
+    "size": -1,
+    "cards": []
+}
+
+
 def read_board_data() -> list:
-    """安全读取 board.json，若不存在则初始化为空列表"""
+    """安全读取 board.json，具备基于文件 mtime 与 size 的高速内存缓存"""
     os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
     if not os.path.exists(USER_DATA_BOARD):
         with open(USER_DATA_BOARD, "w", encoding="utf-8") as f:
             f.write("[]")
+        _BOARD_MEMORY_CACHE["mtime"] = 0.0
+        _BOARD_MEMORY_CACHE["size"] = 2
+        _BOARD_MEMORY_CACHE["cards"] = []
         return []
 
     try:
+        stat = os.stat(USER_DATA_BOARD)
+        if (stat.st_mtime == _BOARD_MEMORY_CACHE["mtime"] and
+            stat.st_size == _BOARD_MEMORY_CACHE["size"]):
+            return [dict(c) for c in _BOARD_MEMORY_CACHE["cards"]]
+
         with open(USER_DATA_BOARD, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, list):
-                return data
+                _BOARD_MEMORY_CACHE["mtime"] = stat.st_mtime
+                _BOARD_MEMORY_CACHE["size"] = stat.st_size
+                _BOARD_MEMORY_CACHE["cards"] = data
+                return [dict(c) for c in data]
             return []
     except Exception:
         return []

@@ -73,8 +73,80 @@ function applyServerBoardTitle() {
     }
 }
 
+let tableServerData = {
+    items: [],
+    total: 0,
+    v: ""
+};
+
 async function fetchBackgroundData(isInitial = false) {
-    // 1. 优先通过 REST API /api/tasks 获取 (size=all 全量集用于前端看板)
+    // 默认通过服务端分页拉取表格首页数据（20条），不全量传输
+    if (typeof loadTablePage === 'function') {
+        await loadTablePage(1);
+    }
+}
+
+/**
+ * 真·服务端分页查询：向后端发起带有 page/size/sort/filter/keyword 的 HTTP GET 请求
+ */
+async function fetchTableTasksFromServer(params = {}) {
+    const queryParts = [];
+    
+    const page = params.page || 1;
+    const size = params.size || 20;
+    queryParts.push(`page=${encodeURIComponent(page)}`);
+    queryParts.push(`size=${encodeURIComponent(size)}`);
+
+    if (params.status) queryParts.push(`status=${encodeURIComponent(params.status)}`);
+    if (params.assignee) queryParts.push(`assignee=${encodeURIComponent(params.assignee)}`);
+    if (params.stage) queryParts.push(`stage=${encodeURIComponent(params.stage)}`);
+    if (params.wp) queryParts.push(`wp=${encodeURIComponent(params.wp)}`);
+    if (params.keyword) queryParts.push(`keyword=${encodeURIComponent(params.keyword)}`);
+    if (params.sort) queryParts.push(`sort=${encodeURIComponent(params.sort)}`);
+    if (params.order) queryParts.push(`order=${encodeURIComponent(params.order)}`);
+    queryParts.push(`t=${Date.now()}`);
+
+    const qs = queryParts.join('&');
+    const url = `/api/tasks?${qs}`;
+
+    try {
+        const res = await fetch(url);
+        if (res.ok) {
+            const resp = await res.json();
+            if (resp && resp.data && Array.isArray(resp.data.items)) {
+                tableServerData = {
+                    items: resp.data.items,
+                    total: resp.data.total !== undefined ? resp.data.total : resp.data.items.length,
+                    v: resp.data.v || ""
+                };
+                if (resp.data.v) {
+                    currentBoardVersion = resp.data.v;
+                }
+                return tableServerData;
+            }
+        }
+    } catch (e) {
+        console.warn('[API] /api/tasks table query offline fallback', e);
+    }
+
+    // 离线环境本地降级
+    const stored = localStorage.getItem('offline_board_cards_v3');
+    let localCards = [];
+    if (stored) {
+        try { localCards = JSON.parse(stored) || []; } catch (err) {}
+    }
+    tableServerData = {
+        items: localCards.slice((page - 1) * (parseInt(size, 10) || 20), page * (parseInt(size, 10) || 20)),
+        total: localCards.length,
+        v: currentBoardVersion
+    };
+    return tableServerData;
+}
+
+/**
+ * 看板视图按需拉取全量集（仅在切换到看板视图时触发）
+ */
+async function fetchKanbanTasksFromServer() {
     try {
         const res = await fetch('/api/tasks?size=all&t=' + Date.now());
         if (res.ok) {
@@ -85,46 +157,18 @@ async function fetchBackgroundData(isInitial = false) {
                     currentBoardVersion = resp.data.v;
                 }
                 try { localStorage.setItem('offline_board_cards_v3', JSON.stringify(rawCardsData)); } catch (e) {}
-                if (typeof initRender === 'function') initRender();
-                if (typeof applyFilters === 'function') applyFilters();
-                return;
+                return rawCardsData;
             }
         }
-    } catch (err) {}
-
-    // 2. 向后兼容 /board.json 读取
-    try {
-        const res = await fetch('./board.json?t=' + Date.now());
-        if (res.ok) {
-            const fileData = await res.json();
-            if (Array.isArray(fileData)) {
-                rawCardsData = fileData;
-                try { localStorage.setItem('offline_board_cards_v3', JSON.stringify(rawCardsData)); } catch (e) {}
-                if (typeof initRender === 'function') initRender();
-                if (typeof applyFilters === 'function') applyFilters();
-                return;
-            }
-        }
-    } catch (err) {}
-
-    // 3. 本地 LocalStorage 降级
-    const stored = localStorage.getItem('offline_board_cards_v3');
-    if (stored) {
-        try {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) {
-                rawCardsData = parsed;
-                if (typeof initRender === 'function') initRender();
-                if (typeof applyFilters === 'function') applyFilters();
-                return;
-            }
-        } catch (e) {}
+    } catch (err) {
+        console.warn('[API] fetchKanbanTasksFromServer offline fallback', err);
     }
 
-    // 4. 默认种子数据兜底
-    rawCardsData = [];
-    if (typeof initRender === 'function') initRender();
-    if (typeof applyFilters === 'function') applyFilters();
+    const stored = localStorage.getItem('offline_board_cards_v3');
+    if (stored) {
+        try { rawCardsData = JSON.parse(stored) || []; } catch (e) {}
+    }
+    return rawCardsData;
 }
 
 // -------------------------------------------------------------
