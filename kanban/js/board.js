@@ -1002,14 +1002,17 @@
 
         let filterPersistTimer = null;
         function debouncedPersistFilterAndSort() {
+            persistCurrentFilterAndSortStateSync();
             if (filterPersistTimer) clearTimeout(filterPersistTimer);
             filterPersistTimer = setTimeout(() => {
-                persistCurrentFilterAndSortState();
-            }, 350);
+                const { filters, sort } = persistCurrentFilterAndSortStateSync();
+                if (typeof apiSaveBoardMeta === 'function') {
+                    apiSaveBoardMeta({ filters, sort });
+                }
+            }, 300);
         }
 
-        function persistCurrentFilterAndSortState() {
-            if (typeof apiSaveBoardMeta !== 'function') return;
+        function persistCurrentFilterAndSortStateSync() {
             const filters = {
                 query: (document.getElementById('search-box')?.value || '').trim(),
                 status: document.getElementById('filter-status')?.value || '',
@@ -1026,7 +1029,21 @@
                 field: document.getElementById('sort-field')?.value || 'seq',
                 order: document.getElementById('sort-order')?.value || 'asc'
             };
-            apiSaveBoardMeta({ filters, sort });
+            if (typeof kanbanPreferences === 'object' && kanbanPreferences) {
+                kanbanPreferences.filters = filters;
+                kanbanPreferences.sort = sort;
+            }
+            try {
+                localStorage.setItem('offline_board_preferences_v1', JSON.stringify(kanbanPreferences || { filters, sort }));
+            } catch (e) {}
+            return { filters, sort };
+        }
+
+        function persistCurrentFilterAndSortState() {
+            const { filters, sort } = persistCurrentFilterAndSortStateSync();
+            if (typeof apiSaveBoardMeta === 'function') {
+                apiSaveBoardMeta({ filters, sort });
+            }
         }
 
         let hasRestoredInitialFilters = false;
@@ -1059,6 +1076,8 @@
 
                 if (document.getElementById('sort-field')) document.getElementById('sort-field').value = s.field || 'seq';
                 if (document.getElementById('sort-order')) document.getElementById('sort-order').value = s.order || 'asc';
+
+                updateActiveFilterHint(f.query, f.status, f.stage, f.handler, f.creator, f.start_from, f.start_to, f.end_from, f.end_to);
 
                 if (typeof refreshUiSelects === 'function') refreshUiSelects();
             } finally {

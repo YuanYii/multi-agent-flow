@@ -48,22 +48,32 @@ async function loadStorageData() {
 }
 
 async function loadBoardPreferences() {
+    // 1. 本地存储快速恢复 (0ms 兜底)
+    try {
+        const localPref = localStorage.getItem('offline_board_preferences_v1');
+        if (localPref) {
+            const parsed = JSON.parse(localPref);
+            if (parsed && typeof parsed === 'object') {
+                kanbanPreferences = Object.assign({}, kanbanPreferences, parsed);
+            }
+        }
+    } catch (e) {}
+
+    // 2. 服务端拉取并深度合并最新偏好
     try {
         const res = await fetch('/api/board/meta?t=' + Date.now());
         if (res.ok) {
             const resp = await res.json();
             if (resp && resp.data && typeof resp.data === 'object') {
-                kanbanPreferences = Object.assign(kanbanPreferences, resp.data);
-                return;
+                const serverPref = resp.data;
+                if (serverPref.filters) {
+                    kanbanPreferences.filters = Object.assign({}, kanbanPreferences.filters || {}, serverPref.filters);
+                }
+                if (serverPref.sort) {
+                    kanbanPreferences.sort = Object.assign({}, kanbanPreferences.sort || {}, serverPref.sort);
+                }
+                kanbanPreferences = Object.assign({}, kanbanPreferences, serverPref);
             }
-        }
-    } catch (e) {}
-
-    // 本地存储兜底
-    try {
-        const localPref = localStorage.getItem('offline_board_preferences_v1');
-        if (localPref) {
-            kanbanPreferences = Object.assign(kanbanPreferences, JSON.parse(localPref));
         }
     } catch (e) {}
 }
