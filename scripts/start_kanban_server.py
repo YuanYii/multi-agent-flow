@@ -57,6 +57,18 @@ LOCK_FILE = USER_DATA_BOARD + ".seq.lock"
 KANBAN_RUNTIME_FILE = os.path.join(_DATA_ROOT, "user_data", "kanban_server.json")
 
 
+def compute_board_version() -> str:
+    """计算 board.json 的版本哈希 sha256[:12]；文件缺失或读取失败返回空串。
+
+    供 GET /api/version 探测与第二层 HTTP 乐观锁（If-Match / v）比对使用。
+    """
+    try:
+        with open(USER_DATA_BOARD, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()[:12]
+    except Exception:
+        return ""
+
+
 def compute_project_fingerprint(data_root: str) -> str:
     """项目实例指纹：data_root 绝对路径哈希。
 
@@ -266,6 +278,21 @@ def append_audit_log(task_id: str, role: str, from_status: str, to_status: str, 
 class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     """看板 HTTP 请求分发引擎：支持静态资源与看板 RESTful API"""
 
+    # 补齐静态资源 MIME 表（字体/矢量图/现代图片/文档类）
+    extensions_map = {
+        **SimpleHTTPRequestHandler.extensions_map,
+        ".svg": "image/svg+xml",
+        ".webp": "image/webp",
+        ".avif": "image/avif",
+        ".woff": "font/woff",
+        ".woff2": "font/woff2",
+        ".ttf": "font/ttf",
+        ".otf": "font/otf",
+        ".eot": "application/vnd.ms-fontobject",
+        ".json": "application/json; charset=utf-8",
+        ".md": "text/markdown; charset=utf-8",
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=KANBAN_DIR, **kwargs)
 
@@ -273,7 +300,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         # 统一追加跨域与防强缓存响应头
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, If-Match")
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
@@ -379,13 +406,80 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             self._send_json_resp(200, "success", pref)
             return
 
-        # 6. REST API: GET /api/health (实例健康与项目指纹，供端口复用判定)
+        # 6. REST API: GET /api/version (board.json 版本哈希，供前端轮询与乐观锁)
+        if path == "/api/version":
+            self._send_json_resp(200, "success", {"v": compute_board_version()})
+            return
+
+        # 7. REST API: GET /api/health (实例健康与项目指纹，供端口复用判定)
         if path == "/api/health":
             self._send_json_resp(200, "success", dict(SERVER_STATE))
             return
 
+        # 8. 静态资源 Range 请求支持（音视频拖动/断点续传）
+        if self.headers.get("Range"):
+            if self._serve_range_request(path):
+                return
+
         # 静态资源请求
         return super().do_GET()
+
+    def _serve_range_request(self, path: str) -> bool:
+        """处理静态文件 Range: bytes=start-end 请求（单段）；无法处理时返回 False 交由父类全量响应。"""
+        fs_path = self.translate_path(self.path)
+        if not os.path.isfile(fs_path):
+            return False
+
+        m = re.match(r"^bytes=(\d*)-(\d*)$", self.headers.get("Range", "").strip())
+        if not m:
+            return False
+        start_s, end_s = m.group(1), m.group(2)
+        if start_s == "" and end_s == "":
+            return False
+
+        total = os.path.getsize(fs_path)
+        if start_s == "":
+            suffix_len = int(end_s)
+            if suffix_len <= 0:
+                return self._send_range_error(total)
+            start = max(total - suffix_len, 0)
+            end = total - 1
+        else:
+            start = int(start_s)
+            end = int(end_s) if end_s else total - 1
+            if start >= total or start > end:
+                return self._send_range_error(total)
+            end = min(end, total - 1)
+
+        length = end - start + 1
+        self.send_response(206)
+        self.send_header("Content-Type", self.guess_type(fs_path))
+        self.send_header("Content-Length", str(length))
+        self.send_header("Content-Range", f"bytes {start}-{end}/{total}")
+        self.send_header("Accept-Ranges", "bytes")
+        self.end_headers()
+        try:
+            with open(fs_path, "rb") as f:
+                f.seek(start)
+                remaining = length
+                while remaining > 0:
+                    chunk = f.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+        except Exception:
+            pass
+        return True
+
+    def _send_range_error(self, total: int) -> bool:
+        """Range 越界：416 + Content-Range: bytes */total"""
+        self.send_response(416)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Range", f"bytes */{total}")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return True
 
     # -------------------------------------------------------------
     # POST 路由分发
