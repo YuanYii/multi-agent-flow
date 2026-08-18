@@ -1066,9 +1066,66 @@
             }
         }
 
+        function getFilteredKanbanCards() {
+            if (!Array.isArray(rawCardsData)) return [];
+
+            const query = (document.getElementById('search-box')?.value || '').trim().toLowerCase();
+            const statusFilter = document.getElementById('filter-status') ? document.getElementById('filter-status').value : '';
+            const stageFilter = document.getElementById('filter-stage') ? document.getElementById('filter-stage').value : '';
+            const handlerFilter = document.getElementById('filter-handler') ? document.getElementById('filter-handler').value : '';
+            const creatorFilter = document.getElementById('filter-creator') ? document.getElementById('filter-creator').value : '';
+            const startFrom = document.getElementById('filter-start-from') ? document.getElementById('filter-start-from').value : '';
+            const startTo = document.getElementById('filter-start-to') ? document.getElementById('filter-start-to').value : '';
+            const endFrom = document.getElementById('filter-end-from') ? document.getElementById('filter-end-from').value : '';
+            const endTo = document.getElementById('filter-end-to') ? document.getElementById('filter-end-to').value : '';
+            const personFocusActive = typeof isPersonFocusActive === 'function' && isPersonFocusActive();
+
+            return rawCardsData.filter(c => {
+                const matchQuery = !query || (
+                    (c.id && c.id.toLowerCase().includes(query)) ||
+                    (c.name && c.name.toLowerCase().includes(query)) ||
+                    (c.assignee && c.assignee.toLowerCase().includes(query)) ||
+                    (c.handler && c.handler.toLowerCase().includes(query)) ||
+                    (c.creator && c.creator.toLowerCase().includes(query)) ||
+                    (c.status && c.status.toLowerCase().includes(query)) ||
+                    (c.stage && c.stage.toLowerCase().includes(query)) ||
+                    (c.wbs && c.wbs.toLowerCase().includes(query)) ||
+                    (c.remarks && c.remarks.toLowerCase().includes(query)) ||
+                    (c.process && c.process.toLowerCase().includes(query))
+                );
+                const matchStatus = !statusFilter || c.status === statusFilter;
+                const matchStage = !stageFilter || (c.stage && c.stage === stageFilter);
+
+                let matchHandler = true;
+                if (handlerFilter) {
+                    if (handlerFilter === '未分配') {
+                        matchHandler = !c.handler || c.handler === '未分配' || (!c.handler && !c.assignee);
+                    } else {
+                        const eff = normalizeRoleName(c.handler || c.assignee);
+                        matchHandler = eff === normalizeRoleName(handlerFilter);
+                    }
+                }
+
+                const matchCreator = !creatorFilter || (c.creator && c.creator === creatorFilter);
+                const matchMultiPerson = !personFocusActive || selectedPersons.has(c.assignee) || selectedPersons.has(normalizeRoleName(c.assignee));
+
+                const cStartDate = (c.start_date || c.start_time || '').slice(0, 10);
+                const matchStartFrom = !startFrom || (cStartDate && cStartDate >= startFrom);
+                const matchStartTo = !startTo || (cStartDate && cStartDate <= startTo);
+
+                const cEndDate = (c.end_date || c.end_time || '').slice(0, 10);
+                const matchEndFrom = !endFrom || (cEndDate && cEndDate >= endFrom);
+                const matchEndTo = !endTo || (cEndDate && cEndDate <= endTo);
+
+                return matchQuery && matchStatus && matchStage && matchHandler && matchCreator &&
+                       matchMultiPerson && matchStartFrom && matchStartTo && matchEndFrom && matchEndTo;
+            });
+        }
+
         function renderKanbanViews() {
             if (!rawCardsData || rawCardsData.length === 0) return;
             computeAllCardsDuration(rawCardsData);
+            currentCardsData = getFilteredKanbanCards();
 
             // 1. Kanban Assignee
             renderKanban("board-assignee", assigneeColsConfig, "assignee");
@@ -1080,18 +1137,25 @@
 
             // 3. Kanban Status
             renderKanban("board-status", statusColsConfig, "status");
+
+            // 4. Update Header counter when in kanban view
+            const totalCountEl = document.getElementById('total-count');
+            if (totalCountEl) totalCountEl.innerText = currentCardsData.length;
+            const rawCountEl = document.getElementById('raw-count');
+            if (rawCountEl) rawCountEl.innerText = rawCardsData.length;
         }
 
         function initRender() {
-            // 1. Data Table & Pagination
-            renderTable();
-
-            // 2. Filter Selectors
+            // 1. Filter Selectors
             renderPersonCheckboxList();
             renderStageFilterOptions();
             renderCreatorFilterOptions();
             restoreFilterAndSortState();
             refreshModalTagSelectors();
+
+            // 2. Render both Table and Kanban initial views
+            renderTable();
+            renderKanbanViews();
         }
 
         // Search, Filter, Sort Handlers

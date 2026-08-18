@@ -40,7 +40,10 @@ async function loadStorageData() {
         renderFieldConfigPopover();
     }
     applyServerBoardTitle();
-    await fetchBackgroundData(true);
+    await fetchKanbanTasksFromServer();
+    if (typeof initRender === 'function') {
+        initRender();
+    }
     startVersionPolling();
 }
 
