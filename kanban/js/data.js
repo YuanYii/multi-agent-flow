@@ -12,9 +12,9 @@ let rawCardsData = [];
 let currentBoardVersion = "";
 let isWriteInFlight = false;
 let versionPollingTimer = null;
-let activePollIntervalMs = 3000;
-let idlePollIntervalMs = 10000;
-let longIdlePollIntervalMs = 30000;
+let activePollIntervalMs = 15000;  // 活跃状态 15 秒探测一次
+let idlePollIntervalMs = 30000;    // 闲置状态 30 秒探测一次
+let longIdlePollIntervalMs = 60000;// 深度闲置 60 秒探测一次
 let lastUserActivity = Date.now();
 
 let kanbanPreferences = {
@@ -142,20 +142,26 @@ function stopVersionPolling() {
     }
 }
 
+function isUserActiveEditing() {
+    // 检查是否有打开的任务详情/编辑弹窗，避免编辑中途中断
+    const openModal = document.querySelector('.modal.show, #task-modal.show, #detail-modal.show, #export-modal.show');
+    return Boolean(openModal);
+}
+
 function scheduleNextVersionPoll() {
     if (document.visibilityState === 'hidden') return;
 
     const now = Date.now();
     const idleDuration = now - lastUserActivity;
     let nextDelay = activePollIntervalMs;
-    if (idleDuration > 60000) {
+    if (idleDuration > 120000) {
         nextDelay = longIdlePollIntervalMs;
-    } else if (idleDuration > 15000) {
+    } else if (idleDuration > 30000) {
         nextDelay = idlePollIntervalMs;
     }
 
     versionPollingTimer = setTimeout(async () => {
-        if (!isWriteInFlight && document.visibilityState === 'visible') {
+        if (!isWriteInFlight && document.visibilityState === 'visible' && !isUserActiveEditing()) {
             await checkServerVersion();
         }
         scheduleNextVersionPoll();
@@ -171,8 +177,10 @@ async function checkServerVersion() {
                 const serverV = resp.data.v;
                 if (currentBoardVersion && serverV !== currentBoardVersion) {
                     currentBoardVersion = serverV;
-                    // 后台静默拉取并更新数据
-                    await fetchBackgroundData(false);
+                    // 后台静默拉取并更新数据（用户处于非编辑状态时）
+                    if (!isUserActiveEditing()) {
+                        await fetchBackgroundData(false);
+                    }
                 } else {
                     currentBoardVersion = serverV;
                 }
@@ -183,11 +191,16 @@ async function checkServerVersion() {
     }
 }
 
-// 监听用户活跃动作以自适应轮询频次
+// 监听用户活跃动作（节流 5 秒更新一次时间戳）
 if (typeof window !== 'undefined') {
+    let lastActivityLog = 0;
     ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
         window.addEventListener(evt, () => {
-            lastUserActivity = Date.now();
+            const now = Date.now();
+            if (now - lastActivityLog > 5000) {
+                lastUserActivity = now;
+                lastActivityLog = now;
+            }
         }, { passive: true });
     });
 
