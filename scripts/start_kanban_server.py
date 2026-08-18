@@ -470,17 +470,40 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             assignee_filter = query.get("assignee", [None])[0]
             stage_filter = query.get("stage", [None])[0]
             wp_filter = query.get("wp", [None])[0]
+            handler_filter = query.get("handler", [None])[0]
+            creator_filter = query.get("creator", [None])[0]
+            start_from = query.get("start_from", [None])[0]
+            start_to = query.get("start_to", [None])[0]
+            end_from = query.get("end_from", [None])[0]
+            end_to = query.get("end_to", [None])[0]
             keyword = query.get("keyword", [None])[0] or query.get("q", [None])[0]
 
             filtered = cards
             if status_filter:
                 filtered = [c for c in filtered if c.get("status") == status_filter]
             if assignee_filter:
-                filtered = [c for c in filtered if c.get("assignee") == assignee_filter]
+                assignee_list = [a.strip() for a in assignee_filter.split(",") if a.strip()]
+                if assignee_list:
+                    filtered = [c for c in filtered if (c.get("assignee") in assignee_list or normalize_role_name(c.get("assignee")) in assignee_list)]
             if stage_filter:
                 filtered = [c for c in filtered if c.get("stage") == stage_filter or c.get("wp") == stage_filter]
             if wp_filter:
                 filtered = [c for c in filtered if c.get("wp") == wp_filter]
+            if handler_filter:
+                if handler_filter == "未分配":
+                    filtered = [c for c in filtered if not c.get("handler") or c.get("handler") == "未分配"]
+                else:
+                    filtered = [c for c in filtered if normalize_role_name(c.get("handler") or c.get("assignee")) == normalize_role_name(handler_filter)]
+            if creator_filter:
+                filtered = [c for c in filtered if c.get("creator") == creator_filter]
+            if start_from:
+                filtered = [c for c in filtered if str(c.get("start_date") or c.get("start_time") or "")[:10] >= start_from]
+            if start_to:
+                filtered = [c for c in filtered if str(c.get("start_date") or c.get("start_time") or "")[:10] <= start_to]
+            if end_from:
+                filtered = [c for c in filtered if str(c.get("end_date") or c.get("end_time") or "")[:10] >= end_from]
+            if end_to:
+                filtered = [c for c in filtered if str(c.get("end_date") or c.get("end_time") or "")[:10] <= end_to]
             if keyword:
                 kw = keyword.lower()
                 filtered = [
@@ -488,10 +511,14 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     if kw in str(c.get("id", "")).lower()
                     or kw in str(c.get("name", "")).lower()
                     or kw in str(c.get("assignee", "")).lower()
+                    or kw in str(c.get("handler", "")).lower()
+                    or kw in str(c.get("creator", "")).lower()
+                    or kw in str(c.get("status", "")).lower()
                     or kw in str(c.get("stage", "")).lower()
                     or kw in str(c.get("wp", "")).lower()
                     or kw in str(c.get("remarks", "")).lower()
                     or kw in str(c.get("wbs", "")).lower()
+                    or kw in str(c.get("process", "")).lower()
                 ]
 
             # ---- 排序参数解析（白名单 + 强校验） ----
