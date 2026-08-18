@@ -1861,16 +1861,31 @@
 
                 let uniqueLines = Array.from(new Set(lines));
 
-                // 节点序号排序：含 [{任务ID}-N{序号}] 双标识的行按序号升序；
-                // 无节点标识的旧格式行保持原相对顺序排最前（历史数据兼容）
+                // 时间与序号提取辅助函数
+                const extractTimeOf = (l) => {
+                    const m = l.match(/\[(\d{4}-\d{2}-\d{2}[^\]]*)\]/);
+                    if (m) {
+                        const parsed = new Date(m[1].replace(/-/g, '/')).getTime();
+                        if (!isNaN(parsed)) return parsed;
+                    }
+                    return 0;
+                };
                 const nodeSeqOf = (l) => {
                     const m = l.match(/\[(T\d+)-N(\d+)\]/);
                     return m ? parseInt(m[2], 10) : -1;
                 };
+
+                // 倒序排序：最近操作在最上方（序号大者优先 / 时间新者优先）
                 uniqueLines.sort((a, b) => {
                     const na = nodeSeqOf(a), nb = nodeSeqOf(b);
-                    if (na !== nb) return na - nb;
-                    return 0; // 同号或同为旧行：稳定排序保持原序
+                    if (na !== -1 && nb !== -1) {
+                        return nb - na; // 节点序号降序（大序号排最前）
+                    }
+                    if (na !== -1) return -1; // 结构化节点优先于历史旧格式行
+                    if (nb !== -1) return 1;
+                    const ta = extractTimeOf(a), tb = extractTimeOf(b);
+                    if (ta && tb && ta !== tb) return tb - ta; // 时间戳降序（新时间排最前）
+                    return 0;
                 });
 
                 uniqueLines.forEach(line => {
@@ -2037,14 +2052,6 @@
             // Default to Read Mode
             toggleTaskEditMode(false);
             document.getElementById('detail-modal').classList.add('show');
-
-            // 自动将 Timeline 流转记录滑至最底部，保证优先展示最新的流转与移交数据
-            setTimeout(() => {
-                const timelineList = document.getElementById('detail-timeline-list');
-                if (timelineList) {
-                    timelineList.scrollTop = timelineList.scrollHeight;
-                }
-            }, 60);
         }
 
         function closeDetailModal() {
