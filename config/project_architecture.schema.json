@@ -25,7 +25,6 @@
     },
     "tech_stack": {
       "type": "object",
-      "required": ["languages", "frameworks"],
       "properties": {
         "languages": {
           "type": "array",
@@ -40,20 +39,67 @@
         },
         "frameworks": {
           "type": "array",
+          "description": "兼容历史老版本结构（扁平框架列表）",
           "items": {
             "type": "object",
             "required": ["name"],
             "properties": {
               "name": { "type": "string" },
-              "version": { "type": "string" }
+              "version": { "type": "string" },
+              "type": { "type": "string" }
             }
           }
+        },
+        "backend_frameworks": {
+          "type": "array",
+          "description": "后端/核心业务框架清单（如 FastAPI, Agno, Django, Gin 等）",
+          "items": { "type": "string" }
+        },
+        "frontend_frameworks": {
+          "type": "array",
+          "description": "前端/用户界面框架与库（如 React, Vue, Next.js, Vanilla JS 等）",
+          "items": { "type": "string" }
         },
         "testing": {
           "type": "object",
           "properties": {
             "framework": { "type": "string" },
-            "min_coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 }
+            "min_coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+            "testing_frameworks": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "databases_and_storage": {
+          "type": "array",
+          "description": "数据库与向量存储技术",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          }
+        },
+        "security_and_sandbox": {
+          "type": "array",
+          "description": "数据安全脱敏与沙箱运行机制",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "purpose": { "type": "string" }
+            }
+          }
+        },
+        "expert_capabilities": {
+          "type": "object",
+          "description": "为各专家角色量身定制的专属技术能力列表",
+          "properties": {
+            "dev": { "type": "array", "items": { "type": "string" } },
+            "frontend": { "type": "array", "items": { "type": "string" } },
+            "reviewer": { "type": "array", "items": { "type": "string" } },
+            "qa": { "type": "array", "items": { "type": "string" } },
+            "architect": { "type": "array", "items": { "type": "string" } },
+            "devops": { "type": "array", "items": { "type": "string" } }
           }
         }
       }
