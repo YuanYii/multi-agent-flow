@@ -825,7 +825,7 @@
                 const totalCountEl = document.getElementById('total-count');
                 if (totalCountEl) totalCountEl.innerText = total;
                 const rawCountEl = document.getElementById('raw-count');
-                if (rawCountEl) rawCountEl.innerText = total;
+                if (rawCountEl) rawCountEl.innerText = (typeof rawCardsData !== 'undefined' && Array.isArray(rawCardsData) && rawCardsData.length > 0) ? rawCardsData.length : total;
             } finally {
                 isTablePageLoading = false;
             }
@@ -1244,7 +1244,7 @@
 
             el.style.display = 'inline-flex';
             el.removeAttribute('data-conflict');
-            el.innerText = `筛选中：${parts.join(' 且 ')}（${currentCardsData.length} 条）`;
+            el.innerText = `筛选中：${parts.join(' 且 ')}`;
         }
 
         function resetFilters() {
