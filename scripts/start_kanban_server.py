@@ -275,6 +275,32 @@ def append_audit_log(task_id: str, role: str, from_status: str, to_status: str, 
         pass
 
 
+# ---------------------------------------------------------------
+# GET /api/tasks 筛选 / 排序 / 分页 参数处理
+# ---------------------------------------------------------------
+PAGE_SIZES_WHITELIST = (10, 20, 50, 100)
+SORT_FIELDS_WHITELIST = ("seq", "id", "est_hours", "act_hours", "start_date", "end_date")
+ORDER_WHITELIST = ("asc", "desc")
+
+
+def _sort_key(card: dict, field: str):
+    """排序键提取：数值字段按数值比较（est_hours/act_hours/seq/id），日期与字符串字段按字典序"""
+    if field in ("est_hours", "act_hours"):
+        try:
+            return float(card.get(field) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+    if field == "seq":
+        try:
+            return int(card.get("seq") or 0)
+        except (TypeError, ValueError):
+            return 0
+    if field == "id":
+        m = re.match(r"^T(\d+)$", str(card.get("id", "")))
+        return int(m.group(1)) if m else 0
+    return str(card.get(field) or "")
+
+
 class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     """看板 HTTP 请求分发引擎：支持静态资源与看板 RESTful API"""
 
@@ -359,13 +385,14 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             self.wfile.write(content)
             return
 
-        # 3. REST API: GET /api/tasks (任务列表与组合筛选)
-        if path == "/api/tasks":
+        # 3. REST API: GET /api/tasks (任务列表：组合筛选 + 排序 + 分页)
+        if path == "/api/tasks" or path == "/api/cards":
             cards = read_board_data()
             status_filter = query.get("status", [None])[0]
             assignee_filter = query.get("assignee", [None])[0]
             stage_filter = query.get("stage", [None])[0]
-            keyword = query.get("keyword", [None])[0]
+            wp_filter = query.get("wp", [None])[0]
+            keyword = query.get("keyword", [None])[0] or query.get("q", [None])[0]
 
             filtered = cards
             if status_filter:
@@ -374,6 +401,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 filtered = [c for c in filtered if c.get("assignee") == assignee_filter]
             if stage_filter:
                 filtered = [c for c in filtered if c.get("stage") == stage_filter or c.get("wp") == stage_filter]
+            if wp_filter:
+                filtered = [c for c in filtered if c.get("wp") == wp_filter]
             if keyword:
                 kw = keyword.lower()
                 filtered = [
@@ -381,11 +410,66 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     if kw in str(c.get("id", "")).lower()
                     or kw in str(c.get("name", "")).lower()
                     or kw in str(c.get("assignee", "")).lower()
+                    or kw in str(c.get("stage", "")).lower()
+                    or kw in str(c.get("wp", "")).lower()
                     or kw in str(c.get("remarks", "")).lower()
                     or kw in str(c.get("wbs", "")).lower()
                 ]
 
-            self._send_json_resp(200, "success", {"total": len(filtered), "items": filtered})
+            # ---- 排序参数解析（白名单 + 强校验） ----
+            sort = (query.get("sort", [None])[0] or "seq").strip().lower()
+            order = (query.get("order", [None])[0] or "asc").strip().lower()
+            if sort not in SORT_FIELDS_WHITELIST:
+                self._send_json_resp(400, f"非法排序字段 sort=[{sort}]，支持: {','.join(SORT_FIELDS_WHITELIST)}", None, http_status=400)
+                return
+            if order not in ORDER_WHITELIST:
+                self._send_json_resp(400, f"非法排序方向 order=[{order}]，支持: asc,desc", None, http_status=400)
+                return
+            filtered = sorted(filtered, key=lambda c: _sort_key(c, sort), reverse=(order == "desc"))
+
+            # ---- 分页参数解析 ----
+            # 契约：省略 page/size 或 size=all → 全量命中集（看板视图）；
+            #       携带 page 或 size 数值 → 分页模式（page 默认 1，size 默认 20）
+            page_param = query.get("page", [None])[0]
+            size_param = query.get("size", [None])[0]
+            page = 1
+            size = 20
+            full_mode = (page_param is None and size_param is None)
+            if size_param is not None:
+                s_raw = size_param.strip().lower()
+                if s_raw == "all":
+                    full_mode = True
+                else:
+                    try:
+                        size = int(s_raw)
+                    except ValueError:
+                        self._send_json_resp(400, f"非法每页条数 size=[{size_param}]，支持: 10,20,50,100,all", None, http_status=400)
+                        return
+                    if size not in PAGE_SIZES_WHITELIST:
+                        self._send_json_resp(400, f"非法每页条数 size=[{size_param}]，支持: 10,20,50,100,all", None, http_status=400)
+                        return
+            if not full_mode and page_param is not None:
+                try:
+                    page = int(page_param)
+                except ValueError:
+                    self._send_json_resp(400, f"非法页码 page=[{page_param}]，必须为 ≥1 的整数", None, http_status=400)
+                    return
+                if page < 1:
+                    self._send_json_resp(400, f"非法页码 page=[{page_param}]，必须为 ≥1 的整数", None, http_status=400)
+                    return
+
+            total = len(filtered)
+            if full_mode:
+                items = filtered
+            else:
+                start = (page - 1) * size
+                items = filtered[start:start + size]
+
+            self._send_json_resp(200, "success", {
+                "total": total,
+                "items": items,
+                "v": compute_board_version()
+            })
             return
 
         # 4. REST API: GET /api/tasks/{task_id} (单任务详情)

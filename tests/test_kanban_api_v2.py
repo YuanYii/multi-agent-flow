@@ -83,10 +83,13 @@ def _free_port() -> int:
 
 
 def _api(server, method: str, path: str, body=None, headers=None) -> dict:
-    """HTTP 请求助手：返回 (status, parsed_json)"""
+    """HTTP 请求助手：返回 (status, parsed_json)；path 中的中文自动 URL 编码"""
     import urllib.request
     import urllib.error
-    url = f"http://127.0.0.1:{server['port']}{path}"
+    from urllib.parse import quote
+    # 编码 query 中的非 ASCII 字符（保留结构符）
+    encoded_path = quote(path, safe="/?=&%")
+    url = f"http://127.0.0.1:{server['port']}{encoded_path}"
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, method=method,
                                  headers=headers or {})
@@ -149,3 +152,193 @@ class TestApiVersion:
         _seed_cards(server, [_mk_card("T0001")])
         _, r3 = _api(server, "GET", "/api/version")
         assert r3["data"]["v"] == v1
+
+
+# ===============================================================
+# 共用 seed：12 张卡覆盖不同状态/负责人/阶段/工时，支撑筛选与排序
+# ===============================================================
+def _seed_12(server):
+    cards = []
+    specs = [
+        ("T0001", "登录模块开发", "待开始", "李开发", "S1 需求分析", "WP-前端", 8.0, 0.0),
+        ("T0002", "接口联调", "待开始", "马前端", "S2 系统设计", "WP-后端", 3.0, 0.0),
+        ("T0003", "数据库设计", "进行中", "李开发", "S2 系统设计", "WP-后端", 5.0, 2.5),
+        ("T0004", "单元测试", "进行中", "章测试", "S3 编码实现", "WP-测试", 4.0, 1.0),
+        ("T0005", "部署上线", "进行中", "章测试", "S3 编码实现", "WP-运维", 2.0, 1.0),
+        ("T0006", "需求评审", "已完成", "严经理", "S1 需求分析", "WP-管理", 1.0, 1.0),
+        ("T0007", "架构评审", "已完成", "钱架构", "S2 系统设计", "WP-管理", 1.5, 1.5),
+        ("T0008", "压力测试", "已完成", "章测试", "S4 集成测试", "WP-测试", 6.0, 6.0),
+        ("T0009", "安全审计", "待开始", "章测试", "S4 集成测试", "WP-测试", 2.5, 0.0),
+        ("T0010", "文档编写", "待开始", "李文通", "S5 文档交付", "WP-文档", 3.5, 0.0),
+        ("T0011", "代码走查", "进行中", "周审查", "S3 编码实现", "WP-审查", 2.0, 0.5),
+        ("T0012", "验收测试", "已完成", "章测试", "S4 集成测试", "WP-测试", 4.5, 4.0),
+    ]
+    for (tid, name, status, assignee, stage, wp, est, act) in specs:
+        cards.append(_mk_card(tid, name, status, assignee, stage, wp, est=est, act=act))
+    _seed_cards(server, cards)
+    return cards
+
+
+# ===============================================================
+# 用例 3-7: GET /api/tasks 组合筛选
+# ===============================================================
+class TestApiTasksFilter:
+    def test_03_no_param_full_list(self, server):
+        """用例 3: 无参全量返回，响应携带 total/items/v"""
+        _seed_12(server)
+        s, r = _api(server, "GET", "/api/tasks")
+        assert s == 200
+        assert r["code"] == 200
+        assert r["data"]["total"] == 12
+        assert len(r["data"]["items"]) == 12
+        assert re.fullmatch(r"[0-9a-f]{12}", r["data"]["v"])
+
+    def test_04_status_filter(self, server):
+        """用例 4: status 精确过滤"""
+        _seed_12(server)
+        _, r = _api(server, "GET", "/api/tasks?status=已完成")
+        assert r["data"]["total"] == 4
+        assert all(c["status"] == "已完成" for c in r["data"]["items"])
+
+    def test_05_assignee_filter(self, server):
+        """用例 5: assignee 精确过滤"""
+        _seed_12(server)
+        _, r = _api(server, "GET", "/api/tasks?assignee=章测试")
+        assert r["data"]["total"] == 5
+        assert all(c["assignee"] == "章测试" for c in r["data"]["items"])
+
+    def test_06_stage_filter(self, server):
+        """用例 6: stage 过滤"""
+        _seed_12(server)
+        _, r = _api(server, "GET", "/api/tasks?stage=S2 系统设计")
+        assert r["data"]["total"] == 3
+        assert all(c["stage"] == "S2 系统设计" for c in r["data"]["items"])
+
+    def test_07_wp_filter(self, server):
+        """用例 7: wp 过滤（与 stage 同域兼容）"""
+        _seed_12(server)
+        _, r = _api(server, "GET", "/api/tasks?wp=WP-测试")
+        assert r["data"]["total"] == 4
+        assert all(c["wp"] == "WP-测试" for c in r["data"]["items"])
+
+
+# ===============================================================
+# 用例 8-14: 搜索 / 空结果 / 非法参数 400
+# ===============================================================
+class TestApiTasksSearch:
+    def test_08_keyword_multi_field(self, server):
+        """用例 8: keyword 跨多字段模糊搜索"""
+        _seed_12(server)
+        _, r = _api(server, "GET", "/api/tasks?keyword=测试")
+        names = {c["id"] for c in r["data"]["items"]}
+        assert "T0004" in names and "T0008" in names and "T0012" in names
+
+    def test_09_q_alias(self, server):
+        """用例 9: q 作为 keyword 别名"""
+        _seed_12(server)
+        _, r = _api(server, "GET", "/api/tasks?q=评审")
+        assert r["data"]["total"] == 2
+
+    def test_10_case_insensitive(self, server):
+        """用例 10: 搜索大小写不敏感（针对英文字段）"""
+        cards = [
+            _mk_card("T0001", "API Gateway 设计", "待开始", "李开发", "S1 需求分析", "WP-后端"),
+            _mk_card("T0002", "普通任务", "待开始", "李开发", "S1 需求分析", "WP-后端"),
+        ]
+        _seed_cards(server, cards)
+        _, r = _api(server, "GET", "/api/tasks?keyword=api gateway")
+        assert r["data"]["total"] == 1
+        assert r["data"]["items"][0]["id"] == "T0001"
+
+    def test_11_empty_result(self, server):
+        """用例 11: 空结果集返回（total=0, items=[]）"""
+        _seed_12(server)
+        _, r = _api(server, "GET", "/api/tasks?keyword=不存在的关键词xyz")
+        assert r["data"]["total"] == 0
+        assert r["data"]["items"] == []
+
+    def test_12_invalid_page_400(self, server):
+        """用例 12: 非法 page → 400"""
+        _seed_12(server)
+        for bad in ("0", "-1", "abc", "1.5"):
+            s, r = _api(server, "GET", f"/api/tasks?page={bad}")
+            assert s == 400, f"page={bad} 应 400，实际 {s}"
+            assert r["code"] == 400
+
+    def test_13_invalid_size_400(self, server):
+        """用例 13: 非法 size → 400"""
+        _seed_12(server)
+        for bad in ("5", "30", "abc", "0"):
+            s, r = _api(server, "GET", f"/api/tasks?size={bad}")
+            assert s == 400, f"size={bad} 应 400，实际 {s}"
+
+    def test_14_invalid_sort_order_400(self, server):
+        """用例 14: 非法 sort/order → 400"""
+        _seed_12(server)
+        s, r = _api(server, "GET", "/api/tasks?sort=name")
+        assert s == 400
+        s, r = _api(server, "GET", "/api/tasks?order=up")
+        assert s == 400
+
+
+# ===============================================================
+# 用例 15-20: 分页 page/size 与排序 sort/order
+# ===============================================================
+class TestApiTasksPaging:
+    def test_15_page_size_slice_and_total(self, server):
+        """用例 15: page+size 切片及 total 准确性"""
+        _seed_12(server)
+        _, r = _api(server, "GET", "/api/tasks?page=2&size=10")
+        assert r["data"]["total"] == 12
+        assert len(r["data"]["items"]) == 2
+        # 默认按 seq 升序：第 2 页应为 T0011..T0012
+        ids = [c["id"] for c in r["data"]["items"]]
+        assert ids == ["T0011", "T0012"]
+
+    def test_16_page_default_1(self, server):
+        """用例 16: 只给 size 时 page 默认 1"""
+        _seed_12(server)
+        _, r = _api(server, "GET", "/api/tasks?size=10")
+        assert len(r["data"]["items"]) == 10
+        assert r["data"]["items"][0]["id"] == "T0001"
+
+    def test_17_size_all_full(self, server):
+        """用例 17: size=all 返回全量"""
+        _seed_12(server)
+        _, r = _api(server, "GET", "/api/tasks?size=all")
+        assert r["data"]["total"] == 12
+        assert len(r["data"]["items"]) == 12
+
+    def test_18_size_tiers(self, server):
+        """用例 18: size 5 档位（10/20/50/100/all）均可用"""
+        _seed_12(server)
+        for sz in ("10", "20", "50", "100"):
+            _, r = _api(server, "GET", f"/api/tasks?size={sz}")
+            assert r["data"]["total"] == 12
+            assert len(r["data"]["items"]) == min(12, int(sz))
+
+    def test_19_out_of_range_page_empty(self, server):
+        """用例 19: 越界页返回空集（total 仍为命中总数）"""
+        _seed_12(server)
+        _, r = _api(server, "GET", "/api/tasks?page=99&size=10")
+        assert r["data"]["total"] == 12
+        assert r["data"]["items"] == []
+
+    def test_20_sort_combinations(self, server):
+        """用例 20: sort 白名单 × asc/desc 组合"""
+        _seed_12(server)
+        # 数值字段按数值比较：est_hours 升序
+        _, r = _api(server, "GET", "/api/tasks?sort=est_hours&order=asc&size=all")
+        ests = [c["est_hours"] for c in r["data"]["items"]]
+        assert ests == sorted(ests)
+        # est_hours 降序
+        _, r = _api(server, "GET", "/api/tasks?sort=est_hours&order=desc&size=all")
+        ests = [c["est_hours"] for c in r["data"]["items"]]
+        assert ests == sorted(ests, reverse=True)
+        # id 升序（T 编号数值序）
+        _, r = _api(server, "GET", "/api/tasks?sort=id&order=asc&size=all")
+        assert r["data"]["items"][0]["id"] == "T0001"
+        assert r["data"]["items"][-1]["id"] == "T0012"
+        # 默认 sort=seq, order=asc
+        _, r = _api(server, "GET", "/api/tasks?size=all")
+        assert r["data"]["items"][0]["id"] == "T0001"
