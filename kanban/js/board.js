@@ -1306,31 +1306,43 @@
         // Quick Inline Updates from Data Table
         async function quickUpdateStatus(cardId, newStatus) {
             const res = await apiTransitionTask(cardId, newStatus, 'Corey', '快捷状态调整');
-            if (res.ok) {
+            if (res && (res.ok || res.code === 200)) {
                 showToast(`已更新 ${cardId} 状态为: ${newStatus}`);
+                if (Array.isArray(rawCardsData)) {
+                    const c = rawCardsData.find(x => x.id === cardId);
+                    if (c) c.status = newStatus;
+                }
                 await loadTablePage(tablePaginationState.page || 1);
             } else {
-                showToast(`更新状态失败: ${res.error || '未知错误'}`, 'error');
+                showToast(`更新状态失败: ${(res && (res.error || res.message)) || '未知错误'}`, 'error');
             }
         }
 
         async function quickUpdateAssignee(cardId, newAssignee) {
             const res = await apiUpdateTask(cardId, { assignee: newAssignee, remarks: `负责人调整为 ${newAssignee}` });
-            if (res.ok) {
+            if (res && (res.ok || res.code === 200)) {
                 showToast(`已更新 ${cardId} 负责人为: ${newAssignee}`);
+                if (Array.isArray(rawCardsData)) {
+                    const c = rawCardsData.find(x => x.id === cardId);
+                    if (c) c.assignee = newAssignee;
+                }
                 await loadTablePage(tablePaginationState.page || 1);
             } else {
-                showToast(`更新负责人失败: ${res.error || '未知错误'}`, 'error');
+                showToast(`更新负责人失败: ${(res && (res.error || res.message)) || '未知错误'}`, 'error');
             }
         }
 
         async function quickUpdateHandler(cardId, newHandler) {
             const res = await apiUpdateTask(cardId, { handler: newHandler, remarks: `处理人调整为 ${newHandler}` });
-            if (res.ok) {
+            if (res && (res.ok || res.code === 200)) {
                 showToast(`已更新 ${cardId} 处理人为: ${newHandler}`);
+                if (Array.isArray(rawCardsData)) {
+                    const c = rawCardsData.find(x => x.id === cardId);
+                    if (c) c.handler = newHandler;
+                }
                 await loadTablePage(tablePaginationState.page || 1);
             } else {
-                showToast(`更新处理人失败: ${res.error || '未知错误'}`, 'error');
+                showToast(`更新处理人失败: ${(res && (res.error || res.message)) || '未知错误'}`, 'error');
             }
         }
 

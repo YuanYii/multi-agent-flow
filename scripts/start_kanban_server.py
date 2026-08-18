@@ -792,13 +792,13 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(400, "请求体格式不正确", None, http_status=400)
                 return
 
-            target_status = body_data.get("target_status")
+            target_status = body_data.get("target_status") or body_data.get("to_status") or body_data.get("status")
             if not target_status:
                 self._send_json_resp(400, "缺少 target_status 目标状态", None, http_status=400)
                 return
 
-            operator_name = normalize_role_name(body_data.get("operator_name")) or "李开发"
-            comment = body_data.get("comment", "").strip()
+            operator_name = normalize_role_name(body_data.get("operator_name") or body_data.get("operator")) or "Corey"
+            comment = (body_data.get("comment") or body_data.get("note") or "").strip()
 
             def _mutate_trans(cards):
                 card = next((c for c in cards if c.get("id") == task_id), None)

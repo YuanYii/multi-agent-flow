@@ -362,18 +362,19 @@ async function apiUpdateTask(taskId, patchData) {
         const resp = await res.json();
         if (res.status === 409) {
             handle409Conflict(resp.data);
-            return resp;
+            return { ok: false, code: 409, message: resp.message, error: resp.message };
         }
         if (res.ok && resp) {
             if (resp.data && resp.data.v) currentBoardVersion = resp.data.v;
-            return resp;
+            return { ok: true, code: 200, message: resp.message, data: resp.data };
         }
+        return { ok: false, code: res.status, message: resp.message, error: resp.message || `HTTP ${res.status}` };
     } catch (e) {
         console.warn(`[API] PUT /api/tasks/${taskId} offline`, e);
+        return { ok: false, error: e.message || '网络连接异常' };
     } finally {
         isWriteInFlight = false;
     }
-    return { code: 200, message: "本地更新完成" };
 }
 
 /**
@@ -392,18 +393,19 @@ async function apiDeleteTask(taskId) {
         const resp = await res.json();
         if (res.status === 409) {
             handle409Conflict(resp.data);
-            return resp;
+            return { ok: false, code: 409, message: resp.message, error: resp.message };
         }
         if (res.ok && resp) {
             if (resp.data && resp.data.v) currentBoardVersion = resp.data.v;
-            return resp;
+            return { ok: true, code: 200, message: resp.message, data: resp.data };
         }
+        return { ok: false, code: res.status, message: resp.message, error: resp.message || `HTTP ${res.status}` };
     } catch (e) {
         console.warn(`[API] DELETE /api/tasks/${taskId} offline`, e);
+        return { ok: false, error: e.message || '网络连接异常' };
     } finally {
         isWriteInFlight = false;
     }
-    return { code: 200, message: "本地删除完成" };
 }
 
 /**
@@ -426,27 +428,37 @@ async function apiBatchDeleteTasks(taskIds) {
         const resp = await res.json();
         if (res.status === 409) {
             handle409Conflict(resp.data);
-            return resp;
+            return { ok: false, code: 409, message: resp.message, error: resp.message };
         }
         if (res.ok && resp) {
             if (resp.data && resp.data.v) currentBoardVersion = resp.data.v;
-            return resp;
+            return { ok: true, code: 200, message: resp.message, data: resp.data };
         }
+        return { ok: false, code: res.status, message: resp.message, error: resp.message || `HTTP ${res.status}` };
     } catch (e) {
         console.warn('[API] POST /api/tasks/batch-delete offline', e);
+        return { ok: false, error: e.message || '网络连接异常' };
     } finally {
         isWriteInFlight = false;
     }
-    return { code: 200, message: "本地批量删除完成" };
 }
 
 /**
  * 接口 5: 状态流转与审计落盘 (POST /api/tasks/{id}/transition)
  */
-async function apiTransitionTask(taskId, transitionData) {
+async function apiTransitionTask(taskId, transitionData, operator, note) {
     isWriteInFlight = true;
     try {
-        const payload = Object.assign({}, transitionData);
+        let payload = {};
+        if (typeof transitionData === 'string') {
+            payload = {
+                target_status: transitionData,
+                operator_name: operator || 'Corey',
+                comment: note || '快捷状态流转'
+            };
+        } else if (transitionData && typeof transitionData === 'object') {
+            payload = Object.assign({}, transitionData);
+        }
         if (currentBoardVersion) payload._v = currentBoardVersion;
 
         const headers = { 'Content-Type': 'application/json' };
@@ -460,18 +472,19 @@ async function apiTransitionTask(taskId, transitionData) {
         const resp = await res.json();
         if (res.status === 409) {
             handle409Conflict(resp.data);
-            return resp;
+            return { ok: false, code: 409, message: resp.message, error: resp.message };
         }
         if (res.ok && resp) {
             if (resp.data && resp.data.v) currentBoardVersion = resp.data.v;
-            return resp;
+            return { ok: true, code: 200, message: resp.message, data: resp.data };
         }
+        return { ok: false, code: res.status, message: resp.message, error: resp.message || `HTTP ${res.status}` };
     } catch (e) {
         console.warn(`[API] POST /api/tasks/${taskId}/transition offline`, e);
+        return { ok: false, error: e.message || '网络连接异常' };
     } finally {
         isWriteInFlight = false;
     }
-    return { code: 200, message: "本地流转完成" };
 }
 
 /**
