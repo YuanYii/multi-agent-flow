@@ -342,3 +342,130 @@ class TestApiTasksPaging:
         # 默认 sort=seq, order=asc
         _, r = _api(server, "GET", "/api/tasks?size=all")
         assert r["data"]["items"][0]["id"] == "T0001"
+
+
+# ===============================================================
+# 用例 21-26: POST 新增 / PUT 修改 / DELETE 删除 / 409 乐观锁
+# ===============================================================
+class TestApiMutation:
+    def test_21_post_create_task(self, server):
+        """用例 21: POST 创建新任务，成功返回 200 + 卡片 + 新 v"""
+        _seed_cards(server, [])
+        s, r = _api(server, "POST", "/api/tasks", {
+            "name": "新任务A", "stage": "S1 需求分析", "wp": "WP-前端",
+            "assignee": "李开发", "status": "待开始"
+        })
+        assert s == 200
+        assert r["code"] == 200
+        assert r["data"]["id"] == "T0001"
+        assert r["data"]["name"] == "新任务A"
+        assert re.fullmatch(r"[0-9a-f]{12}", r["data"]["v"])
+
+    def test_22_post_duplicate_id_409(self, server):
+        """用例 22: POST 同 ID 重复创建 → 409 已存在"""
+        _seed_cards(server, [_mk_card("T0001", "已有任务")])
+        s, r = _api(server, "POST", "/api/tasks", {"id": "T0001", "name": "冲突任务"})
+        assert s == 409
+        assert r["code"] == 409
+        assert "已存在" in r["message"]
+
+    def test_23_post_missing_name_400(self, server):
+        """用例 23: POST 缺少 name 必填字段 → 400"""
+        _seed_cards(server, [])
+        s, r = _api(server, "POST", "/api/tasks", {"stage": "S1"})
+        assert s == 400
+        assert r["code"] == 400
+
+    def test_24_put_update_task(self, server):
+        """用例 24: PUT 更新单条任务字段"""
+        _seed_cards(server, [_mk_card("T0001", "原名称", "待开始")])
+        s, r = _api(server, "PUT", "/api/tasks/T0001", {
+            "name": "更新后名称", "status": "进行中", "act_hours": 3.5
+        })
+        assert s == 200
+        assert r["code"] == 200
+        assert "name" in r["data"]["updated_fields"]
+        assert r["data"]["card"]["name"] == "更新后名称"
+        assert r["data"]["card"]["status"] == "进行中"
+
+    def test_25_optimistic_lock_409_conflict(self, server):
+        """用例 25: 携带 If-Match / v，当数据被外部修改导致哈希不一致时 → 409 Conflict 拦截且不覆盖数据"""
+        _seed_cards(server, [_mk_card("T0001", "初始版本")])
+        _, ver_resp = _api(server, "GET", "/api/version")
+        stale_v = ver_resp["data"]["v"]
+
+        # 外部修改数据（如 CLI 或其他客户端提交）
+        _seed_cards(server, [_mk_card("T0001", "外部并发修改")])
+
+        # 客户端使用过期的 stale_v 提交 PUT 更新
+        s, r = _api(server, "PUT", "/api/tasks/T0001", {
+            "name": "过期客户端尝试覆盖", "v": stale_v
+        })
+        assert s == 409
+        assert r["code"] == 409
+        assert "conflict" in r["message"] or "冲突" in r["message"]
+        # 验证服务端当前最新 v 已返回
+        assert "v" in r["data"]
+
+        # 验证原数据未被错误覆盖
+        _, get_r = _api(server, "GET", "/api/tasks")
+        assert get_r["data"]["items"][0]["name"] == "外部并发修改"
+
+    def test_26_delete_single_and_batch(self, server):
+        """用例 26: DELETE 单删与批量删除"""
+        _seed_cards(server, [_mk_card("T0001"), _mk_card("T0002"), _mk_card("T0003")])
+        # 单删
+        s, r = _api(server, "DELETE", "/api/tasks/T0001")
+        assert s == 200
+        assert r["data"]["deleted_id"] == "T0001"
+
+        # 批量删除
+        s, r = _api(server, "DELETE", "/api/tasks?ids=T0002,T0003")
+        assert s == 200
+        assert r["data"]["deleted"] == 2
+        assert r["data"]["remaining_total"] == 0
+
+
+# ===============================================================
+# 用例 27-28: 并发安全性（多线程 HTTP 并发 + CLI 双层锁互斥）
+# ===============================================================
+class TestConcurrencyLock:
+    def test_27_multi_thread_http_concurrent_writes(self, server):
+        """用例 27: 10 线程并发写入 20 次，验证无文件损坏且数据最终一致"""
+        _seed_cards(server, [])
+        threads = []
+        errors = []
+
+        def worker(thread_idx):
+            for i in range(2):
+                s, r = _api(server, "POST", "/api/tasks", {
+                    "name": f"并发任务-{thread_idx}-{i}", "assignee": "李开发"
+                })
+                if s != 200:
+                    errors.append((s, r))
+
+        for t_i in range(10):
+            t = threading.Thread(target=worker, args=(t_i,))
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0, f"并发写出现错误: {errors}"
+        s, r = _api(server, "GET", "/api/tasks?size=all")
+        assert s == 200
+        assert r["data"]["total"] == 20
+        assert len(r["data"]["items"]) == 20
+        # 验证 seq 连续且不重复
+        seqs = [c["seq"] for c in r["data"]["items"]]
+        assert seqs == list(range(1, 21))
+
+    def test_28_server_and_file_lock_coexistence(self, server):
+        """用例 28: Server HTTP 写入与底层 atomic_mutate_board_data 共用 seq.lock，验证双层锁协同"""
+        _seed_cards(server, [_mk_card("T0001", "基线任务")])
+        s, r = _api(server, "POST", "/api/tasks", {"name": "HTTP新增任务"})
+        assert s == 200
+        assert r["data"]["id"] == "T0002"
+        s, r = _api(server, "GET", "/api/tasks?size=all")
+        assert r["data"]["total"] == 2

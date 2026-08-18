@@ -135,6 +135,51 @@ def atomic_write_board_data(cards: list) -> bool:
             file_lock.release_lock(handle)
 
 
+def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
+    """持文件排他锁执行 board.json 变更，支持 HTTP 409 乐观并发控制。
+
+    mutate_fn(cards: list) -> (success: bool, status_code: int, message: str, result_data: dict)
+    返回: (status_code, message, result_data)
+    - 若指定 expected_version 且持锁比对当前哈希不一致 -> 返回 (409, "conflict", {"v": current_v})
+    - 否则执行 mutate_fn，原子替换落盘，返回 (status_code, message, {**result_data, "v": new_v})
+    """
+    os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
+    target_dir = os.path.dirname(USER_DATA_BOARD)
+    handle = None
+    try:
+        handle = file_lock.acquire_lock(LOCK_FILE, blocking=True, timeout=5.0)
+        current_v = compute_board_version()
+        if expected_version and expected_version != current_v:
+            return 409, "数据已被其他操作修改，发生版本冲突 (conflict)", {"v": current_v}
+
+        cards = read_board_data()
+        success, code, msg, res_data = mutate_fn(cards)
+        if not success:
+            return code, msg, res_data
+
+        # 规范化 seq 序号
+        for idx, card in enumerate(cards, start=1):
+            card["seq"] = idx
+
+        with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
+            json.dump(cards, tf, indent=2, ensure_ascii=False)
+            tmp_name = tf.name
+        os.replace(tmp_name, USER_DATA_BOARD)
+
+        new_v = compute_board_version()
+        if isinstance(res_data, dict):
+            res_data["v"] = new_v
+        elif res_data is None:
+            res_data = {"v": new_v}
+        return code, msg, res_data
+    except Exception as e:
+        sys.stderr.write(f"[ERROR] atomic_mutate_board_data failed: {e}\n")
+        return 500, f"数据写入磁盘失败: {e}", None
+    finally:
+        if handle:
+            file_lock.release_lock(handle)
+
+
 BOARD_TITLE_SUFFIX = "Multi Agent任务看板"
 
 
@@ -360,6 +405,21 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         raw_body = self.rfile.read(content_length).decode("utf-8")
         return json.loads(raw_body)
 
+    def _extract_expected_version(self, body_data=None) -> str:
+        """从 If-Match / X-Board-Version 请求头或请求体 (_v/v/expected_v) 提取期望版本哈希"""
+        if_match = (self.headers.get("If-Match") or "").strip().strip('"').strip("'")
+        if if_match and if_match != "*":
+            return if_match[:12]
+        x_ver = (self.headers.get("X-Board-Version") or "").strip()
+        if x_ver:
+            return x_ver[:12]
+        if isinstance(body_data, dict):
+            for k in ("_v", "v", "expected_v"):
+                v_val = str(body_data.get(k) or "").strip()
+                if v_val:
+                    return v_val[:12]
+        return ""
+
     # -------------------------------------------------------------
     # GET 路由分发
     # -------------------------------------------------------------
@@ -578,19 +638,25 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             self._send_json_resp(400, f"JSON 载荷解析失败: {e}", None, http_status=400)
             return
 
+        expected_v = self._extract_expected_version(body_data)
+
         # 1. 向后兼容：POST /board.json (全量数组落盘)
         if path in ("/board.json", "/user_data/board.json", "/api/save_board"):
             if not isinstance(body_data, list):
                 self._send_json_resp(400, "载荷必须为任务卡片数组", None, http_status=400)
                 return
-            if atomic_write_board_data(body_data):
-                self._send_json_resp(200, "保存成功", {"count": len(body_data)})
-            else:
-                self._send_json_resp(500, "数据写入磁盘失败", None, http_status=500)
+
+            def _mutate_bulk(cards):
+                cards.clear()
+                cards.extend(body_data)
+                return True, 200, "保存成功", {"count": len(cards)}
+
+            code, msg, data = atomic_mutate_board_data(_mutate_bulk, expected_version=expected_v)
+            self._send_json_resp(code, msg, data, http_status=code)
             return
 
-        # 2. REST API: POST /api/tasks (创建新任务，支持排他锁自增 ID)
-        if path == "/api/tasks":
+        # 2. REST API: POST /api/tasks 或 /api/cards (创建新任务，支持排他锁自增 ID)
+        if path in ("/api/tasks", "/api/cards"):
             if not isinstance(body_data, dict):
                 self._send_json_resp(400, "请求体必须为 JSON 对象", None, http_status=400)
                 return
@@ -600,76 +666,81 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(400, "任务名称 (name) 不能为空", None, http_status=400)
                 return
 
-            cards = read_board_data()
-            req_id = str(body_data.get("id", "")).strip()
-            if req_id:
-                # 检查 ID 是否冲突
-                if any(c.get("id") == req_id for c in cards):
-                    self._send_json_resp(409, f"任务编号 [{req_id}] 已存在", None, http_status=409)
-                    return
-                new_id = req_id
-            else:
-                new_id = allocate_next_task_id(cards)
+            def _mutate_create(cards):
+                req_id = str(body_data.get("id", "")).strip()
+                if req_id:
+                    if any(c.get("id") == req_id for c in cards):
+                        return False, 409, f"任务编号 [{req_id}] 已存在", None
+                    new_id = req_id
+                else:
+                    new_id = allocate_next_task_id(cards)
 
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            status = body_data.get("status") or "待开始"
-            assignee = normalize_role_name(body_data.get("assignee")) or "李开发"
-            remarks = body_data.get("remarks", "")
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                status = body_data.get("status") or "待开始"
+                assignee = normalize_role_name(body_data.get("assignee")) or "李开发"
+                remarks = body_data.get("remarks", "")
 
-            new_card = {
-                "id": new_id,
-                "seq": len(cards) + 1,
-                "name": name,
-                "stage": body_data.get("stage", "S6 工作流集成测试"),
-                "wp": body_data.get("wp", "WP-自定义"),
-                "wbs": body_data.get("wbs", ""),
-                "assignee": assignee,
-                "status": status,
-                "handler": body_data.get("handler", assignee),
-                "act_hours": body_data.get("act_hours", 0),
-                "start_date": body_data.get("start_date", now_str),
-                "end_date": body_data.get("end_date", ""),
-                "remarks": remarks,
-                "process": ""
-            }
+                new_card = {
+                    "id": new_id,
+                    "seq": len(cards) + 1,
+                    "name": name,
+                    "stage": body_data.get("stage", "S6 工作流集成测试"),
+                    "wp": body_data.get("wp", "WP-自定义"),
+                    "wbs": body_data.get("wbs", ""),
+                    "assignee": assignee,
+                    "status": status,
+                    "handler": body_data.get("handler", assignee),
+                    "est_hours": float(body_data.get("est_hours", 0) or 0),
+                    "act_hours": float(body_data.get("act_hours", 0) or 0),
+                    "start_date": body_data.get("start_date", now_str),
+                    "end_date": body_data.get("end_date", ""),
+                    "remarks": remarks,
+                    "process": ""
+                }
 
-            # 建单即写首条节点（新建→待开始）——时间线从建卡起步，不再缺第一环
-            node_id = f"{new_id}-N01"
-            init_process = body_data.get("process") or \
-                f"[{node_id}]  [{now_str}]  建单并进入【{status}】，操作人: {assignee}" + \
-                (f"\n操作说明: {remarks}" if remarks else "")
-            new_card["process"] = init_process
+                node_id = f"{new_id}-N01"
+                init_process = body_data.get("process") or \
+                    f"[{node_id}]  [{now_str}]  建单并进入【{status}】，操作人: {assignee}" + \
+                    (f"\n操作说明: {remarks}" if remarks else "")
+                new_card["process"] = init_process
 
-            cards.append(new_card)
-            if atomic_write_board_data(cards):
+                cards.append(new_card)
                 append_audit_log(new_id, "PM", "无", status, assignee, f"创建任务: {name}")
-                self._send_json_resp(200, f"成功创建任务 {new_id}", new_card)
-            else:
-                self._send_json_resp(500, "写入磁盘失败", None, http_status=500)
+                return True, 200, f"成功创建任务 {new_id}", new_card
+
+            code, msg, data = atomic_mutate_board_data(_mutate_create, expected_version=expected_v)
+            self._send_json_resp(code, msg, data, http_status=code)
             return
 
-        # 3. REST API: POST /api/tasks/batch-delete (批量删除)
-        if path == "/api/tasks/batch-delete":
-            if not isinstance(body_data, dict) or "task_ids" not in body_data:
-                self._send_json_resp(400, "缺少 task_ids 列表", None, http_status=400)
+        # 3. REST API: POST /api/tasks/batch-delete 或 /api/cards/batch-delete (批量删除)
+        if path in ("/api/tasks/batch-delete", "/api/cards/batch-delete"):
+            if not isinstance(body_data, dict) or ("task_ids" not in body_data and "ids" not in body_data):
+                self._send_json_resp(400, "缺少 task_ids 或 ids 列表", None, http_status=400)
                 return
 
-            task_ids_to_del = set(body_data.get("task_ids", []))
-            cards = read_board_data()
-            remaining = [c for c in cards if c.get("id") not in task_ids_to_del]
-            deleted_count = len(cards) - len(remaining)
+            raw_ids = body_data.get("task_ids") or body_data.get("ids") or []
+            task_ids_to_del = set(raw_ids)
 
-            if atomic_write_board_data(remaining):
-                self._send_json_resp(200, f"成功删除 {deleted_count} 条任务", {
+            def _mutate_batch_del(cards):
+                initial_count = len(cards)
+                remaining = [c for c in cards if c.get("id") not in task_ids_to_del]
+                cards.clear()
+                cards.extend(remaining)
+                deleted_count = initial_count - len(cards)
+                for tid in task_ids_to_del:
+                    append_audit_log(tid, "PM", "-", "已删除", "用户", f"批量删除任务: {tid}")
+                return True, 200, f"成功删除 {deleted_count} 条任务", {
                     "deleted_count": deleted_count,
-                    "remaining_total": len(remaining)
-                })
-            else:
-                self._send_json_resp(500, "删除操作落盘失败", None, http_status=500)
+                    "deleted": deleted_count,
+                    "remaining_total": len(cards)
+                }
+
+            code, msg, data = atomic_mutate_board_data(_mutate_batch_del, expected_version=expected_v)
+            self._send_json_resp(code, msg, data, http_status=code)
             return
 
-        # 4. REST API: POST /api/tasks/{task_id}/transition (状态流转与审计落盘)
-        m_trans = re.match(r"^/api/tasks/([A-Za-z0-9_\-]+)/transition$", path)
+        # 4. REST API: POST /api/tasks/{task_id}/transition 或 /api/cards/{task_id}/transition
+        m_trans = re.match(r"^/api/(?:tasks|cards)/([A-Za-z0-9_\-]+)/transition$", path)
         if m_trans:
             task_id = m_trans.group(1)
             if not isinstance(body_data, dict):
@@ -684,44 +755,41 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             operator_name = normalize_role_name(body_data.get("operator_name")) or "李开发"
             comment = body_data.get("comment", "").strip()
 
-            cards = read_board_data()
-            card = next((c for c in cards if c.get("id") == task_id), None)
-            if not card:
-                self._send_json_resp(404, f"未找到任务 [{task_id}]", None, http_status=404)
-                return
+            def _mutate_trans(cards):
+                card = next((c for c in cards if c.get("id") == task_id), None)
+                if not card:
+                    return False, 404, f"未找到任务 [{task_id}]", None
 
-            from_status = card.get("status", "待开始")
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                from_status = card.get("status", "待开始")
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            # 更新卡片状态 + 处理人（编码归一化为角色名，assignee 恒中文）
-            card["status"] = target_status
-            new_assignee = normalize_role_name(body_data.get("assignee"))
-            if new_assignee:
-                card["assignee"] = new_assignee
-            if target_status in ("已完成", "已验收"):
-                card["end_date"] = now_str
+                card["status"] = target_status
+                new_assignee = normalize_role_name(body_data.get("assignee"))
+                if new_assignee:
+                    card["assignee"] = new_assignee
+                if target_status in ("已完成", "已验收"):
+                    card["end_date"] = now_str
 
-            # 追加流转节点（任务ID-N序号 双标识；说明独立成行）
-            node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
-            log_text = f"[{node_id}]  [{now_str}]  状态由【{from_status}】更新至【{target_status}】，操作人: {operator_name}"
-            if comment:
-                log_text += f"\n操作说明: {comment}"
+                node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
+                log_text = f"[{node_id}]  [{now_str}]  状态由【{from_status}】更新至【{target_status}】，操作人: {operator_name}"
+                if comment:
+                    log_text += f"\n操作说明: {comment}"
 
-            current_process = card.get("process", "")
-            card["process"] = f"{current_process}\n{log_text}".strip()
+                current_process = card.get("process", "")
+                card["process"] = f"{current_process}\n{log_text}".strip()
 
-            if atomic_write_board_data(cards):
                 audit_role = body_data.get("operator_role") or "USER"
                 append_audit_log(task_id, audit_role, from_status, target_status, operator_name, comment)
-                self._send_json_resp(200, "状态流转成功", {
+                return True, 200, "状态流转成功", {
                     "id": task_id,
                     "node_id": node_id,
                     "from_status": from_status,
                     "to_status": target_status,
                     "history_entry": log_text
-                })
-            else:
-                self._send_json_resp(500, "状态流转落盘失败", None, http_status=500)
+                }
+
+            code, msg, data = atomic_mutate_board_data(_mutate_trans, expected_version=expected_v)
+            self._send_json_resp(code, msg, data, http_status=code)
             return
 
         self._send_json_resp(404, "Not Found", None, http_status=404)
@@ -739,27 +807,29 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             self._send_json_resp(400, f"JSON 载荷解析失败: {e}", None, http_status=400)
             return
 
-        # 1. REST API: PUT /api/tasks/reorder (拖拽卡片重排序)
-        if path == "/api/tasks/reorder":
-            if not isinstance(body_data, dict) or "ordered_task_ids" not in body_data:
-                self._send_json_resp(400, "缺少 ordered_task_ids", None, http_status=400)
+        expected_v = self._extract_expected_version(body_data)
+
+        # 1. REST API: PUT /api/tasks/reorder 或 /api/cards/reorder (拖拽卡片重排序)
+        if path in ("/api/tasks/reorder", "/api/cards/reorder"):
+            if not isinstance(body_data, dict) or ("ordered_task_ids" not in body_data and "ordered_ids" not in body_data):
+                self._send_json_resp(400, "缺少 ordered_task_ids 或 ordered_ids", None, http_status=400)
                 return
 
-            ordered_ids = body_data.get("ordered_task_ids", [])
-            cards = read_board_data()
-            cards_map = {c.get("id"): c for c in cards}
+            ordered_ids = body_data.get("ordered_task_ids") or body_data.get("ordered_ids") or []
 
-            new_ordered_cards = []
-            for tid in ordered_ids:
-                if tid in cards_map:
-                    new_ordered_cards.append(cards_map.pop(tid))
-            # 补齐未在排序列表中的剩余任务
-            new_ordered_cards.extend(cards_map.values())
+            def _mutate_reorder(cards):
+                cards_map = {c.get("id"): c for c in cards}
+                new_ordered_cards = []
+                for tid in ordered_ids:
+                    if tid in cards_map:
+                        new_ordered_cards.append(cards_map.pop(tid))
+                new_ordered_cards.extend(cards_map.values())
+                cards.clear()
+                cards.extend(new_ordered_cards)
+                return True, 200, "排序保存成功", {"count": len(cards), "reordered": len(ordered_ids)}
 
-            if atomic_write_board_data(new_ordered_cards):
-                self._send_json_resp(200, "排序保存成功", {"count": len(new_ordered_cards)})
-            else:
-                self._send_json_resp(500, "重排序落盘失败", None, http_status=500)
+            code, msg, data = atomic_mutate_board_data(_mutate_reorder, expected_version=expected_v)
+            self._send_json_resp(code, msg, data, http_status=code)
             return
 
         # 2. REST API: PUT /api/board/meta 或 /api/preferences (更新偏好配置与标题)
@@ -776,39 +846,40 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(500, "偏好设置落盘失败", None, http_status=500)
             return
 
-        # 3. REST API: PUT /api/tasks/{task_id} (编辑更新单条任务)
-        m_task = re.match(r"^/api/tasks/([A-Za-z0-9_\-]+)$", path)
+        # 3. REST API: PUT /api/tasks/{task_id} 或 /api/cards/{task_id} (编辑更新单条任务)
+        m_task = re.match(r"^/api/(?:tasks|cards)/([A-Za-z0-9_\-]+)$", path)
         if m_task:
             task_id = m_task.group(1)
             if not isinstance(body_data, dict):
                 self._send_json_resp(400, "请求体必须为 JSON 对象", None, http_status=400)
                 return
 
-            cards = read_board_data()
-            card = next((c for c in cards if c.get("id") == task_id), None)
-            if not card:
-                self._send_json_resp(404, f"未找到任务 [{task_id}]", None, http_status=404)
-                return
+            def _mutate_put(cards):
+                card = next((c for c in cards if c.get("id") == task_id), None)
+                if not card:
+                    return False, 404, f"未找到任务 [{task_id}]", None
 
-            # 可修改字段白名单
-            updatable_fields = [
-                "name", "stage", "wp", "wbs", "assignee", "handler",
-                "status", "est_hours", "act_hours", "start_date",
-                "end_date", "remarks", "process"
-            ]
-            updated_keys = []
-            for k in updatable_fields:
-                if k in body_data:
-                    card[k] = body_data[k]
-                    updated_keys.append(k)
+                updatable_fields = [
+                    "name", "stage", "wp", "wbs", "assignee", "handler",
+                    "status", "est_hours", "act_hours", "start_date",
+                    "end_date", "remarks", "process"
+                ]
+                updated_keys = []
+                for k in updatable_fields:
+                    if k in body_data:
+                        card[k] = body_data[k]
+                        updated_keys.append(k)
 
-            if atomic_write_board_data(cards):
-                self._send_json_resp(200, f"任务 {task_id} 更新成功", {
+                append_audit_log(task_id, "USER", card.get("status", "-"), card.get("status", "-"),
+                                 card.get("assignee", "用户"), f"更新任务字段: {','.join(updated_keys)}")
+                return True, 200, f"任务 {task_id} 更新成功", {
                     "id": task_id,
-                    "updated_fields": updated_keys
-                })
-            else:
-                self._send_json_resp(500, "更新落盘失败", None, http_status=500)
+                    "updated_fields": updated_keys,
+                    "card": card
+                }
+
+            code, msg, data = atomic_mutate_board_data(_mutate_put, expected_version=expected_v)
+            self._send_json_resp(code, msg, data, http_status=code)
             return
 
         self._send_json_resp(404, "Not Found", None, http_status=404)
@@ -819,24 +890,68 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     def do_DELETE(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        query = parse_qs(parsed.query)
 
-        # REST API: DELETE /api/tasks/{task_id}
-        m_task = re.match(r"^/api/tasks/([A-Za-z0-9_\-]+)$", path)
+        body_data = None
+        try:
+            body_data = self._parse_request_json()
+        except Exception:
+            pass
+
+        expected_v = self._extract_expected_version(body_data)
+
+        # 1. REST API: DELETE /api/tasks/{task_id} 或 /api/cards/{task_id}
+        m_task = re.match(r"^/api/(?:tasks|cards)/([A-Za-z0-9_\-]+)$", path)
         if m_task:
             task_id = m_task.group(1)
-            cards = read_board_data()
-            initial_len = len(cards)
-            cards = [c for c in cards if c.get("id") != task_id]
 
-            if len(cards) == initial_len:
-                self._send_json_resp(404, f"未找到待删除任务 [{task_id}]", None, http_status=404)
+            def _mutate_del_one(cards):
+                initial_len = len(cards)
+                remaining = [c for c in cards if c.get("id") != task_id]
+                if len(remaining) == initial_len:
+                    return False, 404, f"未找到待删除任务 [{task_id}]", None
+                cards.clear()
+                cards.extend(remaining)
+                append_audit_log(task_id, "PM", "-", "已删除", "用户", f"删除任务: {task_id}")
+                return True, 200, f"成功删除任务 {task_id}", {"deleted_id": task_id, "deleted": 1}
+
+            code, msg, data = atomic_mutate_board_data(_mutate_del_one, expected_version=expected_v)
+            self._send_json_resp(code, msg, data, http_status=code)
+            return
+
+        # 2. REST API: DELETE /api/tasks 或 /api/cards (批量删除 ?ids=id1,id2 或 body)
+        if path in ("/api/tasks", "/api/cards"):
+            ids_param = query.get("ids", [None])[0] or query.get("task_ids", [None])[0]
+            ids_list = []
+            if ids_param:
+                ids_list = [x.strip() for x in ids_param.split(",") if x.strip()]
+            elif isinstance(body_data, dict):
+                ids_list = body_data.get("ids") or body_data.get("task_ids") or []
+            elif isinstance(body_data, list):
+                ids_list = body_data
+
+            if not ids_list:
+                self._send_json_resp(400, "缺少待删除任务 ID 列表 (ids)", None, http_status=400)
                 return
 
-            if atomic_write_board_data(cards):
-                append_audit_log(task_id, "PM", "-", "已删除", "用户", f"删除任务: {task_id}")
-                self._send_json_resp(200, f"成功删除任务 {task_id}", {"deleted_id": task_id})
-            else:
-                self._send_json_resp(500, "删除落盘失败", None, http_status=500)
+            task_ids_to_del = set(ids_list)
+
+            def _mutate_del_multi(cards):
+                initial_len = len(cards)
+                remaining = [c for c in cards if c.get("id") not in task_ids_to_del]
+                cards.clear()
+                cards.extend(remaining)
+                deleted_count = initial_len - len(cards)
+                for tid in task_ids_to_del:
+                    append_audit_log(tid, "PM", "-", "已删除", "用户", f"批量删除任务: {tid}")
+                return True, 200, f"成功删除 {deleted_count} 条任务", {
+                    "deleted": deleted_count,
+                    "deleted_count": deleted_count,
+                    "remaining_total": len(cards)
+                }
+
+            code, msg, data = atomic_mutate_board_data(_mutate_del_multi, expected_version=expected_v)
+            self._send_json_resp(code, msg, data, http_status=code)
             return
 
         self._send_json_resp(404, "Not Found", None, http_status=404)
