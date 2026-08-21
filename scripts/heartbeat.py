@@ -227,7 +227,7 @@ def run_heartbeat(
                 "task_id": tid,
                 "message": f"任务 {tid} 处于【测试中】,处理人应为 QA,当前为 {assignee}",
             })
-        if status in ("已完成", "已验收") and not any(k in assignee_str for k in ["PM", "严经理", "经理"]):
+        if status in ("已完成", "已验收", "已取消") and not any(k in assignee_str for k in ["PM", "严经理", "经理"]):
             alerts.append({
                 "severity": "warning",
                 "code": "ASSIGNEE_MISMATCH_TERMINAL",
@@ -236,7 +236,7 @@ def run_heartbeat(
             })
 
         # ---- 巡检 4: 终态结束时间必填 ----
-        if status in ("已完成", "已验收") and not end_dt:
+        if status in ("已完成", "已验收", "已取消") and not end_dt:
             alerts.append({
                 "severity": "critical",
                 "code": "MISSING_END_TIME",

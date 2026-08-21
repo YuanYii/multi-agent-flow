@@ -14,13 +14,23 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
     "PM": [
         "待开始 -> 进行中",
         "待开始 -> 已验收",
+        "待开始 -> 已取消",
         "进行中 -> 已验收",
+        "进行中 -> 已取消",
         "审查中 -> 测试中",
         "审查中 -> 已退回",
+        "审查中 -> 已取消",
+        "测试中 -> 已完成",
+        "测试中 -> 已退回",
+        "测试中 -> 已取消",
         "已完成 -> 已验收",
         "已完成 -> 已退回",
+        "已完成 -> 已取消",
         "进行中 -> 已阻塞",
-        "已阻塞 -> 进行中"
+        "已阻塞 -> 进行中",
+        "已阻塞 -> 已取消",
+        "已退回 -> 进行中",
+        "已退回 -> 已取消"
     ],
     "ARCHITECT": [
         "待开始 -> 进行中",
@@ -181,8 +191,17 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
         print("[REJECT 阻断原因缺失] 置为【已阻塞】必须携带 --remarks 写明阻断原因（约定格式：【阻断】<原因>）！")
         return False
 
+    # 2.3 置【已取消】必须携带取消原因备注，且经办人必须收敛至 PM (严经理)
+    if to_status == "已取消":
+        if not remarks:
+            print("[REJECT 取消原因缺失] 置为【已取消】必须携带 --remarks 写明取消原因！")
+            return False
+        if not any(k in str(assignee).upper() for k in ["PM", "严经理", "经理"]):
+            print(f"[REJECT 处理人拦截] 任务置为终态【已取消】时，经办人 (Assignee) 必须收敛至 PM (严经理)，当前为 '{assignee}'！")
+            return False
+
     # 3. 终态结束时间强校验 (E 类用户自执行任务豁免 end_time 强校验)
-    if to_status in ["已完成", "已验收"] and not end_time:
+    if to_status in ["已完成", "已验收", "已取消"] and not end_time:
         if type_upper == "E":
             print(f"[EXEMPT 豁免提示] E 类 (用户自执行/审批) 任务在推动至 '{to_status}' 时物理豁免 end_time 强校验。")
         else:

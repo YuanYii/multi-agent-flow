@@ -122,7 +122,18 @@ class OfflineBoardAdapter:
         return []
 
     def _write_cards(self, cards: List[Dict[str, Any]]) -> bool:
-        """原子写：先写临时文件再 os.replace，避免半写文件。"""
+        """原子写：先写临时文件再 os.replace，避免半写文件。内置只追加完整性校验断言。"""
+        # 只追加断言校验（Append-Only Integrity Assertion）：
+        # 禁止以任何形式物理删除历史已存在的 Task ID
+        old_cards = self._read_cards()
+        if old_cards:
+            old_ids = {str(c.get("id")) for c in old_cards if c.get("id")}
+            new_ids = {str(c.get("id")) for c in cards if c.get("id")}
+            missing = old_ids - new_ids
+            if missing:
+                sys.stderr.write(f"[FATAL 数据完整性校验失败] 检测到企图物理删除历史任务卡 {missing}！已硬拦截物理写入。\n")
+                return False
+
         tmp_path = None
         try:
             os.makedirs(os.path.dirname(self.board_file) or ".", exist_ok=True)
@@ -235,12 +246,13 @@ class OfflineBoardAdapter:
             cards = self._read_cards()
             for c in cards:
                 if str(c.get("id")) == str(record_id):
-                    # 防篡改硬拦截：在终态【已验收】时，禁止将其跨跃更新至非已验收状态
+                    # 防篡改硬拦截：在终态【已验收】或【已取消】时，禁止将其跨跃更新至非终态状态
                     translated = self._translate(fields)
-                    if c.get("status") == "已验收":
+                    curr_st = c.get("status")
+                    if curr_st in ("已验收", "已取消"):
                         new_st = translated.get("status")
-                        if new_st and new_st != "已验收":
-                            print(f"[REJECT 终态防篡改] 任务 {record_id} 已处于最终【已验收】状态，绝对禁止将其修改为【{new_st}】！")
+                        if new_st and new_st != curr_st:
+                            print(f"[REJECT 终态防篡改] 任务 {record_id} 已处于最终【{curr_st}】状态，绝对禁止将其修改为【{new_st}】！")
                             return False
                     c.update(translated)
                     # 若存在开始与结束时间，自动按 (结束-开始) 计算实际工时 (分钟)
