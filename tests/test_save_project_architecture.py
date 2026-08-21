@@ -4,6 +4,13 @@
 """
 
 import os
+import sys
+
+_TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+_SKILL_DIR = os.path.dirname(_TESTS_DIR)
+if _SKILL_DIR not in sys.path:
+    sys.path.insert(0, _SKILL_DIR)
+
 import yaml
 import pytest
 from scripts.save_project_architecture import save_architecture_config, validate_schema

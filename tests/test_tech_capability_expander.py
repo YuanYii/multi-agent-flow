@@ -5,6 +5,14 @@
 6 大角色技术能力拓展的准确性与 3~5 项弹性约束。
 """
 
+import os
+import sys
+
+_TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+_SKILL_DIR = os.path.dirname(_TESTS_DIR)
+if _SKILL_DIR not in sys.path:
+    sys.path.insert(0, _SKILL_DIR)
+
 import pytest
 from scripts._lib.core.tech_capability_expander import expand_expert_capabilities
 

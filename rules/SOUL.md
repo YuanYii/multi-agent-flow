@@ -14,6 +14,8 @@
    打回绝不派生新任务编号，缺陷结构化写入原任务 `备注`。
 4. **复验结论追加不割裂 (Appended Audit)**：
    复审与复测结论直接追加至原报告，禁止独立新建孤儿复审/复测文件。
+5. **无工单不 Git 与内外隔离 (No Task, No Git & Clean Commit)**：
+   任何代码提交、分支推送或 PR 发起内部必须绑定明确的看板工单；外部 Commit Message 与 PR 正文严格保持通用纯净，严禁泄露内部任务编号与虚拟专家人名。
 
 ---
 
@@ -21,3 +23,4 @@
 
 完整的防错门控、拦截处理与提权代行逻辑详见指引：
 ->  [`../references/03-Anti-Error-Mechanism.md`](../references/03-Anti-Error-Mechanism.md)
+
