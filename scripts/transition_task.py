@@ -308,11 +308,13 @@ def transition_task_pipeline(
                 assignee_k = field_mapping.get("assignee", "assignee")
                 recs = adapter.list_records(limit=1000)
                 board_active_count = 0
+                target_norms = {normalize_role(assignee), normalize_role(current_role), assignee, current_role}
                 for r in recs:
                     f = r.get("fields", {})
                     st_val = str(f.get(status_k) or f.get("status") or "")
                     as_val = str(f.get(assignee_k) or f.get("assignee") or "")
-                    if st_val == "进行中" and (as_val == assignee or as_val == current_role):
+                    as_norm = normalize_role(as_val)
+                    if st_val == "进行中" and (as_norm in target_norms or as_val in target_norms):
                         board_active_count += 1
                 effective_active_dev_count = max(active_dev_count, board_active_count)
             except Exception:
