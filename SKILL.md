@@ -20,6 +20,7 @@ version: 1.0.0
 | **`/yy-flow status`** | **看板全局大盘与健康巡检**：一键输出项目完成进度、交付周期 Lead Time、专家负荷与风险阻断告警 | 运行 `heartbeat.py`，整合大盘统计、超时滞留与并发告警 |
 | **`/yy-flow kanban`** | **看板 Web 服务就绪**：启动内置可视化看板 HTTP 服务并输出访问链接（默认 32886 端口） | 运行 `start_kanban_server.py`，支持多视图切换与 PR/Issue 徽标渲染 |
 | **`/yy-flow sync-pr`** | **PR 状态监听与合流自动解阻**：扫描【已阻塞】任务卡，检测 GitHub PR Merged 自动推进至【已完成】并唤起 PM 验收 | 运行 `sync_pr_status.py` / `heartbeat.py --sync-pr` |
+| **`/yy-flow auto`** | **全自动单任务流转**：一条指令全自动执行任务完整生命周期至已验收（支持 A–G 全类型链、断点续跑与已阻塞解阻验证） | 运行 `auto_task.py` |
 
 > 💡 **业务流转与协同全走自然语言**：任务拆解建卡、阶段开工（`check_stage_gate.py --action start`）、阶段结项（`check_stage_gate.py --action close`）、认领、提审、测试与打回等日常研发生命周期，直接使用自然语言与 Agent 对话沟通，由对应专家在后台自主调度底层脚本。
 
