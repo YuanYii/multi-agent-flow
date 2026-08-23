@@ -90,6 +90,18 @@ SERVER_STATE = {
 
 
 from _lib.core import file_lock
+from _lib.boards.offline_board_adapter import get_current_os_user
+
+
+def get_default_operator() -> str:
+    """获取默认操作者（当前操作系统/Git用户优先，通用'用户'兜底）"""
+    try:
+        u = get_current_os_user()
+        if u and u != "system":
+            return u
+    except Exception:
+        pass
+    return "用户"
 
 
 _BOARD_MEMORY_CACHE = {
@@ -346,9 +358,102 @@ SORT_FIELDS_WHITELIST = ("seq", "id", "est_hours", "act_hours", "start_date", "e
 ORDER_WHITELIST = ("asc", "desc")
 
 
+def _parse_duration_seconds(val) -> float:
+    """将工时入参解析为纯数字秒数（兼容数字、min/m/h/s 文本单位）"""
+    if val is None or val == "" or val == "-":
+        return 0.0
+    s = str(val).strip()
+    m = re.match(r"^(\d+(?:\.\d+)?)\s*(min|m|h|s)?", s, re.I)
+    if m:
+        v = float(m.group(1))
+        unit = (m.group(2) or "").lower()
+        if "h" in unit and "min" not in unit and "m" not in unit:
+            return v * 3600.0
+        elif "min" in unit or "m" in unit:
+            return v * 60.0
+        else:
+            return v
+    try:
+        return float(val)
+    except Exception:
+        return 0.0
+
+
+def _parse_flexible_dt(val: Any) -> Optional[datetime]:
+    """灵活解析支持秒/分/日期的多种时间戳格式"""
+    if not val or val == "-":
+        return None
+    s = str(val).strip().replace("T", " ")
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        for sub_len in (19, 16, 10):
+            try:
+                return datetime.strptime(s[:sub_len], fmt)
+            except Exception:
+                pass
+    return None
+
+
+def _extract_duration_seconds(card: dict) -> float:
+    """提取卡片实际耗时（秒数）：
+    1. 优先解析 act_hours
+    2. 若为 0/缺失，从 process 日志中提取首次【进行中】至【已完成】时间差秒数
+    3. 兜底从 end_date - start_date 提取秒数
+    4. 在途任务返回 0.0
+    """
+    raw_act = card.get("act_hours")
+    if raw_act is not None and str(raw_act).strip() not in ("", "-", "0", "0.0"):
+        sec = _parse_duration_seconds(raw_act)
+        if sec > 0:
+            return sec
+
+    proc = str(card.get("process") or "")
+    if proc:
+        in_prog_ts = None
+        comp_ts = None
+        for line in proc.split("\n"):
+            tm = re.search(r"\[(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)\]", line)
+            if not tm:
+                continue
+            dt = _parse_flexible_dt(tm.group(1))
+            if dt:
+                if "更新至【进行中】" in line or "初始状态【进行中】" in line:
+                    if in_prog_ts is None or dt < in_prog_ts:
+                        in_prog_ts = dt
+                if "更新至【已完成】" in line or "初始状态【已完成】" in line:
+                    if comp_ts is None or dt > comp_ts:
+                        comp_ts = dt
+        if in_prog_ts and comp_ts and comp_ts >= in_prog_ts:
+            return (comp_ts - in_prog_ts).total_seconds()
+
+    s_date = str(card.get("start_date") or "")
+    e_date = str(card.get("end_date") or "")
+    if s_date and e_date:
+        s_dt = _parse_flexible_dt(s_date)
+        e_dt = _parse_flexible_dt(e_date)
+        if s_dt and e_dt and e_dt >= s_dt:
+            return (e_dt - s_dt).total_seconds()
+
+    return 0.0
+
+
+def check_and_warn_date_compliance(card: dict) -> bool:
+    """检查任务卡片日期格式合规性，若发现异常向终端输出清洗提醒"""
+    is_compliant = True
+    for date_key in ("start_date", "end_date"):
+        dt_val = str(card.get(date_key) or "").strip()
+        if not dt_val or dt_val == "-":
+            continue
+        if not re.match(r"^\d{4}-\d{2}-\d{2}(?:[\sT]\d{2}:\d{2}(?::\d{2})?)?", dt_val):
+            logger.warning(f"[WARN] 任务 {card.get('id', '?')} 的 {date_key} 日期格式异常 ({dt_val})！建议执行数据清洗以确保时序度量合规。")
+            is_compliant = False
+    return is_compliant
+
+
 def _sort_key(card: dict, field: str):
     """排序键提取：数值字段按数值比较（est_hours/act_hours/seq/id），日期与字符串字段按字典序"""
-    if field in ("est_hours", "act_hours"):
+    if field == "act_hours":
+        return _extract_duration_seconds(card)
+    if field == "est_hours":
         try:
             return float(card.get(field) or 0)
         except (TypeError, ValueError):
@@ -386,14 +491,27 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=KANBAN_DIR, **kwargs)
 
     def end_headers(self):
-        # 统一追加跨域与防强缓存响应头
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # 统一追加跨域与防强缓存响应头（仅对本地回环源或无 Origin 场景响应 CORS）
+        origin = self.headers.get("Origin", "")
+        if origin:
+            if origin == "null" or re.match(r"^https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$", origin):
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Access-Control-Allow-Credentials", "true")
+        else:
+            self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, If-Match")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, If-Match, X-Board-Version")
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
         super().end_headers()
+
+    def _is_untrusted_origin(self) -> bool:
+        """校验 Origin，防止外部非本地网页发起跨站请求伪造 (CSRF) 篡改看板数据"""
+        origin = self.headers.get("Origin", "")
+        if not origin or origin == "null":
+            return False
+        return not bool(re.match(r"^https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$", origin))
 
     def do_OPTIONS(self):
         self.send_response(200)
@@ -674,6 +792,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     # POST 路由分发
     # -------------------------------------------------------------
     def do_POST(self):
+        if self._is_untrusted_origin():
+            self._send_json_resp(403, "禁止非本地跨域操作 (CSRF 拦截)", None, http_status=403)
+            return
+
         parsed = urlparse(self.path)
         path = parsed.path
 
@@ -725,6 +847,19 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 assignee = normalize_role_name(body_data.get("assignee")) or "李开发"
                 remarks = body_data.get("remarks", "")
 
+                if status == "审查中":
+                    handler = "周审查"
+                elif status == "测试中":
+                    handler = "章测试"
+                elif status in ("已完成", "已验收", "已取消"):
+                    handler = "严经理"
+                else:
+                    handler = normalize_role_name(body_data.get("handler")) or assignee
+
+                parsed_act = _parse_duration_seconds(body_data.get("act_hours", 0))
+                parsed_est = _parse_duration_seconds(body_data.get("est_hours", 0))
+                end_date_val = (body_data.get("end_date") or now_str) if status in ("已完成", "已验收", "已取消") else ""
+
                 new_card = {
                     "id": new_id,
                     "seq": len(cards) + 1,
@@ -734,14 +869,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "wbs": body_data.get("wbs", ""),
                     "assignee": assignee,
                     "status": status,
-                    "handler": body_data.get("handler", assignee),
-                    "est_hours": float(body_data.get("est_hours", 0) or 0),
-                    "act_hours": float(body_data.get("act_hours", 0) or 0),
+                    "handler": handler,
+                    "est_hours": parsed_est,
+                    "act_hours": parsed_act,
                     "start_date": body_data.get("start_date", now_str),
-                    "end_date": body_data.get("end_date", ""),
+                    "end_date": end_date_val,
                     "remarks": remarks,
                     "process": ""
                 }
+                check_and_warn_date_compliance(new_card)
 
                 node_id = f"{new_id}-N01"
                 init_process = body_data.get("process") or \
@@ -797,7 +933,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(400, "缺少 target_status 目标状态", None, http_status=400)
                 return
 
-            operator_name = normalize_role_name(body_data.get("operator_name") or body_data.get("operator")) or "Corey"
+            operator_name = normalize_role_name(body_data.get("operator_name") or body_data.get("operator")) or get_default_operator()
             comment = (body_data.get("comment") or body_data.get("note") or "").strip()
 
             def _mutate_trans(cards):
@@ -812,8 +948,23 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 new_assignee = normalize_role_name(body_data.get("assignee"))
                 if new_assignee:
                     card["assignee"] = new_assignee
-                if target_status in ("已完成", "已验收"):
-                    card["end_date"] = now_str
+
+                if target_status == "审查中":
+                    card["handler"] = "周审查"
+                elif target_status == "测试中":
+                    card["handler"] = "章测试"
+                elif target_status in ("已完成", "已验收", "已取消"):
+                    card["handler"] = "严经理"
+                elif target_status in ("待开始", "进行中") and not body_data.get("handler"):
+                    card["handler"] = card.get("assignee") or "李开发"
+
+                if target_status in ("已完成", "已验收", "已取消"):
+                    if not card.get("end_date"):
+                        card["end_date"] = now_str
+                else:
+                    card["end_date"] = ""
+
+                check_and_warn_date_compliance(card)
 
                 node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
                 log_text = f"[{node_id}]  [{now_str}]  状态由【{from_status}】更新至【{target_status}】，操作人: {operator_name}"
@@ -845,6 +996,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     # PUT 路由分发
     # -------------------------------------------------------------
     def do_PUT(self):
+        if self._is_untrusted_origin():
+            self._send_json_resp(403, "禁止非本地跨域操作 (CSRF 拦截)", None, http_status=403)
+            return
+
         parsed = urlparse(self.path)
         path = parsed.path
 
@@ -918,13 +1073,39 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 updated_keys = []
                 for k in updatable_fields:
                     if k in body_data:
-                        card[k] = body_data[k]
+                        val = body_data[k]
+                        if k in ("act_hours", "est_hours"):
+                            val = _parse_duration_seconds(val)
+                        card[k] = val
                         updated_keys.append(k)
+
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                new_status = card.get("status")
+                new_assignee = card.get("assignee")
+
+                if "status" in updated_keys and new_status != old_status:
+                    if "handler" not in body_data:
+                        if new_status == "审查中":
+                            card["handler"] = "周审查"
+                        elif new_status == "测试中":
+                            card["handler"] = "章测试"
+                        elif new_status in ("已完成", "已验收", "已取消"):
+                            card["handler"] = "严经理"
+                        elif new_status in ("待开始", "进行中"):
+                            card["handler"] = new_assignee or "李开发"
+
+                    if new_status in ("已完成", "已验收", "已取消"):
+                        if not card.get("end_date"):
+                            card["end_date"] = now_str
+                    else:
+                        card["end_date"] = ""
+
+                check_and_warn_date_compliance(card)
 
                 # 若客户端未显式覆盖 process，但修改了负责人、处理人或状态，自动追加结构化流转记录节点
                 if "process" not in body_data:
                     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    operator_name = normalize_role_name(body_data.get("operator_name") or body_data.get("operator") or body_data.get("creator")) or "Corey"
+                    operator_name = normalize_role_name(body_data.get("operator_name") or body_data.get("operator") or body_data.get("creator")) or get_default_operator()
                     comment = (body_data.get("comment") or body_data.get("note") or body_data.get("remarks") or "").strip()
 
                     new_status = card.get("status")
@@ -978,6 +1159,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     # DELETE 路由分发
     # -------------------------------------------------------------
     def do_DELETE(self):
+        if self._is_untrusted_origin():
+            self._send_json_resp(403, "禁止非本地跨域操作 (CSRF 拦截)", None, http_status=403)
+            return
+
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)

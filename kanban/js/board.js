@@ -72,7 +72,7 @@
             { key: 'assignee',   th: '负责人',        label: '负责人 (Assignee)' },
             { key: 'handler',    th: '处理人',        label: '处理人 (Handler)' },
             { key: 'creator',    th: '创建人',        label: '创建人 (Creator)' },
-            { key: 'act_hours',  th: '任务耗时(min)', label: '任务耗时 (Duration)' },
+            { key: 'act_hours',  th: '任务耗时',      label: '任务耗时 (Duration)' },
             { key: 'start_date', th: '开始时间',      label: '开始时间 (Start Date)' },
             { key: 'end_date',   th: '结束时间',      label: '结束时间 (End Date)' },
             { key: 'remarks',    th: '备注',          label: '备注 (Remarks)' },
@@ -80,13 +80,14 @@
         ];
 
         /**
-         * 精确计算任务耗时（分钟）
+         * 精确计算任务耗时（秒）
          * 口径：从首次进入【进行中】到进入【已完成】的时间跨度，严格不含【已验收】
          */
         function computeCardDuration(card) {
             if (!card) return;
             // 仅对【已完成】或【已验收】的任务计算闭环耗时；在途任务不提前结算，返回 null (显示 '-')
             if (card.status !== '已完成' && card.status !== '已验收') {
+                card._duration_sec = null;
                 card._duration_mins = null;
                 return;
             }
@@ -114,7 +115,8 @@
                 }
 
                 if (inProgressTs !== null && completedTs !== null && completedTs >= inProgressTs) {
-                    card._duration_mins = Math.max(1, Math.round((completedTs - inProgressTs) / (1000 * 60)));
+                    card._duration_sec = Math.max(0, Math.round((completedTs - inProgressTs) / 1000));
+                    card._duration_mins = Math.max(1, Math.round(card._duration_sec / 60));
                     return;
                 }
             }
@@ -126,32 +128,55 @@
                 const sTime = new Date(String(st).replace('T', ' ').replace(/-/g, '/')).getTime();
                 const eTime = new Date(String(et).replace('T', ' ').replace(/-/g, '/')).getTime();
                 if (!isNaN(sTime) && !isNaN(eTime) && eTime >= sTime) {
-                    card._duration_mins = Math.max(1, Math.round((eTime - sTime) / (1000 * 60)));
+                    card._duration_sec = Math.max(0, Math.round((eTime - sTime) / 1000));
+                    card._duration_mins = Math.max(1, Math.round(card._duration_sec / 60));
                     return;
                 }
             }
 
-            // 3. 兜底：读取历史已有 act_hours
+            // 3. 兜底：读取历史已有 act_hours（以秒为单位；兼顾历史 min/h 文本转换）
             if (card.act_hours !== undefined && card.act_hours !== null && card.act_hours !== '' && card.act_hours !== '-') {
                 const s = String(card.act_hours).trim();
                 const m = s.match(/^(\d+(?:\.\d+)?)/);
                 if (m) {
                     let val = parseFloat(m[1]);
-                    if (s.includes('h') && !s.includes('min') && !s.includes('m')) val = Math.round(val * 60);
-                    card._duration_mins = Math.round(val);
+                    if (s.includes('h') && !s.includes('min') && !s.includes('m') && !s.includes('s')) {
+                        card._duration_sec = Math.round(val * 3600);
+                    } else if (s.includes('min') || s.includes('m')) {
+                        card._duration_sec = Math.round(val * 60);
+                    } else {
+                        card._duration_sec = Math.round(val);
+                    }
+                    card._duration_mins = Math.max(1, Math.round(card._duration_sec / 60));
                     return;
                 }
             }
 
+            card._duration_sec = null;
             card._duration_mins = null;
         }
 
+        /**
+         * 3 档自适应任务耗时展示：
+         * 1) < 60s: 展示为秒 (如 25s, 0s)
+         * 2) 60s ~ 3599s: 展示为分钟 (如 3min, 45min)
+         * 3) >= 3600s: 展示为小时 (如 1.5h, 24h)
+         */
         function formatTaskDuration(card) {
             if (!card) return '-';
-            if (card._duration_mins === undefined) {
+            if (card._duration_sec === undefined) {
                 computeCardDuration(card);
             }
-            return (card._duration_mins !== null && card._duration_mins !== undefined) ? `${card._duration_mins}min` : '-';
+            if (card._duration_sec === null || card._duration_sec === undefined) return '-';
+            const sec = card._duration_sec;
+            if (sec < 60) {
+                return `${sec}s`;
+            } else if (sec < 3600) {
+                return `${Math.round(sec / 60)}min`;
+            } else {
+                const h = (sec / 3600).toFixed(1).replace(/\.0$/, '');
+                return `${h}h`;
+            }
         }
 
         function computeAllCardsDuration(cards) {
@@ -1284,8 +1309,8 @@
                     let valA = a[field] || '';
                     let valB = b[field] || '';
                     if (field === 'act_hours') {
-                        valA = (a._duration_mins !== undefined && a._duration_mins !== null) ? a._duration_mins : -1;
-                        valB = (b._duration_mins !== undefined && b._duration_mins !== null) ? b._duration_mins : -1;
+                        valA = (a._duration_sec !== undefined && a._duration_sec !== null) ? a._duration_sec : -1;
+                        valB = (b._duration_sec !== undefined && b._duration_sec !== null) ? b._duration_sec : -1;
                     }
 
                     if (valA < valB) return order === 'asc' ? -1 : 1;
@@ -1305,7 +1330,8 @@
 
         // Quick Inline Updates from Data Table
         async function quickUpdateStatus(cardId, newStatus) {
-            const res = await apiTransitionTask(cardId, newStatus, 'Corey', '快捷状态调整');
+            const currentUser = (window.__CURRENT_USER__ && String(window.__CURRENT_USER__).trim()) || '用户';
+            const res = await apiTransitionTask(cardId, newStatus, currentUser, '快捷状态调整');
             if (res && (res.ok || res.code === 200)) {
                 showToast(`已更新 ${cardId} 状态为: ${newStatus}`);
                 if (Array.isArray(rawCardsData)) {
@@ -2058,24 +2084,62 @@
             document.getElementById('detail-modal').classList.remove('show');
         }
 
-        function saveTaskDetails() {
+        async function saveTaskDetails() {
             const cardId = document.getElementById('edit-original-id').value;
             const card = rawCardsData.find(c => c.id === cardId);
             if (!card) return;
 
-            card.name = document.getElementById('edit-name').value.trim();
-            card.wp = document.getElementById('edit-wp').value.trim();
-            card.wbs = document.getElementById('edit-wbs').value.trim();
-            card.assignee = document.getElementById('edit-assignee').value;
-            card.status = document.getElementById('edit-status').value;
-            card.act_hours = document.getElementById('edit-act').value;
-            card.process = document.getElementById('edit-process').value;
+            const newName = document.getElementById('edit-name').value.trim();
+            const newWp = document.getElementById('edit-wp').value.trim();
+            const newWbs = document.getElementById('edit-wbs').value.trim();
+            const newAssignee = document.getElementById('edit-assignee').value;
+            const newStatus = document.getElementById('edit-status').value;
+            const newAct = parseFloat(document.getElementById('edit-act').value) || 0;
+            const newProcess = document.getElementById('edit-process').value;
+
+            card.name = newName;
+            card.wp = newWp;
+            card.wbs = newWbs;
+            card.assignee = newAssignee;
+            card.status = newStatus;
+            card.act_hours = newAct;
+            card.process = newProcess;
+
+            if (newStatus === '审查中') card.handler = '周审查';
+            else if (newStatus === '测试中') card.handler = '章测试';
+            else if (newStatus === '已完成' || newStatus === '已验收' || newStatus === '已取消') card.handler = '严经理';
+            else if (newStatus === '待开始' || newStatus === '进行中') card.handler = newAssignee || '李开发';
+
+            if (newStatus === '已完成' || newStatus === '已验收' || newStatus === '已取消') {
+                if (!card.end_date) card.end_date = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            } else {
+                card.end_date = '';
+            }
+
             computeCardDuration(card);
+
+            if (typeof apiUpdateTask === 'function') {
+                await apiUpdateTask(cardId, {
+                    name: card.name,
+                    wp: card.wp,
+                    wbs: card.wbs,
+                    assignee: card.assignee,
+                    handler: card.handler,
+                    status: card.status,
+                    act_hours: card.act_hours,
+                    start_date: card.start_date,
+                    end_date: card.end_date,
+                    process: card.process
+                });
+            }
 
             saveStorageData();
             applyFilters();
             closeDetailModal();
             showToast(`任务 ${cardId} 保存成功！`);
+            if (typeof loadTablePage === 'function') {
+                loadTablePage((typeof tablePaginationState !== 'undefined' && tablePaginationState?.page) || 1);
+            }
         }
 
         function deleteCurrentTask() {

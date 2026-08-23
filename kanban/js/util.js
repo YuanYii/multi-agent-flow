@@ -29,22 +29,34 @@ function esc(value) {
 const escapeHtml = esc;
 window.escapeHtml = esc;
 
-// Safe linkify and PR/Issue badge parser
+// Safe linkify and PR/Issue badge parser (lookbehind-free for full browser compatibility)
 function linkify(text) {
     if (!text) return '';
-    return esc(text)
-        .replace(/\[PR:\s*(https?:\/\/[^\s\]]+)\]/gi, (match, url) => {
-            const numMatch = url.match(/\/pull\/(\d+)/i) || url.match(/\/merge_requests\/(\d+)/i);
-            const label = numMatch ? `PR #${numMatch[1]}` : 'PR Link';
-            return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#0969da;background:#ddf4ff;padding:1px 5px;border-radius:4px;font-size:11px;font-weight:600;text-decoration:none;display:inline-block;vertical-align:middle;margin:0 2px;" onclick="event.stopPropagation();">${label}</a>`;
-        })
-        .replace(/\[Issue:\s*(https?:\/\/[^\s\]]+)\]/gi, (match, url) => {
-            const numMatch = url.match(/\/issues\/(\d+)/i);
-            const label = numMatch ? `Issue #${numMatch[1]}` : 'Issue Link';
-            return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#1a7f37;background:#dafbe1;padding:1px 5px;border-radius:4px;font-size:11px;font-weight:600;text-decoration:none;display:inline-block;vertical-align:middle;margin:0 2px;" onclick="event.stopPropagation();">${label}</a>`;
-        })
-        .replace(/(?<!href=")(https?:\/\/[^\s<>&"']+)/gi, 
-            '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--primary,#3370ff);text-decoration:underline;word-break:break-all;" onclick="event.stopPropagation();">$1</a>');
+    let escaped = esc(text);
+    // 1. 临时占位 PR 标记
+    escaped = escaped.replace(/\[PR:\s*(https?:\/\/[^\s\]]+)\]/gi, (match, url) => {
+        const numMatch = url.match(/\/pull\/(\d+)/i) || url.match(/\/merge_requests\/(\d+)/i);
+        const label = numMatch ? `PR #${numMatch[1]}` : 'PR Link';
+        return `__PR_BADGE_URL__${url}__LABEL__${label}__BADGE_END__`;
+    });
+    // 2. 临时占位 Issue 标记
+    escaped = escaped.replace(/\[Issue:\s*(https?:\/\/[^\s\]]+)\]/gi, (match, url) => {
+        const numMatch = url.match(/\/issues\/(\d+)/i);
+        const label = numMatch ? `Issue #${numMatch[1]}` : 'Issue Link';
+        return `__ISSUE_BADGE_URL__${url}__LABEL__${label}__BADGE_END__`;
+    });
+    // 3. 替换普通 URL（由于尚未生成 <a> 标签，无后行断言兼容性问题）
+    escaped = escaped.replace(/(https?:\/\/[^\s<>&"']+)/gi, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--primary,#3370ff);text-decoration:underline;word-break:break-all;" onclick="event.stopPropagation();">${url}</a>`;
+    });
+    // 4. 还原 PR / Issue 徽章标签
+    escaped = escaped.replace(/__PR_BADGE_URL__([^\s_]+)__LABEL__([^<]+)__BADGE_END__/g, (m, url, label) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#0969da;background:#ddf4ff;padding:1px 5px;border-radius:4px;font-size:11px;font-weight:600;text-decoration:none;display:inline-block;vertical-align:middle;margin:0 2px;" onclick="event.stopPropagation();">${label}</a>`;
+    });
+    escaped = escaped.replace(/__ISSUE_BADGE_URL__([^\s_]+)__LABEL__([^<]+)__BADGE_END__/g, (m, url, label) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#1a7f37;background:#dafbe1;padding:1px 5px;border-radius:4px;font-size:11px;font-weight:600;text-decoration:none;display:inline-block;vertical-align:middle;margin:0 2px;" onclick="event.stopPropagation();">${label}</a>`;
+    });
+    return escaped;
 }
 window.linkify = linkify;
 

@@ -453,7 +453,7 @@ async function apiTransitionTask(taskId, transitionData, operator, note) {
         if (typeof transitionData === 'string') {
             payload = {
                 target_status: transitionData,
-                operator_name: operator || 'Corey',
+                operator_name: operator || (window.__CURRENT_USER__ && String(window.__CURRENT_USER__).trim()) || '用户',
                 comment: note || '快捷状态流转'
             };
         } else if (transitionData && typeof transitionData === 'object') {
