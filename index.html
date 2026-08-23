@@ -1,0 +1,2134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Agent Flow · 不要让CV工程师变成YES工程师</title>
+<meta name="description" content="“不要让CV工程师变成YES工程师” —— 契约驱动的 AI 多角色协同研发工作流技能包。十大协作红线、五层防错门控、时序真实性防冲卡与本地无依赖可视化看板。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237C6CF0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M2 12c4-4 8 4 12 0s8 4 10 0'/></svg>">
+<meta property="og:title" content="Multi-Agent Flow · 不要让CV工程师变成YES工程师">
+<meta property="og:description" content="契约驱动的 AI 多角色协同研发工作流技能包与本地实时可视化看板。">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png">
+
+<style>
+  :root, [data-theme="dark"] {
+    --accent: #7C6CF0;
+    --accent-light: #9D8FF7;
+    --accent-gradient: linear-gradient(135deg, #7C6CF0 0%, #38BDF8 100%);
+    --accent-glow: rgba(124, 108, 240, 0.35);
+    --cyan: #38BDF8;
+    --emerald: #10B981;
+    --amber: #F59E0B;
+    --red: #EF4444;
+    --purple: #A855F7;
+    
+    --bg: #08090E;
+    --bg-card: rgba(255, 255, 255, 0.03);
+    --bg-card-hover: rgba(255, 255, 255, 0.06);
+    --line: rgba(255, 255, 255, 0.08);
+    --line-active: rgba(124, 108, 240, 0.45);
+    
+    --ink: #F8FAFC;
+    --ink-2: #94A3B8;
+    --ink-3: #8191A6;
+    
+    --nav-bg: rgba(8, 9, 14, 0.75);
+    --nav-border: rgba(255, 255, 255, 0.08);
+    --slogan-bg: linear-gradient(135deg, rgba(124, 108, 240, 0.12), rgba(56, 189, 248, 0.08));
+    --slogan-text: linear-gradient(120deg, #FFFFFF, #C7D2FE, #38BDF8);
+    --hero-title-grad: linear-gradient(120deg, #FFFFFF 20%, #A5B4FC 60%, var(--cyan) 95%);
+    --window-card-bg: #090B12;
+    --window-header-bg: rgba(255, 255, 255, 0.025);
+    --showcase-shadow: 0 35px 90px rgba(0, 0, 0, 0.7), 0 10px 30px rgba(0, 0, 0, 0.5);
+    --statsband-bg: linear-gradient(180deg, rgba(124, 108, 240, 0.05), rgba(255, 255, 255, 0.01));
+    --stat-num-grad: linear-gradient(120deg, #FFFFFF, var(--cyan));
+    --why-bad-bg: linear-gradient(180deg, rgba(239, 68, 68, 0.04), rgba(255, 255, 255, 0.01));
+    --why-good-bg: linear-gradient(180deg, rgba(16, 185, 129, 0.06), rgba(124, 108, 240, 0.02));
+    --agent-card-bg: rgba(255, 255, 255, 0.03);
+    --agent-tag-bg: rgba(255, 255, 255, 0.035);
+    --term-container-bg: #06070B;
+    --term-nav-bg: rgba(255, 255, 255, 0.02);
+    --callout-bg: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(124, 108, 240, 0.08));
+    --callout-shadow: 0 12px 36px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    --ambient-glow-1: rgba(124, 108, 240, 0.32);
+    --ambient-glow-2: rgba(56, 189, 248, 0.22);
+    
+    --mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Segoe UI", Roboto, sans-serif;
+  }
+
+  [data-theme="light"] {
+    --accent: #6366F1;
+    --accent-light: #818CF8;
+    --accent-gradient: linear-gradient(135deg, #6366F1 0%, #0284C7 100%);
+    --accent-glow: rgba(99, 102, 241, 0.22);
+    --cyan: #0284C7;
+    --emerald: #059669;
+    --amber: #D97706;
+    --red: #DC2626;
+    --purple: #9333EA;
+    
+    --bg: #F8FAFC;
+    --bg-card: #FFFFFF;
+    --bg-card-hover: #F1F5F9;
+    --line: #E2E8F0;
+    --line-active: rgba(99, 102, 241, 0.55);
+    
+    --ink: #0F172A;
+    --ink-2: #475569;
+    --ink-3: #64748B;
+    
+    --nav-bg: rgba(248, 250, 252, 0.88);
+    --nav-border: #E2E8F0;
+    --slogan-bg: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(2, 132, 199, 0.06));
+    --slogan-text: linear-gradient(120deg, #1E1B4B, #4338CA, #0284C7);
+    --hero-title-grad: linear-gradient(120deg, #1E1B4B 20%, #4F46E5 60%, #0284C7 95%);
+    --window-card-bg: #FFFFFF;
+    --window-header-bg: #F8FAFC;
+    --showcase-shadow: 0 25px 70px rgba(15, 23, 42, 0.12), 0 8px 24px rgba(15, 23, 42, 0.06);
+    --statsband-bg: linear-gradient(180deg, rgba(99, 102, 241, 0.06), #FFFFFF);
+    --stat-num-grad: linear-gradient(120deg, #1E1B4B, #0284C7);
+    --why-bad-bg: linear-gradient(180deg, rgba(239, 68, 68, 0.04), #FFFFFF);
+    --why-good-bg: linear-gradient(180deg, rgba(16, 185, 129, 0.04), #FFFFFF);
+    --agent-card-bg: #FFFFFF;
+    --agent-tag-bg: #F1F5F9;
+    --term-container-bg: #0F172A;
+    --term-nav-bg: rgba(255, 255, 255, 0.05);
+    --callout-bg: linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(99, 102, 241, 0.06));
+    --callout-shadow: 0 8px 24px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    --ambient-glow-1: rgba(99, 102, 241, 0.14);
+    --ambient-glow-2: rgba(2, 132, 199, 0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  /* Ambient Glow Backgrounds */
+  body::before, body::after {
+    content: "";
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(140px);
+    z-index: 0;
+    pointer-events: none;
+    transition: background 0.3s ease;
+  }
+  body::before {
+    width: 750px;
+    height: 750px;
+    top: -260px;
+    right: -180px;
+    background: radial-gradient(circle, var(--ambient-glow-1), transparent 70%);
+  }
+  body::after {
+    width: 650px;
+    height: 650px;
+    bottom: -200px;
+    left: -200px;
+    background: radial-gradient(circle, var(--ambient-glow-2), transparent 70%);
+  }
+
+  .wrap {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 0 28px;
+    position: relative;
+    z-index: 1;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  /* ---------- Navigation Bar ---------- */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: saturate(180%) blur(20px);
+    background: var(--nav-bg);
+    border-bottom: 1px solid var(--nav-border);
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+  nav .wrap {
+    display: flex;
+    align-items: center;
+    height: 64px;
+    gap: 24px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: 0.2px;
+  }
+  .brand-badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--accent-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 4px 14px var(--accent-glow);
+  }
+  nav .links {
+    display: flex;
+    gap: 22px;
+    margin-left: 16px;
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+  nav .links a {
+    transition: color 0.15s ease;
+  }
+  nav .links a:hover {
+    color: var(--ink);
+  }
+  nav .right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .ghbtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    transition: all 0.2s ease;
+  }
+  .ghbtn:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .ghbtn .star { color: var(--amber); }
+  .ghbtn b { color: var(--ink); font-family: var(--mono); }
+  
+  .lang-toggle {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    overflow: hidden;
+    font-size: 12px;
+    font-family: var(--mono);
+    background: var(--bg-card);
+  }
+  .lang-toggle button {
+    background: transparent;
+    color: var(--ink-3);
+    border: 0;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .lang-toggle button:hover { color: var(--ink-2); }
+  .lang-toggle button.on {
+    background: rgba(124, 108, 240, 0.2);
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: var(--bg-card);
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 15px;
+    transition: all 0.2s ease;
+  }
+  .theme-toggle:hover {
+    border-color: var(--line-active);
+    background: var(--bg-card-hover);
+    transform: scale(1.05);
+  }
+  [data-theme="light"] .theme-toggle .icon-moon { display: inline-block; }
+  [data-theme="light"] .theme-toggle .icon-sun { display: none; }
+  [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+  [data-theme="dark"] .theme-toggle .icon-sun { display: inline-block; }
+
+  .cta-btn {
+    background: var(--accent-gradient);
+    color: #fff;
+    font-weight: 600;
+    font-size: 13.5px;
+    border-radius: 9px;
+    padding: 7px 16px;
+    box-shadow: 0 4px 16px var(--accent-glow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .cta-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(124, 108, 240, 0.55);
+  }
+
+  /* ---------- Hero Section ---------- */
+  header.hero {
+    padding: 68px 0 40px;
+    text-align: center;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--cyan);
+    font-weight: 600;
+    font-size: 12.5px;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 999px;
+    padding: 5px 16px;
+    background: rgba(56, 189, 248, 0.06);
+  }
+  .eyebrow .pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+  }
+
+  /* Slogan Banner */
+  .slogan-box {
+    margin: 0 auto 24px;
+    max-width: 680px;
+    padding: 10px 22px;
+    border-radius: 14px;
+    background: var(--slogan-bg);
+    border: 1px solid rgba(124, 108, 240, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    display: inline-block;
+  }
+  .slogan-quote {
+    font-size: clamp(16px, 2.2vw, 20px);
+    font-weight: 700;
+    background: var(--slogan-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.5px;
+  }
+
+  h1 {
+    font-size: clamp(38px, 6vw, 72px);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -1.5px;
+  }
+  h1 .grad {
+    background: var(--hero-title-grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header.hero p.sub {
+    margin: 22px auto 0;
+    max-width: 720px;
+    font-size: clamp(15.5px, 2vw, 19px);
+    color: var(--ink-2);
+    font-weight: 400;
+    line-height: 1.6;
+  }
+  .hero-actions {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-top: 36px;
+    flex-wrap: wrap;
+  }
+  .btn-lg {
+    font-size: 15px;
+    padding: 13px 26px;
+    border-radius: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    transition: all 0.2s ease;
+  }
+  .btn-primary {
+    background: var(--accent-gradient);
+    color: #fff;
+    box-shadow: 0 10px 30px var(--accent-glow);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px rgba(124, 108, 240, 0.55);
+  }
+  .btn-secondary {
+    border: 1px solid var(--line);
+    color: var(--ink);
+    background: var(--bg-card);
+    backdrop-filter: blur(10px);
+  }
+  .btn-secondary:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    background: var(--bg-card-hover);
+    transform: translateY(-2px);
+  }
+
+  .hero-meta {
+    margin-top: 26px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .hero-meta .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--mono);
+    color: var(--ink-2);
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 14px;
+  }
+  .hero-meta .pill b { color: var(--ink); }
+
+  /* ---------- Interactive Preview Showcase ---------- */
+  .showcase-wrapper {
+    margin: 54px auto 0;
+    max-width: 1060px;
+    position: relative;
+  }
+  .showcase-wrapper::before {
+    content: "";
+    position: absolute;
+    inset: -4% -4% -8%;
+    background: radial-gradient(55% 55% at 50% 25%, rgba(124, 108, 240, 0.38), transparent 70%);
+    filter: blur(50px);
+    z-index: -1;
+  }
+  .window-card {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--window-card-bg);
+    overflow: hidden;
+    box-shadow: var(--showcase-shadow);
+    transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .window-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 18px;
+    background: var(--window-header-bg);
+    border-bottom: 1px solid var(--line);
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .window-dots {
+    display: flex;
+    gap: 7px;
+  }
+  .window-dots span {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+  }
+  .window-dots .red { background: #FF5F56; }
+  .window-dots .yellow { background: #FFBD2E; }
+  .window-dots .green { background: #27C93F; }
+
+  .view-tabs {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+  .view-tab {
+    background: transparent;
+    border: 0;
+    color: var(--ink-2);
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--sans);
+  }
+  .view-tab:hover { color: var(--ink); }
+  .view-tab.active {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(124, 108, 240, 0.4);
+  }
+
+  .window-body {
+    position: relative;
+    background: var(--window-card-bg);
+    min-height: 480px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .window-body img {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    transition: opacity 0.25s ease;
+  }
+
+  .status-legend {
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    margin-top: 26px;
+    flex-wrap: wrap;
+    color: var(--ink-2);
+    font-size: 13px;
+  }
+  .status-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .status-legend i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* ---------- Live Stats Band ---------- */
+  .statsband {
+    margin: 84px 0 0;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--statsband-bg);
+    padding: 8px 0;
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .stat-item {
+    padding: 26px 20px;
+    text-align: center;
+    position: relative;
+  }
+  .stat-item + .stat-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 22%;
+    height: 56%;
+    width: 1px;
+    background: var(--line);
+  }
+  .stat-item .num {
+    font-family: var(--mono);
+    font-size: clamp(34px, 4.8vw, 50px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -1px;
+    background: var(--stat-num-grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-item .lbl {
+    margin-top: 10px;
+    color: var(--ink);
+    font-size: 14.5px;
+    font-weight: 600;
+  }
+  .stat-item .sub {
+    margin-top: 4px;
+    color: var(--ink-3);
+    font-size: 12px;
+  }
+
+  /* ---------- Section Common Header ---------- */
+  section {
+    padding: 96px 0 0;
+  }
+  .sec-head {
+    text-align: center;
+    max-width: 720px;
+    margin: 0 auto 52px;
+  }
+  .sec-tag {
+    color: var(--accent-light);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: inline-block;
+  }
+  .sec-head h2 {
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .sec-head p {
+    margin-top: 14px;
+    color: var(--ink-2);
+    font-size: 16.5px;
+  }
+
+  /* ---------- Agents Crew Matrix ---------- */
+  .crew-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .agent-card {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px;
+    background: var(--bg-card);
+    transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  .agent-card:hover {
+    border-color: var(--line-active);
+    transform: translateY(-4px);
+    background: var(--bg-card-hover);
+    box-shadow: 0 14px 30px rgba(124, 108, 240, 0.15);
+  }
+  .agent-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .agent-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    border: 1px solid var(--line);
+  }
+  .agent-role {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .agent-code {
+    font-size: 11.5px;
+    font-family: var(--mono);
+    color: var(--ink-3);
+  }
+  .agent-desc {
+    color: var(--ink-2);
+    font-size: 13.5px;
+    line-height: 1.55;
+    flex-grow: 1;
+    margin-bottom: 14px;
+  }
+  .agent-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .agent-tag {
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--agent-tag-bg);
+    border: 1px solid var(--line);
+    color: var(--ink-3);
+  }
+
+  /* ---------- Features Matrix ---------- */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+  }
+  .feat-card {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 26px;
+    background: var(--bg-card);
+    transition: all 0.25s ease;
+  }
+  .feat-card:hover {
+    border-color: var(--line-active);
+    transform: translateY(-3px);
+    background: var(--bg-card-hover);
+  }
+  .feat-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    margin-bottom: 18px;
+    background: rgba(124, 108, 240, 0.12);
+    border: 1px solid rgba(124, 108, 240, 0.25);
+  }
+  .feat-card h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+  .feat-card p {
+    color: var(--ink-2);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ---------- Project-Bound & Multi-CLI Agent Ecosystem ---------- */
+  .platform-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-top: 36px;
+  }
+  .platform-card {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 26px;
+    background: var(--bg-card);
+    transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  .platform-card:hover {
+    border-color: var(--line-active);
+    transform: translateY(-3px);
+    background: var(--bg-card-hover);
+    box-shadow: 0 12px 30px rgba(124, 108, 240, 0.12);
+  }
+  .platform-card-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .platform-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    background: rgba(124, 108, 240, 0.12);
+    border: 1px solid rgba(124, 108, 240, 0.25);
+    flex-shrink: 0;
+  }
+  .platform-card h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .platform-card p {
+    color: var(--ink-2);
+    font-size: 14px;
+    line-height: 1.6;
+    flex-grow: 1;
+  }
+  .platform-showcase-bar {
+    margin-top: 36px;
+    padding: 24px 28px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: var(--bg-card);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+  .platform-bar-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-2);
+    font-family: var(--mono);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .platform-badge-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+  .platform-badge-item {
+    font-size: 13px;
+    font-family: var(--mono);
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--agent-tag-bg);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+  }
+  .platform-badge-item:hover {
+    border-color: var(--line-active);
+    transform: translateY(-2px);
+  }
+
+  /* ---------- Terminal / Quickstart ---------- */
+  .term-container {
+    max-width: 760px;
+    margin: 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--term-container-bg);
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  }
+  .term-nav {
+    display: flex;
+    align-items: center;
+    padding: 12px 18px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--line);
+  }
+  .term-nav-tabs {
+    display: flex;
+    gap: 8px;
+    margin-left: 14px;
+  }
+  .term-tab-btn {
+    background: transparent;
+    border: 0;
+    color: var(--ink-3);
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+  }
+  .term-tab-btn:hover { color: var(--ink-2); }
+  .term-tab-btn.active {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--cyan);
+    font-weight: 600;
+  }
+  .term-body {
+    padding: 24px;
+    font-family: var(--mono);
+    font-size: 13.5px;
+  }
+  .cmd-line {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+  }
+  .cmd-code {
+    flex: 1;
+    color: var(--ink);
+    word-break: break-all;
+  }
+  .cmd-code .c { color: var(--cyan); }
+  .cmd-code .m { color: var(--ink-3); }
+  .cmd-code .a { color: var(--accent-light); }
+  
+  .copy-btn {
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--ink-2);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .copy-btn:hover {
+    border-color: var(--accent);
+    color: var(--ink);
+    background: rgba(124, 108, 240, 0.1);
+  }
+  .copy-btn.ok {
+    color: var(--emerald);
+    border-color: var(--emerald);
+  }
+
+  .quick-step-box {
+    margin-top: 36px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .step-item {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+    background: var(--bg-card);
+  }
+  .step-num {
+    font-family: var(--mono);
+    color: var(--cyan);
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .step-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .step-desc {
+    font-size: 12.5px;
+    color: var(--ink-2);
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    margin-top: 110px;
+    padding: 44px 0;
+    border-top: 1px solid var(--line);
+    color: var(--ink-3);
+    font-size: 13.5px;
+  }
+  footer .wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  footer .brand-small {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14.5px;
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  footer .footer-links {
+    margin-left: auto;
+    display: flex;
+    gap: 20px;
+  }
+  footer .footer-links a:hover {
+    color: var(--ink);
+  }
+
+  /* ---------- Why / Philosophy Section ---------- */
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+  }
+  .why-col {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 28px;
+    background: var(--bg-card);
+  }
+  .why-col.bad {
+    border-color: rgba(239, 68, 68, 0.22);
+    background: var(--why-bad-bg);
+  }
+  .why-col.good {
+    border-color: rgba(16, 185, 129, 0.3);
+    background: var(--why-good-bg);
+    box-shadow: 0 10px 30px rgba(16, 185, 129, 0.06);
+  }
+  .why-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 22px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .why-badge {
+    font-size: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .why-col.bad .why-badge { background: rgba(239, 68, 68, 0.15); }
+  .why-col.good .why-badge { background: rgba(16, 185, 129, 0.15); }
+  .why-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .why-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .why-item {
+    display: flex;
+    gap: 12px;
+    line-height: 1.55;
+  }
+  .why-icon {
+    font-size: 15px;
+    font-weight: 800;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .why-item h4 {
+    font-size: 14.5px;
+    font-weight: 700;
+    margin-bottom: 3px;
+    color: var(--ink);
+  }
+  .why-item p {
+    color: var(--ink-2);
+    font-size: 13px;
+  }
+
+  /* ---------- Tech Stack Architecture Callout ---------- */
+  .tech-callout-wrap {
+    margin: 28px auto 0;
+    max-width: 860px;
+    background: var(--callout-bg);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 16px;
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--callout-shadow);
+    text-align: left;
+    backdrop-filter: blur(12px);
+  }
+  .tech-callout-icon {
+    font-size: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(56, 189, 248, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    flex-shrink: 0;
+  }
+  .tech-callout-body {
+    flex: 1;
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.6;
+  }
+  .tech-callout-body b {
+    color: var(--cyan);
+    font-weight: 700;
+  }
+
+  /* ---------- Responsive Queries ---------- */
+  @media (max-width: 992px) {
+    .crew-grid { grid-template-columns: repeat(2, 1fr); }
+    .features-grid { grid-template-columns: repeat(2, 1fr); }
+    .platform-grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .why-grid { grid-template-columns: 1fr; }
+    .stat-item + .stat-item::before { display: none; }
+    .stat-item { border-bottom: 1px solid var(--line); }
+  }
+  @media (max-width: 680px) {
+    nav .links { display: none; }
+    .crew-grid { grid-template-columns: 1fr; }
+    .features-grid { grid-template-columns: 1fr; }
+    .platform-grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .quick-step-box { grid-template-columns: 1fr; }
+    .window-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .view-tabs { width: 100%; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+    .view-tab { white-space: nowrap; flex-shrink: 0; }
+    .tech-callout-wrap { flex-direction: column; text-align: center; gap: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <div class="brand-badge">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c4-4 8 4 12 0s8 4 10 0"/></svg>
+      </div>
+      <span>Multi-Agent Flow</span>
+    </a>
+    <div class="links">
+      <a href="#why" data-i18n="nav_why">拒绝点YES</a>
+      <a href="#crew" data-i18n="nav_crew">8 大专家</a>
+      <a href="#features" data-i18n="nav_features">核心特性</a>
+      <a href="#platforms" data-i18n="nav_platforms">多Agent适配</a>
+      <a href="#kanban" data-i18n="nav_kanban">看板视图</a>
+      <a href="#install" data-i18n="nav_install">快速开始</a>
+    </div>
+    <div class="right">
+      <button class="theme-toggle" id="theme-btn" title="切换明暗主题 / Toggle Theme" aria-label="切换明暗主题">
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <div class="lang-toggle">
+        <button data-lang="zh" class="on">中</button>
+        <button data-lang="en">EN</button>
+      </div>
+      <a class="ghbtn" href="https://github.com/YuanYii/multi-agent-flow" target="_blank" rel="noopener">
+        <span class="star">★</span><span>Star</span><b id="nav-stars">—</b>
+      </a>
+      <a class="cta-btn" href="#install" data-i18n="cta_start">立即使用</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero Section -->
+<header class="hero" id="top">
+  <div class="wrap">
+    <div class="eyebrow">
+      <span class="pulse-dot"></span>
+      <span data-i18n="eyebrow">MULTI-AGENT FLOW · AI 团队敏捷协同工作流</span>
+    </div>
+
+    <!-- Slogan Box -->
+    <div>
+      <div class="slogan-box">
+        <div class="slogan-quote" data-i18n="slogan">“ 不要让 CV 工程师变成 YES 工程师 ”</div>
+      </div>
+    </div>
+
+    <h1>
+      <span data-i18n="hero_h1_a">一个人，</span><br>
+      <span class="grad" data-i18n="hero_h1_b">指挥 8 位 AI 专家</span>
+    </h1>
+    <p class="sub" data-i18n="hero_sub">
+      契约驱动的 AI 多角色协同研发工作流技能包。以十大协作红线、五层防错门控、时序真实性防冲卡与现代可视化看板，有效防范跨角色越权、打回碎片化与状态悬挂。
+    </p>
+
+    <div class="hero-actions">
+      <a class="btn-lg btn-primary" href="#install" data-i18n="hero_btn_start">↓ 快速安装指引</a>
+      <a class="btn-lg btn-secondary" href="https://github.com/YuanYii/multi-agent-flow" target="_blank" rel="noopener" data-i18n="hero_btn_gh">★ 在 GitHub 上查看</a>
+    </div>
+
+    <!-- Prominent Tech Architecture Scan Callout -->
+    <div class="tech-callout-wrap">
+      <div class="tech-callout-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <div class="tech-callout-body" data-i18n="hero_callout_tech">
+        <b>初始化时自动扫描项目技术架构并回填技术栈</b>，使 8 位专家开箱即精通当前项目语言、框架与单测套件，无需手动配置繁琐 Prompt。
+      </div>
+    </div>
+
+    <div class="hero-meta">
+      <span class="pill"><span class="star" style="color:var(--amber)">★</span> <b id="hero-stars">—</b> stars</span>
+      <span class="pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v2a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3V9"/><line x1="12" y1="12" x2="12" y2="15"/></svg> <b id="hero-forks">—</b> forks</span>
+      <span class="pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> <span data-i18n="pill_redlines">十大协作红线</span></span>
+      <span class="pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/></svg> <span data-i18n="pill_techscan">架构自动扫描与技术栈自适应</span></span>
+      <span class="pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> <span data-i18n="pill_timeskew">时序真实性防冲卡</span></span>
+      <span class="pill" data-i18n="pill_offline">0 工具链依赖 · 纯本地运行</span>
+      <span class="pill" data-i18n="pill_license">MIT 开源</span>
+    </div>
+
+    <!-- Interactive Showcase (顺序：数据表格、状态泳道、专家负载、阶段工作包) -->
+    <div class="showcase-wrapper" id="kanban">
+      <div class="window-card">
+        <div class="window-header">
+          <div class="window-dots">
+            <span class="red"></span><span class="yellow"></span><span class="green"></span>
+          </div>
+          <span style="font-family:var(--mono);font-size:12.5px;color:var(--ink-3);" id="showcase-caption">数据表格视图 · 任务全量明细、筛选排序与导入导出</span>
+          <div class="view-tabs">
+            <button class="view-tab active" data-view="table" data-caption="数据表格视图 · 任务全量明细、筛选排序与导入导出">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><span data-i18n="tab_table">数据表格</span>
+            </button>
+            <button class="view-tab" data-view="status" data-caption="看板-按状态视图 · 任务跨列拖拽即审计">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg><span data-i18n="tab_status">状态泳道</span>
+            </button>
+            <button class="view-tab" data-view="assignee" data-caption="看板-按负责人视图 · 8 位专家实时负载分布">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span data-i18n="tab_assignee">专家负载</span>
+            </button>
+            <button class="view-tab" data-view="stage" data-caption="看板-按阶段工作包视图 · S1–S6 交付节奏把控">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg><span data-i18n="tab_stage">阶段工作包</span>
+            </button>
+          </div>
+        </div>
+        <div class="window-body">
+          <img id="showcase-img" src="https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png" alt="Multi-Agent Flow 看板界面">
+        </div>
+      </div>
+
+      <div class="status-legend">
+        <span><i style="background:#64748B"></i><span data-i18n="st_pending">待开始</span></span>
+        <span><i style="background:#38BDF8"></i><span data-i18n="st_progress">进行中</span></span>
+        <span><i style="background:#F59E0B"></i><span data-i18n="st_review">审查中</span></span>
+        <span><i style="background:#A855F7"></i><span data-i18n="st_test">测试中</span></span>
+        <span><i style="background:#10B981"></i><span data-i18n="st_done">已完成</span></span>
+        <span><i style="background:#3B82F6"></i><span data-i18n="st_accept">已验收</span></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Stats Grid -->
+<div class="wrap">
+  <div class="statsband">
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="num">8</div>
+        <div class="lbl" data-i18n="stat_agents">专属专家子代理</div>
+        <div class="sub" data-i18n="stat_agents_sub">PM / 架构 / 开发 / 审查 / QA / 文档 / 运维 / 前端</div>
+      </div>
+      <div class="stat-item">
+        <div class="num">10</div>
+        <div class="lbl" data-i18n="stat_redlines">团队协作核心红线</div>
+        <div class="sub" data-i18n="stat_redlines_sub">时序真实性 · 终态不可逆流 · 越权硬拦截</div>
+      </div>
+      <div class="stat-item">
+        <div class="num">4</div>
+        <div class="lbl" data-i18n="stat_views">可视化看板视图</div>
+        <div class="sub" data-i18n="stat_views_sub">表格 / 状态 / 负责人 / 阶段 · 支持飞书等云端看板</div>
+      </div>
+      <div class="stat-item">
+        <div class="num">0</div>
+        <div class="lbl" data-i18n="stat_deps">工具链依赖与云端开销</div>
+        <div class="sub" data-i18n="stat_deps_sub">本地单机离线运行 · 看板与门禁免额外 Token</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Why Multi-Agent Flow Section -->
+<section id="why">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-tag" data-i18n="why_tag">WHY MULTI-AGENT FLOW</span>
+      <h2 data-i18n="why_hd">告别“盲目点 YES”，重塑工程主导权</h2>
+      <p data-i18n="why_sub">在 Vibe Coding 时代，单 Agent 往往既当裁判又当运动员。Multi-Agent Flow 通过多角色交叉制衡与代码级门控，让每一次交付都经得起工程检验。</p>
+    </div>
+
+    <div class="why-grid">
+      <!-- Bad: Single Agent / YES Engineer -->
+      <div class="why-col bad">
+        <div class="why-head">
+          <div class="why-badge">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </div>
+          <div>
+            <div class="why-title" data-i18n="why_bad_title">传统单 Agent · 沦为盲从的“YES 工程师”</div>
+            <div style="font-size:12px;color:var(--ink-3);" data-i18n="why_bad_sub">黑盒生成 · 缺乏制衡 · 越权篡改 · 虚假完成</div>
+          </div>
+        </div>
+        <div class="why-list">
+          <div class="why-item">
+            <span class="why-icon" style="color:var(--red);">✕</span>
+            <div>
+              <h4 data-i18n="why_b1_h">自己写自己审，开发者疲于点 Accept</h4>
+              <p data-i18n="why_b1_p">单 Agent 生成动辄数百行 Diff，人类精力有限无法逐行审阅，只能盲目点 YES，隐藏 Bug 频频带入生产。</p>
+            </div>
+          </div>
+          <div class="why-item">
+            <span class="why-icon" style="color:var(--red);">✕</span>
+            <div>
+              <h4 data-i18n="why_b2_h">无代码级硬门禁，越权篡改核心配置</h4>
+              <p data-i18n="why_b2_p">单 Agent 拥有全量写权限，随意更改全局配置、静默修改历史记录，缺乏代码级防错拦截机制。</p>
+            </div>
+          </div>
+          <div class="why-item">
+            <span class="why-icon" style="color:var(--red);">✕</span>
+            <div>
+              <h4 data-i18n="why_b3_h">秒级虚假流转，隐患黑盒累积</h4>
+              <p data-i18n="why_b3_p">没有独立测试用例与时序凭据，任务在 1 秒内推向完成，交付周期全是虚假数据，后期返工成本巨大。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Good: Multi-Agent Flow / Engineering Commander -->
+      <div class="why-col good">
+        <div class="why-head">
+          <div class="why-badge">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <div class="why-title" data-i18n="why_good_title">Multi-Agent Flow · 契约驱动的“研发指挥官”</div>
+            <div style="font-size:12px;color:var(--ink-3);" data-i18n="why_good_sub">多角色交叉制衡 · 架构技术沉淀 · 缺陷原单绑定 · 真实时序</div>
+          </div>
+        </div>
+        <div class="why-list">
+          <div class="why-item">
+            <span class="why-icon" style="color:var(--emerald);">✓</span>
+            <div>
+              <h4 data-i18n="why_g1_h">AI 内部交叉制衡，周审查与章测试替你严把关</h4>
+              <p data-i18n="why_g1_p">李开发 编码后必须经 周审查 独立挑刺并由 章测试 执行端到端用例，严经理 终检验收，AI 互相监督替代人工肉眼扫代码。</p>
+            </div>
+          </div>
+          <div class="why-item">
+            <span class="why-icon" style="color:var(--emerald);">✓</span>
+            <div>
+              <h4 data-i18n="why_g2_h">阶段双总结门控，沉淀组织级技术资产</h4>
+              <p data-i18n="why_g2_p">阶段结项（check_stage_gate）不仅是完工核验，更强制沉淀钱架构的「技术架构总结 (ADR/负债清偿)」与严经理的「PMP 敏捷复盘总结」，拒绝“代码一交、技术清空”。</p>
+            </div>
+          </div>
+          <div class="why-item">
+            <span class="why-icon" style="color:var(--emerald);">✓</span>
+            <div>
+              <h4 data-i18n="why_g3_h">缺陷原卡绑定（DEF）与心跳巡检效能雷达</h4>
+              <p data-i18n="why_g3_p">测试与审查不通过原卡打回并挂载 DEF 结构化缺陷，保留初始开工时间与返工痕迹；heartbeat.py 巡检引擎自动告警瞬时冲卡与任务死锁。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 Agents Crew Matrix -->
+<section id="crew">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-tag" data-i18n="crew_tag">AI CREW</span>
+      <h2 data-i18n="crew_hd">8 位专属 AI 专家，各司其职</h2>
+      <p data-i18n="crew_sub">每个角色拥有独立的 YAML 职责规范与权限红线。初始化时自动扫描项目技术架构并回填技术栈，使专家开箱即精通当前项目。</p>
+    </div>
+
+    <div class="crew-grid">
+      <!-- 01 PM -->
+      <div class="agent-card">
+        <div class="agent-head">
+          <div class="agent-avatar" style="background:rgba(239, 68, 68, 0.15); color:#EF4444;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+          </div>
+          <div>
+            <div class="agent-role" data-i18n="a1_name">PM (严经理)</div>
+            <div class="agent-code">01-pm.yaml · PMP/敏捷规范</div>
+          </div>
+        </div>
+        <p class="agent-desc" data-i18n="a1_desc">基于 PMP 与敏捷项目管理规范，负责 WBS 工作包拆解、三问分级派发（L0–L2）、阶段准入准出门禁核验与终态验收，恪守事实反驳原则。</p>
+        <div class="agent-tags">
+          <span class="agent-tag">PMP / 敏捷规范</span>
+          <span class="agent-tag">WBS 拆解分级</span>
+          <span class="agent-tag">阶段管理总结门控</span>
+          <span class="agent-tag">终态验收</span>
+        </div>
+      </div>
+
+      <!-- 02 Architect -->
+      <div class="agent-card">
+        <div class="agent-head">
+          <div class="agent-avatar" style="background:rgba(56, 189, 248, 0.15); color:#38BDF8;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="6" height="6" rx="1"/><rect x="16" y="2" width="6" height="6" rx="1"/><rect x="9" y="16" width="6" height="6" rx="1"/><path d="M5 8v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"/><line x1="12" y1="13" x2="12" y2="16"/></svg>
+          </div>
+          <div>
+            <div class="agent-role" data-i18n="a2_name">架构师 (钱架构)</div>
+            <div class="agent-code">02-architect.yaml · TOGAF/云原生</div>
+          </div>
+        </div>
+        <p class="agent-desc" data-i18n="a2_desc">遵循 TOGAF 与云原生架构设计规范，负责系统模块解耦、ADR 架构决策记录、API 接口契约定义、防错机制推演与阶段架构技术总结。</p>
+        <div class="agent-tags">
+          <span class="agent-tag">TOGAF 架构规范</span>
+          <span class="agent-tag">ADR 架构决策</span>
+          <span class="agent-tag">API 契约</span>
+          <span class="agent-tag">阶段技术总结门控</span>
+        </div>
+      </div>
+
+      <!-- 03 Dev -->
+      <div class="agent-card">
+        <div class="agent-head">
+          <div class="agent-avatar" style="background:rgba(16, 185, 129, 0.15); color:#10B981;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          </div>
+          <div>
+            <div class="agent-role" data-i18n="a3_name">后端开发 (李开发)</div>
+            <div class="agent-code">03-dev.yaml · Clean Code/TDD</div>
+          </div>
+        </div>
+        <p class="agent-desc" data-i18n="a3_desc">遵循 Clean Code、SOLID 设计模式与 TDD 测试驱动开发规范，负责核心业务编码、单元测试覆盖率（≥80%）达标与 DEF 缺陷原单修复。</p>
+        <div class="agent-tags">
+          <span class="agent-tag">Clean Code / SOLID</span>
+          <span class="agent-tag">TDD / 单测≥80%</span>
+          <span class="agent-tag">DEF 原单修复</span>
+          <span class="agent-tag">并发 ≤3</span>
+        </div>
+      </div>
+
+      <!-- 04 Reviewer -->
+      <div class="agent-card">
+        <div class="agent-head">
+          <div class="agent-avatar" style="background:rgba(245, 158, 11, 0.15); color:#F59E0B;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="3"/><line x1="14.5" y1="13.5" x2="17" y2="16"/></svg>
+          </div>
+          <div>
+            <div class="agent-role" data-i18n="a4_name">审查员 (周审查)</div>
+            <div class="agent-code">04-reviewer.yaml · Google Review/OWASP</div>
+          </div>
+        </div>
+        <p class="agent-desc" data-i18n="a4_desc">严格执行 Google Code Review 规范与 OWASP Top 10 安全审计标准，负责圈复杂度拦截、安全漏洞扫描、架构偏离防错与代码红线合规审查。</p>
+        <div class="agent-tags">
+          <span class="agent-tag">Google Code Review</span>
+          <span class="agent-tag">OWASP Top 10</span>
+          <span class="agent-tag">圈复杂度拦截</span>
+          <span class="agent-tag">红线硬门禁</span>
+        </div>
+      </div>
+
+      <!-- 05 QA -->
+      <div class="agent-card">
+        <div class="agent-head">
+          <div class="agent-avatar" style="background:rgba(168, 85, 247, 0.15); color:#A855F7;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><line x1="5.52" y1="16" x2="18.48" y2="16"/></svg>
+          </div>
+          <div>
+            <div class="agent-role" data-i18n="a5_name">测试工程师 (章测试)</div>
+            <div class="agent-code">05-qa.yaml · ISTQB 测试标准</div>
+          </div>
+        </div>
+        <p class="agent-desc" data-i18n="a5_desc">遵循 ISTQB 国际软件测试标准与端到端链路验证，负责测试用例设计、边界压力测试、复现步骤结构化与 DEF 原卡缺陷挂载追踪。</p>
+        <div class="agent-tags">
+          <span class="agent-tag">ISTQB 测试标准</span>
+          <span class="agent-tag">端到端链路验证</span>
+          <span class="agent-tag">DEF 缺陷挂载</span>
+          <span class="agent-tag">结构化复现</span>
+        </div>
+      </div>
+
+      <!-- 06 Docs -->
+      <div class="agent-card">
+        <div class="agent-head">
+          <div class="agent-avatar" style="background:rgba(236, 72, 153, 0.15); color:#EC4899;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+          <div>
+            <div class="agent-role" data-i18n="a6_name">文档工程师 (李文通)</div>
+            <div class="agent-code">06-docs.yaml · Diátaxis 架构</div>
+          </div>
+        </div>
+        <p class="agent-desc" data-i18n="a6_desc">遵循 Diátaxis 国际文档框架规范，维护 D01–D06 企业级标准工程文档骨架、术语一致性与 YAML Frontmatter 元数据镜像同步。</p>
+        <div class="agent-tags">
+          <span class="agent-tag">Diátaxis 架构</span>
+          <span class="agent-tag">D01-D06 骨架</span>
+          <span class="agent-tag">Frontmatter 镜像</span>
+          <span class="agent-tag">术语统一</span>
+        </div>
+      </div>
+
+      <!-- 07 DevOps -->
+      <div class="agent-card">
+        <div class="agent-head">
+          <div class="agent-avatar" style="background:rgba(14, 165, 233, 0.15); color:#0EA5E9;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/></svg>
+          </div>
+          <div>
+            <div class="agent-role" data-i18n="a7_name">运维管理员 (吕改特)</div>
+            <div class="agent-code">07-devops.yaml · GitFlow/SRE</div>
+          </div>
+        </div>
+        <p class="agent-desc" data-i18n="a7_desc">基于 GitFlow 分支模型与 SRE 稳定性工程，捍卫 Conventional Commits 提交规范、GitHub PR 自动合流解阻与发布 Tag 归档。</p>
+        <div class="agent-tags">
+          <span class="agent-tag">GitFlow / SRE</span>
+          <span class="agent-tag">Conventional Commits</span>
+          <span class="agent-tag">PR 自动解阻</span>
+          <span class="agent-tag">发布打 Tag</span>
+        </div>
+      </div>
+
+      <!-- 08 Frontend -->
+      <div class="agent-card">
+        <div class="agent-head">
+          <div class="agent-avatar" style="background:rgba(99, 102, 241, 0.15); color:#6366F1;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          </div>
+          <div>
+            <div class="agent-role" data-i18n="a8_name">前端开发 (马前端)</div>
+            <div class="agent-code">08-frontend.yaml · 现代Web规范</div>
+          </div>
+        </div>
+        <p class="agent-desc" data-i18n="a8_desc">遵循现代 Web 体验标准与组件化工程规范，负责高保真 UI/UX 界面实现、响应式交互设计与前端工程化状态管理。</p>
+        <div class="agent-tags">
+          <span class="agent-tag">现代 Web 标准</span>
+          <span class="agent-tag">组件化工程</span>
+          <span class="agent-tag">UI/UX 高保真</span>
+          <span class="agent-tag">响应式适配</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Core Features Section -->
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-tag" data-i18n="feat_tag">CORE FEATURES</span>
+      <h2 data-i18n="feat_hd">为企业级规范研发设计的协作中枢</h2>
+      <p data-i18n="feat_sub">解决 AI 编程混乱、越权篡改、上下文膨胀与任务失控的核心痛点。</p>
+    </div>
+
+    <div class="features-grid">
+      <!-- F1 -->
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3 data-i18n="f1_h">十大协作红线与阶段双总结门控</h3>
+        <p data-i18n="f1_p">严格执行越权拦截与阶段门禁（check_stage_gate）；阶段结项硬性要求钱架构输出「技术架构总结 (ADR/负债清偿)」与严经理输出「PMP 敏捷复盘总结」，沉淀团队技术资产。</p>
+      </div>
+
+      <!-- F2 -->
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        </div>
+        <h3 data-i18n="f2_h">缺陷打回不拆单与原卡闭环追溯</h3>
+        <p data-i18n="f2_p">测试与审查不通过时原卡打回（【已退回】）并自动挂载 DEF-TXXX-N 缺陷单，保留初始开工时间与返工痕迹，杜绝新建孤儿卡刷完工率。</p>
+      </div>
+
+      <!-- F3 -->
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h3 data-i18n="f3_h">心跳健康巡检与 14+ 效能雷达</h3>
+        <p data-i18n="f3_p">内置 heartbeat.py 自动化巡检引擎，实时探测任务死锁、在制品（WIP）超限、停滞与瞬时冲卡（TIME_SKEW_INSTANT），精确度量有效交付周期。</p>
+      </div>
+
+      <!-- F4 -->
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
+        </div>
+        <h3 data-i18n="f4_h">单人离线极速 + 团队云端适配</h3>
+        <p data-i18n="f4_p">单人开发免依赖直接双击离线 HTML 或启动本地 Web 服务（0 Token 开销）；团队协作通过 Board Adapter 原生对接飞书多维表格、GitHub Projects、Jira 等云端大盘。</p>
+      </div>
+
+      <!-- F5 -->
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <h3 data-i18n="f5_h">D01–D06 企业级标准文档骨架</h3>
+        <p data-i18n="f5_p">基于 Diátaxis 架构规范，李文通 维护项目管理、架构 ADR、系统设计、研发用例、交付部署与运维全套工程骨架，内置 Frontmatter 元数据镜像。</p>
+      </div>
+
+      <!-- F6 -->
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <h3 data-i18n="f6_h">L0–L2 任务分级与敏捷智能路由</h3>
+        <p data-i18n="f6_p">根据任务复杂度自动三问分级：L0 轻量即时直答、L1 标准特性完整敏捷流转、L2 架构级重构强制钱架构 ADR 预研会诊，大任务严控、小任务快跑。</p>
+      </div>
+
+      <!-- F7 -->
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+        </div>
+        <h3 data-i18n="f7_h">GitHub PR 自动合流解阻与发布</h3>
+        <p data-i18n="f7_p">运维专家吕改特自动感知 GitHub PR Merged 状态，秒级推进【已阻塞】工单并通知 PM 验收，自动归档 Conventional Commits 与发布 Tag。</p>
+      </div>
+
+      <!-- F8 -->
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="8" height="8" rx="1"/></svg>
+        </div>
+        <h3 data-i18n="f8_h">跨 AI 开发环境轻量化全移植</h3>
+        <p data-i18n="f8_p">纯 Python 3 原生实现，0 外部数据库与 Node 依赖；通用 Skill 规范完美兼容 Antigravity、Claude Code、Cursor、Codex、Windsurf 等任意开发环境。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Dedicated Section: Project-Bound & Multi-CLI Agent Ecosystem -->
+<section id="platforms">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-tag" data-i18n="plat_tag">PROJECT-BOUND & AGENT-AGNOSTIC</span>
+      <h2 data-i18n="plat_hd">项目级强关联 · 原生适配主流 CLI Agent</h2>
+      <p data-i18n="plat_sub">与云端通用聊天机器人不同，Multi-Agent Flow 深度植根于项目物理代码库，并基于声明式引擎原生导出适配主流 AI 编程终端。</p>
+    </div>
+
+    <div class="platform-grid">
+      <!-- 1. 仓库级私有上下文 -->
+      <div class="platform-card">
+        <div class="platform-card-head">
+          <div class="platform-icon" style="background:rgba(56, 189, 248, 0.12); color:var(--cyan);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          </div>
+          <div>
+            <h3 data-i18n="plat_c1_h">仓库级私有上下文与 Git 资产持久化</h3>
+            <div style="font-size:12px;font-family:var(--mono);color:var(--ink-3);">.yy-flow/ · 100% 随代码库提交</div>
+          </div>
+        </div>
+        <p data-i18n="plat_c1_p">技能包、状态机与工单完全植根于项目的 <code>.yy-flow/</code> 目录。所有 ADR 决策、任务看板、测试用例与复盘总结 100% 随 Git 仓库提交共享，团队成员克隆即具备全套协同规范。</p>
+      </div>
+
+      <!-- 2. 架构自动嗅探 -->
+      <div class="platform-card">
+        <div class="platform-card-head">
+          <div class="platform-icon" style="background:rgba(124, 108, 240, 0.12); color:var(--accent-light);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+          </div>
+          <div>
+            <h3 data-i18n="plat_c2_h">项目架构自动嗅探与技术栈自适应</h3>
+            <div style="font-size:12px;font-family:var(--mono);color:var(--ink-3);">Auto Tech Overlay · 零手动 Prompt 调优</div>
+          </div>
+        </div>
+        <p data-i18n="plat_c2_p">初始化时自动深度遍历 <code>package.json</code>、<code>pyproject.toml</code>、<code>go.mod</code>、<code>pom.xml</code> 等依赖配置，内存级动态覆盖注入 8 位专家 Subagent，在不同项目中开箱即精通专属技术栈。</p>
+      </div>
+
+      <!-- 3. 声明式跨平台导出 -->
+      <div class="platform-card">
+        <div class="platform-card-head">
+          <div class="platform-icon" style="background:rgba(16, 185, 129, 0.12); color:var(--emerald);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          </div>
+          <div>
+            <h3 data-i18n="plat_c3_h">声明式跨平台导出与底层工具对齐</h3>
+            <div style="font-size:12px;font-family:var(--mono);color:var(--ink-3);">verify_and_export_agents.py · 官方规范对齐</div>
+          </div>
+        </div>
+        <p data-i18n="plat_c3_p">内置自动化导出引擎，自动按目标 CLI/IDE 的官方规范（Markdown Frontmatter / Subagent spec）序列化专家角色，并精准映射其原生工具标识（如 <code>Bash/Edit/Read</code> 与 <code>run_command/replace_file_content</code>）。</p>
+      </div>
+
+      <!-- 4. 零污染隔离 -->
+      <div class="platform-card">
+        <div class="platform-card-head">
+          <div class="platform-icon" style="background:rgba(245, 158, 11, 0.12); color:var(--amber);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <div>
+            <h3 data-i18n="plat_c4_h">零污染环境隔离与多项目无干扰并行</h3>
+            <div style="font-size:12px;font-family:var(--mono);color:var(--ink-3);">Clean Isolation · 模板只读保护</div>
+          </div>
+        </div>
+        <p data-i18n="plat_c4_p">公共专家模板实行只读保护，运行态数据与任务卡严格落盘在当前项目的私有工作区，开发者在本地并行开发多个微服务项目时，各项目状态互不干扰、支持独立定制。</p>
+      </div>
+    </div>
+
+    <!-- Supported Platform Badges -->
+    <div class="platform-showcase-bar">
+      <div class="platform-bar-title" data-i18n="plat_bar_title">原生声明式适配支持的 AI 编程环境与 CLI Agent</div>
+      <div class="platform-badge-list">
+        <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> <b>Google Antigravity</b> (.agents/skills)</span>
+        <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/></svg> <b>Claude Code</b> (.claude/skills &amp; agents)</span>
+        <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <b>Cursor IDE</b> (.cursor/rules &amp; agents)</span>
+        <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="12" cy="12" r="3"/></svg> <b>OpenAI Codex</b> (.agents/skills)</span>
+        <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><path d="M2 12c4-4 8 4 12 0s8 4 10 0"/></svg> <b>Windsurf / Cascade</b></span>
+        <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> <b>Cline / Roo Code / OpenDevin</b></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Terminal & Quickstart -->
+<section id="install">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-tag" data-i18n="inst_tag">GET STARTED</span>
+      <h2 data-i18n="inst_hd">一行命令，立即装入项目</h2>
+      <p data-i18n="inst_sub">适用于 Antigravity CLI、Codex、Claude Code、Cursor 等任意支持 Skill 规约的 AI 编程环境。</p>
+    </div>
+
+    <div class="term-container">
+      <div class="term-nav">
+        <div class="window-dots">
+          <span class="red"></span><span class="yellow"></span><span class="green"></span>
+        </div>
+        <div class="term-nav-tabs">
+          <button class="term-tab-btn active" data-tab="degit">npx degit（推荐）</button>
+          <button class="term-tab-btn" data-tab="tarball">tarball 纯脚本</button>
+          <button class="term-tab-btn" data-tab="windows">Windows PS</button>
+          <button class="term-tab-btn" data-tab="kanban">启动本地看板</button>
+        </div>
+      </div>
+      <div class="term-body">
+        <div id="term-content">
+          <!-- Default: degit -->
+          <div class="cmd-line">
+            <code class="cmd-code">
+              <span class="m"># 1. 进入你的目标项目根目录</span><br>
+              <span class="c">cd</span> /path/to/your-project<br><br>
+              <span class="m"># 2. 一行命令安装技能包</span><br>
+              <span class="c">npx</span> -y degit YuanYii/multi-agent-flow /tmp/yy-flow-stage &amp;&amp; <span class="c">mkdir</span> -p .yy-flow &amp;&amp; <span class="c">mv</span> /tmp/yy-flow-stage .yy-flow/skill
+            </code>
+            <button class="copy-btn" data-copy="npx -y degit YuanYii/multi-agent-flow /tmp/yy-flow-stage && mkdir -p .yy-flow && mv /tmp/yy-flow-stage .yy-flow/skill" data-i18n="copy">复制</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="quick-step-box">
+      <div class="step-item">
+        <div class="step-num">STEP 01</div>
+        <div class="step-title" data-i18n="step1_h">安装技能包</div>
+        <div class="step-desc" data-i18n="step1_p">通过 degit 或 tarball 将技能包安装至项目的 <code>.yy-flow/skill</code>。</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">STEP 02</div>
+        <div class="step-title" data-i18n="step2_h">Agent 初始化与架构扫描</div>
+        <div class="step-desc" data-i18n="step2_p">在 AI 对话中输入 <code>/yy-flow start</code>，自动扫描代码库技术架构，并将项目技术栈动态注入 8 大专家 Subagent。</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">STEP 03</div>
+        <div class="step-title" data-i18n="step3_h">开始敏捷研发</div>
+        <div class="step-desc" data-i18n="step3_p">使用自然语言对话，让 8 位专家自主协同推进任务与阶段交付。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="wrap">
+    <div class="brand-small">
+      <div class="brand-badge" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c4-4 8 4 12 0s8 4 10 0"/></svg>
+      </div>
+      <span>Multi-Agent Flow</span>
+    </div>
+    <span data-i18n="footer_desc">· MIT Licensed · AI 团队敏捷协同工作流</span>
+    
+    <div class="footer-links">
+      <a href="https://github.com/YuanYii/multi-agent-flow" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/YuanYii/multi-agent-flow#readme" target="_blank" rel="noopener" data-i18n="footer_doc">技术文档</a>
+      <a href="https://github.com/YuanYii/multi-agent-flow/blob/main/SKILL.md" target="_blank" rel="noopener">SKILL.md</a>
+    </div>
+  </div>
+</footer>
+
+<!-- JavaScript Logic -->
+<script>
+const REPO = 'YuanYii/multi-agent-flow';
+const SCREENSHOT_BASE = 'https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/';
+
+const VIEWS = {
+  table: {
+    img: SCREENSHOT_BASE + 'table-view.png',
+    captionZh: '数据表格视图 · 任务全量明细、筛选排序与导入导出',
+    captionEn: 'Data Table View · Full task list with filtering, sorting, import/export'
+  },
+  status: {
+    img: SCREENSHOT_BASE + 'kanban-status.png',
+    captionZh: '看板-按状态视图 · 任务跨列拖拽即审计',
+    captionEn: 'Kanban Status View · Drag & drop tasks across columns with automatic audit'
+  },
+  assignee: {
+    img: SCREENSHOT_BASE + 'kanban-assignee.png',
+    captionZh: '看板-按负责人视图 · 8 位专家实时负载分布',
+    captionEn: 'Assignee View · Real-time workload distribution among 8 AI agents'
+  },
+  stage: {
+    img: SCREENSHOT_BASE + 'kanban-stage.png',
+    captionZh: '看板-按阶段工作包视图 · S1–S6 交付节奏把控',
+    captionEn: 'Stage Package View · Milestone tracking across S1–S6 deliverables'
+  }
+};
+
+const TERMINAL_TABS = {
+  degit: {
+    code: `<span class="m"># 1. 进入目标项目根目录</span><br><span class="c">cd</span> /path/to/your-project<br><br><span class="m"># 2. 一行命令安装技能包</span><br><span class="c">npx</span> -y degit YuanYii/multi-agent-flow /tmp/yy-flow-stage &amp;&amp; <span class="c">mkdir</span> -p .yy-flow &amp;&amp; <span class="c">mv</span> /tmp/yy-flow-stage .yy-flow/skill`,
+    copy: `npx -y degit YuanYii/multi-agent-flow /tmp/yy-flow-stage && mkdir -p .yy-flow && mv /tmp/yy-flow-stage .yy-flow/skill`
+  },
+  tarball: {
+    code: `<span class="m"># 无需 Node/npm 环境（Linux / macOS）</span><br><span class="c">mkdir</span> -p .yy-flow/skill &amp;&amp; <span class="c">curl</span> -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/main.tar.gz | <span class="c">tar</span> xz -C .yy-flow/skill --strip-components=1`,
+    copy: `mkdir -p .yy-flow/skill && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/main.tar.gz | tar xz -C .yy-flow/skill --strip-components=1`
+  },
+  windows: {
+    code: `<span class="m"># Windows PowerShell 安装</span><br><span class="c">git clone</span> https://github.com/YuanYii/multi-agent-flow.git .yy-flow\\skill<br><span class="c">powershell</span> -ExecutionPolicy Bypass -File .yy-flow\\skill\\scripts\\init_skill.ps1`,
+    copy: `git clone https://github.com/YuanYii/multi-agent-flow.git .yy-flow\\skill\npowershell -ExecutionPolicy Bypass -File .yy-flow\\skill\\scripts\\init_skill.ps1`
+  },
+  kanban: {
+    code: `<span class="m"># 启动本地实时可视化看板 Web 服务（跨平台自动探测）</span><br><span class="c">python3</span> scripts/start_kanban_server.py <span class="m"># Windows 请使用 python</span><br><br><span class="m"># 控制台输出访问链接（默认 http://127.0.0.1:32886）</span>`,
+    copy: `python3 scripts/start_kanban_server.py`
+  }
+};
+
+const I18N = {
+  zh: {
+    nav_why: '拒绝点YES', nav_crew: '8 大专家', nav_features: '核心特性', nav_platforms: '多Agent适配', nav_kanban: '看板视图', nav_install: '快速开始',
+    cta_start: '立即使用',
+    eyebrow: 'MULTI-AGENT FLOW · AI 团队敏捷协同工作流',
+    slogan: '“ 不要让 CV 工程师变成 YES 工程师 ”',
+    hero_h1_a: '一个人，', hero_h1_b: '指挥 8 位 AI 专家',
+    hero_sub: '契约驱动的 AI 多角色协同研发工作流技能包。以十大协作红线、五层防错门控、时序真实性防冲卡与现代可视化看板，有效防范跨角色越权、打回碎片化与状态悬挂。',
+    hero_btn_start: '↓ 快速安装指引', hero_btn_gh: '★ 在 GitHub 上查看',
+    hero_callout_tech: '<b>初始化时自动扫描项目技术架构并回填技术栈</b>，使 8 位专家开箱即精通当前项目语言、框架与单测套件，无需手动配置繁琐 Prompt。',
+    pill_redlines: '十大协作红线', pill_techscan: '架构自动扫描与技术栈自适应', pill_timeskew: '时序真实性防冲卡', pill_offline: '0 工具链依赖 · 纯本地运行', pill_license: 'MIT 开源',
+    tab_table: '数据表格', tab_status: '状态泳道', tab_assignee: '专家负载', tab_stage: '阶段工作包',
+    st_pending: '待开始', st_progress: '进行中', st_review: '审查中', st_test: '测试中', st_done: '已完成', st_accept: '已验收',
+    stat_agents: '专属专家子代理', stat_agents_sub: 'PMP / TOGAF / Clean Code / ISTQB / Diátaxis / SRE / Web UX',
+    stat_redlines: '团队协作核心红线', stat_redlines_sub: '时序真实性 · 终态不可逆流 · 越权硬拦截',
+    stat_views: '可视化看板视图', stat_views_sub: '表格 / 状态 / 负责人 / 阶段 · 支持飞书等云端看板',
+    stat_deps: '工具链依赖与云端开销', stat_deps_sub: '本地单机离线运行 · 看板与门禁免额外 Token',
+    why_tag: 'WHY MULTI-AGENT FLOW',
+    why_hd: '告别“盲目点 YES”，重塑工程主导权',
+    why_sub: '在 Vibe Coding 时代，单 Agent 往往既当裁判又当运动员。Multi-Agent Flow 通过多角色交叉制衡与代码级门控，让每一次交付都经得起工程检验。',
+    why_bad_title: '传统单 Agent · 沦为盲从的“YES 工程师”',
+    why_bad_sub: '黑盒生成 · 缺乏制衡 · 越权篡改 · 虚假完成',
+    why_b1_h: '自己写自己审，开发者疲于点 Accept',
+    why_b1_p: '单 Agent 生成动辄数百行 Diff，人类精力有限无法逐行审阅，只能盲目点 YES，隐藏 Bug 频频带入生产。',
+    why_b2_h: '无代码级硬门禁，越权篡改核心配置',
+    why_b2_p: '单 Agent 拥有全量写权限，随意更改全局配置、静默修改历史记录，缺乏代码级防错拦截机制。',
+    why_b3_h: '秒级虚假流转，隐患黑盒累积',
+    why_b3_p: '没有独立测试用例与时序凭据，任务在 1 秒内推向完成，交付周期全是虚假数据，后期返工成本巨大。',
+    why_good_title: 'Multi-Agent Flow · 契约驱动的“研发指挥官”',
+    why_good_sub: '多角色交叉制衡 · 架构技术沉淀 · 缺陷原单绑定 · 真实时序',
+    why_g1_h: 'AI 内部交叉制衡，周审查与章测试替你严把关',
+    why_g1_p: '李开发 编码后必须经 周审查 独立挑刺并由 章测试 执行端到端用例，严经理 终检验收，AI 互相监督替代人工肉眼扫代码。',
+    why_g2_h: '阶段双总结门控，沉淀组织级技术资产',
+    why_g2_p: '阶段结项（check_stage_gate）不仅是完工核验，更强制沉淀钱架构的「技术架构总结 (ADR/负债清偿)」与严经理的「PMP 敏捷复盘总结」，拒绝“代码一交、技术清空”。',
+    why_g3_h: '缺陷原卡绑定（DEF）与心跳巡检效能雷达',
+    why_g3_p: '测试与审查不通过原卡打回并挂载 DEF 结构化缺陷，保留初始开工时间与返工痕迹；heartbeat.py 巡检引擎自动告警瞬时冲卡与任务死锁。',
+    crew_tag: 'AI CREW', crew_hd: '8 位专属 AI 专家，各司其职',
+    crew_sub: '每个角色拥有独立的 YAML 职责规范与权限红线。初始化时自动扫描项目技术架构并回填技术栈，使专家开箱即精通当前项目。',
+    a1_name: 'PM (严经理)', a1_desc: '基于 PMP 与敏捷项目管理规范，负责 WBS 工作包拆解、三问分级派发（L0–L2）、阶段准入准出门禁核验与终态验收，恪守事实反驳原则。',
+    a2_name: '架构师 (钱架构)', a2_desc: '遵循 TOGAF 与云原生架构设计规范，负责系统模块解耦、ADR 架构决策记录、API 接口契约定义、防错机制推演与阶段架构技术总结。',
+    a3_name: '后端开发 (李开发)', a3_desc: '遵循 Clean Code、SOLID 设计模式与 TDD 测试驱动开发规范，负责核心业务编码、单元测试覆盖率（≥80%）达标与 DEF 缺陷原单修复。',
+    a4_name: '审查员 (周审查)', a4_desc: '严格执行 Google Code Review 规范与 OWASP Top 10 安全审计标准，负责圈复杂度拦截、安全漏洞扫描、架构偏离防错与代码红线合规审查。',
+    a5_name: '测试工程师 (章测试)', a5_desc: '遵循 ISTQB 国际软件测试标准与端到端链路验证，负责测试用例设计、边界压力测试、复现步骤结构化与 DEF 原卡缺陷挂载追踪。',
+    a6_name: '文档工程师 (李文通)', a6_desc: '遵循 Diátaxis 国际文档框架规范，维护 D01–D06 企业级标准工程文档骨架、术语一致性与 YAML Frontmatter 元数据镜像同步。',
+    a7_name: '运维管理员 (吕改特)', a7_desc: '基于 GitFlow 分支模型与 SRE 稳定性工程，捍卫 Conventional Commits 提交规范、GitHub PR 自动合流解阻与发布 Tag 归档。',
+    a8_name: '前端开发 (马前端)', a8_desc: '遵循现代 Web 体验标准与组件化工程规范，负责高保真 UI/UX 界面实现、响应式交互设计与前端工程化状态管理。',
+    feat_tag: 'CORE FEATURES', feat_hd: '为企业级规范研发设计的协作中枢',
+    feat_sub: '解决 AI 编程混乱、越权篡改、上下文膨胀与任务失控的核心痛点。',
+    f1_h: '十大协作红线与阶段双总结门控', f1_p: '严格执行越权拦截与阶段门禁（check_stage_gate）；阶段结项硬性要求钱架构输出「技术架构总结 (ADR/负债清偿)」与严经理输出「PMP 敏捷复盘总结」，沉淀团队技术资产。',
+    f2_h: '缺陷打回不拆单与原卡闭环追溯', f2_p: '测试与审查不通过时原卡打回（【已退回】）并自动挂载 DEF-TXXX-N 缺陷单，保留初始开工时间与返工痕迹，杜绝新建孤儿卡刷完工率。',
+    f3_h: '心跳健康巡检与 14+ 效能雷达', f3_p: '内置 heartbeat.py 自动化巡检引擎，实时探测任务死锁、在制品（WIP）超限、停滞与瞬时冲卡（TIME_SKEW_INSTANT），精确度量有效交付周期。',
+    f4_h: '单人离线极速 + 团队云端适配', f4_p: '单人开发免依赖直接双击离线 HTML 或启动本地 Web 服务（0 Token 开销）；团队协作通过 Board Adapter 原生对接飞书多维表格、GitHub Projects、Jira 等云端大盘。',
+    f5_h: 'D01–D06 企业级标准文档骨架', f5_p: '基于 Diátaxis 架构规范，李文通 维护项目管理、架构 ADR、系统设计、研发用例、交付部署与运维全套工程骨架，内置 Frontmatter 元数据镜像。',
+    f6_h: 'L0–L2 任务分级与敏捷智能路由', f6_p: '根据任务复杂度自动三问分级：L0 轻量即时直答、L1 标准特性完整敏捷流转、L2 架构级重构强制钱架构 ADR 预研会诊，大任务严控、小任务快跑。',
+    f7_h: 'GitHub PR 自动合流解阻与发布', f7_p: '运维专家吕改特自动感知 GitHub PR Merged 状态，秒级推进【已阻塞】工单并通知 PM 验收，自动归档 Conventional Commits 与发布 Tag。',
+    f8_h: '跨 AI 开发环境轻量化全移植', f8_p: '纯 Python 3 原生实现，0 外部数据库与 Node 依赖；通用 Skill 规范完美兼容 Antigravity、Claude Code、Cursor、Codex、Windsurf 等任意开发环境。',
+    plat_tag: 'PROJECT-BOUND & AGENT-AGNOSTIC',
+    plat_hd: '项目级强关联 · 原生适配主流 CLI Agent',
+    plat_sub: '与云端通用聊天机器人不同，Multi-Agent Flow 深度植根于项目物理代码库，并基于声明式引擎原生导出适配主流 AI 编程终端。',
+    plat_c1_h: '仓库级私有上下文与 Git 资产持久化',
+    plat_c1_p: '技能包、状态机与工单完全植根于项目的 .yy-flow/ 目录。所有 ADR 决策、任务看板、测试用例与复盘总结 100% 随 Git 仓库提交共享，团队成员克隆即具备全套协同规范。',
+    plat_c2_h: '项目架构自动嗅探与技术栈自适应',
+    plat_c2_p: '初始化时自动深度遍历 package.json、pyproject.toml、go.mod、pom.xml 等依赖配置，内存级动态覆盖注入 8 位专家 Subagent，在不同项目中开箱即精通专属技术栈。',
+    plat_c3_h: '声明式跨平台导出与底层工具对齐',
+    plat_c3_p: '内置自动化导出引擎，自动按目标 CLI/IDE 的官方规范（Markdown Frontmatter / Subagent spec）序列化专家角色，并精准映射其原生工具标识（如 Bash/Edit/Read 与 run_command/replace_file_content）。',
+    plat_c4_h: '零污染环境隔离与多项目无干扰并行',
+    plat_c4_p: '公共专家模板实行只读保护，运行态数据与任务卡严格落盘在当前项目的私有工作区，开发者在本地并行开发多个微服务项目时，各项目状态互不干扰、支持独立定制。',
+    plat_bar_title: '原生声明式适配支持的 AI 编程环境与 CLI Agent',
+    inst_tag: 'GET STARTED', inst_hd: '一行命令，立即装入项目',
+    inst_sub: '适用于 Antigravity CLI、Codex、Claude Code、Cursor 等任意支持 Skill 规约的 AI 编程环境。',
+    copy: '复制', copied: '已复制 ✓',
+    step1_h: '安装技能包', step1_p: '通过 degit 或 tarball 将技能包安装至项目的 .yy-flow/skill。',
+    step2_h: 'Agent 初始化与架构扫描', step2_p: '在 AI 对话中输入 /yy-flow start，自动扫描代码库技术架构，并将项目技术栈动态注入 8 大专家 Subagent。',
+    step3_h: '开始敏捷研发', step3_p: '使用自然语言对话，让 8 位专家自主协同推进任务与阶段交付。',
+    footer_desc: '· MIT Licensed · AI 团队敏捷协同工作流', footer_doc: '技术文档'
+  },
+  en: {
+    nav_why: 'Why Multi-Agent', nav_crew: 'AI Crew', nav_features: 'Features', nav_platforms: 'CLI Ecosystem', nav_kanban: 'Kanban', nav_install: 'Get Started',
+    cta_start: 'Get Started',
+    eyebrow: 'MULTI-AGENT FLOW · AGILE AI CREW WORKFLOW',
+    slogan: '“ Don’t let CV engineers turn into YES engineers ”',
+    hero_h1_a: 'One person,', hero_h1_b: 'direct an 8-agent AI crew',
+    hero_sub: 'Contract-driven AI multi-role collaborative engineering workflow. 10 collaboration redlines, time-skew protection, stage exit gates, and zero-dependency visual kanban.',
+    hero_btn_start: '↓ Quickstart Guide', hero_btn_gh: '★ View on GitHub',
+    hero_callout_tech: '<b>Automatically scans project technical architecture and overlays tech stacks during setup</b>, making 8 subagents project-ready out-of-the-box without manual prompt tuning.',
+    pill_redlines: '10 Collaboration Redlines', pill_techscan: 'Auto Tech-Stack Adaptive', pill_timeskew: 'Time-skew Protection', pill_offline: 'Zero toolchain deps · Pure local execution', pill_license: 'MIT Licensed',
+    tab_table: 'Table', tab_status: 'Status', tab_assignee: 'Assignee', tab_stage: 'Stages',
+    st_pending: 'Pending', st_progress: 'In Progress', st_review: 'In Review', st_test: 'Testing', st_done: 'Done', st_accept: 'Accepted',
+    stat_agents: 'Specialized AI Subagents', stat_agents_sub: 'PMP / TOGAF / Clean Code / ISTQB / Diátaxis / SRE / Web UX',
+    stat_redlines: 'Core Redlines', stat_redlines_sub: 'Time authenticity · Final state immutability · Unauthorized interception',
+    stat_views: 'Visual Kanban Views', stat_views_sub: 'Table / Status / Assignee / Stage · Supports Feishu & Cloud Boards',
+    stat_deps: 'Toolchain Deps & SaaS Cost', stat_deps_sub: 'Pure local execution · Board & gates cost 0 extra tokens',
+    why_tag: 'WHY MULTI-AGENT FLOW',
+    why_hd: 'Stop Clicking Blind "YES" · Reclaim Engineering Control',
+    why_sub: 'In the Vibe Coding era, single-agent setups act as both referee and player. Multi-Agent Flow establishes multi-role checks and physical guardrails for disciplined delivery.',
+    why_bad_title: 'Single Agent Mode · Trapped as a "YES Clicker"',
+    why_bad_sub: 'Blackbox diffs · Zero peer checks · Unchecked mutations · Instant fake lead times',
+    why_b1_h: 'Self-Authoring & Self-Reviewing with Fatigue',
+    why_b1_p: 'Hundreds of generated diff lines overwhelm humans, forcing blind "Accept/YES" clicks that slip bugs into production.',
+    why_b2_h: 'Zero Code-Level Hard Gates & Rogue Overwrites',
+    why_b2_p: 'Unrestricted write permissions allow accidental tampering with core configs and history without fail-closed checks.',
+    why_b3_h: 'Instant Rush Skew & Compounding Defects',
+    why_b3_p: 'Without isolated test evidence, tasks complete in 1s with distorted metrics and hidden compounding debt.',
+    why_good_title: 'Multi-Agent Flow · Disciplined Engineering Commander',
+    why_good_sub: 'Peer cross-validation · Tech depth & ADR · Defect binding · Authentic lead times',
+    why_g1_h: 'Internal AI Peer Checks with Dedicated Reviewer & QA',
+    why_g1_p: 'Dev (Li) writes code, Reviewer (Zhou) audits flaws, QA (Zhang) runs end-to-end tests, and PM (Yan) validates acceptance.',
+    why_g2_h: 'Dual-Summary Stage Gates & Organizational Knowledge Accumulation',
+    why_g2_p: 'Stage closure (check_stage_gate) enforces Architect Tech Summary (ADR/debt payback) and PM PMP Agile Retrospective, transforming deliveries into permanent engineering depth.',
+    why_g3_h: 'Defect-Binding (DEF) & Heartbeat Health Radar',
+    why_g3_p: 'Rejections return to the original card with DEF structured defects, retaining start times and rework trails; heartbeat.py alerts deadlocks and instant rushing.',
+    crew_tag: 'AI CREW', crew_hd: '8 Dedicated AI Specialists, Clearly Defined',
+    crew_sub: 'Each agent possesses an explicit YAML spec. Automatically scans codebase technical architecture and overlays tech stacks into subagents during initialization.',
+    a1_name: 'PM (Yan)', a1_desc: 'PMP & Agile standards. Governs WBS breakdown, L0–L2 routing, stage exit gates, and final acceptance with zero-speculation facts.',
+    a2_name: 'Architect (Qian)', a2_desc: 'TOGAF & Cloud-Native architecture. Governs system decoupling, ADR specifications, API contracts, and stage technical retrospectives.',
+    a3_name: 'Backend Dev (Li)', a3_desc: 'Clean Code, SOLID, & TDD. Delivers core logic with >=80% unit test coverage and in-place DEF defect resolution.',
+    a4_name: 'Reviewer (Zhou)', a4_desc: 'Google Code Review & OWASP Top 10 standards. Audits cyclomatic complexity, vulnerabilities, and anti-error redlines.',
+    a5_name: 'QA (Zhang)', a5_desc: 'ISTQB international testing standards. Delivers end-to-end verification, edge testing, reproduction steps, and DEF defect binding.',
+    a6_name: 'Docs (Li)', a6_desc: 'Diátaxis documentation framework. Maintains D01–D06 enterprise doc skeleton and YAML Frontmatter metadata mirroring.',
+    a7_name: 'DevOps (Lü)', a7_desc: 'GitFlow & SRE reliability engineering. Guards Conventional Commits, auto GitHub PR unblocking, and release tagging.',
+    a8_name: 'Frontend (Ma)', a8_desc: 'Modern Web & UI/UX engineering standards. Delivers modular components, responsive layouts, and visual fidelities.',
+    feat_tag: 'CORE FEATURES', feat_hd: 'Orchestration Hub for Disciplined AI Engineering',
+    feat_sub: 'Eliminating hallucinations, boundary violations, context bloating, and uncontrolled code drifts.',
+    f1_h: '10 Redlines & Dual-Summary Stage Exit Gates', f1_p: 'Strict guardrails (check_stage_gate); stage closure enforces Architect Tech Summary (ADR/debt) & PM Agile Retrospective to accumulate team depth.',
+    f2_h: 'In-Place Defect Binding (DEF-TXXX-N)', f2_p: 'Rejections return to the original card with DEF structured defect tasks, retaining initial start timestamps and authentic rework lead times.',
+    f3_h: 'Heartbeat Health Radar & 14+ Metrics', f3_p: 'Built-in heartbeat.py engine detects task deadlocks, WIP limits, stalled items, and instant rushing (TIME_SKEW_INSTANT) with true lead times.',
+    f4_h: 'Solo Offline + Team Cloud Kanban Adapters', f4_p: 'Zero-dep offline HTML & local Web server for solo devs; extensible Board Adapter natively syncs with Feishu (Lark Bitable), GitHub Projects, and Jira.',
+    f5_h: 'D01–D06 Standard Documentation Skeleton', f5_p: 'Diátaxis-aligned architecture maintained by Docs Engineer, covering PM, ADR, system design, QA cases, CI/CD, and Ops with YAML Frontmatter.',
+    f6_h: 'L0–L2 Task Tiering & Agile Smart Routing', f6_p: 'Automatic 3-question tiering: L0 lightweight instant answer, L1 standard agile flow, and L2 architecture refactoring with mandatory ADR consultation.',
+    f7_h: 'Auto GitHub PR Unblocking & SRE Release', f7_p: 'DevOps agent detects GitHub PR Merged events, unblocking blocked tasks in seconds for PM acceptance, archiving commits & tags.',
+    f8_h: 'Cross-IDE Zero-Dependency Portability', f8_p: 'Pure Python 3 standard library, 0 DB/Node deps; universal Skill specification runs seamlessly across Antigravity, Claude Code, Cursor, Windsurf, etc.',
+    plat_tag: 'PROJECT-BOUND & AGENT-AGNOSTIC',
+    plat_hd: 'Project-Coupled · Native Multi-CLI Agent Adaptation',
+    plat_sub: 'Unlike hallucinating cloud chatbots, Multi-Agent Flow deeply binds to your codebase and natively exports into mainstream AI CLI agents.',
+    plat_c1_h: 'Repository-Scoped Context & Git-Traceable',
+    plat_c1_p: 'Skill, state machine, and tasks reside directly in the project .yy-flow/ directory. All ADRs, boards, test cases, and retrospectives are 100% committed to Git.',
+    plat_c2_h: 'Auto Architecture Sniffing & Dynamic Overlay',
+    plat_c2_p: 'Inspects physical dependencies during setup to dynamically overlay expert system prompts. The same workflow adapts seamlessly across different repositories.',
+    plat_c3_h: 'Declarative Multi-CLI Agent Export',
+    plat_c3_p: 'Built-in verify_and_export_agents.py engine serializes subagents for each platform with exact execution tool mapping (Bash/Edit/Read vs run_command/replace_file_content).',
+    plat_c4_h: 'Clean Isolation & Concurrent Project Safety',
+    plat_c4_p: 'Template immutability guarantees project runtime data is isolated within the repository, enabling concurrent project workflows without cross-talk.',
+    plat_bar_title: 'Natively Supported AI CLI & IDE Environments',
+    inst_tag: 'GET STARTED', inst_hd: 'Install in One Command',
+    inst_sub: 'Works seamlessly with Antigravity CLI, Codex, Claude Code, Cursor, or any Skill-compatible agent.',
+    copy: 'Copy', copied: 'Copied ✓',
+    step1_h: 'Install Skill', step1_p: 'Download skill package into your project root at .yy-flow/skill.',
+    step2_h: 'Agent Setup & Tech Scan', step2_p: 'Type /yy-flow start in agent chat to trigger 7-step setup, scanning tech architecture and injecting into subagents.',
+    step3_h: 'Agile Engineering', step3_p: 'Collaborate with your 8-agent crew using natural language prompts.',
+    footer_desc: '· MIT Licensed · AI Crew Agile Workflow', footer_doc: 'Documentation'
+  }
+};
+
+// Theme Logic
+let THEME = (() => {
+  const saved = localStorage.getItem('maf-theme');
+  if (saved === 'dark' || saved === 'light') return saved;
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+})();
+
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', THEME);
+  localStorage.setItem('maf-theme', THEME);
+}
+
+// Immediate theme apply to prevent flash
+applyTheme();
+
+function toggleTheme() {
+  THEME = THEME === 'dark' ? 'light' : 'dark';
+  applyTheme();
+}
+
+let LANG = (() => {
+  const saved = localStorage.getItem('maf-lang');
+  if (saved === 'zh' || saved === 'en') return saved;
+  return (navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+})();
+
+function applyLang() {
+  document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
+  document.title = LANG === 'zh'
+    ? 'Multi-Agent Flow · 不要让CV工程师变成YES工程师'
+    : 'Multi-Agent Flow · Don’t let CV engineers turn into YES engineers';
+    
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (I18N[LANG] && I18N[LANG][key]) {
+      if (I18N[LANG][key].includes('<')) {
+        el.innerHTML = I18N[LANG][key];
+      } else {
+        el.textContent = I18N[LANG][key];
+      }
+    }
+  });
+
+  document.querySelectorAll('.lang-toggle button').forEach(btn => {
+    btn.classList.toggle('on', btn.dataset.lang === LANG);
+  });
+
+  // Update showcase caption if tab is active
+  const activeTab = document.querySelector('.view-tab.active');
+  if (activeTab) {
+    const view = activeTab.dataset.view;
+    const captionEl = document.getElementById('showcase-caption');
+    if (captionEl && VIEWS[view]) {
+      captionEl.textContent = LANG === 'zh' ? VIEWS[view].captionZh : VIEWS[view].captionEn;
+    }
+  }
+}
+
+function setLang(lang) {
+  if (lang === LANG) return;
+  LANG = lang;
+  localStorage.setItem('maf-lang', lang);
+  applyLang();
+}
+
+// Tab switcher for Showcase
+document.querySelectorAll('.view-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const view = tab.dataset.view;
+    if (VIEWS[view]) {
+      const img = document.getElementById('showcase-img');
+      img.style.opacity = '0.4';
+      setTimeout(() => {
+        img.src = VIEWS[view].img;
+        img.style.opacity = '1';
+      }, 150);
+      const captionEl = document.getElementById('showcase-caption');
+      captionEl.textContent = LANG === 'zh' ? VIEWS[view].captionZh : VIEWS[view].captionEn;
+    }
+  });
+});
+
+// Terminal Tabs switcher
+document.querySelectorAll('.term-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.term-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tabKey = btn.dataset.tab;
+    const content = TERMINAL_TABS[tabKey];
+    if (content) {
+      document.getElementById('term-content').innerHTML = `
+        <div class="cmd-line">
+          <code class="cmd-code">${content.code}</code>
+          <button class="copy-btn" data-copy="${content.copy}" data-i18n="copy">${I18N[LANG].copy}</button>
+        </div>
+      `;
+      bindCopyButtons();
+    }
+  });
+});
+
+// Copy button handlers
+function bindCopyButtons() {
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.onclick = () => {
+      const text = btn.dataset.copy;
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.textContent;
+        btn.textContent = I18N[LANG].copied;
+        btn.classList.add('ok');
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.classList.remove('ok');
+        }, 1800);
+      });
+    };
+  });
+}
+
+// Smooth number counter
+function animateNumber(el, target) {
+  const start = 0, duration = 800, startTime = performance.now();
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  function step(currentTime) {
+    const progress = Math.min(1, (currentTime - startTime) / duration);
+    el.textContent = Math.round(start + (target - start) * ease(progress)).toLocaleString();
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// Fetch GitHub Stars & Forks with caching
+async function fetchRepoStats() {
+  const cacheKey = 'maf_gh_stats';
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp < 10 * 60 * 1000) {
+        updateStatsUI(data);
+        return;
+      }
+    } catch (e) {}
+  }
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}`);
+    if (res.ok) {
+      const data = await res.json();
+      localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
+      updateStatsUI(data);
+    }
+  } catch (err) {
+    console.warn('GitHub API fetch failed, fallback to defaults', err);
+  }
+}
+
+function updateStatsUI(data) {
+  const stars = data.stargazers_count || 0;
+  const forks = data.forks_count || 0;
+  const navStars = document.getElementById('nav-stars');
+  const heroStars = document.getElementById('hero-stars');
+  const heroForks = document.getElementById('hero-forks');
+  
+  if (navStars) animateNumber(navStars, stars);
+  if (heroStars) animateNumber(heroStars, stars);
+  if (heroForks) animateNumber(heroForks, forks);
+}
+
+// Language toggle event listeners
+document.querySelectorAll('.lang-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => setLang(btn.dataset.lang));
+});
+
+// Theme toggle event listener
+document.getElementById('theme-btn')?.addEventListener('click', toggleTheme);
+
+// Initialization
+document.addEventListener('DOMContentLoaded', () => {
+  applyTheme();
+  applyLang();
+  bindCopyButtons();
+  fetchRepoStats();
+});
+</script>
+</body>
+</html>

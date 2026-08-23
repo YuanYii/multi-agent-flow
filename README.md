@@ -1,5 +1,16 @@
 # Multi-Agent Team Workflow (多专家协同研发工作流 · YY-Flow)
 
+<p align="center">
+  <a href="https://yuanyii.github.io/multi-agent-flow/"><img src="https://img.shields.io/badge/🌐_Official_Site-Live_Demo-7C6CF0?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Official Website"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/github/stars/YuanYii/multi-agent-flow?style=for-the-badge&logo=github&color=38BDF8" alt="GitHub Stars"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge" alt="License"></a>
+  <a href="https://yuanyii.github.io/multi-agent-flow/"><img src="https://img.shields.io/badge/Theme-Dark%20%2F%20Light-F59E0B?style=for-the-badge" alt="Theme Support"></a>
+</p>
+
+<p align="center">
+  <b><a href="https://yuanyii.github.io/multi-agent-flow/">👉 点击访问官方互动主页 &amp; 在线看板全景演示 (GitHub Pages) 👈</a></b>
+</p>
+
 > **“不要让CV工程师变成YES工程师”** —— 契约驱动的 AI 多角色协同研发工作流技能包，将项目管理、架构、开发、前端、审查、测试、文档、运维拆分为 8 大专家角色，以五层防错门控、阶段准出核验与现代可视化看板，有效防范跨角色越权、打回碎片化与状态悬挂。
 
 ---

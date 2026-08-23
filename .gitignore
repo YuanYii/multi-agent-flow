@@ -17,7 +17,8 @@ config/workflow.config.yaml
 user_data/
 kanban/board.json
 kanban/board.json.seq.lock
-docs/
+docs/*
+!docs/index.html
 logs/
 *.lock
 */*.lock
