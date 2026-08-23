@@ -262,6 +262,37 @@ def run_heartbeat(
                 "message": f"前端开发 {who} 进行中任务数 {cnt} 超出上限 {thresholds['frontend_max_parallel']}",
             })
 
+    # ---- 巡检 6: 阻塞 PR 状态巡检与合流解阻感知 ----
+    try:
+        from sync_pr_status import extract_pr_identifiers, query_pr_status
+        for t in tasks:
+            if str(t.get("status", "")).strip() == "已阻塞":
+                tid = t.get("record_id") or t.get("id") or "?"
+                remarks = str(t.get("remarks") or "")
+                process = str(t.get("process") or "")
+                pr_list = extract_pr_identifiers(f"{remarks}\n{process}")
+                if pr_list:
+                    pr_ref = pr_list[0]["number"]
+                    repo = pr_list[0].get("repo")
+                    pr_info = query_pr_status(pr_ref, repo=repo)
+                    if pr_info and not pr_info.get("error"):
+                        if pr_info.get("is_merged"):
+                            alerts.append({
+                                "severity": "warning",
+                                "code": "PR_MERGED_READY_UNBLOCK",
+                                "task_id": tid,
+                                "message": f"任务 {tid} 绑定的 PR #{pr_ref} 已成功合入，建议运行 sync_pr_status.py 自动解阻并移交 PM 严经理验收",
+                            })
+                        elif pr_info.get("state") == "CLOSED":
+                            alerts.append({
+                                "severity": "critical",
+                                "code": "PR_CLOSED_UNMERGED",
+                                "task_id": tid,
+                                "message": f"任务 {tid} 绑定的 PR #{pr_ref} 已被关闭且未合并，请原开发者重新排查！",
+                            })
+    except Exception:
+        pass
+
     summary = {"critical": 0, "warning": 0, "info": 0}
     for a in alerts:
         sev = a.get("severity", "info")
@@ -278,12 +309,24 @@ def run_heartbeat(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="看板状态巡检 (4 项门控 + 阈值可配)")
+    parser = argparse.ArgumentParser(description="看板状态巡检 (门控 + PR 状态联动 + 阈值可配)")
     parser.add_argument("--config", default=None, help="看板配置文件路径")
     parser.add_argument("--json", action="store_true", help="以 JSON 格式输出")
+    parser.add_argument("--sync-pr", action="store_true", help="自动同步并解除已合入 PR 的阻塞状态")
     parser.add_argument("--stale-in-progress-hours", type=int, help="覆盖默认 24h 滞留阈值")
     parser.add_argument("--stale-review-or-test-hours", type=int, help="覆盖默认 12h 审查/测试滞留阈值")
     args = parser.parse_args()
+
+    # 1. 若指定 --sync-pr，优先执行 PR 状态同步与解阻
+    if args.sync_pr:
+        try:
+            from sync_pr_status import sync_blocked_prs, format_terminal_summary
+            pr_report = sync_blocked_prs(config_path=args.config)
+            if not args.json:
+                print(format_terminal_summary(pr_report))
+                print("\n" + "=" * 80)
+        except Exception as e:
+            sys.stderr.write(f"[WARN]  PR 状态同步跳过: {e}\n")
 
     thresholds = dict(DEFAULT_THRESHOLDS)
     if args.stale_in_progress_hours is not None:
