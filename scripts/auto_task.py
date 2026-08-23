@@ -25,6 +25,7 @@ import sys
 import os
 import re
 import time
+import datetime
 import argparse
 from typing import Dict, List, Optional
 
@@ -124,6 +125,7 @@ def main():
     parser.add_argument("--simulate", action="store_true", help="模拟模式：不落库仅演示流转")
     parser.add_argument("--force", action="store_true", help="建卡重复校验命中时强制创建")
     parser.add_argument("--no-dup-check", action="store_true", help="跳过建卡重复校验")
+    parser.add_argument("--step-delay", type=float, default=0.0, help="步骤间微延时秒数（默认 0 不阻塞 CI）")
     args = parser.parse_args()
 
     if not args.task_id and not args.task_name:
@@ -254,8 +256,9 @@ def main():
 
         # 6. 逐节点执行
         prev = current_status
-        now_str = time.strftime("%Y-%m-%d %H:%M:%S")
         for target in remaining:
+            if args.step_delay and args.step_delay > 0:
+                time.sleep(args.step_delay)
             # 查找该段转换的执行角色/处理人
             step_role, step_assignee = main_role, ROLE_NAME_MAP.get(main_role, main_role)
             for (f, t, r, a) in step_roles:
@@ -263,6 +266,7 @@ def main():
                     step_role, step_assignee = r, a
                     break
             need_end_time = target in ("已完成", "已验收") and task_type != "E"
+            dynamic_end_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") if need_end_time else None
             print(f"[AUTO]  执行: {prev} -> {target} (角色 {step_role}, 处理人 {step_assignee})")
             ok = transition_task_pipeline(
                 config_path=args.config,
@@ -272,7 +276,7 @@ def main():
                 to_status=target,
                 assignee=step_assignee,
                 task_type=task_type,
-                end_time=(now_str if need_end_time else None),
+                end_time=dynamic_end_time,
                 dry_run=args.simulate,
                 delegated_by=delegated_by,
                 delegation_reason=delegation_reason,

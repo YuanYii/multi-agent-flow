@@ -400,7 +400,7 @@ def transition_task_pipeline(
                 "stage": stage or "-",
                 "workpackage": wp or "-",
                 "wbs_id": wbs or "-",
-                "start_date": now_str,
+                "start_date": None,
                 "process": remarks or None,
                 "remarks": remarks or None,
             }
@@ -441,13 +441,17 @@ def transition_task_pipeline(
         if wp: update_fields[field_mapping.get("workpackage", "workpackage")] = wp
         if wbs: update_fields[field_mapping.get("wbs_id", "wbs_id")] = wbs
         if task_name: update_fields[field_mapping.get("task_name", "task_name")] = task_name
-        # 领取开工与终态开工时间兜底：进入【进行中】或直推终态且尚无开始时间时自动落 start_date
-        if to_status in ["进行中", "已完成", "已验收"]:
-            start_time_key = field_mapping.get("start_time", "start_time")
-            exist_fields = (existing.get("fields", {}) if existing else {}) or {}
-            current_start = exist_fields.get(start_time_key) or exist_fields.get("start_date") or exist_fields.get("start_time")
-            if not current_start:
-                update_fields[start_time_key] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        # 领取开工与终态开工时间兜底：
+        # 1) 首次从【待开始】推进到【进行中】时，动态落盘当前真实开工时间戳
+        # 2) 直推终态（已完成/已验收）且尚无 start_date 时，自动补填当前时间
+        # 3) 从【已退回】重新领回【进行中】时，保留原有 start_date 不覆盖，保护初始开工时间！
+        start_time_key = field_mapping.get("start_time", "start_time")
+        exist_fields = (existing.get("fields", {}) if existing else {}) or {}
+        current_start = exist_fields.get(start_time_key) or exist_fields.get("start_date") or exist_fields.get("start_time")
+        if to_status == "进行中" and from_status == "待开始":
+            update_fields[start_time_key] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        elif to_status in ["进行中", "已完成", "已验收"] and not current_start:
+            update_fields[start_time_key] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         orig_handler = (existing.get("fields", {}).get(handler_key) or existing.get("fields", {}).get("handler") if existing else None) or current_role
 

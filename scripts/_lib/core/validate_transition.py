@@ -158,6 +158,11 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
     allowed_list = list(ROLE_BASE_PERMISSIONS.get(role_upper, []))
     is_hotfix = bool(task_name and "[HOTFIX]" in task_name.upper())
 
+    # 0. 终态不可逆流拦截：已处于终态【已验收】或【已取消】的任务，禁止任何状态修改
+    if from_status in ["已验收", "已取消"] and from_status != to_status:
+        print(f"[REJECT 终态防篡改] 任务已处于终态【{from_status}】，禁止修改为【{to_status}】！")
+        return False
+
     # 1. 任务类型特权解锁
     # [HOTFIX] 紧急修复通道: 放行 DEV/FRONTEND 直接从 "进行中 -> 已完成"
     if is_hotfix and role_upper in ["DEV", "FRONTEND"]:

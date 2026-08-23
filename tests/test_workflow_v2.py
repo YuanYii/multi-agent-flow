@@ -669,5 +669,50 @@ class TestTerminalStartDateFallback:
         assert len(c_after.get("start_date")) > 0
 
 
+# =====================================================================
+# 组 18 · 开工时间 (start_date) 解耦与打回重做保护
+# =====================================================================
+class TestStartDateDecouplingAndReworkPreservation:
+    def test_start_date_decoupled_on_creation_and_set_on_in_progress(self, env):
+        """建卡【待开始】时 start_date 保持为空；流转至【进行中】时才写入真实开工时间。"""
+        run(env, "transition_task.py", "--role", "DEV", "--create", "--task-name", "时间戳解耦测试", "--assignee", "DEV", "--type", "A")
+        c = find(env, "T0001")
+        assert c.get("start_date") is None
+
+        # 首次推进到进行中
+        r = run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status", "进行中", "--assignee", "李开发", "--task-id", "T0001", "--type", "A")
+        assert r.returncode == 0
+        c2 = find(env, "T0001")
+        initial_start = c2.get("start_date")
+        assert initial_start is not None
+
+        # 提审 -> 打回 -> 再次领回 进行中，验证初始 start_date 不被恶意重置
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "进行中", "--to-status", "审查中", "--assignee", "周审查", "--task-id", "T0001", "--type", "A")
+        run(env, "transition_task.py", "--role", "REVIEWER", "--from-status", "审查中", "--to-status", "已退回", "--assignee", "李开发", "--task-id", "T0001", "--type", "A", "--remarks", "DEF-T0001-1: 补充单元测试")
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "已退回", "--to-status", "进行中", "--assignee", "李开发", "--task-id", "T0001", "--type", "A")
+
+        c3 = find(env, "T0001")
+        assert c3.get("start_date") == initial_start
+
+
+# =====================================================================
+# 组 19 · 终态不可逆流硬门禁 (Terminal Status Immutability)
+# =====================================================================
+class TestTerminalStatusImmutability:
+    def test_accepted_task_cannot_be_reverted(self, env):
+        """已验收终态卡片严禁逆流至进行中或已阻塞。"""
+        run(env, "auto_task.py", "--name", "终态测试任务", "--type", "A", "--role", "DEV")
+        c = find(env, "T0001")
+        assert c["status"] == "已验收"
+
+        # 尝试逆流回 已阻塞 或 进行中
+        r1 = run(env, "transition_task.py", "--role", "PM", "--from-status", "已验收", "--to-status", "已阻塞", "--assignee", "严经理", "--task-id", "T0001", "--type", "A", expect=1)
+        assert "终态防篡改" in r1.stdout or r1.returncode != 0
+
+        r2 = run(env, "transition_task.py", "--role", "DEV", "--from-status", "已验收", "--to-status", "进行中", "--assignee", "李开发", "--task-id", "T0001", "--type", "A", expect=1)
+        assert "终态防篡改" in r2.stdout or r2.returncode != 0
+
+
+
 
 
