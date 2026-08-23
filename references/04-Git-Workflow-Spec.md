@@ -81,17 +81,20 @@ flowchart TD
      --assignee 李开发 \
      --remarks "【阻断】PR #227 已发起，等待审查员合并: https://github.com/.../pull/227"
    ```
-2. **外部合流后用户解阻**：外部 Reviewer 将 PR 合并至主干后，由用户主动检查并触发解阻，流转至【已完成】：
-   ```bash
-   python3 scripts/quick_task.py complete \
-     --task-id T0031 \
-     --role DEV \
-     --from-status 已阻塞 \
-     --to-status 已完成 \
-     --assignee 严经理 \
-     --end-time "$(date '+%Y-%m-%d %H:%M:%S')" \
-     --remarks "【解除】PR #227 已确认合并至主分支，交付 PM 严经理验收"
-   ```
+2. **PR 合流后自动感知与解阻 (Auto-Unblock & Audit Tracking)**：
+   - **自动解阻（推荐）**：运行 `python3 scripts/sync_pr_status.py`（或执行心跳巡检 `python3 scripts/heartbeat.py --sync-pr`），系统自动调用 `gh pr view` 探测 PR 状态；
+   - **状态推进**：检测到 PR 为 `MERGED` 时，系统秒级自动将工单由【已阻塞】推进至【已完成】，处理人收敛至 PM 严经理，自动在过程日志中记录 Merge Commit SHA，并生成结构化通知载荷唤起 PM 验收；
+   - **人工手动解阻（兜底）**：若无 `gh` 环境，亦支持手动执行解阻命令：
+     ```bash
+     python3 scripts/quick_task.py complete \
+       --task-id T0031 \
+       --role DEV \
+       --from-status 已阻塞 \
+       --to-status 已完成 \
+       --assignee 严经理 \
+       --end-time "$(date '+%Y-%m-%d %H:%M:%S')" \
+       --remarks "【解除】PR #227 已确认合并至主分支，交付 PM 严经理验收"
+     ```
 3. **PM 严经理终态验收**：PM 严经理核验后置为【已验收】。
 
 ---
@@ -173,4 +176,31 @@ feature/S<阶段>-<功能> ──功能负责人开发提交
 v<主版本>.<次版本>.<修订版本>-S<阶段号>
 ```
 **示例**：`v1.0.0-S1`，`v1.2.0-S2`
+
+---
+
+## 八、阶段双向 Git 门控 SOP (Stage Start & Close Gates)
+
+为防范跨阶段代码污染与“成果未入库即结项”的假闭环，工作流在阶段开工与阶段结项设立确定性 Git 硬门控：
+
+### 1. 阶段开工准入门禁 (Stage Start Gate)
+* **执行命令**：`python3 scripts/check_stage_gate.py --action start --stage S<阶段号>`
+* **核验规则**：
+  1. **前序阶段闭环核验**：确保前序阶段（如 S1）已完成全量验收，严禁跨阶段跳跃；
+  2. **工作区清洁度核验**：`git status --porcelain` 必须干净，无脏代码遗留；
+  3. **拉取新分支强提醒**：向导式提示从最新主干拉取并切换至本阶段专属特性分支：
+     ```bash
+     git checkout main && git pull origin main
+     git checkout -b feature/s<阶段号>-dev
+     ```
+
+### 2. 阶段结项准出门禁 (Stage Close Gate)
+* **执行命令**：`python3 scripts/check_stage_gate.py --action close --stage S<阶段号>`
+* **核验规则**：
+  1. **看板全终态**：阶段内所有任务达到【已验收】且填写结束时间；
+  2. **WBS 双向对账**：WBS 文档中声明的任务均在看板中有对应卡片且编号规范；
+  3. **架构与 PM 总结归档**：架构师技术总结与 PM 阶段复盘报告已定稿；
+  4. **Git 工作区清洁度强校验**：所有代码修改与文档变更必须全部 `git commit` 入库，存在脏文件直接阻断结项；
+  5. **分支合并与打 Tag 提醒**：门禁通过后，显式提醒 PM 派发 D 类任务唤起 DevOps 吕改特执行分支发起 PR/合流至主干并打版本 Tag（如 `v1.0.0-S1`）。
+
 

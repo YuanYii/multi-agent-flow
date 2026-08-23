@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 GitHub Projects (v2) 通用 Adapter (严格 Fail-Closed 原则真实 GraphQL API 物理实现)
-彻底拔除任何硬编码 return True 或退化判成功逻辑，未配置 Token 或 GraphQL 发送失败强行返回 False！
+去除任何硬编码 return True 或退化判成功逻辑，未配置 Token 或 GraphQL 发送失败强行返回 False！
 """
 import os
 import json

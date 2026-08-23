@@ -262,6 +262,61 @@ def run_heartbeat(
                 "message": f"前端开发 {who} 进行中任务数 {cnt} 超出上限 {thresholds['frontend_max_parallel']}",
             })
 
+    # ---- 巡检 6: 阻塞 PR 状态巡检与合流解阻感知 ----
+    try:
+        from sync_pr_status import extract_pr_identifiers, query_pr_status
+        for t in tasks:
+            if str(t.get("status", "")).strip() == "已阻塞":
+                tid = t.get("record_id") or t.get("id") or "?"
+                remarks = str(t.get("remarks") or "")
+                process = str(t.get("process") or "")
+                pr_list = extract_pr_identifiers(f"{remarks}\n{process}")
+                if pr_list:
+                    pr_ref = pr_list[0]["number"]
+                    repo = pr_list[0].get("repo")
+                    pr_info = query_pr_status(pr_ref, repo=repo)
+                    if pr_info and not pr_info.get("error"):
+                        if pr_info.get("is_merged"):
+                            alerts.append({
+                                "severity": "warning",
+                                "code": "PR_MERGED_READY_UNBLOCK",
+                                "task_id": tid,
+                                "message": f"任务 {tid} 绑定的 PR #{pr_ref} 已成功合入，建议运行 sync_pr_status.py 自动解阻并移交 PM 严经理验收",
+                            })
+                        elif pr_info.get("state") == "CLOSED":
+                            alerts.append({
+                                "severity": "critical",
+                                "code": "PR_CLOSED_UNMERGED",
+                                "task_id": tid,
+                                "message": f"任务 {tid} 绑定的 PR #{pr_ref} 已被关闭且未合并，请原开发者重新排查！",
+                            })
+    except Exception:
+        pass
+
+    # ---- 统计指标与大盘度量 (Metrics Overview) ----
+    completed_count = sum(1 for t in tasks if t.get("status") in ("已完成", "已验收"))
+    in_progress_count = sum(1 for t in tasks if t.get("status") == "进行中")
+    blocked_count = sum(1 for t in tasks if t.get("status") == "已阻塞")
+    completion_rate = (completed_count / total * 100) if total > 0 else 0.0
+
+    lead_times = []
+    role_workload = defaultdict(lambda: {"in_progress": 0, "completed": 0, "total": 0})
+    for t in tasks:
+        st = t.get("status", "")
+        who = normalize_role(t.get("assignee", "")) or "未分配"
+        role_workload[who]["total"] += 1
+        if st == "进行中":
+            role_workload[who]["in_progress"] += 1
+        elif st in ("已完成", "已验收"):
+            role_workload[who]["completed"] += 1
+
+        s_dt = _parse_dt(t.get("start_date") or t.get("start_time"))
+        e_dt = _parse_dt(t.get("end_date") or t.get("end_time"))
+        if s_dt and e_dt and e_dt >= s_dt:
+            lead_times.append((e_dt - s_dt).total_seconds() / 3600)
+
+    avg_lead_time = (sum(lead_times) / len(lead_times)) if lead_times else 0.0
+
     summary = {"critical": 0, "warning": 0, "info": 0}
     for a in alerts:
         sev = a.get("severity", "info")
@@ -269,21 +324,47 @@ def run_heartbeat(
             summary[sev] += 1
 
     return {
-        "checked_at": now.isoformat(),
+        "checked_at": now.strftime("%Y-%m-%d %H:%M:%S") if isinstance(now, datetime) else str(now),
         "thresholds": thresholds,
         "total_tasks": total,
+        "metrics": {
+            "completed": completed_count,
+            "in_progress": in_progress_count,
+            "blocked": blocked_count,
+            "completion_rate_pct": round(completion_rate, 1),
+            "avg_lead_time_hours": round(avg_lead_time, 1),
+            "role_workload": dict(role_workload),
+        },
         "alerts": alerts,
         "summary": summary,
     }
 
 
+def format_progress_bar(pct: float, width: int = 15) -> str:
+    filled = int(round(width * (pct / 100.0)))
+    filled = max(0, min(width, filled))
+    return f"[{'█' * filled}{'░' * (width - filled)}] {pct:.1f}%"
+
+
 def main():
-    parser = argparse.ArgumentParser(description="看板状态巡检 (4 项门控 + 阈值可配)")
+    parser = argparse.ArgumentParser(description="看板全局大盘与健康巡检 (Status & Health Check)")
     parser.add_argument("--config", default=None, help="看板配置文件路径")
     parser.add_argument("--json", action="store_true", help="以 JSON 格式输出")
+    parser.add_argument("--sync-pr", action="store_true", help="自动同步并解除已合入 PR 的阻塞状态")
     parser.add_argument("--stale-in-progress-hours", type=int, help="覆盖默认 24h 滞留阈值")
     parser.add_argument("--stale-review-or-test-hours", type=int, help="覆盖默认 12h 审查/测试滞留阈值")
     args = parser.parse_args()
+
+    # 1. 若指定 --sync-pr，优先执行 PR 状态同步与解阻
+    if args.sync_pr:
+        try:
+            from sync_pr_status import sync_blocked_prs, format_terminal_summary
+            pr_report = sync_blocked_prs(config_path=args.config)
+            if not args.json:
+                print(format_terminal_summary(pr_report))
+                print("\n" + "=" * 80)
+        except Exception as e:
+            sys.stderr.write(f"[WARN]  PR 状态同步跳过: {e}\n")
 
     thresholds = dict(DEFAULT_THRESHOLDS)
     if args.stale_in_progress_hours is not None:
@@ -302,17 +383,31 @@ def main():
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
+        m = result.get("metrics", {})
         print("=" * 80)
-        print(f" [Heartbeat] 巡检时间: {result['checked_at']}")
-        print(f" 扫描任务数: {result['total_tasks']}")
-        print(f"[WARN]   告警统计: critical={result['summary']['critical']}  warning={result['summary']['warning']}  info={result['summary']['info']}")
+        print("       YY-Flow 看板全局大盘与健康巡检 (Status & Health Check)")
+        print("=" * 80)
+        print(f" 巡检时间: {result['checked_at']}        任务总数: {result['total_tasks']} 项")
+        print(f" 总体进度: {format_progress_bar(m.get('completion_rate_pct', 0.0))} (已验收/完成: {m.get('completed', 0)} / 进行中: {m.get('in_progress', 0)} / 已阻塞: {m.get('blocked', 0)})")
+        if m.get("avg_lead_time_hours", 0) > 0:
+            print(f" 平均交付周期: {m.get('avg_lead_time_hours')} 小时 (Lead Time)")
         print("-" * 80)
+        print(" 专家角色在手负载:")
+        role_items = [f"{r}: 进{data['in_progress']}/完{data['completed']}" for r, data in sorted(m.get("role_workload", {}).items()) if r != "未分配"]
+        # 每行 4 个角色
+        for i in range(0, len(role_items), 4):
+            print("   " + "   |   ".join(role_items[i:i+4]))
+        print("-" * 80)
+        print(f"[WARN]   异常告警统计: critical={result['summary']['critical']}  warning={result['summary']['warning']}  info={result['summary']['info']}")
         if not result["alerts"]:
-            print("[SUCCESS]  全部通过,无告警")
+            print(" [SUCCESS]  全部通过, 当前无流转卡点与风险告警")
         else:
-            for a in result["alerts"]:
+            display_limit = 10
+            for a in result["alerts"][:display_limit]:
                 icon = {"critical": "[CRITICAL] ", "warning": "[WARN] ", "info": ""}.get(a["severity"], "")
                 print(f"  {icon} [{a['code']}] {a['message']}")
+            if len(result["alerts"]) > display_limit:
+                print(f"  ... 剩余 {len(result['alerts']) - display_limit} 项告警已收起，可运行 /yy-flow kanban 在 Web 看板或添加 --json 参数查看全量明细")
         print("=" * 80)
 
     # 退出码: 0=无告警, 1=有告警, 2=致命错误

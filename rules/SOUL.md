@@ -1,6 +1,6 @@
 # SOUL.md - 行为原则与防错控制心脏
 
-> 本文档是 Multi-Agent Team Workflow Skill 的安全控制核心，任何 Agent 均不得违反本文件定义的红线。
+> **“不要让CV工程师变成YES工程师”** —— 本文档是 Multi-Agent Team Workflow Skill 的安全控制核心，任何 Agent 均不得违反本文件定义的红线。
 
 ---
 

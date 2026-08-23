@@ -29,6 +29,25 @@ function esc(value) {
 const escapeHtml = esc;
 window.escapeHtml = esc;
 
+// Safe linkify and PR/Issue badge parser
+function linkify(text) {
+    if (!text) return '';
+    return esc(text)
+        .replace(/\[PR:\s*(https?:\/\/[^\s\]]+)\]/gi, (match, url) => {
+            const numMatch = url.match(/\/pull\/(\d+)/i) || url.match(/\/merge_requests\/(\d+)/i);
+            const label = numMatch ? `PR #${numMatch[1]}` : 'PR Link';
+            return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#0969da;background:#ddf4ff;padding:1px 5px;border-radius:4px;font-size:11px;font-weight:600;text-decoration:none;display:inline-block;vertical-align:middle;margin:0 2px;" onclick="event.stopPropagation();">${label}</a>`;
+        })
+        .replace(/\[Issue:\s*(https?:\/\/[^\s\]]+)\]/gi, (match, url) => {
+            const numMatch = url.match(/\/issues\/(\d+)/i);
+            const label = numMatch ? `Issue #${numMatch[1]}` : 'Issue Link';
+            return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#1a7f37;background:#dafbe1;padding:1px 5px;border-radius:4px;font-size:11px;font-weight:600;text-decoration:none;display:inline-block;vertical-align:middle;margin:0 2px;" onclick="event.stopPropagation();">${label}</a>`;
+        })
+        .replace(/(?<!href=")(https?:\/\/[^\s<>&"']+)/gi, 
+            '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--primary,#3370ff);text-decoration:underline;word-break:break-all;" onclick="event.stopPropagation();">$1</a>');
+}
+window.linkify = linkify;
+
 /* ============================================================
    Custom Color-Coded Dropdown Engine & Role Mapping
    ============================================================ */

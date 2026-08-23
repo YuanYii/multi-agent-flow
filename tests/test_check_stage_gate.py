@@ -125,13 +125,14 @@ author: 严经理
 
 
 def test_stage_gate_all_passed(mock_stage_env):
-    """测试场景 1：所有卡片已验收、WBS 对账通过、总结报告齐全 -> 门禁 100% 通过"""
+    """测试场景 1：所有卡片已验收、WBS 对账通过、总结报告齐全、Git 干净 -> 门禁 100% 通过"""
     report = run_stage_gate_check(stage_name="S1", project_root_dir=mock_stage_env)
     assert report.passed is True
     assert report.failed_checks == 0
-    assert report.passed_checks == 4
+    assert report.passed_checks == 5
     formatted = format_terminal_report(report)
-    assert "✅ 阶段门禁 100% 审查通过" in formatted
+    assert "✅ 阶段结项门禁审查通过" in formatted
+    assert "分支合并与版本发布" in formatted
 
 
 def test_stage_gate_unaccepted_tasks_blocked(mock_stage_env):
@@ -269,8 +270,46 @@ def test_stage_gate_path_adaptation(tmp_path):
     assert report.failed_checks == 0
 
 
+def test_stage_gate_git_dirty_blocked(mock_stage_env):
+    """测试场景 10：Git 工作区存在未提交脏变更 -> 阻断结项"""
+    with patch("subprocess.run") as mock_sub:
+        mock_sub.return_value = MagicMock(returncode=0, stdout=" M scripts/test.py\n?? untracked.txt\n")
+        report = run_stage_gate_check(stage_name="S1", project_root_dir=mock_stage_env)
+        assert report.passed is False
+        git_check = next(r for r in report.results if r.code == "GIT_WORKING_TREE_DIRTY")
+        assert git_check.passed is False
+        assert "未提交或未跟踪变更" in git_check.detail
+
+
+def test_stage_start_gate_passed(mock_stage_env):
+    """测试场景 11：阶段开工准入门禁 (S1 开工) -> 检查通过并给出新分支拉取指引"""
+    report = run_stage_gate_check(stage_name="S1", project_root_dir=mock_stage_env, action="start")
+    assert report.passed is True
+    assert report.total_checks == 2
+    formatted = format_terminal_report(report)
+    assert "阶段准入门禁审查通过" in formatted
+    assert "git checkout -b feature/s1-dev" in formatted
+
+
+def test_stage_start_gate_pred_unfinished_blocked(mock_stage_env):
+    """测试场景 12：阶段开工准入门禁 (S2 开工) -> S1 存在未验收卡片阻断开工"""
+    board_file = os.path.join(mock_stage_env, "user_data", "board.json")
+    with open(board_file, "r", encoding="utf-8") as f:
+        cards = json.load(f)
+    # 将 S1 任务改为进行中
+    cards[0]["status"] = "进行中"
+    with open(board_file, "w", encoding="utf-8") as f:
+        json.dump(cards, f)
+
+    report = run_stage_gate_check(stage_name="S2", project_root_dir=mock_stage_env, action="start")
+    assert report.passed is False
+    pred_check = next(r for r in report.results if r.code == "START_PRED_UNFINISHED")
+    assert pred_check.passed is False
+    assert "S1" in pred_check.detail
+
+
 def test_stage_gate_cli_json_output(mock_stage_env, capsys):
-    """测试场景 10：CLI --json 输出格式契约"""
+    """测试场景 13：CLI --json 输出格式契约"""
     from check_stage_gate import main
     with patch("sys.argv", ["check_stage_gate.py", "--stage", "S1", "--project-root", mock_stage_env, "--json"]):
         with pytest.raises(SystemExit) as excinfo:
@@ -279,6 +318,7 @@ def test_stage_gate_cli_json_output(mock_stage_env, capsys):
     captured = capsys.readouterr()
     data = json.loads(captured.out)
     assert data["passed"] is True
-    assert data["total_checks"] == 4
-    assert len(data["results"]) == 4
+    assert data["total_checks"] == 5
+    assert len(data["results"]) == 5
+    assert data["action"] == "close"
 

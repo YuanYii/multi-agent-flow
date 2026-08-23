@@ -308,11 +308,13 @@ def transition_task_pipeline(
                 assignee_k = field_mapping.get("assignee", "assignee")
                 recs = adapter.list_records(limit=1000)
                 board_active_count = 0
+                target_norms = {normalize_role(assignee), normalize_role(current_role), assignee, current_role}
                 for r in recs:
                     f = r.get("fields", {})
                     st_val = str(f.get(status_k) or f.get("status") or "")
                     as_val = str(f.get(assignee_k) or f.get("assignee") or "")
-                    if st_val == "进行中" and (as_val == assignee or as_val == current_role):
+                    as_norm = normalize_role(as_val)
+                    if st_val == "进行中" and (as_norm in target_norms or as_val in target_norms):
                         board_active_count += 1
                 effective_active_dev_count = max(active_dev_count, board_active_count)
             except Exception:
@@ -439,8 +441,8 @@ def transition_task_pipeline(
         if wp: update_fields[field_mapping.get("workpackage", "workpackage")] = wp
         if wbs: update_fields[field_mapping.get("wbs_id", "wbs_id")] = wbs
         if task_name: update_fields[field_mapping.get("task_name", "task_name")] = task_name
-        # 领取开工：进入【进行中】且尚无开始时间时自动落 start_date
-        if to_status == "进行中":
+        # 领取开工与终态开工时间兜底：进入【进行中】或直推终态且尚无开始时间时自动落 start_date
+        if to_status in ["进行中", "已完成", "已验收"]:
             start_time_key = field_mapping.get("start_time", "start_time")
             exist_fields = (existing.get("fields", {}) if existing else {}) or {}
             current_start = exist_fields.get(start_time_key) or exist_fields.get("start_date") or exist_fields.get("start_time")

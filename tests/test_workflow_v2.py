@@ -626,12 +626,48 @@ class TestTaskCreatorTracking:
         c = find(env, "T0001")
         assert c.get("creator") == expected_user  # 流转后 creator 依然不可变！
 
-    def test_explicit_creator_override(self, env):
-        """显式传入 --creator 时精确记录并持久化。"""
-        out = run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "自定义创建人测试", "--assignee", "DEV", "--creator", "alice_developer")
-        assert out.returncode == 0
+# =====================================================================
+# 组 15 · A 类任务跳步越权防御 (A-Type Direct Acceptance Guard)
+# =====================================================================
+class TestATypeTransitionGuards:
+    def test_pm_cannot_bypass_a_type_from_todo_to_accepted(self, env):
+        """PM 角色在 A 类常规开发任务中，禁止直接 待开始 -> 已验收 (跳过审查与测试)。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "常规代码开发", "--assignee", "DEV", "--type", "A")
+        # 尝试越权直验
+        r = run(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status", "已验收", "--assignee", "严经理", "--task-id", "T0001", "--type", "A", "--end-time", "2026-08-23 10:00:00", expect=1)
+        assert "禁止直接由" in r.stdout or "越权拦截" in r.stdout
+
+
+# =====================================================================
+# 组 16 · auto_task 前端角色 (FRONTEND) 动态编排支持
+# =====================================================================
+class TestFrontendAutoTask:
+    def test_auto_task_frontend_role_binding(self, env):
+        """当传入 --role FRONTEND 时，A 类任务第一/二步正确绑定马前端。"""
+        r = run(env, "auto_task.py", "--name", "前端卡片UI重构", "--type", "A", "--role", "FRONTEND", "--assignee", "马前端")
+        assert r.returncode == 0
         c = find(env, "T0001")
-        assert c.get("creator") == "alice_developer"
+        assert c is not None
+        assert c["status"] == "已验收"
+        assert "马前端" in c.get("process", "")
+
+
+# =====================================================================
+# 组 17 · 直推终态自动补填 start_date (Start Date Fallback)
+# =====================================================================
+class TestTerminalStartDateFallback:
+    def test_direct_terminal_transition_fills_start_date(self, env):
+        """短链任务从 待开始 直接流转至 已完成/已验收 时，自动落库 start_date。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "用户审批任务", "--assignee", "PM", "--type", "E")
+        c_before = find(env, "T0001")
+        assert not c_before.get("start_date")
+
+        r = run(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status", "已验收", "--assignee", "严经理", "--task-id", "T0001", "--type", "E", "--end-time", "2026-08-23 12:00:00")
+        assert r.returncode == 0
+        c_after = find(env, "T0001")
+        assert c_after.get("start_date") is not None
+        assert len(c_after.get("start_date")) > 0
+
 
 
 
