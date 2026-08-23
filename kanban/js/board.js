@@ -521,8 +521,8 @@
                 datesHtml = `<div style="font-size:11px; color:#8f959e; margin-bottom:4px;">${lbl ? '周期: ' : ''}${startTxt} ~ ${endTxt}</div>`;
             }
 
-            let remarksHtml = (cardFieldConfig.remarks && card.remarks) ? `<div style="margin-top:4px; font-size:12px; color:#4e5969; line-height:1.4;">${lbl ? '备注: ' : ''}${esc(card.remarks.length > 60 ? card.remarks.substring(0, 60) + '...' : card.remarks)}</div>` : '';
-            let processHtml = (cardFieldConfig.process && card.process) ? `<div style="margin-top:4px; font-size:12px; color:#4e5969; line-height:1.4;">${lbl ? '过程: ' : ''}${esc(card.process.length > 60 ? card.process.substring(0, 60) + '...' : card.process)}</div>` : '';
+            let remarksHtml = (cardFieldConfig.remarks && card.remarks) ? `<div style="margin-top:4px; font-size:12px; color:#4e5969; line-height:1.4; word-break:break-word;">${lbl ? '备注: ' : ''}${linkify(card.remarks)}</div>` : '';
+            let processHtml = (cardFieldConfig.process && card.process) ? `<div style="margin-top:4px; font-size:12px; color:#4e5969; line-height:1.4; word-break:break-word;">${lbl ? '过程: ' : ''}${linkify(card.process)}</div>` : '';
 
             // --- 任务耗时 (m) ---
             let hoursHtml = '';
@@ -867,8 +867,8 @@
                         <td>${formatTaskDuration(card)}</td>
                         <td><small style="color:#4e5969;">${esc(card.start_date) || '-'}</small></td>
                         <td><small style="color:#4e5969;">${esc(card.end_date) || '-'}</small></td>
-                        <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${esc(card.remarks) || '-'}</div></td>
-                        <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${esc(card.process) || '-'}</div></td>
+                        <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${linkify(card.remarks) || '-'}</div></td>
+                        <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${linkify(card.process) || '-'}</div></td>
                         <td><button class="btn sm" onclick="openTaskDetail('${esc(card.id)}')">详情</button></td>
                     </tr>
                 `;
@@ -1816,7 +1816,7 @@
                     </div>
                     <div class="detail-item" style="grid-column: 1 / -1;">
                         <span class="detail-label">核心备注</span>
-                        <span class="detail-value" style="font-weight:400; white-space: pre-wrap; word-break: break-word;">${esc(uniqueRemarks)}</span>
+                        <span class="detail-value" style="font-weight:400; white-space: pre-wrap; word-break: break-word;">${linkify(uniqueRemarks)}</span>
                     </div>
                 `;
             }
@@ -2042,7 +2042,7 @@
                         </div>
                         <div class="timeline-item ${isDefect ? 'defect' : ''}">
                             ${timeStr ? `<div class="timeline-time"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${esc(timeStr)}</div>` : ''}
-                            <div class="timeline-content" style="word-break:break-word; line-height:1.4; color:var(--text-color);">${esc(contentStr)}</div>
+                            <div class="timeline-content" style="word-break:break-word; line-height:1.4; color:var(--text-color);">${linkify(contentStr)}</div>
                         </div>
                     `;
                     timelineList.appendChild(row);

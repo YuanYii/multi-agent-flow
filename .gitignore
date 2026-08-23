@@ -30,3 +30,4 @@ logs/
 
 # System Store Files
 .DS_Store
+.pytest_cache/

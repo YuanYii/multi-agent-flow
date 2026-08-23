@@ -174,3 +174,30 @@ v<主版本>.<次版本>.<修订版本>-S<阶段号>
 ```
 **示例**：`v1.0.0-S1`，`v1.2.0-S2`
 
+---
+
+## 八、阶段双向 Git 门控 SOP (Stage Start & Close Gates)
+
+为防范跨阶段代码污染与“成果未入库即结项”的假闭环，工作流在阶段开工与阶段结项设立确定性 Git 硬门控：
+
+### 1. 阶段开工准入门禁 (Stage Start Gate)
+* **执行命令**：`python3 scripts/check_stage_gate.py --action start --stage S<阶段号>`
+* **核验规则**：
+  1. **前序阶段闭环核验**：确保前序阶段（如 S1）已完成全量验收，严禁跨阶段跳跃；
+  2. **工作区清洁度核验**：`git status --porcelain` 必须干净，无脏代码遗留；
+  3. **拉取新分支强提醒**：向导式提示从最新主干拉取并切换至本阶段专属特性分支：
+     ```bash
+     git checkout main && git pull origin main
+     git checkout -b feature/s<阶段号>-dev
+     ```
+
+### 2. 阶段结项准出门禁 (Stage Close Gate)
+* **执行命令**：`python3 scripts/check_stage_gate.py --action close --stage S<阶段号>`
+* **核验规则**：
+  1. **看板全终态**：阶段内所有任务达到【已验收】且填写结束时间；
+  2. **WBS 双向对账**：WBS 文档中任务在看板中 100% 存在且卡片 WBS 编号完整；
+  3. **架构与 PM 总结归档**：架构师技术总结与 PM 阶段复盘报告已定稿；
+  4. **Git 工作区清洁度强校验**：所有代码修改与文档变更必须全部 `git commit` 入库，存在脏文件直接阻断结项；
+  5. **分支合并与打 Tag 提醒**：门禁通过后，显式提醒 PM 派发 D 类任务唤起 DevOps 吕改特执行分支发起 PR/合流至主干并打版本 Tag（如 `v1.0.0-S1`）。
+
+

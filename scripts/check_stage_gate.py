@@ -60,6 +60,7 @@ class StageGateReport:
     passed_checks: int
     failed_checks: int
     results: List[CheckResult] = field(default_factory=list)
+    action: str = "close"
 
 
 # =============================================================================
@@ -340,12 +341,12 @@ def check_wbs_reconciliation(ctx: StageContext) -> CheckResult:
             matched_wbs_file = wf
             break
 
-    # 若找到了 WBS 文档，解析 Markdown 表格中的 Task ID
+    # 若找到了 WBS 文档，解析 Markdown 表格或列表中的 Task ID
     if matched_wbs_file and os.path.isfile(matched_wbs_file):
         try:
             with open(matched_wbs_file, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
-            doc_task_ids = set(re.findall(r"\|\s*(T\d{4,})\s*\|", content, re.IGNORECASE))
+            doc_task_ids = set(re.findall(r"(?:\|\s*|^\s*[-*]\s*|\b)(T\d{4,})(?:\s*\||\s*:|\b)", content, re.MULTILINE | re.IGNORECASE))
             board_task_ids = {str(r.get("id") or "").upper() for r in records if r.get("id")}
 
             missing_on_board = [tid for tid in doc_task_ids if tid.upper() not in board_task_ids]
@@ -384,7 +385,7 @@ def check_arch_summary(ctx: StageContext) -> CheckResult:
             detail="配置已豁免架构技术总结",
         )
 
-    # 路径自适应候选模式
+    # 路径自适应候选模式：精准收敛为带总结/复盘的架构文档，避免误匹配基础设计文档
     candidates = [
         "D04-研发过程/D02-报告/summary/*架构*",
         "D04-研发过程/D02-报告/summary/*技术*",
@@ -393,9 +394,9 @@ def check_arch_summary(ctx: StageContext) -> CheckResult:
         "04-研发过程/报告/summary/*架构*",
         "04-研发过程/报告/summary/*技术*",
         "D02-架构设计/*总结*",
-        "D02-架构设计/*",
+        "D02-架构设计/*复盘*",
         "02-架构设计/*总结*",
-        "02-架构设计/*",
+        "02-架构设计/*复盘*",
         "summary/*架构*",
         "**/*架构*总结*.md",
         "**/*技术*总结*.md",
@@ -458,6 +459,9 @@ def check_pm_summary(ctx: StageContext) -> CheckResult:
         )
 
     candidates = [
+        "D01-项目管理/D02-状态报告/*总结*",
+        "D01-项目管理/D02-状态报告/*复盘*",
+        "D01-项目管理/D02-状态报告/*报告*",
         "D01-项目管理/D02-状态报告/*",
         "01-项目管理/02-状态报告/*",
         "01-项目管理/状态报告/*",
@@ -470,8 +474,6 @@ def check_pm_summary(ctx: StageContext) -> CheckResult:
         "04-研发过程/报告/summary/*管理*",
         "04-研发过程/报告/summary/*阶段*",
         "04-研发过程/报告/summary/*复盘*",
-        "01-项目管理/*",
-        "summary/*",
         "**/*阶段*总结*.md",
         "**/*阶段*复盘*.md",
     ]
@@ -545,12 +547,123 @@ def records_are_non_tech(records: List[Dict[str, Any]]) -> bool:
     return True
 
 
-# 注册所有标准检查器流水线
+def check_git_working_tree_cleanliness(ctx: StageContext) -> CheckResult:
+    """Check: 检查 Git 工作区清洁度，确保阶段代码与文档全部 Commit 入库"""
+    if ctx.config.get("require_clean_git") is False:
+        return CheckResult(
+            code="GIT_EXEMPTED",
+            title="Git 工作区清洁度",
+            passed=True,
+            detail="配置已豁免 Git 工作区核验",
+        )
+
+    import subprocess
+    try:
+        res = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=ctx.project_root,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if res.returncode != 0:
+            return CheckResult(
+                code="GIT_NOT_REPO",
+                title="Git 工作区清洁度",
+                passed=True,
+                detail="当前非 Git 仓库，自动放行",
+            )
+
+        dirty_lines = [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
+        if dirty_lines:
+            items_desc = ", ".join(dirty_lines[:5])
+            if len(dirty_lines) > 5:
+                items_desc += f" 等共 {len(dirty_lines)} 项"
+            return CheckResult(
+                code="GIT_WORKING_TREE_DIRTY",
+                title="Git 工作区清洁度",
+                passed=False,
+                detail=f"工作区存在 {len(dirty_lines)} 处未提交或未跟踪变更: {items_desc}",
+                suggestion="阶段结项前必须将所有代码与文档通过 git add / git commit 提交入库",
+            )
+        return CheckResult(
+            code="GIT_CLEAN_PASS",
+            title="Git 工作区清洁度",
+            passed=True,
+            detail="Git 工作区干净，所有修改与文档均已提交入库",
+        )
+    except Exception as e:
+        return CheckResult(
+            code="GIT_CHECK_ERROR",
+            title="Git 工作区清洁度",
+            passed=True,
+            detail=f"Git 探测已跳过 ({str(e)})",
+        )
+
+
+def check_stage_start_predecessors(ctx: StageContext) -> CheckResult:
+    """Check: 阶段开始准入 - 前序阶段完结性检查"""
+    m = re.match(r"^S(\d+)", ctx.target_stage, re.IGNORECASE)
+    if not m:
+        return CheckResult(
+            code="START_PRED_PASS",
+            title="前序阶段完结性",
+            passed=True,
+            detail=f"目标阶段【{ctx.target_stage}】无强依赖前序阶段代号",
+        )
+    curr_idx = int(m.group(1))
+    if curr_idx <= 1:
+        return CheckResult(
+            code="START_PRED_PASS",
+            title="前序阶段完结性",
+            passed=True,
+            detail=f"【{ctx.target_stage}】为起始阶段，无需前序结项依赖",
+        )
+
+    pred_code = f"S{curr_idx - 1}"
+    pred_records = [
+        r for r in ctx.normalized_records
+        if re.match(r"^" + re.escape(pred_code) + r"([\s\-_:：]|$)", str(r.get("stage", "")).strip(), re.IGNORECASE)
+    ]
+    if not pred_records:
+        return CheckResult(
+            code="START_PRED_PASS",
+            title="前序阶段完结性",
+            passed=True,
+            detail=f"未检测到前序阶段【{pred_code}】的历史任务卡，允许准入",
+        )
+
+    unaccepted = [r for r in pred_records if str(r.get("status", "")).strip() not in ("已验收", "已取消")]
+    if unaccepted:
+        tids = ", ".join([str(u.get("id") or u.get("record_id") or "?") for u in unaccepted[:5]])
+        return CheckResult(
+            code="START_PRED_UNFINISHED",
+            title="前序阶段完结性",
+            passed=False,
+            detail=f"前序阶段【{pred_code}】尚有 {len(unaccepted)} 个任务未完成验收: {tids}",
+            suggestion=f"请先完成前序阶段【{pred_code}】的全量验收与阶段结项门禁核验",
+        )
+    return CheckResult(
+        code="START_PRED_PASS",
+        title="前序阶段完结性",
+        passed=True,
+        detail=f"前序阶段【{pred_code}】共 {len(pred_records)} 个任务已全部完成终态验收",
+    )
+
+
+# 阶段结项门禁流水线
 STAGE_GATE_CHECKERS = [
     check_board_tasks_status,
     check_wbs_reconciliation,
     check_arch_summary,
     check_pm_summary,
+    check_git_working_tree_cleanliness,
+]
+
+# 阶段开工准入门禁流水线
+STAGE_START_CHECKERS = [
+    check_stage_start_predecessors,
+    check_git_working_tree_cleanliness,
 ]
 
 
@@ -562,16 +675,18 @@ def run_stage_gate_check(
     stage_name: str,
     project_root_dir: Optional[str] = None,
     config_override: Optional[Dict[str, Any]] = None,
+    action: str = "close",
 ) -> StageGateReport:
-    """运行全量阶段门禁流水线并生成报告"""
+    """运行全量阶段门禁流水线并生成报告 (action: 'close' 结项准出 / 'start' 阶段准入)"""
     ctx = StageContext(
         stage_input=stage_name,
         project_dir=project_root_dir,
         config_override=config_override,
     )
 
+    checkers = STAGE_START_CHECKERS if action == "start" else STAGE_GATE_CHECKERS
     results: List[CheckResult] = []
-    for checker in STAGE_GATE_CHECKERS:
+    for checker in checkers:
         try:
             res = checker(ctx)
             results.append(res)
@@ -595,6 +710,7 @@ def run_stage_gate_check(
         passed_checks=passed_count,
         failed_checks=failed_count,
         results=results,
+        action=action,
     )
 
 
@@ -602,7 +718,10 @@ def format_terminal_report(report: StageGateReport) -> str:
     """格式化向导式终端门禁报告"""
     lines = []
     lines.append("=" * 64)
-    lines.append(f"       YY-Flow 阶段门禁核验报告: 【{report.stage_name}】")
+    if report.action == "start":
+        lines.append(f"       YY-Flow 阶段准入门禁核验报告: 【{report.stage_name}】")
+    else:
+        lines.append(f"       YY-Flow 阶段结项门禁核验报告: 【{report.stage_name}】")
     lines.append("=" * 64)
 
     for r in report.results:
@@ -610,17 +729,41 @@ def format_terminal_report(report: StageGateReport) -> str:
         lines.append(f"{badge} {r.title}: {r.detail}")
 
     lines.append("-" * 64)
-    if report.passed:
-        lines.append("✅ 阶段门禁 100% 审查通过！满足结项准出条件。")
-        lines.append("🚀 下一步建议: 请 PM 严经理 派发 D 类任务唤起 DevOps 吕改特 执行分支合并与打发布 Tag。")
+    m = re.match(r"^(S\d+)", report.stage_name, re.IGNORECASE)
+    stage_code = m.group(1).upper() if m else "STAGE"
+
+    if report.action == "start":
+        if report.passed:
+            lines.append("✅ 阶段准入门禁审查通过！满足开工条件。")
+            lines.append("🌱 阶段开工指引与拉取新分支提醒:")
+            lines.append("   1. 请从最新主干拉取并切换至本阶段专属特性分支:")
+            lines.append("      git checkout main && git pull origin main")
+            lines.append(f"      git checkout -b feature/{stage_code.lower()}-dev")
+            lines.append("   2. 唤起 PM 严经理 拆解 WBS 并通过 quick_task.py 批量建卡开工。")
+        else:
+            lines.append(f"❌ 阶段准入门禁未通过！存在 {report.failed_checks} 项阻断项。")
+            lines.append("💡 修复建议向导:")
+            idx = 1
+            for r in report.results:
+                if not r.passed and r.suggestion:
+                    lines.append(f"   {idx}. {r.suggestion}")
+                    idx += 1
     else:
-        lines.append(f"❌ 阶段门禁未通过！存在 {report.failed_checks} 项阻断项。")
-        lines.append("💡 修复建议向导:")
-        idx = 1
-        for r in report.results:
-            if not r.passed and r.suggestion:
-                lines.append(f"   {idx}. {r.suggestion}")
-                idx += 1
+        if report.passed:
+            lines.append("✅ 阶段结项门禁审查通过！满足结项准出条件，成果已全部提交入库。")
+            lines.append("🚀 下一步建议与分支合并提醒:")
+            lines.append("   1. 请 PM 严经理 派发 D 类运维任务唤起 DevOps 吕改特 执行分支合并与版本发布:")
+            lines.append("      - 将当前阶段特性分支发起 PR 并合流至主干 (main) 或 release 分支;")
+            lines.append("      - 在主干打版本发布 Tag（如 v1.x.0）并推送至远端;")
+            lines.append("   2. 阶段总结与复盘文档归档至 docs/D01-项目管理/D02-状态报告/。")
+        else:
+            lines.append(f"❌ 阶段门禁未通过！存在 {report.failed_checks} 项阻断项。")
+            lines.append("💡 修复建议向导:")
+            idx = 1
+            for r in report.results:
+                if not r.passed and r.suggestion:
+                    lines.append(f"   {idx}. {r.suggestion}")
+                    idx += 1
     lines.append("=" * 64)
     return "\n".join(lines)
 
@@ -630,22 +773,31 @@ def format_terminal_report(report: StageGateReport) -> str:
 # =============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="YY-Flow 阶段结项门禁核验器 (Stage Gate Checker)")
+    parser = argparse.ArgumentParser(description="YY-Flow 阶段门禁核验器 (Stage Gate Checker)")
+    parser.add_argument("--action", "-a", choices=["close", "start"], default="close", help="门禁类型: close (阶段结项准出) 或 start (阶段开工准入)")
     parser.add_argument("--stage", "-s", type=str, default="", help="目标核验阶段名称或代号 (如 S1, 'S1 需求分析')")
     parser.add_argument("--project-root", "-p", type=str, default=None, help="目标项目根目录路径 (默认自动推导)")
+    parser.add_argument("--ignore-git", action="store_true", help="豁免 Git 工作区清洁度核验")
     parser.add_argument("--json", action="store_true", help="以 JSON 格式输出结果供 CI 集成消费")
 
     args = parser.parse_args()
 
+    config_override = {}
+    if args.ignore_git:
+        config_override["require_clean_git"] = False
+
     report = run_stage_gate_check(
         stage_name=args.stage,
         project_root_dir=args.project_root,
+        config_override=config_override if config_override else None,
+        action=args.action,
     )
 
     if args.json:
         # 序列化为 JSON 格式
         out_dict = {
             "stage_name": report.stage_name,
+            "action": report.action,
             "passed": report.passed,
             "total_checks": report.total_checks,
             "passed_checks": report.passed_checks,

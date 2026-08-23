@@ -6,7 +6,7 @@ version: 1.0.0
 
 # Multi-Agent Team Workflow Skill (YY-Flow)
 
-> 契约驱动的多角色 Agent 协同研发技能包 —— 消除越权、打回碎片化与状态悬挂。
+> **“不要让CV工程师变成YES工程师”** —— 契约驱动的多角色 Agent 协同研发技能包，消除越权、打回碎片化与状态悬挂。
 
 ---
 
@@ -22,7 +22,8 @@ version: 1.0.0
 | **`/yy-flow metrics`** | **效能度量报告**：一键计算并输出前置交付周期 (Lead Time)、吞吐量与卡点分析 | 运行 `metrics_analyzer.py` |
 | **`/yy-flow create`** | **显式建单**：创建任务卡【待开始】并分配处理人（PM 可派发任意；非 PM 仅可自建） | 运行 `transition_task.py --create` / `quick_task.py create` |
 | **`/yy-flow auto`** | **自动任务**：一条指令自动完成完整生命周期至已验收——全类型链（A–G）、任意节点续跑、已阻塞前置验证（【解除】记录）、重复任务校验 | 运行 `auto_task.py` |
-| **`/yy-flow gate [stage]`** 或 **`/yy-flow close-stage`** | **阶段结项门禁核验**：执行阶段准出 4 项硬核验（看板全验收、WBS 对账、架构总结、管理复盘） | 运行 `check_stage_gate.py`，全绿放行后派发 DevOps 吕改特合流打 Tag |
+| **`/yy-flow start-stage [stage]`** | **阶段开工准入门禁**：核验前序阶段结项闭环与 Git 工作区清洁度，输出拉取本阶段新特性分支的 Git 指令向导 | 运行 `check_stage_gate.py --action start --stage [stage]` |
+| **`/yy-flow gate [stage]`** 或 **`/yy-flow close-stage`** | **阶段结项准出门禁**：执行阶段准出 5 项硬核验（看板全终态、WBS 对账、架构总结、管理复盘、Git 工作区清洁度），放行后输出分支合并与打 Tag 发布提醒 | 运行 `check_stage_gate.py --action close --stage [stage]`，全绿放行后派发 DevOps 吕改特合流打 Tag |
 
 ---
 

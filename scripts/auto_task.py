@@ -45,14 +45,19 @@ MAIN_ROLE_BY_TYPE = {
     "D": "DEVOPS", "E": "PM", "F": "PM", "G": "DEVOPS",
 }
 
-# A 类链: 每段转换的 (执行角色, 处理人)
-CHAIN_ROLES_A = [
-    ("待开始", "进行中", "DEV", "李开发"),
-    ("进行中", "审查中", "DEV", "周审查"),
-    ("审查中", "测试中", "REVIEWER", "章测试"),
-    ("测试中", "已完成", "QA", "严经理"),
-    ("已完成", "已验收", "PM", "严经理"),
-]
+# A 类链: 每段转换的 (执行角色, 处理人)，支持 DEV / FRONTEND
+def full_chain_roles(main_role: str) -> List[tuple]:
+    role = "FRONTEND" if str(main_role).upper() in ["FRONTEND", "马前端"] else "DEV"
+    assignee = ROLE_NAME_MAP.get(role, "李开发" if role == "DEV" else "马前端")
+    return [
+        ("待开始", "进行中", role, assignee),
+        ("进行中", "审查中", role, "周审查"),
+        ("审查中", "测试中", "REVIEWER", "章测试"),
+        ("测试中", "已完成", "QA", "严经理"),
+        ("已完成", "已验收", "PM", "严经理"),
+    ]
+
+CHAIN_ROLES_A = full_chain_roles("DEV")
 
 # 短链 (B/C/D/G/F): 主执行角色完成到已完成，PM 验收
 def short_chain_roles(main_role: str) -> List[tuple]:
@@ -77,7 +82,7 @@ def resolve_chain(task_type: str, main_role: str) -> tuple:
     """
     t = task_type.upper()
     if t == "A":
-        return CHAIN_A, CHAIN_ROLES_A
+        return CHAIN_A, full_chain_roles(main_role)
     if t == "E":
         return CHAIN_E, CHAIN_ROLES_E
     return CHAIN_SHORT, short_chain_roles(main_role)
@@ -107,8 +112,9 @@ def main():
     parser = argparse.ArgumentParser(description="自动任务编排引擎 (auto_task)")
     parser.add_argument("--config", default=None, help="配置文件路径")
     parser.add_argument("--task-id", default="", help="任务编号；缺省且提供 --task-name 时自动建卡")
-    parser.add_argument("--task-name", default="", help="任务名称（建卡时必填）")
-    parser.add_argument("--role", default="", help="主执行角色 (DEV/ARCHITECT/DOCS/DEVOPS/PM；缺省按类型推导)")
+    parser.add_argument("--task-name", "--name", dest="task_name", default="", help="任务名称（建卡时必填）")
+    parser.add_argument("--role", default="", help="主执行角色 (DEV/FRONTEND/ARCHITECT/DOCS/DEVOPS/PM；缺省按类型推导)")
+    parser.add_argument("--assignee", default="", help="建卡时初始经办人（缺省按 role 推导）")
     parser.add_argument("--type", default="A", help="任务类型 (A-G: A为L2标准任务全链; B/C/D/F/G为L1轻量任务短链; E为用户直验)")
     parser.add_argument("--stage", default="", help="建卡时写入阶段")
     parser.add_argument("--wp", default="", help="建卡时写入工作包")
@@ -175,10 +181,11 @@ def main():
                 board_name = args.task_name
             else:
                 # 建卡：走 transition_task --create（含重复校验/权限/审计）
+                init_assignee = args.assignee or ROLE_NAME_MAP.get(main_role, main_role)
                 ok = transition_task_pipeline(
                     config_path=args.config,
                     current_role=main_role,
-                    assignee=ROLE_NAME_MAP.get(main_role, main_role),
+                    assignee=init_assignee,
                     task_name=args.task_name,
                     task_type=task_type,
                     stage=args.stage or None,
@@ -193,7 +200,7 @@ def main():
                 rec = adapter.get_record(task_id) if task_id else None
                 if rec is None:
                     # 自动编号建卡后回查最新卡片（追加在列表末尾）
-                    recs = adapter.list_records(limit=5)
+                    recs = adapter.list_records(limit=10000)
                     if not recs:
                         print("[FAILED]  建卡后未找到任务！")
                         sys.exit(1)

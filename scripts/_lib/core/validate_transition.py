@@ -160,9 +160,9 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
         print(f"[REJECT 越权拦截] {role_upper} 角色在 A 类 (常规代码开发) 任务中禁止直接推动至 '已完成'！必须先提交审查 (审查中 -> 测试中)！")
         return False
 
-    # A 类 (常规代码开发) 任务 PM 强行推进行中 -> 已验收 判断为违规越权 (跳过 Review 与 QA)
-    if role_upper == "PM" and type_upper == "A" and transition_key == "进行中 -> 已验收":
-        print(f"[REJECT 越权拦截] PM 角色在 A 类 (常规代码开发) 任务中禁止直接由 '进行中' 推动至 '已验收'！必须经过代码审查与测试流程！")
+    # A 类 (常规代码开发) 任务 PM 强行推待开始/进行中 -> 已验收 判断为违规越权 (跳过 Review 与 QA)
+    if role_upper == "PM" and type_upper == "A" and transition_key in ["待开始 -> 已验收", "进行中 -> 已验收"] and not is_hotfix:
+        print(f"[REJECT 越权拦截] PM 角色在 A 类 (常规代码开发) 任务中禁止直接由 '{from_status}' 推动至 '已验收'！必须经过代码审查与测试流程！")
         return False
 
     if not any(transition_key.startswith(allowed) for allowed in allowed_list):
