@@ -79,3 +79,48 @@ def test_concurrency_aggregation_with_role_normalization(tmp_path):
     assert "DEV_CONCURRENCY_EXCEEDED" in alert_codes
     concurrency_alert = next(a for a in result["alerts"] if a["code"] == "DEV_CONCURRENCY_EXCEEDED")
     assert "李开发 进行中任务数 4" in concurrency_alert["message"]
+
+
+def test_time_skew_instant_transition_alert(tmp_path):
+    """验证多节点瞬时流转（<=5秒完成多步）触发 TIME_SKEW_INSTANT 告警并正确计算有效交付周期"""
+    board_file = tmp_path / "board.json"
+    same_time = "2026-08-23 10:00:00"
+    process_text = (
+        f"[T0001-N01] [{same_time}] 状态由【待开始】更新至【进行中】，操作人: 李开发\n"
+        f"[T0001-N02] [{same_time}] 状态由【进行中】更新至【审查中】，操作人: 李开发\n"
+        f"[T0001-N03] [{same_time}] 状态由【审查中】更新至【测试中】，操作人: 周审查\n"
+        f"[T0001-N04] [{same_time}] 状态由【测试中】更新至【已完成】，操作人: 章测试\n"
+        f"[T0001-N05] [{same_time}] 状态由【已完成】更新至【已验收】，操作人: 严经理"
+    )
+    cards = [
+        {
+            "id": "T0001",
+            "name": "秒级冲卡任务",
+            "status": "已验收",
+            "assignee": "严经理",
+            "start_date": same_time,
+            "end_date": same_time,
+            "process": process_text,
+        },
+        {
+            "id": "T0002",
+            "name": "真实研发任务",
+            "status": "已验收",
+            "assignee": "严经理",
+            "start_date": "2026-08-23 08:00:00",
+            "end_date": "2026-08-23 10:00:00",
+            "process": "[T0002-N01] [2026-08-23 08:00:00] 状态由【待开始】更新至【进行中】\n[T0002-N02] [2026-08-23 10:00:00] 状态由【进行中】更新至【已完成】",
+        }
+    ]
+    board_file.write_text(json.dumps(cards, ensure_ascii=False), encoding="utf-8")
+
+    adapter = OfflineBoardAdapter(str(board_file))
+    result = heartbeat.run_heartbeat(adapter, thresholds={}, now=datetime(2026, 8, 23, 10, 0, 0))
+    alert_codes = [a["code"] for a in result["alerts"]]
+    assert "TIME_SKEW_INSTANT" in alert_codes
+
+    m = result.get("metrics", {})
+    assert m.get("instant_tasks_count") == 1
+    # T0001 耗时 0h，T0002 耗时 2h；全量平均 1.0h，有效平均（排除<=1min）应为 2.0h
+    assert m.get("avg_lead_time_hours") == 1.0
+    assert m.get("effective_avg_lead_time_hours") == 2.0

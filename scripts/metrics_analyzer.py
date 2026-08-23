@@ -89,6 +89,10 @@ class MetricsCalculator:
                     lead_times_hours.append((e_dt - s_dt).total_seconds() / 3600)
 
         avg_lead_time = (sum(lead_times_hours) / len(lead_times_hours)) if lead_times_hours else 0.0
+        effective_lead_times = [lt for lt in lead_times_hours if lt > (1.0 / 60.0)]
+        effective_avg_lead_time = (sum(effective_lead_times) / len(effective_lead_times)) if effective_lead_times else avg_lead_time
+        instant_count = sum(1 for lt in lead_times_hours if lt <= (1.0 / 60.0))
+        instant_ratio = (instant_count / completed_count * 100) if completed_count > 0 else 0.0
         completion_rate = (completed_count / total * 100) if total > 0 else 0.0
 
         return {
@@ -101,6 +105,9 @@ class MetricsCalculator:
             "rejected_tasks": status_counts["已退回"],
             "completion_rate_percent": round(completion_rate, 1),
             "avg_lead_time_hours": round(avg_lead_time, 2),
+            "effective_avg_lead_time_hours": round(effective_avg_lead_time, 2),
+            "instant_tasks_count": instant_count,
+            "instant_ratio_percent": round(instant_ratio, 1),
             "status_distribution": dict(status_counts),
         }
 

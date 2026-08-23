@@ -244,6 +244,18 @@ def run_heartbeat(
                 "message": f"任务 {tid} 处于终态【{status}】但缺失 end_date 字段",
             })
 
+        # ---- 巡检 5: 瞬时流转与时序失真巡检 ----
+        if status in ("已完成", "已验收") and start_dt and end_dt:
+            diff_sec = (end_dt - start_dt).total_seconds()
+            proc_nodes = [l for l in str(t.get("process") or "").splitlines() if l.strip().startswith(f"[{tid}-N")]
+            if len(proc_nodes) >= 3 and diff_sec <= 5:
+                alerts.append({
+                    "severity": "warning",
+                    "code": "TIME_SKEW_INSTANT",
+                    "task_id": tid,
+                    "message": f"任务 {tid} 包含 {len(proc_nodes)} 个流转节点但总耗时仅 {int(diff_sec)}s，疑似事后批量补卡，时序度量失真",
+                })
+
     # ---- 巡检 2 后置: 并发上限检查 ----
     for who, cnt in dev_active_count.items():
         if cnt > thresholds["dev_max_parallel"]:
@@ -316,6 +328,9 @@ def run_heartbeat(
             lead_times.append((e_dt - s_dt).total_seconds() / 3600)
 
     avg_lead_time = (sum(lead_times) / len(lead_times)) if lead_times else 0.0
+    effective_lead_times = [lt for lt in lead_times if lt > (1.0 / 60.0)]
+    effective_avg_lead_time = (sum(effective_lead_times) / len(effective_lead_times)) if effective_lead_times else avg_lead_time
+    instant_count = sum(1 for lt in lead_times if lt <= (1.0 / 60.0))
 
     summary = {"critical": 0, "warning": 0, "info": 0}
     for a in alerts:
@@ -333,6 +348,8 @@ def run_heartbeat(
             "blocked": blocked_count,
             "completion_rate_pct": round(completion_rate, 1),
             "avg_lead_time_hours": round(avg_lead_time, 1),
+            "effective_avg_lead_time_hours": round(effective_avg_lead_time, 1),
+            "instant_tasks_count": instant_count,
             "role_workload": dict(role_workload),
         },
         "alerts": alerts,
