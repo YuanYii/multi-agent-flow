@@ -81,17 +81,20 @@ flowchart TD
      --assignee 李开发 \
      --remarks "【阻断】PR #227 已发起，等待审查员合并: https://github.com/.../pull/227"
    ```
-2. **外部合流后用户解阻**：外部 Reviewer 将 PR 合并至主干后，由用户主动检查并触发解阻，流转至【已完成】：
-   ```bash
-   python3 scripts/quick_task.py complete \
-     --task-id T0031 \
-     --role DEV \
-     --from-status 已阻塞 \
-     --to-status 已完成 \
-     --assignee 严经理 \
-     --end-time "$(date '+%Y-%m-%d %H:%M:%S')" \
-     --remarks "【解除】PR #227 已确认合并至主分支，交付 PM 严经理验收"
-   ```
+2. **PR 合流后自动感知与解阻 (Auto-Unblock & Audit Tracking)**：
+   - **自动解阻（推荐）**：运行 `python3 scripts/sync_pr_status.py`（或执行心跳巡检 `python3 scripts/heartbeat.py --sync-pr`），系统自动调用 `gh pr view` 探测 PR 状态；
+   - **状态推进**：检测到 PR 为 `MERGED` 时，系统秒级自动将工单由【已阻塞】推进至【已完成】，处理人收敛至 PM 严经理，自动在过程日志中记录 Merge Commit SHA，并生成结构化通知载荷唤起 PM 验收；
+   - **人工手动解阻（兜底）**：若无 `gh` 环境，亦支持手动执行解阻命令：
+     ```bash
+     python3 scripts/quick_task.py complete \
+       --task-id T0031 \
+       --role DEV \
+       --from-status 已阻塞 \
+       --to-status 已完成 \
+       --assignee 严经理 \
+       --end-time "$(date '+%Y-%m-%d %H:%M:%S')" \
+       --remarks "【解除】PR #227 已确认合并至主分支，交付 PM 严经理验收"
+     ```
 3. **PM 严经理终态验收**：PM 严经理核验后置为【已验收】。
 
 ---

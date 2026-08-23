@@ -24,6 +24,7 @@ version: 1.0.0
 | **`/yy-flow auto`** | **自动任务**：一条指令自动完成完整生命周期至已验收——全类型链（A–G）、任意节点续跑、已阻塞前置验证（【解除】记录）、重复任务校验 | 运行 `auto_task.py` |
 | **`/yy-flow start-stage [stage]`** | **阶段开工准入门禁**：核验前序阶段结项闭环与 Git 工作区清洁度，输出拉取本阶段新特性分支的 Git 指令向导 | 运行 `check_stage_gate.py --action start --stage [stage]` |
 | **`/yy-flow gate [stage]`** 或 **`/yy-flow close-stage`** | **阶段结项准出门禁**：执行阶段准出 5 项硬核验（看板全终态、WBS 对账、架构总结、管理复盘、Git 工作区清洁度），放行后输出分支合并与打 Tag 发布提醒 | 运行 `check_stage_gate.py --action close --stage [stage]`，全绿放行后派发 DevOps 吕改特合流打 Tag |
+| **`/yy-flow sync-pr`** | **PR 状态监听与合流自动解阻**：扫描【已阻塞】任务卡，检测 GitHub PR 状态，已合入自动推进至【已完成】并发送 PM 验收通知 | 运行 `sync_pr_status.py` / `heartbeat.py --sync-pr` |
 
 ---
 
