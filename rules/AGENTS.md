@@ -8,9 +8,9 @@
 
 当收到以 `/yy-flow` 开头的用户指令时，Agent 必须直接触发对应的确定性动作：
 - `/yy-flow` 或 `/yy-flow start` -> 立即执行初始化 7 步 SOP 并拉起 PM 严经理；
-- `/yy-flow status` -> 运行 `heartbeat.py` 巡检脚本并格式化输出在手任务与告警（工单列表仅展示倒序最新 5 条）；
-- `/yy-flow kanban` -> 后台启动 `start_kanban_server.py`（默认不带 `--port`，自动探测/复用），并在回复中展示访问链接与大盘概览（工单列表仅展示倒序最新 5 条，引导通过 Web 查验全量）；
-- `/yy-flow metrics` -> 运行 `metrics_analyzer.py` 并呈现效能报告。
+- `/yy-flow status` -> 运行 `heartbeat.py` 巡检脚本，输出全局大盘进度条、交付周期与告警；
+- `/yy-flow kanban` -> 后台启动 `start_kanban_server.py`（默认不带 `--port`，自动探测/复用），展示 Web 看板访问链接与大盘；
+- `/yy-flow sync-pr` -> 运行 `sync_pr_status.py` 扫描【已阻塞】任务卡，检测 GitHub PR Merged 自动推进至【已完成】并唤起 PM 验收。
 
 > [!IMPORTANT]
 > **跨平台 Python 解释器执行红线**：AI Agent 在调用 `run_command` 执行任何工作流 CLI 脚本时，必须根据宿主操作系统自适应前缀：**Linux/macOS 使用 `python3`，Windows 环境必须使用 `python`**，严禁硬编码导致命令找不到。

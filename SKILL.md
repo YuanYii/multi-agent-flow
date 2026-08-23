@@ -12,19 +12,16 @@ version: 1.0.0
 
 ## 快捷唤醒指令 (Slash Commands)
 
-本 Skill 注册了专有零冲突快捷唤醒指令 **`/yy-flow`**，输入即可 100% 确定性触发对应行为：
+本 Skill 注册了专有快捷唤醒指令 **`/yy-flow`**，输入即可触发对应行为：
 
 | 快捷指令 | 触发行为与职责 | 核心联动 |
 | :--- | :--- | :--- |
 | **`/yy-flow`** 或 **`/yy-flow start`** | **一键激活工作流**：自动执行初始化 7 步 SOP 并唤起 PM 严经理进行项目鉴定与任务编排 | 运行 `init_skill.sh`，生成 `user_data/` 并导出 8 大专家 |
-| **`/yy-flow status`** | **心跳巡检与看板状态**：输出在手任务与告警（工单列表仅展示倒序最新 5 条） | 运行 `heartbeat.py`，检测超时滞留与并发超限 |
-| **`/yy-flow kanban`** | **看板 Web 服务就绪**：启动内置离线看板 HTTP 服务并输出访问链接与概览（工单列表仅展示倒序最新 5 条） | 运行 `start_kanban_server.py`（默认 32886 起自动探测，同项目实例复用，以实际输出端口为准） |
-| **`/yy-flow metrics`** | **效能度量报告**：一键计算并输出前置交付周期 (Lead Time)、吞吐量与卡点分析 | 运行 `metrics_analyzer.py` |
-| **`/yy-flow create`** | **显式建单**：创建任务卡【待开始】并分配处理人（PM 可派发任意；非 PM 仅可自建） | 运行 `transition_task.py --create` / `quick_task.py create` |
-| **`/yy-flow auto`** | **自动任务**：一条指令自动完成完整生命周期至已验收——全类型链（A–G）、任意节点续跑、已阻塞前置验证（【解除】记录）、重复任务校验 | 运行 `auto_task.py` |
-| **`/yy-flow start-stage [stage]`** | **阶段开工准入门禁**：核验前序阶段结项闭环与 Git 工作区清洁度，输出拉取本阶段新特性分支的 Git 指令向导 | 运行 `check_stage_gate.py --action start --stage [stage]` |
-| **`/yy-flow gate [stage]`** 或 **`/yy-flow close-stage`** | **阶段结项准出门禁**：执行阶段准出 5 项硬核验（看板全终态、WBS 对账、架构总结、管理复盘、Git 工作区清洁度），放行后输出分支合并与打 Tag 发布提醒 | 运行 `check_stage_gate.py --action close --stage [stage]`，全绿放行后派发 DevOps 吕改特合流打 Tag |
-| **`/yy-flow sync-pr`** | **PR 状态监听与合流自动解阻**：扫描【已阻塞】任务卡，检测 GitHub PR 状态，已合入自动推进至【已完成】并发送 PM 验收通知 | 运行 `sync_pr_status.py` / `heartbeat.py --sync-pr` |
+| **`/yy-flow status`** | **看板全局大盘与健康巡检**：一键输出项目完成进度、交付周期 Lead Time、专家负荷与风险阻断告警 | 运行 `heartbeat.py`，整合大盘统计、超时滞留与并发告警 |
+| **`/yy-flow kanban`** | **看板 Web 服务就绪**：启动内置可视化看板 HTTP 服务并输出访问链接（默认 32886 端口） | 运行 `start_kanban_server.py`，支持多视图切换与 PR/Issue 徽标渲染 |
+| **`/yy-flow sync-pr`** | **PR 状态监听与合流自动解阻**：扫描【已阻塞】任务卡，检测 GitHub PR Merged 自动推进至【已完成】并唤起 PM 验收 | 运行 `sync_pr_status.py` / `heartbeat.py --sync-pr` |
+
+> 💡 **业务流转与协同全走自然语言**：任务拆解建卡、阶段开工（`check_stage_gate.py --action start`）、阶段结项（`check_stage_gate.py --action close`）、认领、提审、测试与打回等日常研发生命周期，直接使用自然语言与 Agent 对话沟通，由对应专家在后台自主调度底层脚本。
 
 ---
 
