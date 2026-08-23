@@ -7,7 +7,7 @@ check_stage_gate.py · YY-Flow 阶段门禁核验器 (Stage Gate Checker)
 - 采用 Checker Pipeline（检查器流水线）模式，支持配置扩展与自定义规则注入。
 - 具备全景路径自适应能力（支持双轨 D0X 规范目录与平铺 docs/ 目录）。
 - 退出码契约：
-    0: 门禁 100% 通过 (PASS)
+    0: 门禁全项通过 (PASS)
     1: 门禁阻断 (BLOCKED，存在未验收卡片、WBS 漏单或缺失总结)
     2: 运行时错误 (ERROR，阶段不存在或参数异常)
 """
@@ -362,7 +362,7 @@ def check_wbs_reconciliation(ctx: StageContext) -> CheckResult:
                 code="WBS_PASS",
                 title="WBS 编号与文档双向对账",
                 passed=True,
-                detail=f"看板卡片 WBS 编号完整，且与文档 ({os.path.basename(matched_wbs_file)}) 声明任务 100% 吻合",
+                detail=f"看板卡片 WBS 编号完整，且与文档 ({os.path.basename(matched_wbs_file)}) 声明任务一致吻合",
             )
         except Exception:
             pass

@@ -125,7 +125,7 @@ author: 严经理
 
 
 def test_stage_gate_all_passed(mock_stage_env):
-    """测试场景 1：所有卡片已验收、WBS 对账通过、总结报告齐全、Git 干净 -> 门禁 100% 通过"""
+    """测试场景 1：所有卡片已验收、WBS 对账通过、总结报告齐全、Git 干净 -> 门禁全项通过"""
     report = run_stage_gate_check(stage_name="S1", project_root_dir=mock_stage_env)
     assert report.passed is True
     assert report.failed_checks == 0

@@ -53,11 +53,41 @@
       "type": "object",
       "properties": {
         "docs_root": { "type": "string" },
+        "task_breakdown_dir": { "type": "string" },
         "dev_reports_dir": { "type": "string" },
         "review_reports_dir": { "type": "string" },
-        "qa_reports_dir": { "type": "string" }
+        "qa_reports_dir": { "type": "string" },
+        "summary_dir": { "type": "string" },
+        "problem_records_dir": { "type": "string" }
       },
       "required": ["docs_root", "dev_reports_dir", "review_reports_dir", "qa_reports_dir"]
+    },
+    "duplicate_check": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "limit": { "type": "integer" },
+        "threshold": { "type": "number" }
+      }
+    },
+    "heartbeat": {
+      "type": "object",
+      "properties": {
+        "orphan_output_hours": { "type": "number" },
+        "stale_in_progress_hours": { "type": "number" },
+        "stale_review_or_test_hours": { "type": "number" },
+        "dev_max_parallel": { "type": "integer" },
+        "frontend_max_parallel": { "type": "integer" }
+      }
+    },
+    "notification": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "enum": ["kanban_only", "webhook"] },
+        "feishu_webhook_url": { "type": "string" },
+        "dingtalk_webhook_url": { "type": "string" },
+        "human_contacts": { "type": "object" }
+      }
     }
   },
   "required": ["project", "board", "roles", "paths"]

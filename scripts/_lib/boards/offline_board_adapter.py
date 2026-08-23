@@ -9,7 +9,7 @@ r"""
 2. 字段翻译：workflow.config.yaml 中 board.fields 的配置值 → 离线看板 JSON 字段名（id/name/status/...）。
 3. 并发安全：
    - 所有读-改-写操作持「全局排他锁」(board.json.seq.lock, 阻塞式 flock)，保证读改写原子性；
-   - create_record 在锁内分配最大任务编号 (T\d+ → max+1)，多个专家并发新建任务时编号 100% 不重复；
+   - create_record 在锁内分配最大任务编号 (T\d+ → max+1)，多个专家并发新建任务时严格保障编号唯一不重复；
    - 文件写入采用 tmp + os.replace 原子替换，避免半写文件。
 4. Fail-Closed：写入失败返回 False/None 拒绝落库；board.json 不存在时按空看板处理。
 """

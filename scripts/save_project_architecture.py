@@ -100,7 +100,10 @@ def save_architecture_config(arch_dict: dict) -> bool:
 
     # 6. SOP 尾部 Fail-Closed 物理硬断言 (支持 Antigravity, Claude, Cursor, Universal)
     project_root = _paths.project_root()
-    target_roles = ["flow-dev", "flow-frontend", "flow-reviewer", "flow-qa", "flow-architect", "flow-devops"]
+    target_roles = [
+        "flow-pm", "flow-architect", "flow-dev", "flow-frontend",
+        "flow-reviewer", "flow-qa", "flow-docs", "flow-devops"
+    ]
     
     candidate_patterns = [
         os.path.join(project_root, ".agents", "agents", "{r}", "agent.md"),
@@ -128,7 +131,7 @@ def save_architecture_config(arch_dict: dict) -> bool:
             return False
 
     if verified_count == len(target_roles):
-        print(f"[SUCCESS]  [Fail-Closed 校验通过] 6 大专家 Agent 物理文件断言 100% 合规！")
+        print(f"[SUCCESS]  [Fail-Closed 校验通过] 8 大专家 Agent 物理文件断言符合规范！")
         return True
     return False
 

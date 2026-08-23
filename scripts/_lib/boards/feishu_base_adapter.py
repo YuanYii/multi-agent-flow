@@ -40,7 +40,7 @@ class FeishuBaseAdapter:
             cmd.extend(["--filter-json", json.dumps(filter_json, ensure_ascii=False)])
 
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
             if res.returncode == 0:
                 try:
                     data = json.loads(res.stdout)
