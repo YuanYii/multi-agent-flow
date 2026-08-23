@@ -131,19 +131,19 @@ python scripts/start_kanban_server.py
 
 **数据表格视图** —— 任务明细列表，支持筛选、排序、搜索、批量删除与 JSON 导入导出：
 
-![数据表格视图](kanban/screenshots/table-view.png)
+![数据表格视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png)
 
 **看板-按状态视图** —— 按任务状态分组，卡片跨列拖拽即触发流转审计：
 
-![看板-按状态视图](kanban/screenshots/kanban-status.png)
+![看板-按状态视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/kanban-status.png)
 
 **看板-按负责人视图** —— 按专家角色查看各自任务负载：
 
-![看板-按负责人视图](kanban/screenshots/kanban-assignee.png)
+![看板-按负责人视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/kanban-assignee.png)
 
 **看板-按阶段工作包视图** —— 按阶段工作包（S1–S6）查看任务分布：
 
-![看板-按阶段工作包视图](kanban/screenshots/kanban-stage.png)
+![看板-按阶段工作包视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/kanban-stage.png)
 
 ---
 
