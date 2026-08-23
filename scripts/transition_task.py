@@ -171,6 +171,7 @@ def transition_task_pipeline(
     task_type: str = "A",
     end_time: str = None,
     remarks: str = None,
+    comment: str = None,
     dry_run: bool = False,
     active_dev_count: int = 1,
     task_name: str = None,

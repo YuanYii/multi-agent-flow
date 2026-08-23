@@ -175,11 +175,23 @@ def run_heartbeat(
         tid = t.get("record_id") or t.get("id") or "?"
         status = t.get("status", "")
         assignee = t.get("assignee", "")
+        handler = t.get("handler") or assignee
         start_date = t.get("start_date") or t.get("start_time")
         end_date = t.get("end_date") or t.get("end_time")
         start_dt = _parse_dt(start_date)
         end_dt = _parse_dt(end_date)
         status_entry_dt = _get_status_entry_time(t, status)
+
+        # ---- 巡检 0: 日期格式合规性与数据清洗提醒 ----
+        for dt_field_name, raw_val in [("start_date", start_date), ("end_date", end_date)]:
+            if raw_val and str(raw_val).strip() not in ("", "-"):
+                if not _parse_dt(raw_val):
+                    alerts.append({
+                        "severity": "warning",
+                        "code": "INVALID_DATE_FORMAT",
+                        "task_id": tid,
+                        "message": f"任务 {tid} 的 {dt_field_name} 格式异常 ({raw_val})，建议执行数据清洗以确保时序度量合规",
+                    })
 
         # ---- 巡检 1: 滞留任务 ----
         if status == "进行中" and status_entry_dt:
@@ -189,7 +201,7 @@ def run_heartbeat(
                     "severity": "warning",
                     "code": "STALE_IN_PROGRESS",
                     "task_id": tid,
-                    "message": f"任务 {tid} 已进行中 {hours:.1f}h (阈值 {thresholds['stale_in_progress_hours']}h),处理人 {assignee}",
+                    "message": f"任务 {tid} 已进行中 {hours:.1f}h (阈值 {thresholds['stale_in_progress_hours']}h),处理人 {handler}",
                 })
         elif status in ("审查中", "测试中") and status_entry_dt:
             hours = (now - status_entry_dt).total_seconds() / 3600
@@ -203,36 +215,36 @@ def run_heartbeat(
 
         # ---- 巡检 2: 并发上限 (累计) ----
         if status == "进行中":
-            norm_who = normalize_role(assignee)
-            who = assignee if norm_who == "未分配" else norm_who
+            norm_who = normalize_role(handler)
+            who = handler if norm_who == "未分配" else norm_who
             role_hint = (t.get("role_hint") or "").upper()
-            if "前端" in who or "frontend" in str(assignee).lower() or role_hint == "FRONTEND" or who == "马前端":
+            if "前端" in who or "frontend" in str(handler).lower() or role_hint == "FRONTEND" or who == "马前端":
                 fe_active_count[who] += 1
             else:
                 dev_active_count[who] += 1
 
         # ---- 巡检 3: 状态-处理人一致性 ----
-        assignee_str = str(assignee).strip().upper()
-        if status == "审查中" and not any(k in assignee_str for k in ["REVIEWER", "周审查", "审查"]):
+        handler_str = str(handler).strip().upper()
+        if status == "审查中" and not any(k in handler_str for k in ["REVIEWER", "周审查", "审查"]):
             alerts.append({
                 "severity": "critical",
                 "code": "ASSIGNEE_MISMATCH_REVIEW",
                 "task_id": tid,
-                "message": f"任务 {tid} 处于【审查中】,处理人应为 REVIEWER,当前为 {assignee}",
+                "message": f"任务 {tid} 处于【审查中】,处理人应为 REVIEWER,当前为 {handler}",
             })
-        if status == "测试中" and not any(k in assignee_str for k in ["QA", "章测试", "测试"]):
+        if status == "测试中" and not any(k in handler_str for k in ["QA", "章测试", "测试"]):
             alerts.append({
                 "severity": "critical",
                 "code": "ASSIGNEE_MISMATCH_TEST",
                 "task_id": tid,
-                "message": f"任务 {tid} 处于【测试中】,处理人应为 QA,当前为 {assignee}",
+                "message": f"任务 {tid} 处于【测试中】,处理人应为 QA,当前为 {handler}",
             })
-        if status in ("已完成", "已验收", "已取消") and not any(k in assignee_str for k in ["PM", "严经理", "经理"]):
+        if status in ("已完成", "已验收", "已取消") and not any(k in handler_str for k in ["PM", "严经理", "经理"]):
             alerts.append({
                 "severity": "warning",
                 "code": "ASSIGNEE_MISMATCH_TERMINAL",
                 "task_id": tid,
-                "message": f"任务 {tid} 处于终态【{status}】,处理人应为 PM,当前为 {assignee}",
+                "message": f"任务 {tid} 处于终态【{status}】,处理人应为 PM,当前为 {handler}",
             })
 
         # ---- 巡检 4: 终态结束时间必填 ----
@@ -247,8 +259,16 @@ def run_heartbeat(
         # ---- 巡检 5: 瞬时流转与时序失真巡检 ----
         if status in ("已完成", "已验收") and start_dt and end_dt:
             diff_sec = (end_dt - start_dt).total_seconds()
-            proc_nodes = [l for l in str(t.get("process") or "").splitlines() if l.strip().startswith(f"[{tid}-N")]
-            if len(proc_nodes) >= 3 and diff_sec <= 5:
+            proc_text = str(t.get("process") or "")
+            remarks_text = str(t.get("remarks") or "")
+            proc_nodes = [l for l in proc_text.splitlines() if l.strip().startswith(f"[{tid}-N")]
+            is_automated = (
+                "auto" in proc_text.lower()
+                or "auto" in remarks_text.lower()
+                or "代行" in proc_text
+                or "自动" in proc_text
+            )
+            if len(proc_nodes) >= 3 and diff_sec <= 5 and not is_automated:
                 alerts.append({
                     "severity": "warning",
                     "code": "TIME_SKEW_INSTANT",
