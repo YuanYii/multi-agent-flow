@@ -277,3 +277,77 @@ class TestStartShProtocol:
                 src = f.read()
             assert "--port 32886" not in src, f"{rel} 仍指示固定 --port 32886"
             assert "固定" + "服务端口" not in src or rel != "README.md", rel
+
+
+class TestResolveRunningKanban:
+    """看板服务实例精准匹配与状态探测"""
+
+    def test_resolve_matching_instance(self, tmp_path):
+        data_root = str(tmp_path)
+        fp = kanban_srv.compute_project_fingerprint(data_root)
+
+        class Handler(_QuietHandler):
+            def do_GET(self):
+                body = json.dumps({
+                    "code": 200, "message": "success",
+                    "data": {
+                        "service": kanban_srv.SERVICE_NAME,
+                        "fingerprint": fp,
+                        "data_root": data_root,
+                        "port": self.server.server_address[1],
+                        "pid": 999
+                    }
+                }).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            # 写入 runtime 文件模拟启动
+            kanban_srv.KANBAN_RUNTIME_FILE = os.path.join(data_root, "user_data", "kanban_server.json")
+            kanban_srv._write_runtime_file(port, fp)
+            resolved = kanban_srv.resolve_running_kanban(data_root)
+            assert resolved is not None
+            assert resolved.get("fingerprint") == fp
+            assert resolved.get("data_root") == data_root
+            assert resolved.get("pid") == 999
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_resolve_foreign_instance_returns_none(self, tmp_path):
+        data_root = str(tmp_path)
+
+        class Handler(_QuietHandler):
+            def do_GET(self):
+                body = json.dumps({
+                    "code": 200, "message": "success",
+                    "data": {
+                        "service": kanban_srv.SERVICE_NAME,
+                        "fingerprint": "foreign-fp",
+                        "data_root": "/other/project",
+                        "port": self.server.server_address[1],
+                        "pid": 111
+                    }
+                }).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            # 指纹与 data_root 不匹配，严禁误报
+            kanban_srv.KANBAN_RUNTIME_FILE = os.path.join(data_root, "user_data", "kanban_server.json")
+            kanban_srv._write_runtime_file(port, "foreign-fp")
+            resolved = kanban_srv.resolve_running_kanban(data_root)
+            assert resolved is None
+        finally:
+            server.shutdown()
+            server.server_close()
