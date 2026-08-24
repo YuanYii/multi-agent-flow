@@ -3,77 +3,74 @@ import docx
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml import OxmlElement, parse_xml
-from docx.oxml.ns import nsdecls, qn
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
 
 def create_proof_document():
     doc = docx.Document()
 
-    # Page Margins
+    # Standard Margins
     for section in doc.sections:
         section.top_margin = Inches(0.8)
         section.bottom_margin = Inches(0.8)
         section.left_margin = Inches(0.8)
         section.right_margin = Inches(0.8)
 
-    # Styles
-    def add_title(text):
-        p = doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(12)
-        p.paragraph_format.space_after = Pt(6)
-        p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run(text)
-        run.font.name = "Microsoft YaHei"
-        run.font.size = Pt(18)
-        run.bold = True
-        run.font.color.rgb = RGBColor(15, 23, 42)
+    # Color Palette
+    COLOR_PRIMARY = RGBColor(2, 132, 199)    # #0284C7
+    COLOR_TEXT = RGBColor(30, 41, 59)        # #1E293B
+    COLOR_MUTED = RGBColor(100, 116, 139)    # #64748B
 
-    def add_subtitle(text):
-        p = doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(16)
-        p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run(text)
-        run.font.name = "Microsoft YaHei"
-        run.font.size = Pt(10.5)
-        run.font.color.rgb = RGBColor(100, 116, 139)
+    def clear_paragraph(p):
+        for r in list(p.runs):
+            p._p.remove(r._r)
 
-    def add_h1(text):
-        p = doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(14)
-        p.paragraph_format.space_after = Pt(6)
-        run = p.add_run(text)
-        run.font.name = "Microsoft YaHei"
-        run.font.size = Pt(13)
-        run.bold = True
-        run.font.color.rgb = RGBColor(2, 132, 199)
-
-    def add_p(text, bold=False):
-        p = doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(3)
-        p.paragraph_format.space_after = Pt(4)
-        p.paragraph_format.line_spacing = 1.2
-        run = p.add_run(text)
-        run.font.name = "Microsoft YaHei"
-        run.font.size = Pt(10)
+    def format_run(run, font_size_pt, bold=False, color=COLOR_TEXT, font_name="Microsoft YaHei"):
+        run.font.name = font_name
+        run.font.size = Pt(font_size_pt)
         run.bold = bold
-        run.font.color.rgb = RGBColor(30, 41, 59)
-        return p
+        run.font.color.rgb = color
 
-    def set_cell(cell, text, bold=False, bg_hex=None):
-        cell.text = ""
+    def format_paragraph(p, space_before=4, space_after=4, line_spacing=1.25, align=WD_ALIGN_PARAGRAPH.LEFT):
+        p.paragraph_format.space_before = Pt(space_before)
+        p.paragraph_format.space_after = Pt(space_after)
+        p.paragraph_format.line_spacing = line_spacing
+        p.paragraph_format.alignment = align
+
+    def set_cell(cell, text, bold=False, font_size_pt=9.0, bg_hex=None, align=WD_ALIGN_PARAGRAPH.LEFT):
         p = cell.paragraphs[0]
-        p.paragraph_format.space_before = Pt(4)
-        p.paragraph_format.space_after = Pt(4)
-        p.paragraph_format.line_spacing = 1.15
+        clear_paragraph(p)
+        format_paragraph(p, space_before=3, space_after=3, line_spacing=1.15, align=align)
         run = p.add_run(text)
-        run.font.name = "Microsoft YaHei"
-        run.font.size = Pt(9.5)
-        run.bold = bold
-        run.font.color.rgb = RGBColor(30, 41, 59)
+        format_run(run, font_size_pt=font_size_pt, bold=bold, color=COLOR_TEXT)
         if bg_hex:
             shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{bg_hex}"/>')
             cell._tc.get_or_add_tcPr().append(shading)
+
+    def add_title(text):
+        p = doc.add_paragraph()
+        format_paragraph(p, space_before=12, space_after=4, align=WD_ALIGN_PARAGRAPH.CENTER)
+        run = p.add_run(text)
+        format_run(run, font_size_pt=18, bold=True, color=COLOR_PRIMARY)
+
+    def add_subtitle(text):
+        p = doc.add_paragraph()
+        format_paragraph(p, space_before=0, space_after=14, align=WD_ALIGN_PARAGRAPH.CENTER)
+        run = p.add_run(text)
+        format_run(run, font_size_pt=10, bold=False, color=COLOR_MUTED)
+
+    def add_h1(text):
+        p = doc.add_paragraph()
+        format_paragraph(p, space_before=14, space_after=6)
+        run = p.add_run(text)
+        format_run(run, font_size_pt=13, bold=True, color=COLOR_PRIMARY)
+
+    def add_p(text, bold=False):
+        p = doc.add_paragraph()
+        format_paragraph(p, space_before=3, space_after=4, line_spacing=1.25)
+        run = p.add_run(text)
+        format_run(run, font_size_pt=10.5, bold=bold, color=COLOR_TEXT)
+        return p
 
     # 1. Header
     add_title("千问办公专家套件 · 核心优势与落地证明材料")
@@ -95,13 +92,14 @@ def create_proof_document():
         ("审计可溯性", "100% 任务具备 Process Node Trace 审计日志，支持全生命周期回溯与状态机防篡改。")
     ]
     for r_idx, (k, v) in enumerate(table_data_1):
-        set_cell(t1.rows[r_idx].cells[0], k, bold=True, bg_hex="F1F5F9" if r_idx==0 else "F8FAFC")
-        set_cell(t1.rows[r_idx].cells[1], v, bold=(r_idx==0), bg_hex="F1F5F9" if r_idx==0 else None)
+        is_h = (r_idx == 0)
+        set_cell(t1.rows[r_idx].cells[0], k, bold=True, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else "F8FAFC", align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t1.rows[r_idx].cells[1], v, bold=is_h, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
 
     # 3. Section 2: 自动化测试凭据
     add_h1("二、 229 项全链路自动化测试与质量凭证 (Test Suite Proof)")
     add_p("为保障专家协同的严谨性与鲁棒性，套件内置了 229 项端到端自动化测试用例，覆盖全部状态机流转分支与越权拦截场景。")
-    add_p("【测试执行命令与真实凭据】：", bold=True)
+    add_p("【测试执行命令与真实凭据】", bold=True)
     add_p("执行环境：Python 3.10+ / pytest\n执行命令：PYTHONPATH=scripts pytest tests/ -q\n测试结果：229 passed in 30.75s (全部通过，零失败、零跳过)")
 
     t2 = doc.add_table(rows=6, cols=3)
@@ -115,9 +113,10 @@ def create_proof_document():
         ("test_qwen_packaging.py", "48 项", "验证千问白皮书规范：200x200 图标、包体积 <=50MB、条目 <1000、清单合规。")
     ]
     for r_idx, (c1, c2, c3) in enumerate(table_data_2):
-        set_cell(t2.rows[r_idx].cells[0], c1, bold=True, bg_hex="F1F5F9" if r_idx==0 else "F8FAFC")
-        set_cell(t2.rows[r_idx].cells[1], c2, bold=(r_idx==0), bg_hex="F1F5F9" if r_idx==0 else None)
-        set_cell(t2.rows[r_idx].cells[2], c3, bold=(r_idx==0), bg_hex="F1F5F9" if r_idx==0 else None)
+        is_h = (r_idx == 0)
+        set_cell(t2.rows[r_idx].cells[0], c1, bold=True, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else "F8FAFC", align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t2.rows[r_idx].cells[1], c2, bold=is_h, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t2.rows[r_idx].cells[2], c3, bold=is_h, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
 
     # 4. Section 3: 方法论与标准合规
     add_h1("三、 国际标准与工程方法论采纳 (Methodology & Standards)")
@@ -137,16 +136,17 @@ def create_proof_document():
         ("运行安全性与离线", "无恶意代码，无外部黑盒依赖", "✅ 合规：纯本地 Python/CLI 与 Git 钩子驱动，支持离线安全运行")
     ]
     for r_idx, (c1, c2, c3) in enumerate(table_data_3):
-        set_cell(t3.rows[r_idx].cells[0], c1, bold=True, bg_hex="F1F5F9" if r_idx==0 else "F8FAFC")
-        set_cell(t3.rows[r_idx].cells[1], c2, bold=(r_idx==0), bg_hex="F1F5F9" if r_idx==0 else None)
-        set_cell(t3.rows[r_idx].cells[2], c3, bold=(r_idx==0), bg_hex="F1F5F9" if r_idx==0 else None)
+        is_h = (r_idx == 0)
+        set_cell(t3.rows[r_idx].cells[0], c1, bold=True, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else "F8FAFC", align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t3.rows[r_idx].cells[1], c2, bold=is_h, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t3.rows[r_idx].cells[2], c3, bold=is_h, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
 
     # Save
     out_docx = "docs/qwen/千问办公专家套件-核心优势证明材料.docx"
     downloads_docx = "/Users/yuanyi/Downloads/千问办公专家套件-核心优势证明材料.docx"
     doc.save(out_docx)
     doc.save(downloads_docx)
-    print(f"Successfully generated {out_docx} and {downloads_docx}")
+    print(f"Unified Proof document saved to {out_docx} and {downloads_docx}")
 
 if __name__ == "__main__":
     create_proof_document()
