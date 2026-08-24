@@ -680,6 +680,9 @@
             border-radius: 8px 8px 0 0;
             flex-shrink: 0;
             border-bottom: 1px solid rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         .col-title {
@@ -832,7 +835,8 @@
         .data-table {
             width: 2330px;
             min-width: 2330px;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             text-align: left;
             font-size: 13px;
             table-layout: fixed;
@@ -848,8 +852,8 @@
             border-bottom: 2px solid var(--border-color);
             padding: 10px 12px;
             user-select: none;
-            position: relative;
             white-space: nowrap;
+            box-shadow: 0 1px 0 var(--border-color);
         }
 
         /* Column Resizer Handle */
