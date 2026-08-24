@@ -49,6 +49,7 @@ def main():
     p_complete.add_argument("--type", default="A", help="任务类型 (A-G)")
     p_complete.add_argument("--end-time", default=None, help="结束时间 (终态必填)")
     p_complete.add_argument("--remarks", default=None, help="备注 (打回/阻断等结构化信息)")
+    p_complete.add_argument("--comment", default=None, help="操作说明/阶段交付总结 (写入流程节点)")
     p_complete.add_argument("--delegated-by", default="", help="代行来源 (如 USER/PM)")
     p_complete.add_argument("--delegation-reason", default="", help="代行理由")
 
@@ -81,6 +82,7 @@ def main():
             task_type=args.type,
             end_time=args.end_time,
             remarks=args.remarks,
+            comment=args.comment,
             delegated_by=args.delegated_by,
             delegation_reason=args.delegation_reason,
         )
