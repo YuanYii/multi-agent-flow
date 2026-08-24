@@ -39,6 +39,17 @@ def main():
     p_create.add_argument("--force", action="store_true", help="重复任务校验命中时强制创建")
     p_create.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
+    p_accept = sub.add_parser("accept", help="人类用户专属验收命令（将已完成推进至已验收）")
+    p_accept.add_argument("--config", default=None, help="配置文件路径")
+    p_accept.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
+    p_accept.add_argument("--remarks", default=None, help="验收说明/结论")
+    p_accept.add_argument("--comment", default="人类用户核验代码与交付物合规，确认最终验收", help="流程说明")
+
+    p_accept_all = sub.add_parser("accept-all", help="批量人类验收（将指定阶段所有已完成任务一键推进至已验收）")
+    p_accept_all.add_argument("--config", default=None, help="配置文件路径")
+    p_accept_all.add_argument("--stage", default=None, help="指定项目阶段 (如 'Sprint 1'，缺省为全部已完成)")
+    p_accept_all.add_argument("--remarks", default=None, help="批量验收说明")
+
     p_complete = sub.add_parser("complete", help="推进任务到目标状态")
     p_complete.add_argument("--config", default=None, help="配置文件路径")
     p_complete.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
@@ -71,6 +82,63 @@ def main():
             force=args.force,
             no_dup_check=args.no_dup_check,
         )
+    elif args.command == "accept":
+        import datetime
+        end_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ok = transition_task_pipeline(
+            config_path=args.config,
+            task_id=args.task_id,
+            current_role="PM",
+            from_status="已完成",
+            to_status="已验收",
+            assignee="严经理",
+            end_time=end_time,
+            remarks=args.remarks,
+            comment=args.comment,
+            delegated_by="USER",
+            delegation_reason="human_user_acceptance",
+        )
+        if ok:
+            print(f"[SUCCESS]  🎉 任务 {args.task_id} 已成功完成人类最终验收（已验收）！")
+    elif args.command == "accept-all":
+        import datetime
+        from _lib.boards.board_adapter_factory import get_board_adapter
+        adapter = get_board_adapter(args.config)
+        recs = adapter.list_records(limit=1000)
+        accepted_count = 0
+        now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for r in recs:
+            f = r.get("fields", {})
+            st = str(f.get("status") or "")
+            tid = str(f.get("id") or r.get("record_id") or "")
+            stg = str(f.get("stage") or "")
+            if st == "已完成":
+                if args.stage and str(args.stage).strip().lower() not in stg.lower():
+                    continue
+                t_type = str(f.get("task_type") or f.get("type") or "A")
+                ok_single = transition_task_pipeline(
+                    config_path=args.config,
+                    task_id=tid,
+                    current_role="PM",
+                    from_status="已完成",
+                    to_status="已验收",
+                    assignee="严经理",
+                    task_type=t_type,
+                    end_time=now_time,
+                    remarks=args.remarks,
+                    comment="人类用户批量核验完成最终验收",
+                    delegated_by="USER",
+                    delegation_reason="human_batch_acceptance",
+                )
+                if ok_single:
+                    accepted_count += 1
+                    print(f"  [ACCEPTED] {tid} -> 已验收")
+        if accepted_count > 0:
+            print(f"[SUCCESS]  🎉 批量验收完成：共完成 {accepted_count} 个任务的最终验收！")
+        else:
+            stage_hint = f"（阶段: {args.stage}）" if args.stage else ""
+            print(f"[INFO]  💡 提示：当前未检索到处于【已完成】待人类验收的任务{stage_hint}。")
+        ok = True
     else:
         ok = transition_task_pipeline(
             config_path=args.config,

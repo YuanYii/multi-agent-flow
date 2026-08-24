@@ -316,7 +316,8 @@ def transition_task_pipeline(
 
         # 动态解析活跃进行中任务数，防隐式逃逸并发限制
         effective_active_dev_count = active_dev_count
-        if to_status == "进行中" and current_role.upper() in ["DEV", "FRONTEND"]:
+        all_workers = ["DEV", "FRONTEND", "QA", "DOCS", "ARCHITECT", "DEVOPS"]
+        if to_status == "进行中" and current_role.upper() in all_workers:
             try:
                 status_k = field_mapping.get("status", "status")
                 assignee_k = field_mapping.get("assignee", "assignee")

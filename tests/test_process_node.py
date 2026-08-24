@@ -127,7 +127,7 @@ class TestTransitionWritesNodes:
              "--end-time", "2026-08-16 16:40:00", "--remarks", "测试通过"),
             ("--task-id", "T0001", "--role", "PM", "--from-status", "已完成",
              "--to-status", "已验收", "--assignee", "严经理",
-             "--end-time", "2026-08-16 16:41:00"),
+             "--end-time", "2026-08-16 16:41:00", "--delegated-by", "USER"),
         ]
         for step in steps:
             r = _run_flow(cfg, *step)

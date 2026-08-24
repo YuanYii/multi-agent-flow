@@ -131,7 +131,7 @@ class TestClaim:
 
     def test_e_class_direct_accept(self, env):
         run(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status",
-            "已验收", "--assignee", "严经理", "--task-name", "审批事项", "--type", "E")
+            "已验收", "--assignee", "严经理", "--task-name", "审批事项", "--type", "E", "--delegated-by", "USER")
         assert status_of(env, "T0001") == "已验收"
 
     def test_blocked_requires_remark(self, env):
@@ -210,18 +210,26 @@ class TestDuplicate:
 class TestAutoChains:
     def test_a_full_chain(self, env):
         run(env, "auto_task.py", "--task-name", "自动开发任务", "--role", "DEV", "--type", "A")
+        assert status_of(env, "T0001") == "已完成"
+        run(env, "quick_task.py", "accept", "--task-id", "T0001")
         assert status_of(env, "T0001") == "已验收"
 
     def test_b_short_chain(self, env):
         run(env, "auto_task.py", "--task-name", "自动架构选型", "--role", "ARCHITECT", "--type", "B")
+        assert status_of(env, "T0001") == "已完成"
+        run(env, "quick_task.py", "accept", "--task-id", "T0001")
         assert status_of(env, "T0001") == "已验收"
 
     def test_f_chain(self, env):
         run(env, "auto_task.py", "--task-name", "阶段总结", "--role", "PM", "--type", "F")
+        assert status_of(env, "T0001") == "已完成"
+        run(env, "quick_task.py", "accept", "--task-id", "T0001")
         assert status_of(env, "T0001") == "已验收"
 
     def test_e_chain(self, env):
         run(env, "auto_task.py", "--task-name", "自执行事项", "--role", "PM", "--type", "E")
+        assert status_of(env, "T0001") == "已完成"
+        run(env, "quick_task.py", "accept", "--task-id", "T0001")
         assert status_of(env, "T0001") == "已验收"
 
     def test_simulate_no_write(self, env):
@@ -242,10 +250,16 @@ class TestAutoResume:
         tid = "T0100"
         set_status_direct(env, tid, pre)
         run(env, "auto_task.py", "--task-id", tid, "--type", "A")
+        assert status_of(env, tid) == "已完成"
+        run(env, "quick_task.py", "accept", "--task-id", tid)
         assert status_of(env, tid) == "已验收"
 
     def test_idempotent_accepted(self, env):
         run(env, "auto_task.py", "--task-name", "幂等任务", "--role", "DEV", "--type", "A")
+        run(env, "auto_task.py", "--task-id", "T0001", "--type", "A")
+        assert status_of(env, "T0001") == "已完成"
+        run(env, "quick_task.py", "accept", "--task-id", "T0001")
+        assert status_of(env, "T0001") == "已验收"
         run(env, "auto_task.py", "--task-id", "T0001", "--type", "A")
         assert status_of(env, "T0001") == "已验收"
 
@@ -275,7 +289,7 @@ class TestBlocked:
             "--task-name", "阻断恢复任务", "--assignee", "李开发")
         self._make_blocked(env, "T0100", "【阻断】等待SDK\n【解除】SDK已就绪")
         run(env, "auto_task.py", "--task-id", "T0100", "--type", "A")
-        assert status_of(env, "T0100") == "已验收"
+        assert status_of(env, "T0100") == "已完成"
 
     def test_clear_before_block_invalid(self, env):
         run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
@@ -294,7 +308,7 @@ class TestBlocked:
             "--task-name", "退回任务", "--assignee", "李开发")
         set_status_direct(env, "T0100", "已退回")
         run(env, "auto_task.py", "--task-id", "T0100", "--type", "A")
-        assert status_of(env, "T0100") == "已验收"
+        assert status_of(env, "T0100") == "已完成"
 
 
 # =====================================================================
@@ -322,8 +336,8 @@ class TestGateAndQuick:
 
     def test_auto_chain_lock_released(self, env):
         run(env, "auto_task.py", "--task-name", "锁测试甲", "--role", "DEV", "--type", "A")
-        run(env, "auto_task.py", "--task-name", "锁测试乙", "--role", "DEV", "--type", "A")  # 顺序执行锁正常释放
-        assert status_of(env, "T0002") == "已验收"
+        run(env, "auto_task.py", "--task-name", "锁测试乙", "--role", "DEV", "--type", "A", "--force")  # 顺序执行锁正常释放
+        assert status_of(env, "T0002") == "已完成"
 
     def test_no_direct_complete_for_a(self, env):
         run(env, "transition_task.py", "--role", "PM", "--create", "--task-id", "T0100",
@@ -359,10 +373,10 @@ class TestProtocol:
 # =====================================================================
 class TestTaskTiers:
     def test_l1_docs_short_chain(self, env):
-        """L1 轻量任务走短链：待开始->进行中->已完成->已验收，绝不经过审查中/测试中。"""
+        """L1 轻量任务走短链：待开始->进行中->已完成，绝不经过审查中/测试中。"""
         run(env, "auto_task.py", "--task-name", "文档更新检查", "--role", "DOCS", "--type", "C")
         c = find(env, "T0001")
-        assert c is not None and c.get("status") == "已验收"
+        assert c is not None and c.get("status") == "已完成"
         proc = str(c.get("process", ""))
         assert "进行中" in proc and "已完成" in proc
         assert "审查中" not in proc and "测试中" not in proc
@@ -371,7 +385,7 @@ class TestTaskTiers:
         """L2 标准任务走全链：必须经历审查中与测试中。"""
         run(env, "auto_task.py", "--task-name", "用户核心接口开发", "--role", "DEV", "--type", "A")
         c = find(env, "T0001")
-        assert c is not None and c.get("status") == "已验收"
+        assert c is not None and c.get("status") == "已完成"
         proc = str(c.get("process", ""))
         assert "审查中" in proc and "测试中" in proc
 
@@ -462,7 +476,7 @@ class TestOwnerAndHandlerSemantics:
         assert c.get("handler") == "严经理"    # 处理人收敛至严经理
 
         # 5. 已完成 -> 已验收
-        run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--end-time", now_str)
+        run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--end-time", now_str, "--delegated-by", "USER")
         c = find(env, "T0001")
         assert c.get("assignee") == "李开发"   # 负责人不变
         assert c.get("handler") == "严经理"    # 处理人终态为严经理
@@ -526,7 +540,7 @@ class TestIndependentTasksAndFieldMappingSafety:
         assert c.get("handler") == "严经理"   # 处理人收敛至严经理
 
         # 4. PM 验收: 已完成 -> 已验收
-        out = run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", "2026-08-17 10:00:00")
+        out = run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", "2026-08-17 10:00:00", "--delegated-by", "USER")
         assert out.returncode == 0
         c = find(env, "T0001")
         assert c.get("status") == "已验收"
@@ -553,7 +567,7 @@ class TestIndependentTasksAndFieldMappingSafety:
         assert c.get("handler") == "严经理"
 
         # PM 验收
-        out = run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", "2026-08-17 10:00:00")
+        out = run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", "2026-08-17 10:00:00", "--delegated-by", "USER")
         assert out.returncode == 0
         c = find(env, "T0001")
         assert c.get("status") == "已验收"
@@ -648,7 +662,7 @@ class TestFrontendAutoTask:
         assert r.returncode == 0
         c = find(env, "T0001")
         assert c is not None
-        assert c["status"] == "已验收"
+        assert c["status"] == "已完成"
         assert "马前端" in c.get("process", "")
 
 
@@ -662,7 +676,7 @@ class TestTerminalStartDateFallback:
         c_before = find(env, "T0001")
         assert not c_before.get("start_date")
 
-        r = run(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status", "已验收", "--assignee", "严经理", "--task-id", "T0001", "--type", "E", "--end-time", "2026-08-23 12:00:00")
+        r = run(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status", "已验收", "--assignee", "严经理", "--task-id", "T0001", "--type", "E", "--end-time", "2026-08-23 12:00:00", "--delegated-by", "USER")
         assert r.returncode == 0
         c_after = find(env, "T0001")
         assert c_after.get("start_date") is not None
@@ -702,6 +716,7 @@ class TestTerminalStatusImmutability:
     def test_accepted_task_cannot_be_reverted(self, env):
         """已验收终态卡片严禁逆流至进行中或已阻塞。"""
         run(env, "auto_task.py", "--name", "终态测试任务", "--type", "A", "--role", "DEV")
+        run(env, "quick_task.py", "accept", "--task-id", "T0001")
         c = find(env, "T0001")
         assert c["status"] == "已验收"
 
@@ -746,11 +761,67 @@ class TestAutoRoleDetectionAndStageNormalization:
         """验证 auto_task 在未显式传 --role 时，对前端任务自动将操作人对齐为马前端。"""
         run(env, "auto_task.py", "--task-name", "[Frontend] 系统动态参数配置界面开发", "--type", "A")
         c = find(env, "T0001")
-        assert c["status"] == "已验收"
+        assert c["status"] == "已完成"
         proc = c.get("process", "")
         # 确保开工与提审节点的操作人为 马前端，而非 李开发
         assert "状态由【待开始】更新至【进行中】，操作人: 马前端" in proc
         assert "状态由【进行中】更新至【审查中】，操作人: 马前端" in proc
+
+
+# =====================================================================
+# 组 21 · 人类专属验收与 Git/阶段结项门禁 (Human Acceptance & Verify Git Gate)
+# =====================================================================
+class TestHumanAcceptanceAndGitGate:
+    def test_unauthorized_acceptance_rejected(self, env):
+        """AI Agent 尝试未经 USER 授权将任务推至【已验收】时，被状态机硬拦截。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "待验收任务", "--assignee", "PM")
+        # 尝试由 PM 自主代签验收（无 delegated-by USER）
+        r = run(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status", "已验收", "--assignee", "严经理", "--task-id", "T0001", "--type", "E", "--end-time", "2026-08-24 12:00:00", expect=1)
+        assert "人类用户专属终态" in r.stdout or "权限拦截" in r.stdout
+
+    def test_human_acceptance_via_quick_task(self, env):
+        """人类用户通过 quick_task.py accept 成功推进至【已验收】。"""
+        run(env, "auto_task.py", "--task-name", "快速验收任务", "--type", "A")
+        assert status_of(env, "T0001") == "已完成"
+        r = run(env, "quick_task.py", "accept", "--task-id", "T0001", "--remarks", "用户查验通过")
+        assert r.returncode == 0
+        assert status_of(env, "T0001") == "已验收"
+
+    def test_batch_human_acceptance_via_accept_all(self, env):
+        """人类用户通过 quick_task.py accept-all 批量完成阶段内所有已完成任务的验收。"""
+        run(env, "auto_task.py", "--task-name", "订单支付模块接口开发", "--type", "A")
+        run(env, "auto_task.py", "--task-name", "用户鉴权中间件编写", "--type", "A")
+        assert status_of(env, "T0001") == "已完成"
+        assert status_of(env, "T0002") == "已完成"
+        r = run(env, "quick_task.py", "accept-all")
+        assert r.returncode == 0
+        assert status_of(env, "T0001") == "已验收"
+        assert status_of(env, "T0002") == "已验收"
+
+    def test_verify_git_gate_fail_closed_on_completed(self, env):
+        """当存在处于【已完成】未验收任务时，verify_git_gate 物理拦截 Git 提交。"""
+        run(env, "auto_task.py", "--task-name", "待验收功能", "--type", "A")
+        assert status_of(env, "T0001") == "已完成"
+        r = run(env, "verify_git_gate.py", expect=1)
+        assert "Git 提交与结项门禁未通过" in r.stdout
+
+        # 验收后放行
+        run(env, "quick_task.py", "accept", "--task-id", "T0001")
+        r2 = run(env, "verify_git_gate.py")
+        assert r2.returncode == 0
+        assert "所有关联任务均已处于终态" in r2.stdout
+
+    def test_accept_all_empty_prompt(self, env):
+        """当无已完成任务时，accept-all 输出清晰的空任务提示。"""
+        r = run(env, "quick_task.py", "accept-all")
+        assert r.returncode == 0
+        assert "未检索到处于【已完成】待人类验收的任务" in r.stdout
+
+    def test_install_git_hooks(self, env):
+        """验证 install_git_hooks.py 正常运行并完成钩子安装。"""
+        r = run(env, "install_git_hooks.py")
+        assert r.returncode == 0
+        assert "成功安装 Git 门禁钩子" in r.stdout
 
 
 

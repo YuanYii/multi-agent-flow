@@ -36,9 +36,9 @@ from transition_task import transition_task_pipeline, ROLE_NAME_MAP, check_dupli
 from _lib.boards.board_adapter_factory import get_board_adapter
 import paths
 
-CHAIN_A = ["待开始", "进行中", "审查中", "测试中", "已完成", "已验收"]
-CHAIN_SHORT = ["待开始", "进行中", "已完成", "已验收"]
-CHAIN_E = ["待开始", "已验收"]
+CHAIN_A = ["待开始", "进行中", "审查中", "测试中", "已完成"]
+CHAIN_SHORT = ["待开始", "进行中", "已完成"]
+CHAIN_E = ["待开始", "已完成"]
 
 # 类型 → 主执行角色（短链/建卡使用；A 类链固定角色见 CHAIN_ROLES_A）
 MAIN_ROLE_BY_TYPE = {
@@ -55,7 +55,6 @@ def full_chain_roles(main_role: str) -> List[tuple]:
         ("进行中", "审查中", role, "周审查"),
         ("审查中", "测试中", "REVIEWER", "章测试"),
         ("测试中", "已完成", "QA", "严经理"),
-        ("已完成", "已验收", "PM", "严经理"),
     ]
 
 CHAIN_ROLES_A = full_chain_roles("DEV")
@@ -66,12 +65,11 @@ def short_chain_roles(main_role: str) -> List[tuple]:
     return [
         ("待开始", "进行中", main_role, main_assignee),
         ("进行中", "已完成", main_role, "严经理"),
-        ("已完成", "已验收", "PM", "严经理"),
     ]
 
 # E 类: PM 直验
 CHAIN_ROLES_E = [
-    ("待开始", "已验收", "PM", "严经理"),
+    ("待开始", "已完成", "PM", "严经理"),
 ]
 
 
@@ -284,9 +282,9 @@ def main():
 
         print(f"[AUTO]  任务 {task_id} 当前状态【{current_status}】(类型 {task_type}, 主角色 {main_role})")
 
-        # 2. 幂等：已验收
-        if current_status == "已验收":
-            print(f"[AUTO]  任务 {task_id} 生命周期已结束（已验收），幂等返回")
+        # 2. 幂等：已完成或已验收
+        if current_status in ("已完成", "已验收"):
+            print(f"[AUTO]  任务 {task_id} 自动化流水线已完成（当前状态【{current_status}】），提请人类用户核验验收！")
             sys.exit(0)
 
         # 3. 终态拒绝：已取消
@@ -359,7 +357,9 @@ def main():
                 sys.exit(1)
             prev = target
 
-        print(f"[AUTO]  ✅ 任务 {task_id} 自动链完成，终态【{prev}】" if prev == "已验收" else f"[AUTO]  任务 {task_id} 到达【{prev}】")
+        print(f"[AUTO]  ✅ 任务 {task_id} 自动化流水线交付完成，当前终态【{prev}】！")
+        if prev == "已完成":
+            print(f"  💡 [提请人类验收] 请人类用户核验代码与交付物后执行验收: /yy-flow accept {task_id} 或 python3 scripts/quick_task.py accept --task-id {task_id}")
         sys.exit(0)
     finally:
         if chain_lock_handle:

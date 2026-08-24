@@ -13,9 +13,11 @@ from enums import TaskStatus, TaskType, RoleEnum, normalize_role
 ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
     "PM": [
         "待开始 -> 进行中",
+        "待开始 -> 已完成",
         "待开始 -> 已验收",
         "待开始 -> 已取消",
         "进行中 -> 已验收",
+        "进行中 -> 已完成",
         "进行中 -> 已取消",
         "审查中 -> 测试中",
         "审查中 -> 已退回",
@@ -103,6 +105,32 @@ ROLE_BASE_PERMISSIONS: Dict[str, List[str]] = {
         "已阻塞 -> 进行中",
         "已阻塞 -> 已完成",
         "已阻塞 -> 已退回"
+    ],
+    "USER": [
+        "待开始 -> 进行中",
+        "待开始 -> 已验收",
+        "待开始 -> 已取消",
+        "进行中 -> 审查中",
+        "进行中 -> 已完成",
+        "进行中 -> 已验收",
+        "进行中 -> 已取消",
+        "审查中 -> 测试中",
+        "审查中 -> 已完成",
+        "审查中 -> 已退回",
+        "审查中 -> 已取消",
+        "测试中 -> 已完成",
+        "测试中 -> 已退回",
+        "测试中 -> 已取消",
+        "已完成 -> 已验收",
+        "已完成 -> 已退回",
+        "已完成 -> 已取消",
+        "进行中 -> 已阻塞",
+        "已阻塞 -> 进行中",
+        "已阻塞 -> 已完成",
+        "已阻塞 -> 已退回",
+        "已阻塞 -> 已取消",
+        "已退回 -> 进行中",
+        "已退回 -> 已取消"
     ]
 }
 
@@ -112,12 +140,12 @@ SPECIAL_DIRECT_COMPLETE_TYPES = sorted(list(TaskType.short_chain_types()))
 
 # 代行白名单:当前 role (即"被代行目标角色") → 哪些"代行来源角色"是合法的
 # 设计原则:
-#   - PM 是收口角色(验收/分配),任何角色可代行 PM(常见:任何角色代为验收)
-#   - 其他 7 角色(执行类)只接受 PM 代行(典型:PM 兼任审查/测试/文档)与 USER 授权
+#   - PM 验收收口严格由人类用户 USER 授权代行，防止 Agent 私自代签验收
+#   - 其他 7 角色(执行类)接受 PM 代行(典型:PM 兼任审查/测试/文档)与 USER 授权
 #   - 同级互代行(DEV↔FRONTEND)被禁止(防止隐性越权——代码任务不可互换代写)
 #   - USER 标识表示"人类用户授权代行",优先级最高,任何目标角色都接受
 DELEGATION_ALLOW_MATRIX: Dict[str, List[str]] = {
-    "PM":        ["PM", "ARCHITECT", "DEV", "FRONTEND", "REVIEWER", "QA", "DOCS", "DEVOPS", "USER"],
+    "PM":        ["PM", "USER"],
     "REVIEWER":  ["PM", "USER"],
     "QA":        ["PM", "USER"],
     "ARCHITECT": ["PM", "USER"],
@@ -125,6 +153,7 @@ DELEGATION_ALLOW_MATRIX: Dict[str, List[str]] = {
     "FRONTEND":  ["PM", "USER"],
     "DOCS":      ["PM", "USER"],
     "DEVOPS":    ["PM", "USER"],
+    "USER":      ["USER"],
 }
 
 
@@ -221,6 +250,17 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
             print(f"[REJECT 处理人拦截] 任务置为终态【已取消】时，经办人 (Assignee) 必须收敛至 PM (严经理)，当前为 '{assignee}'！")
             return False
 
+    # 2.4 人类用户专属验收权限拦截：流转至【已验收】必须由人类用户显式授权 (role=USER 或 delegated_by=USER)
+    if to_status == "已验收":
+        is_human_authorized = (
+            role_upper == "USER" 
+            or (delegated_by and str(delegated_by).strip().upper() == "USER")
+        )
+        if not is_human_authorized:
+            print(f"[REJECT 权限拦截] 状态【已验收】为人类用户专属终态，Agent (当前角色 {role}) 无权自主代签，必须由人类用户显式授权 (delegated_by=USER)！")
+            print("  💡 快捷验收命令：python3 scripts/quick_task.py accept --task-id <ID> 或在 transition_task.py 追加 --delegated-by USER")
+            return False
+
     # 3. 终态结束时间强校验 (E 类用户自执行任务豁免 end_time 强校验)
     if to_status in ["已完成", "已验收", "已取消"] and not end_time:
         if type_upper == "E":
@@ -229,9 +269,10 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
             print(f"[REJECT 结束时间缺失] 推动至终态 '{to_status}' 前，强制要求写入结束时间 (end_time)！")
             return False
 
-    # 4. 开发人员并发上限核验
-    if role_upper in ["DEV", "FRONTEND"] and to_status == "进行中" and active_dev_count >= max_parallel:
-        print(f"[REJECT 并发超限] 开发人员处于 '进行中' 任务数目前为 {active_dev_count}，超出并发上限 (≤{max_parallel})！")
+    # 4. 全角色并发上限核验 (WIP Limit)
+    all_workers = ["DEV", "FRONTEND", "QA", "DOCS", "ARCHITECT", "DEVOPS"]
+    if role_upper in all_workers and to_status == "进行中" and active_dev_count >= max_parallel:
+        print(f"[REJECT 并发超限] 角色 {role_upper} 处于 '进行中' 任务数目前为 {active_dev_count}，超出并发上限 (≤{max_parallel})！")
         return False
 
     delegation_suffix = ""

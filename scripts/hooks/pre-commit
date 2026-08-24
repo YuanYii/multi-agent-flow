@@ -1,0 +1,16 @@
+#!/bin/sh
+# Multi-Agent Flow Pre-Commit Hook
+# 强制门禁：核验当前阶段/工作区关联任务是否已处于【已验收】终态，未验收直接阻断提交。
+
+python3 scripts/verify_git_gate.py
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "[GIT HOOK 拦截] 🛑 存在尚未经人类验收的任务，Git 提交已中止！"
+    echo "💡 请先执行 python3 scripts/quick_task.py accept --task-id <ID> 完成验收后再行提交。"
+    echo ""
+    exit 1
+fi
+
+exit 0
