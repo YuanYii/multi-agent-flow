@@ -6,87 +6,99 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls, qn
 
-def create_proof_document():
+def create_academic_proof_document():
     doc = docx.Document()
 
-    # Standard Margins
+    # Standard Academic A4 Margins (GB/T 7713)
     for section in doc.sections:
-        section.top_margin = Inches(0.8)
-        section.bottom_margin = Inches(0.8)
-        section.left_margin = Inches(0.8)
-        section.right_margin = Inches(0.8)
+        section.top_margin = Inches(1.0)      # 2.54 cm
+        section.bottom_margin = Inches(1.0)   # 2.54 cm
+        section.left_margin = Inches(1.1)     # 2.8 cm
+        section.right_margin = Inches(1.1)    # 2.8 cm
+
+    # Academic Palette: Standard Black & Charcoal
+    COLOR_BLACK = RGBColor(0, 0, 0)
+    COLOR_HEADING = RGBColor(17, 24, 39)
+    COLOR_MUTED = RGBColor(75, 85, 99)
 
     # Set Default Document Font
-    normal_style = doc.styles["Normal"]
-    normal_style.font.name = "微软雅黑"
-    normal_style.font.size = Pt(10.5)
-    rFonts_elem = normal_style.element.rPr.get_or_add_rFonts()
-    rFonts_elem.set(qn("w:eastAsia"), "微软雅黑")
-    rFonts_elem.set(qn("w:ascii"), "微软雅黑")
-    rFonts_elem.set(qn("w:hAnsi"), "微软雅黑")
-    rFonts_elem.set(qn("w:cs"), "微软雅黑")
-
-    # Color Palette
-    COLOR_PRIMARY = RGBColor(2, 132, 199)    # #0284C7
-    COLOR_TEXT = RGBColor(30, 41, 59)        # #1E293B
-    COLOR_MUTED = RGBColor(100, 116, 139)    # #64748B
+    for s_name in ["Normal", "正文"]:
+        if s_name in doc.styles:
+            s = doc.styles[s_name]
+            s.font.name = "Times New Roman"
+            s.font.size = Pt(10.5)
+            rFonts = s.element.rPr.get_or_add_rFonts()
+            rFonts.set(qn("w:eastAsia"), "宋体")
+            rFonts.set(qn("w:ascii"), "Times New Roman")
+            rFonts.set(qn("w:hAnsi"), "Times New Roman")
+            rFonts.set(qn("w:cs"), "Times New Roman")
 
     def clear_paragraph(p):
         for r in list(p.runs):
             p._p.remove(r._r)
 
-    def format_run(run, font_size_pt, bold=False, color=COLOR_TEXT, font_name="微软雅黑"):
+    def format_academic_run(run, font_size_pt, font_type="body", bold=False, color=COLOR_BLACK):
         run.font.size = Pt(font_size_pt)
         run.bold = bold
         run.font.color.rgb = color
-        # Crucial for CJK intra-line consistency
         rPr = run._r.get_or_add_rPr()
         rFonts = rPr.get_or_add_rFonts()
-        rFonts.set(qn("w:eastAsia"), font_name)
-        rFonts.set(qn("w:ascii"), font_name)
-        rFonts.set(qn("w:hAnsi"), font_name)
-        rFonts.set(qn("w:cs"), font_name)
+        if font_type in ["title", "heading"]:
+            rFonts.set(qn("w:eastAsia"), "黑体")
+            rFonts.set(qn("w:ascii"), "Times New Roman")
+            rFonts.set(qn("w:hAnsi"), "Times New Roman")
+            rFonts.set(qn("w:cs"), "Times New Roman")
+        elif font_type == "meta":
+            rFonts.set(qn("w:eastAsia"), "楷体")
+            rFonts.set(qn("w:ascii"), "Times New Roman")
+            rFonts.set(qn("w:hAnsi"), "Times New Roman")
+            rFonts.set(qn("w:cs"), "Times New Roman")
+        else:  # body / table
+            rFonts.set(qn("w:eastAsia"), "宋体")
+            rFonts.set(qn("w:ascii"), "Times New Roman")
+            rFonts.set(qn("w:hAnsi"), "Times New Roman")
+            rFonts.set(qn("w:cs"), "Times New Roman")
         rFonts.set(qn("w:hint"), "eastAsia")
 
-    def format_paragraph(p, space_before=4, space_after=4, line_spacing=1.25, align=WD_ALIGN_PARAGRAPH.LEFT):
+    def format_paragraph(p, space_before=3, space_after=3, line_spacing=1.3, align=WD_ALIGN_PARAGRAPH.LEFT):
         p.paragraph_format.space_before = Pt(space_before)
         p.paragraph_format.space_after = Pt(space_after)
         p.paragraph_format.line_spacing = line_spacing
         p.paragraph_format.alignment = align
 
-    def set_cell(cell, text, bold=False, font_size_pt=9.0, bg_hex=None, align=WD_ALIGN_PARAGRAPH.LEFT):
+    def set_cell(cell, text, bold=False, font_size_pt=9.0, font_type="body", bg_hex=None, align=WD_ALIGN_PARAGRAPH.LEFT):
         p = cell.paragraphs[0]
         clear_paragraph(p)
-        format_paragraph(p, space_before=3, space_after=3, line_spacing=1.15, align=align)
+        format_paragraph(p, space_before=2, space_after=2, line_spacing=1.15, align=align)
         run = p.add_run(text)
-        format_run(run, font_size_pt=font_size_pt, bold=bold, color=COLOR_TEXT)
+        format_academic_run(run, font_size_pt=font_size_pt, font_type=font_type, bold=bold, color=COLOR_BLACK)
         if bg_hex:
             shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{bg_hex}"/>')
             cell._tc.get_or_add_tcPr().append(shading)
 
     def add_title(text):
         p = doc.add_paragraph()
-        format_paragraph(p, space_before=12, space_after=4, align=WD_ALIGN_PARAGRAPH.CENTER)
+        format_paragraph(p, space_before=14, space_after=4, align=WD_ALIGN_PARAGRAPH.CENTER)
         run = p.add_run(text)
-        format_run(run, font_size_pt=18, bold=True, color=COLOR_PRIMARY)
+        format_academic_run(run, font_size_pt=18, font_type="title", bold=True, color=COLOR_HEADING)
 
     def add_subtitle(text):
         p = doc.add_paragraph()
         format_paragraph(p, space_before=0, space_after=14, align=WD_ALIGN_PARAGRAPH.CENTER)
         run = p.add_run(text)
-        format_run(run, font_size_pt=10, bold=False, color=COLOR_MUTED)
+        format_academic_run(run, font_size_pt=10.5, font_type="meta", bold=False, color=COLOR_MUTED)
 
     def add_h1(text):
         p = doc.add_paragraph()
         format_paragraph(p, space_before=14, space_after=6)
         run = p.add_run(text)
-        format_run(run, font_size_pt=13, bold=True, color=COLOR_PRIMARY)
+        format_academic_run(run, font_size_pt=14, font_type="heading", bold=True, color=COLOR_HEADING)
 
     def add_p(text, bold=False):
         p = doc.add_paragraph()
-        format_paragraph(p, space_before=3, space_after=4, line_spacing=1.25)
+        format_paragraph(p, space_before=3, space_after=3, line_spacing=1.3)
         run = p.add_run(text)
-        format_run(run, font_size_pt=10.5, bold=bold, color=COLOR_TEXT)
+        format_academic_run(run, font_size_pt=10.5, font_type="body", bold=bold, color=COLOR_BLACK)
         return p
 
     # 1. Header
@@ -110,8 +122,8 @@ def create_proof_document():
     ]
     for r_idx, (k, v) in enumerate(table_data_1):
         is_h = (r_idx == 0)
-        set_cell(t1.rows[r_idx].cells[0], k, bold=True, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else "F8FAFC", align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
-        set_cell(t1.rows[r_idx].cells[1], v, bold=is_h, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t1.rows[r_idx].cells[0], k, bold=True, font_size_pt=9.5 if is_h else 9.0, font_type="heading" if is_h else "body", bg_hex="F1F5F9" if is_h else "F8FAFC", align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t1.rows[r_idx].cells[1], v, bold=is_h, font_size_pt=9.5 if is_h else 9.0, font_type="heading" if is_h else "body", bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
 
     # 3. Section 2: 自动化测试凭据
     add_h1("二、 229 项全链路自动化测试与质量凭证 (Test Suite Proof)")
@@ -131,9 +143,9 @@ def create_proof_document():
     ]
     for r_idx, (c1, c2, c3) in enumerate(table_data_2):
         is_h = (r_idx == 0)
-        set_cell(t2.rows[r_idx].cells[0], c1, bold=True, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else "F8FAFC", align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
-        set_cell(t2.rows[r_idx].cells[1], c2, bold=is_h, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
-        set_cell(t2.rows[r_idx].cells[2], c3, bold=is_h, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t2.rows[r_idx].cells[0], c1, bold=True, font_size_pt=9.5 if is_h else 9.0, font_type="heading" if is_h else "body", bg_hex="F1F5F9" if is_h else "F8FAFC", align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t2.rows[r_idx].cells[1], c2, bold=is_h, font_size_pt=9.5 if is_h else 9.0, font_type="heading" if is_h else "body", bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t2.rows[r_idx].cells[2], c3, bold=is_h, font_size_pt=9.5 if is_h else 9.0, font_type="heading" if is_h else "body", bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
 
     # 4. Section 3: 方法论与标准合规
     add_h1("三、 国际标准与工程方法论采纳 (Methodology & Standards)")
@@ -154,16 +166,16 @@ def create_proof_document():
     ]
     for r_idx, (c1, c2, c3) in enumerate(table_data_3):
         is_h = (r_idx == 0)
-        set_cell(t3.rows[r_idx].cells[0], c1, bold=True, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else "F8FAFC", align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
-        set_cell(t3.rows[r_idx].cells[1], c2, bold=is_h, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
-        set_cell(t3.rows[r_idx].cells[2], c3, bold=is_h, font_size_pt=9.5 if is_h else 9.0, bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t3.rows[r_idx].cells[0], c1, bold=True, font_size_pt=9.5 if is_h else 9.0, font_type="heading" if is_h else "body", bg_hex="F1F5F9" if is_h else "F8FAFC", align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t3.rows[r_idx].cells[1], c2, bold=is_h, font_size_pt=9.5 if is_h else 9.0, font_type="heading" if is_h else "body", bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
+        set_cell(t3.rows[r_idx].cells[2], c3, bold=is_h, font_size_pt=9.5 if is_h else 9.0, font_type="heading" if is_h else "body", bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
 
     # Save
     out_docx = "docs/qwen/千问办公专家套件-核心优势证明材料.docx"
     downloads_docx = "/Users/yuanyi/Downloads/千问办公专家套件-核心优势证明材料.docx"
     doc.save(out_docx)
     doc.save(downloads_docx)
-    print(f"Unified Proof document saved to {out_docx} and {downloads_docx}")
+    print(f"Academic Thesis Proof document saved to {out_docx} and {downloads_docx}")
 
 if __name__ == "__main__":
-    create_proof_document()
+    create_academic_proof_document()
