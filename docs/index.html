@@ -1739,12 +1739,12 @@
       <div class="cmd-card">
         <div class="cmd-badge">/yy-flow sync-pr</div>
         <h4 data-i18n="cmd4_h">PR 监听与自动解阻</h4>
-        <p data-i18n="cmd4_p">扫描【已阻塞】任务卡，检测 GitHub PR Merged 后秒级推进至【已完成】并通知 PM 验收。</p>
+        <p data-i18n="cmd4_p">扫描【已阻塞】任务卡，检测 GitHub PR Merged 后秒级推进至【已完成】并提请人类用户核验验收。</p>
       </div>
       <div class="cmd-card">
         <div class="cmd-badge">/yy-flow auto</div>
         <h4 data-i18n="cmd5_h">全自动单任务流转</h4>
-        <p data-i18n="cmd5_p">一条指令全自动执行任务完整生命周期至已验收，支持 A–G 全类型链、断点续跑与已阻塞解阻。</p>
+        <p data-i18n="cmd5_p">一条指令全自动执行任务完整生命周期至【已完成】并提请人类核验验收，支持 A–G 全类型链、断点续跑与已阻塞解阻。</p>
       </div>
     </div>
 
@@ -1829,6 +1829,8 @@
         <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/></svg> <b>Claude Code</b> (.claude/skills &amp; agents)</span>
         <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <b>Cursor IDE</b> (.cursor/rules &amp; agents)</span>
         <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="12" cy="12" r="3"/></svg> <b>OpenAI Codex</b> (.agents/skills)</span>
+        <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> <b>阿里千问办公 (QwenWork)</b> (.qoder-plugin)</span>
+        <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg> <b>ZCode IDE</b> (.zcode/skills &amp; agents)</span>
         <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><path d="M2 12c4-4 8 4 12 0s8 4 10 0"/></svg> <b>Windsurf / Cascade</b></span>
         <span class="platform-badge-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> <b>Cline / Roo Code / OpenDevin</b></span>
       </div>
@@ -1989,7 +1991,7 @@ const I18N = {
     why_good_title: 'Multi-Agent Flow · 契约驱动的“研发指挥官”',
     why_good_sub: '多角色交叉制衡 · 架构技术沉淀 · 缺陷原单绑定 · 真实时序',
     why_g1_h: 'AI 内部交叉制衡，周审查与章测试替你严把关',
-    why_g1_p: '李开发 编码后必须经 周审查 独立挑刺并由 章测试 执行端到端用例，严经理 终检验收，AI 互相监督替代人工肉眼扫代码。',
+    why_g1_p: '李开发 编码后必须经 周审查 独立挑刺并由 章测试 执行端到端用例，最终提请人类用户核验验收，AI 互相监督替代人工肉眼扫代码。',
     why_g2_h: '阶段双总结门控，沉淀组织级技术资产',
     why_g2_p: '阶段结项（check_stage_gate）不仅是完工核验，更强制沉淀钱架构的「技术架构总结 (ADR/负债清偿)」与严经理的「PMP 敏捷复盘总结」，拒绝“代码一交、技术清空”。',
     why_g3_h: '缺陷原卡绑定（DEF）与心跳巡检效能雷达',
@@ -2007,21 +2009,21 @@ const I18N = {
     a8_name: '前端开发 (马前端)', a8_desc: '遵循现代 Web 体验标准与组件化工程规范，负责高保真 UI/UX 界面实现、响应式交互设计与前端工程化状态管理。',
     feat_tag: 'CORE FEATURES', feat_hd: '为企业级规范研发设计的协作中枢',
     feat_sub: '解决 AI 编程混乱、越权篡改、上下文膨胀与任务失控的核心痛点。',
-    f1_h: '阶段双向 Git 门禁与 5 项硬核验', f1_p: '阶段开工准入前序闭环与 Git 清洁度；结项执行看板全终态、WBS 对账、工作区 Clean、PR 合流与发布 Tag 5 项硬核验，防止脏代码入库。',
+    f1_h: '阶段双向 Git 门禁与 5 项硬核验', f1_p: '阶段开工准入前序闭多与 Git 清洁度；结项执行看板全终态、WBS 对账、工作区 Clean、PR 合流与发布 Tag 5 项硬核验，防止脏代码入库。',
     f2_h: '十大协作红线与角色越权硬拦截', f2_p: '代码级 Fail-Closed 拦截 Agent 越权操作，打破自编自审黑盒；阶段结项强制输出 D01–D06 规范下的架构技术总结（ADR）与敏捷复盘总结。',
     f3_h: '强类型交接契约与「无工单不 Git」', f3_p: 'Agent 间流转通过强类型 JSON Payload 结构化交接（含改动文件、覆盖率、缺陷历史）；外部 Commit 必须绑定真实工单，确保工程溯源。',
     f4_h: '敏感凭据安全扫描与全量审计追溯', f4_p: '初始化首步运行 check_secrets.py 扫描 Token/密钥泄露风险；全量流转操作落盘结构化审计日志（audit_query.py），支持按 Task ID 全程回溯。',
     f5_h: '缺陷打回不拆单与原卡闭环追溯', f5_p: '测试与审查不通过时原卡打回（【已退回】）并自动挂载 DEF-TXXX-N 缺陷单，保留初始开工时间与返工痕迹，杜绝新建孤儿卡刷完工率。',
     f6_h: 'L0–L2 任务分级与全栈级联路由', f6_p: '根据复杂度自动三问分级：L0 纯文本直答、L1 敏捷特性流转；复合需求按「三不拆、三必拆」拆分前后端双卡并建立 Mock-First 契约级联，防止串行阻塞。',
-    f7_h: '全自动单任务流转与断点续跑', f7_p: '通过 /yy-flow auto 全自动执行完整生命周期至已验收，结合实际任务名称动态生成阶段交付实质总结，全生命周期注入【Agent Loop】备注并支持断点续跑。',
+    f7_h: '全自动单任务流转与断点续跑', f7_p: '通过 /yy-flow auto 全自动执行完整生命周期至【已完成】并提请人类核验验收，结合实际任务名称动态生成阶段交付实质总结并支持断点续跑。',
     f8_h: '心跳健康巡检与 14+ 效能雷达', f8_p: '内置 heartbeat.py 自动化巡检引擎，支持工时纯秒级存储与 <60s / <3600s / ≥3600s 3 档自适应呈现，实时探测任务死锁、WIP 超限与瞬时冲卡（TIME_SKEW_INSTANT）。',
     cmd_tag: 'SLASH COMMANDS', cmd_hd: '五大快捷指令，开箱即用',
     cmd_sub: '在 AI 对话中输入 /yy-flow 快捷指令即可触发对应工作流能力，无需记忆底层脚本与参数。',
     cmd1_h: '一键激活工作流', cmd1_p: '执行 7 步标准初始化：凭据扫描、专家导出、架构嗅探、数据落盘、文档骨架、技术栈同步与 PM 编排。',
     cmd2_h: '全局大盘与健康巡检', cmd2_p: '一键输出项目完成进度、交付周期 Lead Time、专家负荷与超时滞留、并发超限风险告警。',
     cmd3_h: '启动看板 Web 服务', cmd3_p: '自动探测空闲端口启动本地可视化看板（32886–32905），支持同项目实例复用与健康检查接口。',
-    cmd4_h: 'PR 监听与自动解阻', cmd4_p: '扫描【已阻塞】任务卡，检测 GitHub PR Merged 后秒级推进至【已完成】并通知 PM 验收。',
-    cmd5_h: '全自动单任务流转', cmd5_p: '一条指令全自动执行任务完整生命周期至已验收，支持 A–G 全类型链、断点续跑与已阻塞解阻。',
+    cmd4_h: 'PR 监听与自动解阻', cmd4_p: '扫描【已阻塞】任务卡，检测 GitHub PR Merged 后秒级推进至【已完成】并提请人类用户核验验收。',
+    cmd5_h: '全自动单任务流转', cmd5_p: '一条指令全自动执行任务完整生命周期至【已完成】并提请人类核验验收，支持 A–G 全类型链、断点续跑与已阻塞解阻。',
     cmd_callout: '💡 <b>业务流转与协同全走自然语言</b>：需求拆解建卡、阶段开工结项、认领、提审、测试与打回等日常研发全生命周期，直接使用自然语言与 Agent 对话沟通，由对应专家在后台自主调度底层脚本，无需记忆任何 CLI 命令。',
     plat_tag: 'PROJECT-BOUND & AGENT-AGNOSTIC',
     plat_hd: '项目级强关联 · 原生适配主流 CLI Agent',
@@ -2072,7 +2074,7 @@ const I18N = {
     why_good_title: 'Multi-Agent Flow · Disciplined Engineering Commander',
     why_good_sub: 'Peer cross-validation · Tech depth & ADR · Defect binding · Authentic lead times',
     why_g1_h: 'Internal AI Peer Checks with Dedicated Reviewer & QA',
-    why_g1_p: 'Dev (Li) writes code, Reviewer (Zhou) audits flaws, QA (Zhang) runs end-to-end tests, and PM (Yan) validates acceptance.',
+    why_g1_p: 'Dev (Li) writes code, Reviewer (Zhou) audits flaws, QA (Zhang) runs end-to-end tests, and Human User performs final acceptance.',
     why_g2_h: 'Dual-Summary Stage Gates & Organizational Knowledge Accumulation',
     why_g2_p: 'Stage closure (check_stage_gate) enforces Architect Tech Summary (ADR/debt payback) and PM PMP Agile Retrospective, transforming deliveries into permanent engineering depth.',
     why_g3_h: 'Defect-Binding (DEF) & Heartbeat Health Radar',
@@ -2096,15 +2098,15 @@ const I18N = {
     f4_h: 'Credential Security Scan & Audit Trail', f4_p: 'Initial setup runs check_secrets.py to detect token/key leaks; full workflow transitions are logged to audit files (audit_query.py) with task-level traceability.',
     f5_h: 'In-Place Defect Binding (DEF-TXXX-N)', f5_p: 'Rejections return to the original card with DEF structured defect tasks, retaining initial start timestamps and authentic rework lead times without orphan cards.',
     f6_h: 'L0–L2 Task Tiering & Cascading Routing', f6_p: 'Automatic 3-question tiering: L0 instant answer, L1 agile flow; fullstack features split into backend/frontend cascades under Mock-First contracts without blocking pipelines.',
-    f7_h: 'Full Auto Task Flow & Dynamic Logs', f7_p: 'Run /yy-flow auto to fully automate lifecycle to acceptance, dynamically generating substantive step summaries with 【Agent Loop】 tags and breakpoint resume.',
+    f7_h: 'Full Auto Task Flow & Dynamic Logs', f7_p: 'Run /yy-flow auto to fully automate lifecycle to Done and request human acceptance, dynamically generating substantive step summaries with 【Agent Loop】 tags and breakpoint resume.',
     f8_h: 'Heartbeat Health Radar & 14+ Metrics', f8_p: 'Built-in heartbeat.py engine with pure-second duration storage and 3-tier adaptive formatting (<60s/min/h), detecting deadlocks, WIP limits, and instant rushing (TIME_SKEW_INSTANT).',
     cmd_tag: 'SLASH COMMANDS', cmd_hd: '5 Slash Commands, Ready Out-of-the-Box',
     cmd_sub: 'Type /yy-flow commands in your AI chat to trigger workflow capabilities without memorizing CLI scripts.',
     cmd1_h: 'One-Click Workflow Init', cmd1_p: '7-step standard setup: credential scan, agent export, architecture sniff, data seeding, doc skeleton, tech overlay, and PM orchestration.',
     cmd2_h: 'Dashboard & Health Check', cmd2_p: 'Instant project progress, lead time metrics, agent workload, stall detection, and concurrency limit alerts.',
     cmd3_h: 'Launch Kanban Web Server', cmd3_p: 'Auto-detects free port to start local kanban (32886–32905), supports same-project instance reuse and health check endpoint.',
-    cmd4_h: 'PR Sync & Auto-Unblock', cmd4_p: 'Scans blocked tasks, detects GitHub PR Merged status, instantly advances to Done and notifies PM for acceptance.',
-    cmd5_h: 'Full Auto Single-Task Flow', cmd5_p: 'One command runs full task lifecycle to acceptance; supports A–G type chains, breakpoint resume, and blocked-state resolution.',
+    cmd4_h: 'PR Sync & Auto-Unblock', cmd4_p: 'Scans blocked tasks, detects GitHub PR Merged status, instantly advances to Done and requests human user acceptance.',
+    cmd5_h: 'Full Auto Single-Task Flow', cmd5_p: 'One command runs full task lifecycle to Done and requests human user acceptance; supports A–G type chains, breakpoint resume, and blocked-state resolution.',
     cmd_callout: '💡 <b>All workflow collaboration is driven by natural language</b>: task creation, stage start/close, claiming, code review, testing, and rejection — just talk to your agents naturally. Experts autonomously dispatch underlying scripts behind the scenes.',
     plat_tag: 'PROJECT-BOUND & AGENT-AGNOSTIC',
     plat_hd: 'Project-Coupled · Native Multi-CLI Agent Adaptation',
