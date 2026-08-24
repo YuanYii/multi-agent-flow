@@ -21,7 +21,7 @@
   ```
 - **发布方 (author.name)**:
   ```text
-  YuanYii
+  任可
   ```
 - **版本号 (version)**:
   ```text

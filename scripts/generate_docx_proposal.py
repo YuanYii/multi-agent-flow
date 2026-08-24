@@ -30,7 +30,7 @@ for p in doc.paragraphs:
         p.runs[0].font.size = Pt(12)
         p.runs[0].bold = True
     elif "申报主体：" in p.text:
-        p.text = "申报主体：YuanYii"
+        p.text = "申报主体：任可"
         p.runs[0].font.name = "Microsoft YaHei"
         p.runs[0].font.size = Pt(12)
     elif "一句话定位：" in p.text:
