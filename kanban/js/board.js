@@ -184,12 +184,12 @@
             cards.forEach(c => computeCardDuration(c));
         }
 
-        // Card display config: one flag per BOARD_FIELDS entry + a label-prefix toggle
-        let cardFieldConfig = BOARD_FIELDS.reduce((acc, f) => { acc[f.key] = true; return acc; }, { showLabels: true });
+        // Card display config: 默认不显示过程描述 (process: false)，保持看板卡片紧凑清爽
+        let cardFieldConfig = BOARD_FIELDS.reduce((acc, f) => { acc[f.key] = (f.key !== 'process'); return acc; }, { showLabels: true });
 
         function restoreCardFieldConfig() {
             if (typeof kanbanPreferences !== 'undefined' && kanbanPreferences && kanbanPreferences.card_field_config && typeof kanbanPreferences.card_field_config === 'object') {
-                cardFieldConfig = Object.assign(cardFieldConfig, kanbanPreferences.card_field_config);
+                cardFieldConfig = Object.assign({}, cardFieldConfig, kanbanPreferences.card_field_config);
             }
         }
 
@@ -498,7 +498,7 @@
         window.addEventListener('resize', () => { if (activeTagPanel) closeTagPanel(); });
 
         // Card HTML Generator with all fields & label toggle support
-        function createCardHTML(card) {
+        function createCardHTML(card, isDraggable = true) {
             const lbl = cardFieldConfig.showLabels;
 
             // --- Header line: 任务编号 + 序号 (independently toggleable) ---
@@ -566,8 +566,10 @@
                     ${processHtml}
                 </div>` : '';
 
+            const dragAttr = isDraggable ? `draggable="true" ondragstart="drag(event)" ondragend="dragEnd(event)"` : `draggable="false"`;
+
             return `
-                <div class="card" draggable="true" ondragstart="drag(event)" ondragend="dragEnd(event)" id="card-${esc(card.id)}" data-id="${esc(card.id)}" onclick="openTaskDetail('${esc(card.id)}')">
+                <div class="card" ${dragAttr} id="card-${esc(card.id)}" data-id="${esc(card.id)}" onclick="openTaskDetail('${esc(card.id)}')">
                     ${idHtml}
                     ${wbsHtml}
                     ${nameHtml}
@@ -582,6 +584,9 @@
             const container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = "";
+
+            const isDraggable = (groupByField !== 'stage');
+            const dropAttrs = isDraggable ? `ondrop="drop(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)"` : '';
 
             const existingColNames = new Set(columnsConfig.map(c => c.name));
             const extraNames = new Set();
@@ -617,8 +622,8 @@
                                 <span class="col-count" style="background:rgba(0,0,0,0.06); color:${st.text}; font-weight:700; border-radius:10px; padding:2px 8px; font-size:12px; margin-left:6px;">${colCards.length}</span>
                             </div>
                         </div>
-                        <div class="card-list" ondrop="drop(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
-                            ${colCards.map(c => createCardHTML(c)).join('')}
+                        <div class="card-list" ${dropAttrs}>
+                            ${colCards.map(c => createCardHTML(c, isDraggable)).join('')}
                         </div>
                     </div>
                 `;
@@ -688,7 +693,7 @@
             const groupField = column.getAttribute('data-groupfield');
             const colValue = column.getAttribute('data-col');
             const card = rawCardsData.find(c => c.id === cardId);
-            if (!card || !groupField || colValue === '未分类') return;
+            if (!card || !groupField || groupField === 'stage' || colValue === '未分类') return;
 
             if (card[groupField] === colValue) return;
 
@@ -802,6 +807,10 @@
                 const stageFilter = document.getElementById('filter-stage')?.value || '';
                 const handlerFilter = document.getElementById('filter-handler')?.value || '';
                 const creatorFilter = document.getElementById('filter-creator')?.value || '';
+                const startFrom = document.getElementById('filter-start-from')?.value || '';
+                const startTo = document.getElementById('filter-start-to')?.value || '';
+                const endFrom = document.getElementById('filter-end-from')?.value || '';
+                const endTo = document.getElementById('filter-end-to')?.value || '';
                 const sortField = document.getElementById('sort-field')?.value || 'seq';
                 const sortOrder = document.getElementById('sort-order')?.value || 'asc';
 
@@ -821,6 +830,11 @@
                     status: statusFilter,
                     stage: stageFilter,
                     assignee: assigneeParam || handlerFilter,
+                    creator: creatorFilter,
+                    start_from: startFrom,
+                    start_to: startTo,
+                    end_from: endFrom,
+                    end_to: endTo,
                     sort: sortField,
                     order: sortOrder
                 });
@@ -1301,24 +1315,37 @@
         }
 
         function applySort() {
-            const field = document.getElementById('sort-field').value;
-            const order = document.getElementById('sort-order').value;
+            const field = document.getElementById('sort-field')?.value || 'seq';
+            const order = document.getElementById('sort-order')?.value || 'asc';
 
-            if (field !== 'seq') {
+            if (field === 'act_hours') {
+                // 1. 主动预计算全部卡片闭环耗时
+                currentCardsData.forEach(card => {
+                    computeCardDuration(card);
+                });
+                // 2. NULLS LAST 规则排序：无耗时任务无论升降序一律排在末尾
+                currentCardsData.sort((a, b) => {
+                    const hasA = (a._duration_sec !== null && a._duration_sec !== undefined && a._duration_sec >= 0);
+                    const hasB = (b._duration_sec !== null && b._duration_sec !== undefined && b._duration_sec >= 0);
+
+                    if (hasA && !hasB) return -1;
+                    if (!hasA && hasB) return 1;
+                    if (!hasA && !hasB) return (a.seq || 0) - (b.seq || 0);
+
+                    const diff = a._duration_sec - b._duration_sec;
+                    if (diff !== 0) return order === 'asc' ? diff : -diff;
+                    return (a.seq || 0) - (b.seq || 0);
+                });
+            } else if (field !== 'seq') {
                 currentCardsData.sort((a, b) => {
                     let valA = a[field] || '';
                     let valB = b[field] || '';
-                    if (field === 'act_hours') {
-                        valA = (a._duration_sec !== undefined && a._duration_sec !== null) ? a._duration_sec : -1;
-                        valB = (b._duration_sec !== undefined && b._duration_sec !== null) ? b._duration_sec : -1;
-                    }
-
                     if (valA < valB) return order === 'asc' ? -1 : 1;
                     if (valA > valB) return order === 'asc' ? 1 : -1;
-                    return 0;
+                    return (a.seq || 0) - (b.seq || 0);
                 });
             } else {
-                currentCardsData.sort((a, b) => order === 'asc' ? a.seq - b.seq : b.seq - a.seq);
+                currentCardsData.sort((a, b) => order === 'asc' ? (a.seq || 0) - (b.seq || 0) : (b.seq || 0) - (a.seq || 0));
             }
 
             if (!isRestoringFilterState) {
