@@ -863,3 +863,165 @@ class TestMasterTokenAndSecurity:
         s, r = _api(server, "GET", "/api/version", auth=False)
         assert s == 200
         assert r["data"]["is_master"] is False
+
+
+# ===============================================================
+# 用例 63-69: 新增功能定向回归测试套件 (v3.3 / Release v9)
+# ===============================================================
+class TestKanbanNewFeaturesV33:
+    """针对近期新功能（局域网元数据、X-Operator-Name 解码、新字段 RBAC 防护、end_date 重置、批量删除与创建人搜索）的定向回归测试。"""
+
+    def test_63_lan_metadata_endpoints(self, server):
+        """用例 63: GET /api/health 与 /api/version /preferences 正确返回局域网协同网络元数据与默认操作人"""
+        s, r = _api(server, "GET", "/api/health")
+        assert s == 200
+        data = r["data"]
+        assert "local_ip" in data and isinstance(data["local_ip"], str) and len(data["local_ip"]) > 0
+        assert "lan_collaborator_url" in data and data["lan_collaborator_url"].startswith("http://")
+        assert f":{server['port']}/" in data["lan_collaborator_url"]
+        assert "default_operator" in data and isinstance(data["default_operator"], str)
+
+        s_v, r_v = _api(server, "GET", "/api/version")
+        assert s_v == 200
+        assert "lan_collaborator_url" in r_v["data"]
+        assert "default_operator" in r_v["data"]
+
+        s_p, r_p = _api(server, "GET", "/api/preferences")
+        assert s_p == 200
+        assert "lan_collaborator_url" in r_p["data"]
+
+    def test_64_x_operator_name_header_decoding(self, server):
+        """用例 64: POST / PUT 接口支持 X-Operator-Name 正常字符串与 URL 编码格式并注入流转日志"""
+        _seed_cards(server, [])
+        from urllib.parse import quote
+
+        # 1. POST 新建任务，携带 URL 编码的操作人 Header
+        raw_op = "马前端"
+        encoded_op = quote(raw_op)
+        s, r = _api(server, "POST", "/api/tasks", {
+            "name": "Header 操作人测试任务"
+        }, headers={"X-Operator-Name": encoded_op}, auth=True)
+        assert s == 200
+        card = r["data"]
+        assert f"操作人: {raw_op}" in card.get("process", "")
+
+        # 2. PUT 更新状态，携带 ASCII 操作人 Header
+        tid = card["id"]
+        s_put, r_put = _api(server, "PUT", f"/api/tasks/{tid}", {
+            "status": "进行中",
+            "remarks": "领单开工"
+        }, headers={"X-Operator-Name": "ReviewerExpert"}, auth=True)
+        assert s_put == 200
+        updated_card = r_put["data"]["card"]
+        assert "操作人: ReviewerExpert" in updated_card.get("process", "")
+
+        # 3. POST transition 流转，携带 URL 编码中文操作人 Header
+        s_trans, r_trans = _api(server, "POST", f"/api/tasks/{tid}/transition", {
+            "target_status": "测试中",
+            "comment": "提测验证"
+        }, headers={"X-Operator-Name": quote("周审查")}, auth=True)
+        assert s_trans == 200
+        trans_card = r_trans["data"]["card"]
+        assert "操作人: 周审查" in trans_card.get("process", "")
+
+    def test_65_non_master_pretask_and_creator_rbac_403(self, server):
+        """用例 65: 协作者模式 (无 Token) 尝试修改受控字段 pretask / creator 严格返回 403"""
+        card = _mk_card("T0001", name="原始任务", assignee="李开发")
+        card["pretask"] = "T0000"
+        card["creator"] = "钱架构"
+        _seed_cards(server, [card])
+
+        # 尝试篡改 pretask
+        s, r = _api(server, "PUT", "/api/tasks/T0001", {"pretask": "T0999"}, auth=False)
+        assert s == 403
+        assert "无权修改核心字段 [pretask]" in r["message"]
+
+        # 尝试篡改 creator
+        s2, r2 = _api(server, "PUT", "/api/tasks/T0001", {"creator": "黑客"}, auth=False)
+        assert s2 == 403
+        assert "无权修改核心字段 [creator]" in r2["message"]
+
+        # 修改非受控字段（remarks 与 handler）允许通过
+        s3, r3 = _api(server, "PUT", "/api/tasks/T0001", {"remarks": "协作者安全备注", "handler": "李开发"}, auth=False)
+        assert s3 == 200
+
+    def test_66_create_task_with_pretask_and_creator_persistence(self, server):
+        """用例 66: POST /api/tasks 完整落盘 pretask, creator 与规范化默认字段"""
+        _seed_cards(server, [])
+        s, r = _api(server, "POST", "/api/tasks", {
+            "name": "依赖与创建人测试任务",
+            "pretask": "T0001,T0002",
+            "creator": "钱架构",
+            "assignee": "马前端",
+            "stage": "S1 需求分析",
+            "wp": "WP-1.1",
+            "wbs": "1.1.1"
+        }, auth=True)
+        assert s == 200
+        card = r["data"]
+        assert card["pretask"] == "T0001,T0002"
+        assert card["creator"] == "钱架构"
+        assert card["assignee"] == "马前端"
+        assert "操作人: 钱架构" in card.get("process", "")
+
+    def test_67_assignee_and_handler_updated_wording_in_process(self, server):
+        """用例 67: PUT /api/tasks 更新负责角色/处理角色时自动追加新文案流转审计节点"""
+        _seed_cards(server, [_mk_card("T0001", assignee="李开发")])
+
+        # 1. 更新负责角色 (assignee)
+        s1, r1 = _api(server, "PUT", "/api/tasks/T0001", {"assignee": "马前端"}, auth=True)
+        assert s1 == 200
+        proc1 = r1["data"]["process"]
+        assert "负责角色由【李开发】调整为【马前端】" in proc1
+
+        # 2. 更新处理角色 (handler)
+        s2, r2 = _api(server, "PUT", "/api/tasks/T0001", {"handler": "周审查"}, auth=True)
+        assert s2 == 200
+        proc2 = r2["data"]["process"]
+        assert "处理角色由【李开发】调整为【周审查】" in proc2
+
+    def test_68_end_date_auto_fill_and_reset_on_reopen(self, server):
+        """用例 68: 任务流转至终态自动记录 end_date，打回/重开时自动清空重置为 empty"""
+        _seed_cards(server, [_mk_card("T0001", status="进行中")])
+
+        # 1. 推进至【已完成】-> end_date 自动填充
+        s1, r1 = _api(server, "PUT", "/api/tasks/T0001", {"status": "已完成"}, auth=True)
+        assert s1 == 200
+        card1 = r1["data"]["card"]
+        assert card1["status"] == "已完成"
+        assert len(card1["end_date"]) > 0
+
+        # 2. 打回至【已退回】-> end_date 自动清空
+        s2, r2 = _api(server, "PUT", "/api/tasks/T0001", {"status": "已退回"}, auth=True)
+        assert s2 == 200
+        card2 = r2["data"]["card"]
+        assert card2["status"] == "已退回"
+        assert card2["end_date"] == ""
+
+    def test_69_creator_keyword_search_and_batch_delete(self, server):
+        """用例 69: GET /api/tasks 支持按 creator 关键字模糊搜索，并支持 POST /api/tasks/batch-delete 批量删除"""
+        c1 = _mk_card("T0001", name="模块A设计")
+        c1["creator"] = "钱架构"
+        c2 = _mk_card("T0002", name="模块B实现")
+        c2["creator"] = "李开发"
+        c3 = _mk_card("T0003", name="模块C测试")
+        c3["creator"] = "章测试"
+        _seed_cards(server, [c1, c2, c3])
+
+        # 1. 关键词搜索 creator
+        s, r = _api(server, "GET", "/api/tasks?q=钱架构")
+        assert s == 200
+        assert r["data"]["total"] == 1
+        assert r["data"]["items"][0]["id"] == "T0001"
+
+        # 2. 批量删除 T0001 与 T0003
+        s_del, r_del = _api(server, "POST", "/api/tasks/batch-delete", {"ids": ["T0001", "T0003"]}, auth=True)
+        assert s_del == 200
+        assert r_del["data"]["deleted_count"] == 2
+
+        # 3. 校验剩余仅剩 T0002
+        s_rem, r_rem = _api(server, "GET", "/api/tasks")
+        assert s_rem == 200
+        assert r_rem["data"]["total"] == 1
+        assert r_rem["data"]["items"][0]["id"] == "T0002"
+
