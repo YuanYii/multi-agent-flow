@@ -5,76 +5,40 @@
   <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/github/stars/YuanYii/multi-agent-flow?style=for-the-badge&logo=github&color=38BDF8" alt="GitHub Stars"></a>
   <a href="https://github.com/YuanYii/multi-agent-flow/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge" alt="License"></a>
   <a href="https://yuanyii.github.io/multi-agent-flow/"><img src="https://img.shields.io/badge/Theme-Dark%20%2F%20Light-F59E0B?style=for-the-badge" alt="Theme Support"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow/actions"><img src="https://img.shields.io/badge/Tests-253%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
 </p>
 
 <p align="center">
   <b><a href="https://yuanyii.github.io/multi-agent-flow/">👉 点击访问官方互动主页 &amp; 在线看板全景演示 (GitHub Pages) 👈</a></b>
 </p>
 
-> **“不要让CV工程师变成YES工程师”** —— 契约驱动的 AI 多角色协同研发工作流技能包，将项目管理、架构、开发、前端、审查、测试、文档、运维拆分为 8 大专家角色，以五层防错门控、阶段准出核验与现代可视化看板，有效防范跨角色越权、打回碎片化与状态悬挂。
+> **“不要让 CV 工程师变成 YES 工程师”** —— 契约驱动的 AI 多角色协同研发工作流技能包。以十大 Agent 协同红线与五层防错门控实现 8 位 AI 专家的严密交叉制衡；同时提供局域网多端看板、主控鉴权与独立视图，赋能人类团队高效协作。
 
 ---
 
-## 🌟 核心产品特性
+## 🌟 核心特性概览
 
-- 👥 **8 大虚拟专家协同**：内置 PM（严经理）、架构师（钱架构）、后端开发（李开发）、前端开发（马前端）、审查员（周审查）、测试工程师（章测试）、文档工程师（李文通）、运维管理员（吕改特），各司其职、严守红线。
-- 🎯 **L0/L1/L2 任务分级体系**：派单前执行“分级三问”，L0 即时问答无卡直答（免建卡且不产生冗余），L1 轻量任务走短链快速交付验收，L2 核心代码走开发-审查-测试全流程。
-- 🛡️ **人类专属最终验收与 Git 提交硬门禁 (Human Gate)**：
-  - **终态收敛**：所有 Agent 流水线交付终态安全止步于【已完成】（测试通过），杜绝 Agent 自签自验；
-  - **人类专属验收**：【已验收】状态严格收归人类用户专属权限（`delegated_by=USER` 物理硬锁）；
-  - **Git 提交硬拦截**：提供 `verify_git_gate.py` 与 Pre-Commit 钩子，工作区存在未验收代码时物理阻断 `git commit`。
-- 🚪 **阶段双向 Git 门禁体系 (Stage Start & Close Gates)**：
-  - **阶段开工准入**：核验前序阶段结项完结性与 Git 清洁度，输出拉取新阶段特性分支的 Git 指令向导；
-  - **阶段结项准出**：执行看板全终态、WBS 双向对账、架构技术总结、PM 复盘报告及 Git 工作区清洁度 5 项硬核验，放行后输出分支合并与打发布 Tag 提醒向导。
-- 🔄 **GitHub PR 状态监听与合流自动解阻 (PR Gate)**：提 PR 自动挂起【已阻塞】释放活跃并发；监听检测到 PR Merged 后秒级推进至【已完成】，自动落盘 Merge Commit SHA 审计凭据并向人类用户提请验收。
-- 🌐 **全平台 Agent 生态兼容与一键导出**：原生兼容 Google Antigravity, Anthropic Claude Code, Cursor IDE, OpenAI Codex, ZCode IDE 及**阿里千问办公 (QwenWork / Qoder Plugin)** 官方专家套件规范。
-- 📊 **现代交互看板与偏好持久化**：支持纯静态离线与本地 Web 服务双模（默认 32886 端口），支持 PR/Issue 徽标与外链安全渲染、筛选/排序条件持久化保持、卡片字段按需展示、右上角主题切换与按 Tab 智能工具栏联动。
+- 👥 **8 位专属 AI 专家矩阵**：严经理 (PM)、钱架构 (架构师)、李开发 (后端)、马前端 (前端)、周审查 (审查员)、章测试 (测试)、李文通 (文档)、吕改特 (运维)，开箱自动扫描项目技术栈并自适应注入。
+- 🛡️ **十大协同红线与五层防错门禁**：代码级 Fail-Closed 拦截越权操作；阶段开工核验清洁度，阶段结项强制输出架构技术总结（ADR）与敏捷复盘总结；工作区存在未验收代码时物理阻断 `git commit`。
+- 🌐 **团队局域网多端协同 (LAN Workflow)**：内置 0 依赖轻量 Python HTTP 引擎（32886–32905 自动探测），支持动态 Master Token RBAC 权限分立、协作者终态拖拽物理弹回、双层文件排他锁与脱敏协作链接一键分享。
+- 🔄 **全自动流水线流转与断点续跑**：支持 A–G 全类型任务链全自动流转至【已完成】并提请人类用户核验验收；GitHub PR 合流自动解除阻塞。
+- 🔌 **项目级强关联与多 Agent 终端适配**：数据完全私有落盘于 `.yy-flow/` 目录随 Git 流转，原生兼容 Google Antigravity、Claude Code、Cursor、OpenAI Codex 及阿里千问办公等主流终端。
+
+👉 **完整特性演示与交互体验请访问**：[https://yuanyii.github.io/multi-agent-flow/](https://yuanyii.github.io/multi-agent-flow/)
 
 ---
 
-## ⚡ 核心快捷指令 (Slash Commands)
+## 🚀 快速开始
 
-| 快捷指令 | 功能描述 |
-| :--- | :--- |
-| **`/yy-flow`** 或 **`/yy-flow start`** | **一键激活工作流**：执行 7 步标准初始化并唤起 PM 严经理进行项目鉴定与编排 |
-| **`/yy-flow status`** | **看板全局大盘与健康巡检**：一键输出项目总体进度、交付周期 (Lead Time)、专家负荷与风险阻断告警（【已阻塞】PR / 滞留 / 超限） |
-| **`/yy-flow kanban`** | **启动看板 Web 服务**：本地启动可视化看板服务并输出实际访问链接（默认 32886 端口） |
-| **`/yy-flow sync-pr`** | **PR 状态监听与合流解阻**：扫描【已阻塞】任务，检测 GitHub PR Merged 自动推进至【已完成】并提请人类核验验收 |
-| **`/yy-flow auto`** | **全自动流水线流转**：一条指令全自动执行任务生命周期直至【已完成】并提请人类核验验收（支持 A–G 全类型链、断点续跑） |
-
-### 🛠️ 人类专属快捷工具 (Human CLI Tools)
-
-```bash
-# 1. 人类单任务一键验收（自动注入 USER 授权并落库）
-python3 scripts/quick_task.py accept --task-id T0001
-
-# 2. 阶段任务全局批量一键验收
-python3 scripts/quick_task.py accept-all --stage "Sprint 1"
-
-# 3. 安装本地 Git Pre-Commit 门禁钩子（提交代码时自动触发 verify_git_gate 强校验）
-python3 scripts/install_git_hooks.py
-
-# 4. 手动执行 Git 提交前未验收代码硬门禁校验
-python3 scripts/verify_git_gate.py
-```
-
-> 💡 **业务流转与协同全走自然语言**：需求拆解建卡、阶段开工、阶段结项、认领、提审、测试与打回等日常研发生命周期，直接使用自然语言与 Agent 对话沟通，由对应专家在后台自主调度底层脚本。
-
----
-
-## 🚀 快速开始（Agent 初始化）
-
-**前置要求**：任一支持 Markdown/Skill 规范的 AI Agent（Antigravity CLI / Codex / Claude Code / Cursor / 千问办公等）；离线看板模式**无需任何外部依赖或 Token 凭证**。
-
-### 1. 安装技能包到项目 `.yy-flow/skill`
+### 1. 一行命令安装到项目
 
 ```bash
 cd /path/to/your-project
 
-# 方式 A: degit 安装（推荐，Linux / macOS / Windows）
+# 方式 A: npx degit 安装（推荐）
 npx -y degit YuanYii/multi-agent-flow /tmp/yy-flow-stage && mkdir -p .yy-flow && mv /tmp/yy-flow-stage .yy-flow/skill
 
-# 方式 B: tarball 安装（无 Node 环境时，Linux / macOS）
+# 方式 B: tarball 脚本安装（免 Node 环境）
 mkdir -p .yy-flow/skill && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/main.tar.gz | tar xz -C .yy-flow/skill --strip-components=1
 
 # 方式 C: Windows PowerShell 安装
@@ -82,100 +46,38 @@ git clone https://github.com/YuanYii/multi-agent-flow.git .yy-flow\skill
 powershell -ExecutionPolicy Bypass -File .yy-flow\skill\scripts\init_skill.ps1
 ```
 
-安装后目录布局（数据与技能同根，升级删 `.yy-flow/skill` 重装不伤数据；`docs/` 是项目交付物留项目根）：
-```text
-<project>/
-├── .yy-flow/            # 工具私有根（建议整体加入 .gitignore）
-│   ├── skill/           # 技能代码
-│   └── user_data/       # 初始化后生成：board/审计/锁
-└── docs/                # 项目工程文档骨架（交付物，提交 git）
-```
+### 2. 在 Agent 对话中初始化
 
-<details>
-<summary><b>多项目共享安装（可选，单份只读正本 + 全局软链）</b></summary>
-
-```bash
-# Linux / macOS 一次性全局共享安装：
-bash scripts/install_global.sh
-
-# Windows PowerShell 一次性全局共享安装：
-powershell -ExecutionPolicy Bypass -File .\scripts\install_global.ps1
-```
-- **代码共享**：`~/agent-skills/multi-agent-flow` 正本只读；
-- **数据隔离**：每个项目的 `user_data/` 自动锚定各自项目根。
-
-</details>
-
-### 2. 在 Agent 对话中触发初始化
-
-输入指令：**`/yy-flow`** 或 **`/yy-flow start`**（或直接说：“*使用 multi-agent-flow 初始化当前项目*”）。
-
-Agent 将自动执行 7 步标准初始化：
-1. 敏感凭据安全扫描（`check_secrets.py`）；
-2. 导出 8 大专家子代理至宿主环境；
-3. 扫描项目技术架构识别语言与框架；
-4. 生成宿主专属 `user_data/`（看板、工作流配置与审计日志）；
-5. 建立 `docs/` 规范目录骨架并镜像归档历史文档；
-6. 同步专家团队技术栈；
-7. 唤起 PM 严经理输出项目定位与权限矩阵。
+在 AI 编程终端中输入快捷指令或自然语言口令：
+> 💬 `/yy-flow start` 或 *“帮我初始化这个项目的研发流”*
 
 ---
 
-## 📋 任务流转示例
+## ⚡ 快捷指令与自然语言口令
 
-| 场景 | 示例 Prompt | 预期行为 |
+| 快捷指令 | 自然语言口令示例 | 核心功能 |
 | :--- | :--- | :--- |
-| **L0 即时问答** | “解释一下项目架构” / “查找接口契约” | 分级三问判定为 L0 → 直接作答，免建卡且不调用 CLI |
-| **L1 轻量任务** | “更新部署说明文档” / “调整数据库配置” | 走短链（B/C/D/F/G）：【待开始】→【进行中】→【已完成】→ 人类【已验收】 |
-| **L2 标准任务** | “实现用户登录接口与 JWT 鉴权” | 走全链（A 类）：【待开始】→【进行中】→【审查中】→【测试中】→【已完成】→ 人类【已验收】 |
-| **自领取任务** | “自领取下一个待开始任务” | 核验并发上限（≤3）→ 状态先推【进行中】落库 → 开始编码 |
-| **提交审查** | “提交 T0001 代码审查” | 状态推【审查中】，处理人原子移交 Reviewer 周审查 |
-| **阶段开工** | “开启阶段 S1” / `/yy-flow start-stage S1` | 自动核验前序阶段结项与 Git 清洁度，输出拉取特性分支向导 |
-| **阶段结项** | “结束当前阶段 S1” / `/yy-flow gate S1` | 自动运行 `check_stage_gate.py` 进行 5 项硬核验，全绿后触发 DevOps 合流打 Tag |
-| **PR 合流解阻** | “同步 PR 状态” / `/yy-flow sync-pr` | 自动感知 GitHub PR Merged 状态，秒级解除【已阻塞】推至【已完成】并提请人类用户验收 |
+| **`/yy-flow start`** | “帮我初始化这个项目的研发流” | 执行 7 步标准初始化：凭据扫描、架构嗅探、专家注入与 PM 编排 |
+| **`/yy-flow status`** | “看下项目进度与巡检大盘” | 一键输出项目总体进度、Lead Time 交付周期与风险告警 |
+| **`/yy-flow kanban`** | “启动看板” 或 “打开协作大盘” | 启动本地/局域网可视化看板（默认 32886 端口），输出主控与协作链接 |
+| **`/yy-flow sync-pr`** | “检查 PR 状态解阻任务” | 监听 GitHub PR Merged 状态，自动推进至【已完成】并提请验收 |
+| **`/yy-flow auto`** | “把任务 T0001 全自动跑完” | 全自动执行完整生命周期至【已完成】并提请人类核验验收 |
+
+> 💡 **日常协同全走自然语言**：需求拆解、阶段开工结项、认领、提审、测试打回等均可直接自然语言沟通，专家在后台自主调度底层脚本。
 
 ---
 
-## 🚀 本地可视化看板启动
-
-无需安装任何第三方库或 Node 依赖，一行命令启动本地实时可视化看板：
+## 📊 可视化看板
 
 ```bash
-# Linux / macOS
-./kanban/start.sh
-
-# Windows PowerShell
-.\kanban\start.ps1
-
-# Windows CMD
-.\kanban\start.bat
-
-# 或直接运行 Python 核心脚本（全平台通用）
-python scripts/start_kanban_server.py
+# 启动本地/局域网实时看板服务
+python3 scripts/start_kanban_server.py
 ```
-启动后在浏览器打开控制台输出的本地 Web URL（默认 `http://127.0.0.1:32886/`）即可。
+> 控制台将自动输出本地直达链接（`http://127.0.0.1:32886/`）、局域网协作链接与 🔑 Master Token。
 
----
+内置 **数据表格**、**状态泳道**、**专家负载**、**阶段工作包** 4 套视图，支持多终端独立偏好与离线/局域网双模。
 
-## 🖥️ 看板界面预览
-
-看板内置四套视图，同一份数据自由切换（以下为本地 Web 服务实时界面截图，截至 2026-08-18）：
-
-**数据表格视图** —— 任务明细列表，支持筛选、排序、搜索、批量删除与 JSON 导入导出：
-
-![数据表格视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png)
-
-**看板-按状态视图** —— 按任务状态分组，卡片跨列拖拽即触发流转审计：
-
-![看板-按状态视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/kanban-status.png)
-
-**看板-按负责角色视图** —— 按专家角色查看各自任务负载：
-
-![看板-按负责角色视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/kanban-assignee.png)
-
-**看板-按阶段工作包视图** —— 按阶段工作包（S1–S6）查看任务分布：
-
-![看板-按阶段工作包视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/kanban-stage.png)
+[![Multi-Agent Flow 数据表格视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png)](https://yuanyii.github.io/multi-agent-flow/)
 
 ---
 
@@ -185,36 +87,30 @@ python scripts/start_kanban_server.py
 .yy-flow/skill/              # 技能代码（只读资产）
 ├── SKILL.md                 # 技能主入口（快捷指令与编排协议）
 ├── README.md                # 产品说明文档
-├── .qoder-plugin/           # 阿里千问办公 (QwenWork) 插件清单 plugin.json
-├── assets/                  # 官方规范图标资产 (icon.svg / icon.png 200x200)
-├── rules/                   # 协作红线与防错规约（AGENTS/IDENTITY/SOUL/TOOLS/USER/HEARTBEAT）
+├── rules/                   # 协同红线与防错规约
 ├── agents/                  # 8 大专家角色 YAML 定义
 ├── kanban/                  # 离线与 Web 可视化看板（HTML/JS/CSS）
-├── config/                  # 工作流与多平台架构配置 (agent_platforms.yaml)
 ├── references/              # 6 大核心规范（路由/流转/防错/Git/文档/交接）
-├── templates/               # 标准化报告与文档模板
-├── tests/                   # 229 项自动化测试套件（覆盖 21 组全链路模块）
-└── scripts/                 # 流转/门禁/度量/看板服务/PR解阻/千问打包 CLI 引擎
+├── tests/                   # 253 项全正交自动化测试套件
+└── scripts/                 # 流转/门禁/巡检/看板服务 CLI 引擎
 
 # 初始化后在目标项目生成：
-.yy-flow/user_data/          # 运行态数据（看板数据 board.json / 审计日志 / 并发锁）
-docs/                        # D01-项目管理 ~ D06-文档模板 六分类工程文档骨架
+.yy-flow/user_data/          # 运行态数据（board.json / 审计日志 / 并发锁）
+docs/                        # D01-项目管理 ~ D06-文档模板 交付文档骨架
 ```
 
 ---
 
 ## 📖 参考规约索引
 
+- [官方交互主页 & 在线演示](https://yuanyii.github.io/multi-agent-flow/)
 - [技能主入口 SKILL.md](SKILL.md) — 指令契约、初始化 SOP 与动态流转
 - [AI 团队协同索引](references/01-AI-Team-Workflow-Index.md) — 8 大角色职责矩阵与流转总表
-- [状态流转与打回规范](references/02-State-Flow-Rules.md) — 8 状态定义、A-G 任务类型与三问判定
+- [状态流转与打回规范](references/02-State-Flow-Rules.md) — 8 状态定义与 A–G 任务类型链
 - [五层防错门控机制](references/03-Anti-Error-Mechanism.md) — 越权拦截与代行授权协议
-- [分支与版本发布规范](references/04-Git-Workflow-Spec.md) — 三层分支模型与 SemVer 标签
-- [项目文档管理规范](references/05-Document-Management-Spec.md) — 目录骨架与元数据 Frontmatter 标准
 
 ---
 
 ## License
 
 MIT
-
