@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="YY-Flow 多专家协同研发工作流图标 — PR 合流解阻">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1120"/>
+      <stop offset="0.55" stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7C6CF0"/>
+      <stop offset="0.5" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="merged" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+    <radialGradient id="vign" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0.55" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.30"/>
+    </radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="ah1" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9 z" fill="#10B981"/>
+    </marker>
+  </defs>
+
+  <rect width="200" height="200" rx="46" fill="url(#bg)"/>
+  <rect width="200" height="200" rx="46" fill="url(#vign)"/>
+
+  <!-- 左侧:已阻塞任务卡 (红色) -->
+  <g transform="translate(28 60)">
+    <rect x="-22" y="-15" width="44" height="30" rx="5" fill="#16233B" stroke="#F43F5E" stroke-width="1.5"/>
+    <circle cx="-15" cy="-7" r="3" fill="#F43F5E" filter="url(#glow)"/>
+    <rect x="-9" y="-10" width="20" height="3" rx="1" fill="#475569"/>
+    <rect x="-15" y="-2" width="30" height="2.5" rx="1" fill="#334155"/>
+    <rect x="-15" y="3" width="22" height="2.5" rx="1" fill="#334155"/>
+    <text x="0" y="28" font-family="-apple-system,system-ui,sans-serif" font-size="6.5" fill="#F43F5E" text-anchor="middle" font-weight="700">已阻塞</text>
+  </g>
+
+  <!-- 右侧:已完成任务卡 (绿色) -->
+  <g transform="translate(172 60)">
+    <rect x="-22" y="-15" width="44" height="30" rx="5" fill="#16233B" stroke="#10B981" stroke-width="1.5" filter="url(#glow)"/>
+    <circle cx="-15" cy="-7" r="3" fill="#10B981" filter="url(#glow)"/>
+    <rect x="-9" y="-10" width="20" height="3" rx="1" fill="#475569"/>
+    <rect x="-15" y="-2" width="30" height="2.5" rx="1" fill="#334155"/>
+    <rect x="-15" y="3" width="22" height="2.5" rx="1" fill="#334155"/>
+    <text x="0" y="28" font-family="-apple-system,system-ui,sans-serif" font-size="6.5" fill="#10B981" text-anchor="middle" font-weight="700">已完成</text>
+  </g>
+
+  <!-- 中部:GitHub PR 合流图 -->
+  <g transform="translate(100 130)">
+    <!-- main 分支(右) -->
+    <g>
+      <line x1="0" y1="0" x2="42" y2="0" stroke="#475569" stroke-width="2.5"/>
+      <circle cx="0"  cy="0" r="3" fill="#475569"/>
+      <circle cx="14" cy="0" r="2.5" fill="#475569"/>
+      <text x="32" y="-8" font-family="-apple-system,system-ui,sans-serif" font-size="6" fill="#94A3B8" text-anchor="middle">main</text>
+    </g>
+
+    <!-- feature 分支(左上,合流后终止) -->
+    <g>
+      <path d="M-42 -22 L-14 -22 L-14 0" fill="none" stroke="#7C6CF0" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="-42" cy="-22" r="3" fill="#7C6CF0"/>
+      <circle cx="-28" cy="-22" r="2.5" fill="#7C6CF0"/>
+      <circle cx="-14" cy="-22" r="2.5" fill="#7C6CF0"/>
+      <text x="-28" y="-28" font-family="-apple-system,system-ui,sans-serif" font-size="6" fill="#7C6CF0" text-anchor="middle">feat</text>
+    </g>
+
+    <!-- 合流点 -->
+    <circle cx="0" cy="0" r="6" fill="url(#merged)" filter="url(#glow)"/>
+    <path d="M-3 0 L-1 2 L3 -2" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- 合并后 main -->
+    <line x1="0" y1="0" x2="42" y2="0" stroke="url(#merged)" stroke-width="2.5"/>
+    <circle cx="14" cy="0" r="2.5" fill="url(#merged)"/>
+    <circle cx="28" cy="0" r="2.5" fill="url(#merged)"/>
+    <circle cx="42" cy="0" r="3" fill="url(#merged)" filter="url(#glow)"/>
+  </g>
+
+  <!-- MERGED 徽章 -->
+  <g transform="translate(100 105)">
+    <rect x="-22" y="-8" width="44" height="16" rx="4" fill="url(#merged)" filter="url(#glow)"/>
+    <text x="0" y="3" font-family="-apple-system,system-ui,sans-serif" font-size="8" fill="#FFFFFF" text-anchor="middle" font-weight="700" letter-spacing="1">MERGED</text>
+  </g>
+
+  <!-- 顶部自动推进箭头(从已阻塞 → 已完成) -->
+  <g>
+    <path d="M52 56 L148 56" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 2" marker-end="url(#ah1)"/>
+    <text x="100" y="48" font-family="-apple-system,system-ui,sans-serif" font-size="6.5" fill="#10B981" text-anchor="middle" font-weight="600" letter-spacing="0.5">秒级自动推进</text>
+  </g>
+
+  <!-- 底部:DevOps 角色监控标识 -->
+  <g transform="translate(100 175)">
+    <rect x="-40" y="-8" width="80" height="16" rx="8" fill="#16233B" stroke="#6366F1" stroke-width="1.2"/>
+    <circle cx="-30" cy="0" r="4" fill="#6366F1"/>
+    <text x="-22" y="3" font-family="-apple-system,system-ui,sans-serif" font-size="6.5" fill="#94A3B8">DevOps 监听</text>
+  </g>
+
+  <!-- 监听脉冲线 (从 DevOps → PR Merged) -->
+  <path d="M100 167 L100 122" fill="none" stroke="#6366F1" stroke-width="1.5" stroke-dasharray="2 2" opacity="0.6"/>
+</svg>

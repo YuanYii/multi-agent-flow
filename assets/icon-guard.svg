@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="YY-Flow 多专家协同研发工作流图标 — 五层防错门控">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1120"/>
+      <stop offset="0.55" stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7C6CF0"/>
+      <stop offset="0.5" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+    <radialGradient id="vign" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0.55" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.30"/>
+    </radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="ah" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9 z" fill="#10B981"/>
+    </marker>
+  </defs>
+
+  <rect width="200" height="200" rx="46" fill="url(#bg)"/>
+  <rect width="200" height="200" rx="46" fill="url(#vign)"/>
+
+  <!-- 顶部标题轨道：任务流横向穿越 -->
+  <line x1="22" y1="42" x2="178" y2="42" stroke="#334155" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.5"/>
+  <path d="M22 42 L170 42" fill="none" stroke="url(#flow)" stroke-width="2.5" stroke-linecap="round" marker-end="url(#ah)"/>
+
+  <!-- 任务卡(横向穿过 5 道门) -->
+  <g>
+    <rect x="32" y="92" width="136" height="22" rx="6" fill="#16233B" stroke="url(#flow)" stroke-width="1.5"/>
+    <!-- 卡片头部色块 -->
+    <rect x="32" y="92" width="20" height="22" rx="6" fill="url(#flow)" opacity="0.85"/>
+    <rect x="48" y="92" width="4" height="22" fill="url(#flow)" opacity="0.85"/>
+    <!-- 卡片内容线条 -->
+    <rect x="60" y="98" width="60" height="3.5" rx="1.5" fill="#475569"/>
+    <rect x="60" y="106" width="40" height="3" rx="1.5" fill="#334155"/>
+    <circle cx="150" cy="103" r="5" fill="#10B981" filter="url(#glow)"/>
+  </g>
+
+  <!-- 5 道防错门控（自左至右：粉红→黄→蓝→紫→绿，层层把关） -->
+  <g>
+    <!-- 门 1：角色权限 (Key) -->
+    <g transform="translate(40 145)">
+      <rect x="-12" y="-10" width="24" height="20" rx="5" fill="#16233B" stroke="#F43F5E" stroke-width="1.5"/>
+      <circle cx="0" cy="-2" r="3.5" fill="none" stroke="#F43F5E" stroke-width="1.5"/>
+      <line x1="0" y1="1.5" x2="0" y2="7" stroke="#F43F5E" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="0" y1="4" x2="3" y2="4" stroke="#F43F5E" stroke-width="1.5" stroke-linecap="round"/>
+    </g>
+    <text x="40" y="173" font-family="-apple-system,system-ui,sans-serif" font-size="7" fill="#F43F5E" text-anchor="middle" font-weight="600">角色</text>
+
+    <!-- 门 2：状态原子 (Atomic - center+orbit) -->
+    <g transform="translate(78 145)">
+      <rect x="-12" y="-10" width="24" height="20" rx="5" fill="#16233B" stroke="#FB923C" stroke-width="1.5"/>
+      <ellipse cx="0" cy="0" rx="6" ry="2.5" fill="none" stroke="#FB923C" stroke-width="1.3"/>
+      <ellipse cx="0" cy="0" rx="6" ry="2.5" fill="none" stroke="#FB923C" stroke-width="1.3" transform="rotate(60)"/>
+      <ellipse cx="0" cy="0" rx="6" ry="2.5" fill="none" stroke="#FB923C" stroke-width="1.3" transform="rotate(-60)"/>
+      <circle cx="0" cy="0" r="1.5" fill="#FB923C"/>
+    </g>
+    <text x="78" y="173" font-family="-apple-system,system-ui,sans-serif" font-size="7" fill="#FB923C" text-anchor="middle" font-weight="600">状态</text>
+
+    <!-- 门 3：并发锁 (Lock) -->
+    <g transform="translate(116 145)">
+      <rect x="-12" y="-10" width="24" height="20" rx="5" fill="#16233B" stroke="#FBBF24" stroke-width="1.5"/>
+      <rect x="-5" y="-1" width="10" height="7" rx="1.5" fill="#FBBF24"/>
+      <path d="M-3 -1 L-3 -4 A3 3 0 0 1 3 -4 L3 -1" fill="none" stroke="#FBBF24" stroke-width="1.5"/>
+    </g>
+    <text x="116" y="173" font-family="-apple-system,system-ui,sans-serif" font-size="7" fill="#FBBF24" text-anchor="middle" font-weight="600">并发</text>
+
+    <!-- 门 4：Git 清洁 (Branch) -->
+    <g transform="translate(154 145)">
+      <rect x="-12" y="-10" width="24" height="20" rx="5" fill="#16233B" stroke="#38BDF8" stroke-width="1.5"/>
+      <circle cx="-4" cy="-5" r="2" fill="#38BDF8"/>
+      <circle cx="4" cy="-5" r="2" fill="#38BDF8"/>
+      <circle cx="-4" cy="5" r="2" fill="#38BDF8"/>
+      <line x1="-4" y1="-5" x2="-4" y2="5" stroke="#38BDF8" stroke-width="1.3"/>
+      <path d="M-4 -1 Q4 -1 4 -5" fill="none" stroke="#38BDF8" stroke-width="1.3"/>
+    </g>
+    <text x="154" y="173" font-family="-apple-system,system-ui,sans-serif" font-size="7" fill="#38BDF8" text-anchor="middle" font-weight="600">Git</text>
+
+    <!-- 门 5：质量印章 (Check Seal) -->
+    <g transform="translate(178 145)">
+      <rect x="-12" y="-10" width="24" height="20" rx="5" fill="#16233B" stroke="#10B981" stroke-width="1.5" filter="url(#glow)"/>
+      <path d="M-5 0 L-1.5 3.5 L5 -3" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <text x="178" y="173" font-family="-apple-system,system-ui,sans-serif" font-size="7" fill="#10B981" text-anchor="middle" font-weight="600">准出</text>
+  </g>
+
+  <!-- 5 个 checkpoint 圆点（顶部轨道） -->
+  <g>
+    <circle cx="40"  cy="42" r="4" fill="#F43F5E" filter="url(#glow)"/>
+    <circle cx="78"  cy="42" r="4" fill="#FB923C" filter="url(#glow)"/>
+    <circle cx="116" cy="42" r="4" fill="#FBBF24" filter="url(#glow)"/>
+    <circle cx="154" cy="42" r="4" fill="#38BDF8" filter="url(#glow)"/>
+    <circle cx="178" cy="42" r="4" fill="#10B981" filter="url(#glow)"/>
+  </g>
+
+  <!-- 顶部编号 (1-5) -->
+  <g font-family="-apple-system,system-ui,sans-serif" font-size="6.5" fill="#94A3B8" text-anchor="middle" font-weight="700">
+    <text x="40"  y="30">1</text>
+    <text x="78"  y="30">2</text>
+    <text x="116" y="30">3</text>
+    <text x="154" y="30">4</text>
+    <text x="178" y="30">5</text>
+  </g>
+
+  <!-- 底部标题 -->
+  <text x="100" y="190" font-family="-apple-system,system-ui,sans-serif" font-size="8.5" fill="#CBD5E1" text-anchor="middle" font-weight="600" letter-spacing="0.5">五层防错门控</text>
+</svg>
