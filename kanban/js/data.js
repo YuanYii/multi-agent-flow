@@ -8,7 +8,7 @@
 // 动态 Master Token 与全局权限标记 (纯从当前 URL 读取，0 缓存)
 const urlParams = new URLSearchParams(window.location.search);
 window.MASTER_TOKEN = (urlParams.get('token') || '').trim();
-window.IS_MASTER = window.MASTER_TOKEN ? 1 : 0;
+window.IS_MASTER = 0; // 零信任：初始默认无权（协作模式），必须经由服务端响应权威校准
 
 // 设备信息与鉴权请求头构造器
 function getClientDeviceName() {
@@ -150,6 +150,7 @@ async function loadBoardPreferences() {
         if (res.ok) {
             const resp = await res.json();
             if (resp && resp.data && typeof resp.data === 'object') {
+                syncMasterAuthStatus(resp.data);
                 const serverPref = resp.data;
                 kanbanPreferences = Object.assign({}, kanbanPreferences, serverPref);
             }
@@ -212,6 +213,7 @@ async function fetchTableTasksFromServer(params = {}) {
         if (res.ok) {
             const resp = await res.json();
             if (resp && resp.data && Array.isArray(resp.data.items)) {
+                syncMasterAuthStatus(resp.data);
                 tableServerData = {
                     items: resp.data.items,
                     total: resp.data.total !== undefined ? resp.data.total : resp.data.items.length,
@@ -250,6 +252,7 @@ async function fetchKanbanTasksFromServer() {
         if (res.ok) {
             const resp = await res.json();
             if (resp && resp.data && Array.isArray(resp.data.items)) {
+                syncMasterAuthStatus(resp.data);
                 rawCardsData = resp.data.items;
                 if (resp.data.v) {
                     currentBoardVersion = resp.data.v;

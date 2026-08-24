@@ -783,7 +783,9 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             self._send_json_resp(200, "success", {
                 "total": total,
                 "items": items,
-                "v": compute_board_version()
+                "v": compute_board_version(),
+                "is_master": self._is_master_authorized(),
+                "client_device": self.resolve_client_device_name()
             })
             return
 
@@ -802,7 +804,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         # 5. REST API: GET /api/board/meta 或 /api/preferences (偏好与标题配置)
         if path in ("/api/board/meta", "/api/preferences"):
             pref = read_preferences_data()
-            self._send_json_resp(200, "success", pref)
+            pref_data = dict(pref) if isinstance(pref, dict) else {}
+            pref_data["is_master"] = self._is_master_authorized()
+            pref_data["client_device"] = self.resolve_client_device_name()
+            self._send_json_resp(200, "success", pref_data)
             return
 
         # 6. REST API: GET /api/version (board.json 版本哈希，供前端轮询与乐观锁)
