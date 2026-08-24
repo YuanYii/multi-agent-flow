@@ -4,7 +4,7 @@ from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import parse_xml
-from docx.oxml.ns import nsdecls
+from docx.oxml.ns import nsdecls, qn
 
 def create_proof_document():
     doc = docx.Document()
@@ -16,6 +16,16 @@ def create_proof_document():
         section.left_margin = Inches(0.8)
         section.right_margin = Inches(0.8)
 
+    # Set Default Document Font
+    normal_style = doc.styles["Normal"]
+    normal_style.font.name = "微软雅黑"
+    normal_style.font.size = Pt(10.5)
+    rFonts_elem = normal_style.element.rPr.get_or_add_rFonts()
+    rFonts_elem.set(qn("w:eastAsia"), "微软雅黑")
+    rFonts_elem.set(qn("w:ascii"), "微软雅黑")
+    rFonts_elem.set(qn("w:hAnsi"), "微软雅黑")
+    rFonts_elem.set(qn("w:cs"), "微软雅黑")
+
     # Color Palette
     COLOR_PRIMARY = RGBColor(2, 132, 199)    # #0284C7
     COLOR_TEXT = RGBColor(30, 41, 59)        # #1E293B
@@ -25,11 +35,18 @@ def create_proof_document():
         for r in list(p.runs):
             p._p.remove(r._r)
 
-    def format_run(run, font_size_pt, bold=False, color=COLOR_TEXT, font_name="Microsoft YaHei"):
-        run.font.name = font_name
+    def format_run(run, font_size_pt, bold=False, color=COLOR_TEXT, font_name="微软雅黑"):
         run.font.size = Pt(font_size_pt)
         run.bold = bold
         run.font.color.rgb = color
+        # Crucial for CJK intra-line consistency
+        rPr = run._r.get_or_add_rPr()
+        rFonts = rPr.get_or_add_rFonts()
+        rFonts.set(qn("w:eastAsia"), font_name)
+        rFonts.set(qn("w:ascii"), font_name)
+        rFonts.set(qn("w:hAnsi"), font_name)
+        rFonts.set(qn("w:cs"), font_name)
+        rFonts.set(qn("w:hint"), "eastAsia")
 
     def format_paragraph(p, space_before=4, space_after=4, line_spacing=1.25, align=WD_ALIGN_PARAGRAPH.LEFT):
         p.paragraph_format.space_before = Pt(space_before)
@@ -124,7 +141,7 @@ def create_proof_document():
     add_p("2. 制造级软件防错 (Poka-Yoke) 架构：将硬件防错思想融入 AI 工作流，通过前置校验与物理门禁拦截一切人为或模型幻觉引发的误操作；")
     add_p("3. 敏捷看板与精益流动 (Lean WIP Limit)：对每位专家实施在制品并发控制，从机制上根除多 Agent 上下文冲突与脏写污染。")
 
-    # 5. Section 4: 千问办公生态合规性自检
+    # 5. Section 4: 千问办公生态白皮书自检凭据 (Qwen Ecosystem Compliance)")
     add_h1("四、 阿里千问办公生态白皮书自检凭据 (Qwen Ecosystem Compliance)")
     t3 = doc.add_table(rows=5, cols=3)
     t3.alignment = WD_TABLE_ALIGNMENT.CENTER
