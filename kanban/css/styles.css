@@ -1703,3 +1703,162 @@
             outline: none !important;
             background-color: transparent !important;
         }
+
+        /* ==========================================================
+           Header Operator Name Input Group
+           ========================================================== */
+        .header-user-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .header-user-label {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            user-select: none;
+            cursor: default;
+        }
+
+        .header-user-input {
+            height: 32px;
+            padding: 0 8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm, 6px);
+            font-size: 12px;
+            color: var(--text);
+            font-weight: 600;
+            width: 85px;
+            outline: none;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .header-user-input:hover {
+            border-color: var(--border-hover, #c2c8d1);
+        }
+
+        .header-user-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(51, 112, 255, 0.15);
+        }
+
+        .header-user-input::placeholder {
+            color: var(--text-muted);
+            font-weight: normal;
+        }
+
+        /* ==========================================================
+           Structured Modal Form Sections & Grid Alignment
+           ========================================================== */
+        .modal-form-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 8px 0 2px 0;
+            max-height: calc(88vh - 120px);
+            overflow-y: auto;
+        }
+
+        .modal-section {
+            background: var(--bg-subtle, rgba(0, 0, 0, 0.015));
+            border: 1px solid var(--border-color, #e5e8eb);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        [data-theme="dark"] .modal-section {
+            background: rgba(255, 255, 255, 0.025);
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .modal-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted, #64748b);
+            letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 2px;
+        }
+
+        .form-grid-2 {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 10px;
+        }
+
+        .form-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .col-span-1 {
+            grid-column: span 1;
+        }
+
+        .col-span-2 {
+            grid-column: span 2;
+        }
+
+        .col-span-3 {
+            grid-column: span 3;
+        }
+
+        .modal-section .form-item {
+            margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .modal-section .form-item label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-main, #334155);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        [data-theme="dark"] .modal-section .form-item label {
+            color: #cbd5e1;
+        }
+
+        .modal-section input[type="text"],
+        .modal-section input[type="number"],
+        .modal-section textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid var(--border-color, #d0d5dd);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 13px;
+            background: var(--card-bg, #ffffff);
+            color: var(--text-main, #1f2329);
+            transition: border-color 0.15s, box-shadow 0.15s;
+            font-family: inherit;
+        }
+
+        .modal-section input[type="text"]:focus,
+        .modal-section input[type="number"]:focus,
+        .modal-section textarea:focus {
+            border-color: var(--primary, #3370ff);
+            box-shadow: 0 0 0 2px rgba(51, 112, 255, 0.15);
+            outline: none;
+        }
+
+        .modal-section textarea {
+            resize: vertical;
+            min-height: 58px;
+            line-height: 1.45;
+        }

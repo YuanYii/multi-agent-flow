@@ -69,8 +69,8 @@
             { key: 'stage',      th: '阶段 / 工作包', label: '阶段 / 工作包 (Stage / WP)' },
             { key: 'name',       th: '任务名称',      label: '任务名称 (Task Name)' },
             { key: 'status',     th: '状态',          label: '状态 (Status)' },
-            { key: 'assignee',   th: '负责人',        label: '负责人 (Assignee)' },
-            { key: 'handler',    th: '处理人',        label: '处理人 (Handler)' },
+            { key: 'assignee',   th: '负责角色',      label: '负责角色 (Assignee)' },
+            { key: 'handler',    th: '处理角色',      label: '处理角色 (Handler)' },
             { key: 'creator',    th: '创建人',        label: '创建人 (Creator)' },
             { key: 'act_hours',  th: '任务耗时',      label: '任务耗时 (Duration)' },
             { key: 'start_date', th: '开始时间',      label: '开始时间 (Start Date)' },
@@ -551,7 +551,7 @@
             if (cardFieldConfig.assignee && card.assignee) {
                 const normRole = normalizeRoleName(card.assignee);
                 const st = getBadgeStyle('person', normRole);
-                tagsList.push(`<span class="tag tag-person" style="background:${st.bg}; color:${st.text}; border:1px solid rgba(0,0,0,0.06);">${lbl ? '负责人: ' : ''}${esc(normRole)}</span>`);
+                tagsList.push(`<span class="tag tag-person" style="background:${st.bg}; color:${st.text}; border:1px solid rgba(0,0,0,0.06);">${lbl ? '负责角色: ' : ''}${esc(normRole)}</span>`);
             }
             // 阶段 / 工作包 — mirrors the single "阶段 / 工作包" table column
             if (cardFieldConfig.stage && (card.stage || card.wp)) {
@@ -562,7 +562,7 @@
             if (cardFieldConfig.handler && card.handler) {
                 const normHandler = normalizeRoleName(card.handler);
                 const st = getBadgeStyle('person', normHandler);
-                tagsList.push(`<span class="tag tag-stage" style="background:${st.bg}; color:${st.text}; border:1px solid rgba(0,0,0,0.06);">${lbl ? '处理人: ' : ''}${esc(normHandler)}</span>`);
+                tagsList.push(`<span class="tag tag-stage" style="background:${st.bg}; color:${st.text}; border:1px solid rgba(0,0,0,0.06);">${lbl ? '处理角色: ' : ''}${esc(normHandler)}</span>`);
             }
             if (cardFieldConfig.pretask && card.pretask) tagsList.push(`<span class="tag tag-stage">${lbl ? '前置: ' : ''}${esc(card.pretask)}</span>`);
 
@@ -763,7 +763,7 @@
 
             const banner = document.getElementById('transition-change-banner');
             if (banner) {
-                const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责人' : '阶段');
+                const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责角色' : '阶段');
                 banner.innerHTML = `
                     <div style="font-weight:600; font-size:14px; margin-bottom:4px; color:var(--text-main);">
                         [${esc(card.id)}] ${esc(card.name)}
@@ -772,7 +772,7 @@
                         ${fieldName}: <span style="text-decoration:line-through; color:var(--text-muted);">${esc(card[groupField] || '未设定')}</span>
                         &nbsp;&rarr;&nbsp;
                         <strong style="color:var(--primary); font-size:14px;">${esc(colValue)}</strong>
-                        ${newHandler ? `<span class="tag tag-stage" style="margin-left:8px;">处理人移交至: ${esc(newHandler)}</span>` : ''}
+                        ${newHandler ? `<span class="tag tag-stage" style="margin-left:8px;">处理角色移交至: ${esc(newHandler)}</span>` : ''}
                     </div>
                 `;
             }
@@ -808,8 +808,8 @@
             }
 
             const userComment = (document.getElementById('transition-comment-input').value || '').trim();
-            const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责人' : '阶段');
-            const defaultAction = `[看板拖拽联动] 将${fieldName}由【${oldVal || '未设定'}】更新至【${newVal}】${newHandler ? `(处理人: ${newHandler})` : ''}`;
+            const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责角色' : '阶段');
+            const defaultAction = `[看板拖拽联动] 将${fieldName}由【${oldVal || '未设定'}】更新至【${newVal}】${newHandler ? `(处理角色: ${newHandler})` : ''}`;
             const logMsg = userComment ? `${defaultAction} — 说明: ${userComment}` : defaultAction;
 
             appendProcessLog(card, logMsg);
@@ -1265,6 +1265,9 @@
 
             // 3. Apply Master Control UI permissions & badges
             applyMasterUIPermissions();
+
+            // 4. Initialize Header User Name
+            initHeaderUserName();
         }
 
         // Search, Filter, Sort Handlers
@@ -1319,7 +1322,7 @@
             if (query) parts.push(`搜索"${query}"`);
             if (statusFilter) parts.push(`状态=${statusFilter}`);
             if (stageFilter) parts.push(`阶段=${stageFilter}`);
-            if (handlerFilter) parts.push(`处理人=${handlerFilter}`);
+            if (handlerFilter) parts.push(`处理角色=${handlerFilter}`);
             if (creatorFilter) parts.push(`创建人=${creatorFilter}`);
             if (isPersonFocusActive()) parts.push(`聚焦人员=${Array.from(selectedPersons).join('/')}`);
             if (startFrom || startTo) parts.push(`开始时间=${startFrom || '...'}~${startTo || '...'}`);
@@ -1427,9 +1430,9 @@
         }
 
         async function quickUpdateAssignee(cardId, newAssignee) {
-            const res = await apiUpdateTask(cardId, { assignee: newAssignee, remarks: `负责人调整为 ${newAssignee}` });
+            const res = await apiUpdateTask(cardId, { assignee: newAssignee, remarks: `负责角色调整为 ${newAssignee}` });
             if (res && (res.ok || res.code === 200)) {
-                showToast(`已更新 ${cardId} 负责人为: ${newAssignee}`);
+                showToast(`已更新 ${cardId} 负责角色为: ${newAssignee}`);
                 if (Array.isArray(rawCardsData)) {
                     const c = rawCardsData.find(x => x.id === cardId);
                     if (c) {
@@ -1440,14 +1443,14 @@
                 }
                 await loadTablePage(tablePaginationState.page || 1);
             } else {
-                showToast(`更新负责人失败: ${(res && (res.error || res.message)) || '未知错误'}`, 'error');
+                showToast(`更新负责角色失败: ${(res && (res.error || res.message)) || '未知错误'}`, 'error');
             }
         }
 
         async function quickUpdateHandler(cardId, newHandler) {
-            const res = await apiUpdateTask(cardId, { handler: newHandler, remarks: `处理人调整为 ${newHandler}` });
+            const res = await apiUpdateTask(cardId, { handler: newHandler, remarks: `处理角色调整为 ${newHandler}` });
             if (res && (res.ok || res.code === 200)) {
-                showToast(`已更新 ${cardId} 处理人为: ${newHandler}`);
+                showToast(`已更新 ${cardId} 处理角色为: ${newHandler}`);
                 if (Array.isArray(rawCardsData)) {
                     const c = rawCardsData.find(x => x.id === cardId);
                     if (c) {
@@ -1458,7 +1461,7 @@
                 }
                 await loadTablePage(tablePaginationState.page || 1);
             } else {
-                showToast(`更新处理人失败: ${(res && (res.error || res.message)) || '未知错误'}`, 'error');
+                showToast(`更新处理角色失败: ${(res && (res.error || res.message)) || '未知错误'}`, 'error');
             }
         }
 
@@ -1766,8 +1769,73 @@
         // Add Record Modal Controls
         function openAddModal() {
             refreshModalTagSelectors();
+            const creatorInput = document.getElementById('new-creator');
+            if (creatorInput) {
+                creatorInput.value = window.__CURRENT_USER__ || 'YuanYii';
+            }
+
+            // 1. 所属阶段默认当前看板最新阶段
+            let latestStage = 'S1 需求分析';
+            if (rawCardsData && rawCardsData.length > 0) {
+                for (let i = rawCardsData.length - 1; i >= 0; i--) {
+                    if (rawCardsData[i].stage) {
+                        latestStage = rawCardsData[i].stage;
+                        break;
+                    }
+                }
+            }
+            const stageInput = document.getElementById('new-stage');
+            if (stageInput) {
+                stageInput.value = latestStage;
+            }
+
+            // 2. 工作包编号默认为空
+            const wpInput = document.getElementById('new-wp');
+            if (wpInput) {
+                wpInput.value = '';
+            }
+            const wbsInput = document.getElementById('new-wbs');
+            if (wbsInput) {
+                wbsInput.value = '';
+            }
+
+            // 3. 任务耗时默认为 0
+            const actInput = document.getElementById('new-act');
+            if (actInput) {
+                actInput.value = '0';
+            }
+            const pretaskInput = document.getElementById('new-pretask');
+            if (pretaskInput && !pretaskInput.value) {
+                pretaskInput.value = '';
+            }
+            const remarksInput = document.getElementById('new-remarks');
+            if (remarksInput) {
+                remarksInput.value = '';
+            }
+
+            // 自动推算下一个可用 Task ID
+            const idInput = document.getElementById('new-id');
+            if (idInput && !idInput.value) {
+                let maxNum = 0;
+                rawCardsData.forEach(c => {
+                    const m = String(c.id || '').match(/^T(\d+)$/i);
+                    if (m) {
+                        const n = parseInt(m[1], 10);
+                        if (n > maxNum) maxNum = n;
+                    }
+                });
+                idInput.value = `T${String(maxNum + 1).padStart(4, '0')}`;
+            }
+
+            if (typeof enhanceAllSelects === 'function') enhanceAllSelects();
+            if (typeof refreshUiSelects === 'function') refreshUiSelects();
+            if (stageInput) {
+                const wrap = stageInput.closest('.ui-select');
+                if (wrap && typeof syncUiSelectLabel === 'function') syncUiSelectLabel(wrap);
+            }
+
             document.getElementById('add-modal').classList.add('show');
-            setTimeout(() => { const el = document.getElementById('new-id'); if (el) el.focus(); }, 50);
+            setTimeout(() => { const el = document.getElementById('new-name'); if (el) el.focus(); }, 50);
         }
         function closeAddModal() {
             document.getElementById('add-modal').classList.remove('show');
@@ -1788,28 +1856,63 @@
             const secs = String(now.getSeconds()).padStart(2, '0');
             const nowStr = `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
             const initStatus = document.getElementById('new-status').value || '待开始';
-            const initAssignee = document.getElementById('new-assignee').value || '严经理';
+            const initAssignee = document.getElementById('new-assignee').value || '李开发';
+            const creatorVal = (document.getElementById('new-creator')?.value || '').trim() ||
+                               (window.__CURRENT_USER__ && String(window.__CURRENT_USER__).trim()) ||
+                               '用户';
+            const stageVal = (document.getElementById('new-stage')?.value || '').trim() || 'S1 需求分析';
+            const wpVal = (document.getElementById('new-wp')?.value || '').trim();
+            const wbsVal = (document.getElementById('new-wbs')?.value || '').trim();
+            const pretaskVal = (document.getElementById('new-pretask')?.value || '').trim();
+            const actHours = parseFloat(document.getElementById('new-act')?.value) || 0;
+            const remarks = (document.getElementById('new-remarks')?.value || document.getElementById('new-desc')?.value || '').trim();
+
+            let handlerVal = initAssignee;
+            if (initStatus === '审查中') handlerVal = '周审查';
+            else if (initStatus === '测试中') handlerVal = '章测试';
+            else if (initStatus === '已完成' || initStatus === '已验收' || initStatus === '已取消') handlerVal = '严经理';
+
+            const endDateVal = (initStatus === '已完成' || initStatus === '已验收' || initStatus === '已取消') ? nowStr : '';
+            const deviceInfo = (typeof getClientDeviceName === 'function') ? getClientDeviceName() : 'Web Browser';
+            const nodeId = `${id}-N01`;
+            const initProcess = `[${nodeId}]  [${nowStr}]  建单并进入【${initStatus}】 | 操作人: ${creatorVal} | 终端: ${deviceInfo}` + (remarks ? `\n操作说明: ${remarks}` : '');
 
             const newCard = {
                 seq: rawCardsData.length + 1,
                 id: id,
                 name: name,
-                stage: 'S6 工作流集成测试',
-                wp: document.getElementById('new-wp').value.trim() || 'WP-自定义',
-                wbs: document.getElementById('new-wbs').value.trim() || '',
+                stage: stageVal,
+                wp: wpVal,
+                wbs: wbsVal,
+                pretask: pretaskVal,
                 assignee: initAssignee,
+                creator: creatorVal,
                 status: initStatus,
-                handler: '严经理',
-                act_hours: document.getElementById('new-act').value || '0',
-                remarks: document.getElementById('new-desc').value,
-                process: `[${nowStr}] [${initStatus}] 手动创建任务 [${id}]，初始状态【${initStatus}】，负责人: ${initAssignee}`
+                handler: handlerVal,
+                est_hours: 0,
+                act_hours: actHours,
+                start_date: nowStr,
+                end_date: endDateVal,
+                remarks: remarks,
+                process: initProcess
             };
             computeCardDuration(newCard);
             rawCardsData.push(newCard);
-            saveStorageData();
+
+            if (typeof apiCreateTask === 'function') {
+                apiCreateTask(newCard).catch(err => {
+                    console.warn('[API] apiCreateTask sync warn:', err);
+                });
+            } else {
+                saveStorageData();
+            }
+
             applyFilters();
             closeAddModal();
             showToast(`成功创建任务 ${id}！`);
+            if (typeof loadTablePage === 'function') {
+                loadTablePage((typeof tablePaginationState !== 'undefined' && tablePaginationState?.page) || 1);
+            }
         }
 
         let isTaskEditMode = false;
@@ -1850,20 +1953,26 @@
             // 1. Populate Edit Mode Inputs
             const editId = document.getElementById('edit-id');
             const editSeq = document.getElementById('edit-seq');
+            const editCreator = document.getElementById('edit-creator');
             const editName = document.getElementById('edit-name');
+            const editStage = document.getElementById('edit-stage');
             const editWp = document.getElementById('edit-wp');
             const editWbs = document.getElementById('edit-wbs');
+            const editPretask = document.getElementById('edit-pretask');
             const editAct = document.getElementById('edit-act');
-            const editProcess = document.getElementById('edit-process');
+            const editRemarks = document.getElementById('edit-remarks');
             const editOriginalId = document.getElementById('edit-original-id');
 
             if (editId) editId.value = card.id;
             if (editSeq) editSeq.value = card.seq;
+            if (editCreator) editCreator.value = card.creator || '';
             if (editName) editName.value = card.name;
-            if (editWp) editWp.value = card.wp || card.stage || '';
+            if (editStage) editStage.value = card.stage || 'S1 需求分析';
+            if (editWp) editWp.value = card.wp || '';
             if (editWbs) editWbs.value = card.wbs || '';
+            if (editPretask) editPretask.value = card.pretask || '';
             if (editAct) editAct.value = card.act_hours || 0;
-            if (editProcess) editProcess.value = card.process || card.remarks || '';
+            if (editRemarks) editRemarks.value = card.remarks || '';
             if (editOriginalId) editOriginalId.value = card.id;
 
             const editAssigneeInput = document.getElementById('edit-assignee');
@@ -1874,6 +1983,12 @@
 
             refreshModalTagSelectors();
             syncModalFieldPermissions(card);
+            if (typeof enhanceAllSelects === 'function') enhanceAllSelects();
+            if (typeof refreshUiSelects === 'function') refreshUiSelects();
+            if (editStage) {
+                const wrap = editStage.closest('.ui-select');
+                if (wrap && typeof syncUiSelectLabel === 'function') syncUiSelectLabel(wrap);
+            }
 
             // 2. Populate Read Mode View (Header Card & Attributes Grid)
             const headCard = document.getElementById('detail-header-card');
@@ -1885,8 +2000,8 @@
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                         <span class="tag" style="background:${getBadgeStyle('status', card.status).bg}; color:${getBadgeStyle('status', card.status).text}; border:1px solid rgba(0,0,0,0.06);">${esc(card.status || '待开始')}</span>
-                        <span class="tag" style="background:${getBadgeStyle('person', card.assignee).bg}; color:${getBadgeStyle('person', card.assignee).text}; border:1px solid rgba(0,0,0,0.06);">负责人: ${esc(card.assignee || '未分配')}</span>
-                        ${card.handler ? `<span class="tag" style="background:${getBadgeStyle('person', card.handler).bg}; color:${getBadgeStyle('person', card.handler).text}; border:1px solid rgba(0,0,0,0.06);">处理人: ${esc(card.handler)}</span>` : ''}
+                        <span class="tag" style="background:${getBadgeStyle('person', card.assignee).bg}; color:${getBadgeStyle('person', card.assignee).text}; border:1px solid rgba(0,0,0,0.06);">负责角色: ${esc(card.assignee || '未分配')}</span>
+                        ${card.handler ? `<span class="tag" style="background:${getBadgeStyle('person', card.handler).bg}; color:${getBadgeStyle('person', card.handler).text}; border:1px solid rgba(0,0,0,0.06);">处理角色: ${esc(card.handler)}</span>` : ''}
                         ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${esc(card.wbs)}</span>` : ''}
                     </div>
                 `;
@@ -1954,7 +2069,7 @@
                 // 智能保底推演：若没有任何显式日志行，自动基于元数据推导首条初始化流转记录
                 if (lines.length === 0) {
                     lines = [
-                        `[${card.start_date || '系统初始化'}] [待开始] 任务 [${card.id}] 已推入看板，当前状态【${card.status || '待开始'}】，负责人: ${card.assignee || '未分配'}`
+                        `[${card.start_date || '系统初始化'}] [待开始] 任务 [${card.id}] 已推入看板，当前状态【${card.status || '待开始'}】，负责角色: ${card.assignee || '未分配'}`
                     ];
                     if (card.status === '进行中' || card.status === '审查中' || card.status === '测试中' || card.status === '已完成' || card.status === '已验收') {
                         lines.push(`[${card.start_date || '执行阶段'}] [进行中] 开始排查与执行任务`);
@@ -2016,7 +2131,7 @@
                         }
                     }
 
-                    // 2. 多维智能标签提取 (状态 / 负责人移交 / 阶段工作包 / 记录保底)
+                    // 2. 多维智能标签提取 (状态 / 负责角色移交 / 阶段工作包 / 记录保底)
                     const validStatuses = ['待开始', '进行中', '审查中', '测试中', '已完成', '已验收', '已退回', '已阻塞', '已取消'];
                     const validPersons = ['严经理', '钱架构', '李开发', '马前端', '前端开发', '周审查', '章测试', '李文通', '吕改特'];
                     const validStages = ['Phase-1', 'Phase-2', 'Phase-3', 'WP1-需求', 'WP2-后端', 'WP2-前端', 'WP3-测试', 'WP4-运维'];
@@ -2118,7 +2233,7 @@
                         } else if (contentStr.includes('手动新增') || contentStr.includes('新增任务') || contentStr.includes('创建任务') || contentStr.includes('初始化') || contentStr.includes('建单')) {
                             tagType = 'status';
                             tagLabel = '待开始';
-                        } else if (contentStr.includes('负责人') || contentStr.includes('处理人') || contentStr.includes('移交')) {
+                        } else if (contentStr.includes('负责角色') || contentStr.includes('处理角色') || contentStr.includes('负责人') || contentStr.includes('处理人') || contentStr.includes('移交')) {
                             tagType = 'generic';
                             tagLabel = '移交';
                         } else {
@@ -2169,20 +2284,26 @@
             if (!card) return;
 
             const newName = document.getElementById('edit-name').value.trim();
-            const newWp = document.getElementById('edit-wp').value.trim();
-            const newWbs = document.getElementById('edit-wbs').value.trim();
+            const newCreator = (document.getElementById('edit-creator')?.value || '').trim() || card.creator || window.__CURRENT_USER__ || '用户';
+            const newStage = (document.getElementById('edit-stage')?.value || '').trim() || card.stage || 'S1 需求分析';
+            const newWp = document.getElementById('edit-wp')?.value.trim() || '';
+            const newWbs = document.getElementById('edit-wbs')?.value.trim() || '';
+            const newPretask = (document.getElementById('edit-pretask')?.value || '').trim();
             const newAssignee = document.getElementById('edit-assignee').value;
             const newStatus = document.getElementById('edit-status').value;
-            const newAct = parseFloat(document.getElementById('edit-act').value) || 0;
-            const newProcess = document.getElementById('edit-process').value;
+            const newAct = parseFloat(document.getElementById('edit-act')?.value) || card.act_hours || 0;
+            const newRemarks = (document.getElementById('edit-remarks')?.value || '').trim();
 
             card.name = newName;
+            card.creator = newCreator;
+            card.stage = newStage;
             card.wp = newWp;
             card.wbs = newWbs;
+            card.pretask = newPretask;
             card.assignee = newAssignee;
             card.status = newStatus;
             card.act_hours = newAct;
-            card.process = newProcess;
+            card.remarks = newRemarks;
 
             if (newStatus === '审查中') card.handler = '周审查';
             else if (newStatus === '测试中') card.handler = '章测试';
@@ -2200,14 +2321,19 @@
             if (typeof apiUpdateTask === 'function') {
                 await apiUpdateTask(cardId, {
                     name: card.name,
+                    stage: card.stage,
                     wp: card.wp,
                     wbs: card.wbs,
+                    pretask: card.pretask,
+                    creator: card.creator,
                     assignee: card.assignee,
                     handler: card.handler,
                     status: card.status,
+                    est_hours: card.est_hours,
                     act_hours: card.act_hours,
                     start_date: card.start_date,
                     end_date: card.end_date,
+                    remarks: card.remarks,
                     process: card.process
                 });
             }
@@ -2485,21 +2611,69 @@
 
         function copyCleanCollaboratorLink() {
             try {
-                const u = new URL(window.location.href);
-                u.searchParams.delete('token');
-                const cleanUrl = u.toString();
+                let cleanUrl = window.LAN_COLLABORATOR_URL || "";
+                if (!cleanUrl) {
+                    const u = new URL(window.location.href);
+                    u.searchParams.delete('token');
+                    if ((u.hostname === '127.0.0.1' || u.hostname === 'localhost') && window.SERVER_LOCAL_IP && window.SERVER_LOCAL_IP !== '127.0.0.1') {
+                        u.hostname = window.SERVER_LOCAL_IP;
+                    }
+                    cleanUrl = u.toString();
+                }
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(cleanUrl).then(() => {
                         if (typeof showToast === 'function') {
-                            showToast('已复制纯净协作链接到剪贴板，发送给团队成员即可协作访问！');
+                            showToast(`已复制局域网协作链接到剪贴板: ${cleanUrl}`);
                         }
                     }).catch(() => {
-                        prompt('请复制以下协作链接分享给成员：', cleanUrl);
+                        prompt('请复制以下局域网协作链接分享给成员：', cleanUrl);
                     });
                 } else {
-                    prompt('请复制以下协作链接分享给成员：', cleanUrl);
+                    prompt('请复制以下局域网协作链接分享给成员：', cleanUrl);
                 }
             } catch (e) {
-                prompt('请复制以下协作链接分享给成员：', window.location.origin + window.location.pathname);
+                prompt('请复制以下局域网协作链接分享给成员：', window.LAN_COLLABORATOR_URL || (window.location.origin + window.location.pathname));
             }
+        }
+
+        /* ==========================================================
+           Header Operator Name Manager
+           ========================================================== */
+        function initHeaderUserName(serverDefault) {
+            let savedName = '';
+            try {
+                savedName = (localStorage.getItem('kanban_user_name') || '').trim();
+            } catch (e) {}
+
+            const fallbackName = (serverDefault || window.__SERVER_DEFAULT_OPERATOR__ || 'YuanYii').trim();
+            const finalName = savedName || fallbackName;
+
+            window.__CURRENT_USER__ = finalName;
+            window.__USER_NAME_INITIALIZED__ = true;
+
+            const input = document.getElementById('header-user-name-input');
+            if (input && input.value !== finalName) {
+                input.value = finalName;
+            }
+        }
+
+        function onHeaderUserNameInput(val) {
+            const trimmed = (val || '').trim();
+            window.__CURRENT_USER__ = trimmed || '用户';
+            try {
+                if (trimmed) {
+                    localStorage.setItem('kanban_user_name', trimmed);
+                }
+            } catch (e) {}
+        }
+
+        function onHeaderUserNameChange(val) {
+            const trimmed = (val || '').trim();
+            const finalName = trimmed || window.__SERVER_DEFAULT_OPERATOR__ || '用户';
+            window.__CURRENT_USER__ = finalName;
+            try {
+                localStorage.setItem('kanban_user_name', finalName);
+            } catch (e) {}
+            const input = document.getElementById('header-user-name-input');
+            if (input) input.value = finalName;
         }

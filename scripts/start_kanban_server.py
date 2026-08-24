@@ -18,6 +18,7 @@ import socket
 import secrets
 import hmac
 import urllib.request
+import subprocess
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, unquote
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -37,15 +38,44 @@ ACTIVE_MASTER_TOKEN = secrets.token_hex(16)
 
 
 def get_local_ip() -> str:
-    """获取本机局域网 IP 地址"""
+    """获取本机局域网真实物理 IP 地址（优先真实的私有网段 192.168.x.x / 10.x.x.x / 172.16-31.x.x，避开虚拟网卡）"""
+    ips = []
+    # 1. 优先尝试系统底层命令探测 (macOS/Linux ifconfig 或 Windows ipconfig)
+    try:
+        cmd = ["ipconfig"] if sys.platform.startswith("win") else ["ifconfig"]
+        out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL, timeout=2)
+        found = re.findall(r"(?:inet\s+|IPv4 Address[.\s]*:\s*)(\d+\.\d+\.\d+\.\d+)", out)
+        for ip in found:
+            if ip != "127.0.0.1" and not ip.startswith("169.254.") and ip not in ips:
+                ips.append(ip)
+    except Exception:
+        pass
+
+    # 2. 尝试 UDP Socket 探测
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
+        sock_ip = s.getsockname()[0]
         s.close()
-        return ip
+        if sock_ip and sock_ip != "127.0.0.1" and sock_ip not in ips:
+            ips.append(sock_ip)
     except Exception:
-        return "127.0.0.1"
+        pass
+
+    # 优先匹配主流真实私有局域网网段，避开 VPN/虚拟网卡（如 198.18.x）
+    for ip in ips:
+        if ip.startswith("192.168.") or ip.startswith("10."):
+            return ip
+        if ip.startswith("172."):
+            parts = ip.split(".")
+            if len(parts) >= 2 and parts[1].isdigit() and 16 <= int(parts[1]) <= 31:
+                return ip
+
+    for ip in ips:
+        if ip != "127.0.0.1":
+            return ip
+
+    return "127.0.0.1"
 
 
 def _data_root() -> str:
@@ -780,12 +810,18 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 start = (page - 1) * size
                 items = filtered[start:start + size]
 
+            port = SERVER_STATE.get("port") or getattr(self.server, "server_port", 32886)
+            local_ip = get_local_ip()
+            lan_url = f"http://{local_ip}:{port}/"
             self._send_json_resp(200, "success", {
                 "total": total,
                 "items": items,
                 "v": compute_board_version(),
                 "is_master": self._is_master_authorized(),
-                "client_device": self.resolve_client_device_name()
+                "client_device": self.resolve_client_device_name(),
+                "local_ip": local_ip,
+                "lan_collaborator_url": lan_url,
+                "default_operator": get_default_operator()
             })
             return
 
@@ -803,29 +839,44 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 5. REST API: GET /api/board/meta 或 /api/preferences (偏好与标题配置)
         if path in ("/api/board/meta", "/api/preferences"):
+            port = SERVER_STATE.get("port") or getattr(self.server, "server_port", 32886)
+            local_ip = get_local_ip()
             pref = read_preferences_data()
             pref_data = dict(pref) if isinstance(pref, dict) else {}
             pref_data["is_master"] = self._is_master_authorized()
             pref_data["client_device"] = self.resolve_client_device_name()
+            pref_data["local_ip"] = local_ip
+            pref_data["lan_collaborator_url"] = f"http://{local_ip}:{port}/"
+            pref_data["default_operator"] = get_default_operator()
             self._send_json_resp(200, "success", pref_data)
             return
 
         # 6. REST API: GET /api/version (board.json 版本哈希，供前端轮询与乐观锁)
         if path == "/api/version":
+            port = SERVER_STATE.get("port") or getattr(self.server, "server_port", 32886)
+            local_ip = get_local_ip()
             is_master = self._is_master_authorized()
             device_name = self.resolve_client_device_name()
             self._send_json_resp(200, "success", {
                 "v": compute_board_version(),
                 "is_master": is_master,
-                "client_device": device_name
+                "client_device": device_name,
+                "local_ip": local_ip,
+                "lan_collaborator_url": f"http://{local_ip}:{port}/",
+                "default_operator": get_default_operator()
             })
             return
 
         # 7. REST API: GET /api/health (实例健康与项目指纹，供端口复用判定)
         if path == "/api/health":
+            port = SERVER_STATE.get("port") or getattr(self.server, "server_port", 32886)
+            local_ip = get_local_ip()
             health_data = dict(SERVER_STATE)
             health_data["is_master"] = self._is_master_authorized()
             health_data["client_device"] = self.resolve_client_device_name()
+            health_data["local_ip"] = local_ip
+            health_data["lan_collaborator_url"] = f"http://{local_ip}:{port}/"
+            health_data["default_operator"] = get_default_operator()
             self._send_json_resp(200, "success", health_data)
             return
 
@@ -971,6 +1022,20 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 assignee = normalize_role_name(body_data.get("assignee")) or "李开发"
                 remarks = body_data.get("remarks", "")
 
+                header_op = self.headers.get("X-Operator-Name", "")
+                if header_op:
+                    try:
+                        header_op = unquote(header_op)
+                    except Exception:
+                        pass
+                operator_name = (
+                    normalize_role_name(body_data.get("operator_name") or body_data.get("operator") or body_data.get("creator"))
+                    or header_op
+                    or get_default_operator()
+                )
+                creator_val = normalize_role_name(body_data.get("creator")) or operator_name or get_default_operator()
+                pretask_val = str(body_data.get("pretask", "")).strip()
+
                 if status == "审查中":
                     handler = "周审查"
                 elif status == "测试中":
@@ -988,10 +1053,12 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "id": new_id,
                     "seq": len(cards) + 1,
                     "name": name,
-                    "stage": body_data.get("stage", "S6 工作流集成测试"),
-                    "wp": body_data.get("wp", "WP-自定义"),
+                    "stage": body_data.get("stage", "S1 需求分析"),
+                    "wp": body_data.get("wp", "WP-1.1"),
                     "wbs": body_data.get("wbs", ""),
+                    "pretask": pretask_val,
                     "assignee": assignee,
+                    "creator": creator_val,
                     "status": status,
                     "handler": handler,
                     "est_hours": parsed_est,
@@ -1006,12 +1073,12 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 device_info = self.resolve_client_device_name()
                 node_id = f"{new_id}-N01"
                 init_process = body_data.get("process") or \
-                    f"[{node_id}]  [{now_str}]  建单并进入【{status}】 | 操作人: {assignee} | 终端: {device_info}" + \
+                    f"[{node_id}]  [{now_str}]  建单并进入【{status}】 | 操作人: {creator_val} | 终端: {device_info}" + \
                     (f"\n操作说明: {remarks}" if remarks else "")
                 new_card["process"] = init_process
 
                 cards.append(new_card)
-                append_audit_log(new_id, "PM", "无", status, assignee, f"[{device_info}] 创建任务: {name}")
+                append_audit_log(new_id, "PM", "无", status, creator_val, f"[{device_info}] 创建任务: {name}")
                 return True, 200, f"成功创建任务 {new_id}", new_card
 
             code, msg, data = atomic_mutate_board_data(_mutate_create, expected_version=expected_v)
@@ -1077,7 +1144,17 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 )
                 return
 
-            operator_name = normalize_role_name(body_data.get("operator_name") or body_data.get("operator")) or get_default_operator()
+            header_op = self.headers.get("X-Operator-Name", "")
+            if header_op:
+                try:
+                    header_op = unquote(header_op)
+                except Exception:
+                    pass
+            operator_name = (
+                normalize_role_name(body_data.get("operator_name") or body_data.get("operator"))
+                or header_op
+                or get_default_operator()
+            )
             comment = (body_data.get("comment") or body_data.get("note") or "").strip()
 
             def _mutate_trans(cards):
@@ -1230,13 +1307,13 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 # 非主控权限字段级差量防护：仅允许修改 act_hours, remarks, handler
                 if not self._is_master_authorized():
                     protected_fields = [
-                        "name", "stage", "wp", "wbs", "assignee", "status",
+                        "name", "stage", "wp", "wbs", "pretask", "creator", "assignee", "status",
                         "est_hours", "start_date", "end_date"
                     ]
                     for k in protected_fields:
                         if k in body_data:
                             val = body_data[k]
-                            if k == "est_hours":
+                            if k in ("est_hours", "act_hours"):
                                 val = _parse_duration_seconds(val)
                             if val != card.get(k):
                                 return False, 403, f"非主控设备无权修改核心字段 [{k}]，请携带主控 Token 访问", {
@@ -1249,7 +1326,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 old_handler = card.get("handler", "未分配")
 
                 updatable_fields = [
-                    "name", "stage", "wp", "wbs", "assignee", "handler",
+                    "name", "stage", "wp", "wbs", "pretask", "creator", "assignee", "handler",
                     "status", "est_hours", "act_hours", "start_date",
                     "end_date", "remarks", "process"
                 ]
@@ -1289,7 +1366,17 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
                 # 若客户端未显式覆盖 process，但修改了负责人、处理人或状态，自动追加结构化流转记录节点
                 if "process" not in body_data:
-                    operator_name = normalize_role_name(body_data.get("operator_name") or body_data.get("operator") or body_data.get("creator")) or get_default_operator()
+                    header_op = self.headers.get("X-Operator-Name", "")
+                    if header_op:
+                        try:
+                            header_op = unquote(header_op)
+                        except Exception:
+                            pass
+                    operator_name = (
+                        normalize_role_name(body_data.get("operator_name") or body_data.get("operator") or body_data.get("creator"))
+                        or header_op
+                        or get_default_operator()
+                    )
                     comment = (body_data.get("comment") or body_data.get("note") or body_data.get("remarks") or "").strip()
 
                     new_status = card.get("status")
@@ -1311,14 +1398,14 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
                     if "assignee" in updated_keys and new_assignee != old_assignee:
                         node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
-                        log_text = f"[{node_id}]  [{now_str}]  负责人由【{old_assignee or '未分配'}】调整为【{new_assignee or '未分配'}】 | 操作人: {operator_name} | 终端: {device_info}"
+                        log_text = f"[{node_id}]  [{now_str}]  负责角色由【{old_assignee or '未分配'}】调整为【{new_assignee or '未分配'}】 | 操作人: {operator_name} | 终端: {device_info}"
                         if comment and "status" not in updated_keys:
                             log_text += f"\n操作说明: {comment}"
                         added_logs.append(log_text)
 
                     if "handler" in updated_keys and new_handler != old_handler:
                         node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
-                        log_text = f"[{node_id}]  [{now_str}]  处理人由【{old_handler or '未分配'}】调整为【{new_handler or '未分配'}】 | 操作人: {operator_name} | 终端: {device_info}"
+                        log_text = f"[{node_id}]  [{now_str}]  处理角色由【{old_handler or '未分配'}】调整为【{new_handler or '未分配'}】 | 操作人: {operator_name} | 终端: {device_info}"
                         if comment and "status" not in updated_keys and "assignee" not in updated_keys:
                             log_text += f"\n操作说明: {comment}"
                         added_logs.append(log_text)

@@ -37,6 +37,9 @@ function getAuthHeaders(extraHeaders = {}) {
     if (window.MASTER_TOKEN) {
         headers['X-Master-Token'] = window.MASTER_TOKEN;
     }
+    if (window.__CURRENT_USER__) {
+        headers['X-Operator-Name'] = encodeURIComponent(window.__CURRENT_USER__);
+    }
     headers['X-Device-Name'] = getClientDeviceName();
     return headers;
 }
@@ -45,6 +48,18 @@ function getAuthHeaders(extraHeaders = {}) {
 function syncMasterAuthStatus(serverData) {
     if (serverData && typeof serverData.is_master === 'boolean') {
         window.IS_MASTER = serverData.is_master ? 1 : 0;
+        if (serverData.lan_collaborator_url) {
+            window.LAN_COLLABORATOR_URL = serverData.lan_collaborator_url;
+        }
+        if (serverData.local_ip) {
+            window.SERVER_LOCAL_IP = serverData.local_ip;
+        }
+        if (serverData.default_operator && !window.__USER_NAME_INITIALIZED__) {
+            window.__SERVER_DEFAULT_OPERATOR__ = serverData.default_operator;
+            if (typeof initHeaderUserName === 'function') {
+                initHeaderUserName(serverData.default_operator);
+            }
+        }
         if (typeof applyMasterUIPermissions === 'function') {
             applyMasterUIPermissions();
         }

@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>多专家Agent协作任务看板</title><link rel="stylesheet" href="css/styles.css?v=20260824_v7">
+    <title>多专家Agent协作任务看板</title>
+    <link rel="stylesheet" href="css/styles.css?v=20260825_v5">
 </head>
 <body>
 
@@ -24,15 +25,24 @@
         <div class="header-tabs">
             <div class="tab active" data-target="view-table"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg> 数据表格</div>
             <div class="tab" data-target="view-kanban-status"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="11" y="3" width="5" height="12" rx="1"/><rect x="19" y="3" width="2" height="8" rx="1"/></svg> 看板-按状态</div>
-            <div class="tab" data-target="view-kanban-assignee"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 看板-按负责人</div>
+            <div class="tab" data-target="view-kanban-assignee"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 看板-按负责角色</div>
             <div class="tab" data-target="view-kanban-stage"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> 看板-按阶段工作包</div>
         </div>
         <div class="header-right" style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-            <div id="master-mode-container" style="display:flex; align-items:center; gap:6px;"></div>
+            <!-- 1. 操作人填写框 (标签在输入框外部，默认取当前操作系统用户) -->
+            <div class="header-user-group" style="display: flex; align-items: center; gap: 6px;">
+                <label for="header-user-name-input" class="header-user-label" title="当前操作人（将记录于工单流转与工时审计日志中）">操作人:</label>
+                <input type="text" id="header-user-name-input" class="header-user-input" placeholder="输入名称" value="" onchange="onHeaderUserNameChange(this.value)" oninput="onHeaderUserNameInput(this.value)" autocomplete="off" title="当前操作人名称">
+            </div>
+
+            <!-- 2. 深色/浅色主题切换 -->
             <button class="btn" id="theme-toggle-btn" onclick="toggleTheme()" title="切换浅色/深色主题（默认按日落自动）">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                 <span id="theme-toggle-label">深色</span>
             </button>
+
+            <!-- 3. 协作模式 / 主控模式徽章 -->
+            <div id="master-mode-container" style="display:flex; align-items:center; gap:6px;"></div>
         </div>
     </div>
 
@@ -79,7 +89,7 @@
             <div class="rh-option" data-h="150" role="option" onclick="pickRowHeight(150, this)">展开</div>
         </div>
 
-        <input type="text" class="search-input" id="search-box" placeholder="搜索编号/任务名/负责人/备注..." oninput="onSearch()">
+        <input type="text" class="search-input" id="search-box" placeholder="搜索编号/任务名/负责角色/处理角色/备注..." oninput="onSearch()">
 
         <div style="margin-left: auto; font-size: 13px; color: var(--text-muted); white-space:nowrap; display:flex; align-items:center; gap:8px;">
             <span>展示记录: <strong id="total-count" style="color: var(--primary);">0</strong> / <span id="raw-count">0</span></span>
@@ -143,9 +153,9 @@
                 </select>
             </div>
             <div class="form-item">
-                <label>按处理人:</label>
+                <label>按处理角色:</label>
                 <select id="filter-handler" onchange="applyFilters()">
-                    <option value="">全部处理人</option>
+                    <option value="">全部处理角色</option>
                     <option value="严经理">严经理</option>
                     <option value="钱架构">钱架构</option>
                     <option value="李开发">李开发</option>
@@ -218,8 +228,8 @@
                         <th style="width: 170px;">阶段 / 工作包<div class="resizer"></div></th>
                         <th style="width: 320px;">任务名称<div class="resizer"></div></th>
                         <th style="width: 110px;">状态<div class="resizer"></div></th>
-                        <th style="width: 110px;">负责人<div class="resizer"></div></th>
-                        <th style="width: 110px;">处理人<div class="resizer"></div></th>
+                        <th style="width: 110px;">负责角色<div class="resizer"></div></th>
+                        <th style="width: 110px;">处理角色<div class="resizer"></div></th>
                         <th style="width: 90px;">创建人<div class="resizer"></div></th>
                         <th style="width: 140px; white-space: nowrap;">任务耗时<div class="resizer"></div></th>
                         <th style="width: 105px;">开始时间<div class="resizer"></div></th>
@@ -263,48 +273,103 @@
 
     <!-- Modal for Adding Record -->
     <div class="modal-overlay" id="add-modal">
-        <div class="modal">
+        <div class="modal" style="max-width: 640px; width: 92%;">
             <div class="modal-header">
                 <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加新任务记录</span>
                 <button class="close-btn" onclick="closeAddModal()" title="关闭"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
-            <div class="form-item">
-                <label>任务编号 *</label>
-                <input type="text" id="new-id" placeholder="如 T0300">
-            </div>
-            <div class="form-item">
-                <label>任务名称 *</label>
-                <input type="text" id="new-name" placeholder="请输入任务名称">
-            </div>
-            <div style="display:flex; gap:10px;">
-                <div class="form-item" style="flex:1;">
-                    <label>阶段 / 工作包</label>
-                    <input type="text" id="new-wp" placeholder="WP-6.11">
+            <div class="modal-form-body">
+                <!-- 1. 基本信息 -->
+                <div class="modal-section">
+                    <div class="modal-section-title">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        基本信息
+                    </div>
+                    <div class="form-grid-3">
+                        <div class="form-item col-span-1">
+                            <label>任务编号 *</label>
+                            <input type="text" id="new-id" placeholder="如 T0300">
+                        </div>
+                        <div class="form-item col-span-2">
+                            <label>任务名称 *</label>
+                            <input type="text" id="new-name" placeholder="请输入清晰的任务目标与描述">
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>所属阶段 (Stage)</label>
+                            <select id="new-stage">
+                                <option value="S1 需求分析">S1 需求分析</option>
+                                <option value="S2 架构设计">S2 架构设计</option>
+                                <option value="S3 详细设计">S3 详细设计</option>
+                                <option value="S4 编码实现">S4 编码实现</option>
+                                <option value="S5 单元测试">S5 单元测试</option>
+                                <option value="S6 工作流集成测试">S6 工作流集成测试</option>
+                                <option value="S7 文档与发布">S7 文档与发布</option>
+                            </select>
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>工作包编号 (WP)</label>
+                            <input type="text" id="new-wp" placeholder="如 WP-1.1">
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>WBS 架构编号</label>
+                            <input type="text" id="new-wbs" placeholder="如 1.1.1">
+                        </div>
+                    </div>
                 </div>
-                <div class="form-item" style="flex:1;">
-                    <label>WBS编号</label>
-                    <input type="text" id="new-wbs" placeholder="6.11.1">
+
+                <!-- 2. 角色与状态 -->
+                <div class="modal-section">
+                    <div class="modal-section-title">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        角色与状态
+                    </div>
+                    <div class="form-grid-3">
+                        <div class="form-item col-span-1">
+                            <label>创建人 <span style="color:var(--text-muted); font-weight:normal; font-size:11px;">(默认操作人)</span></label>
+                            <input type="text" id="new-creator" placeholder="如 YuanYii">
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>负责角色 *</label>
+                            <input type="hidden" id="new-assignee" value="李开发">
+                            <div class="tag-select" data-type="person" data-target="new-assignee" data-value="李开发"></div>
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>初始状态 *</label>
+                            <input type="hidden" id="new-status" value="待开始">
+                            <div class="tag-select" data-type="status" data-target="new-status" data-value="待开始"></div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <div class="form-item" style="flex:1;">
-                    <label>负责人 *</label>
-                    <input type="hidden" id="new-assignee" value="李开发">
-                    <div class="tag-select" data-type="person" data-target="new-assignee" data-value="李开发"></div>
+
+                <!-- 3. 依赖与工时 -->
+                <div class="modal-section">
+                    <div class="modal-section-title">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        依赖与工时
+                    </div>
+                    <div class="form-grid-3">
+                        <div class="form-item col-span-1">
+                            <label>前置依赖 (Pretask)</label>
+                            <input type="text" id="new-pretask" placeholder="如 T0001 (无留空)">
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>任务耗时 <span style="color:var(--text-muted); font-weight:normal; font-size:11px;">(秒，自动计算)</span></label>
+                            <input type="number" step="1" id="new-act" value="0" readonly style="background:var(--border-light, #f4f5f7); cursor:not-allowed;" placeholder="0">
+                        </div>
+                        <div class="form-item col-span-1"></div>
+                    </div>
                 </div>
-                <div class="form-item" style="flex:1;">
-                    <label>状态 *</label>
-                    <input type="hidden" id="new-status" value="待开始">
-                    <div class="tag-select" data-type="status" data-target="new-status" data-value="待开始"></div>
+
+                <!-- 4. 任务备注 -->
+                <div class="modal-section">
+                    <div class="modal-section-title">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        任务备注
+                    </div>
+                    <div class="form-item">
+                        <textarea id="new-remarks" rows="2" placeholder="选填，记录任务背景、注意事项或交付物要求..."></textarea>
+                    </div>
                 </div>
-            </div>
-            <div class="form-item">
-                <label>任务耗时 <span style="color:var(--text-muted); font-weight:normal;">(选填，流转至已完成时将自动计算)</span></label>
-                <input type="number" step="1" id="new-act" value="0" placeholder="默认自动计算(秒)">
-            </div>
-            <div class="form-item">
-                <label>过程描述 / 备注</label>
-                <textarea id="new-desc" rows="3" placeholder="任务过程及备注信息..."></textarea>
             </div>
             <div class="modal-actions">
                 <button class="btn" onclick="closeAddModal()">取消</button>
@@ -315,7 +380,7 @@
 
     <!-- Modal for Task Details & Audit Log Traceability -->
     <div class="modal-overlay" id="detail-modal">
-        <div class="modal" style="max-width: 680px; width: 90%;">
+        <div class="modal" style="max-width: 680px; width: 92%;">
             <div class="modal-header">
                 <span id="detail-modal-title" style="font-weight:700; display:flex; align-items:center; gap:6px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -345,50 +410,97 @@
             </div>
 
             <!-- Edit Mode Form Container (Hidden by Default) -->
-            <div id="detail-edit-container" style="display:none; flex-direction:column; gap:10px;">
-                <div style="display:flex; gap:10px;">
-                    <div class="form-item" style="flex:1;">
-                        <label>任务编号</label>
-                        <input type="text" id="edit-id" readonly style="background:#f4f5f7;">
+            <div id="detail-edit-container" class="modal-form-body" style="display:none;">
+                <!-- 1. 基本信息 -->
+                <div class="modal-section">
+                    <div class="modal-section-title">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        基本信息
                     </div>
-                    <div class="form-item" style="flex:1;">
-                        <label>序号</label>
-                        <input type="text" id="edit-seq" readonly style="background:#f4f5f7;">
+                    <div class="form-grid-3">
+                        <div class="form-item col-span-1">
+                            <label>任务编号</label>
+                            <input type="text" id="edit-id" readonly style="background:var(--border-light, #f4f5f7);">
+                        </div>
+                        <div class="form-item col-span-2">
+                            <label>任务名称 *</label>
+                            <input type="text" id="edit-name" placeholder="请输入任务名称">
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>所属阶段 (Stage)</label>
+                            <select id="edit-stage">
+                                <option value="S1 需求分析">S1 需求分析</option>
+                                <option value="S2 架构设计">S2 架构设计</option>
+                                <option value="S3 详细设计">S3 详细设计</option>
+                                <option value="S4 编码实现">S4 编码实现</option>
+                                <option value="S5 单元测试">S5 单元测试</option>
+                                <option value="S6 工作流集成测试">S6 工作流集成测试</option>
+                                <option value="S7 文档与发布">S7 文档与发布</option>
+                            </select>
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>工作包编号 (WP)</label>
+                            <input type="text" id="edit-wp">
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>WBS 架构编号</label>
+                            <input type="text" id="edit-wbs">
+                        </div>
                     </div>
                 </div>
-                <div class="form-item">
-                    <label>任务名称 *</label>
-                    <input type="text" id="edit-name">
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <div class="form-item" style="flex:1;">
-                        <label>阶段名称 / 工作包</label>
-                        <input type="text" id="edit-wp">
+
+                <!-- 2. 角色与状态 -->
+                <div class="modal-section">
+                    <div class="modal-section-title">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        角色与状态
                     </div>
-                    <div class="form-item" style="flex:1;">
-                        <label>WBS 编号</label>
-                        <input type="text" id="edit-wbs">
-                    </div>
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <div class="form-item" style="flex:1;">
-                        <label>负责人</label>
-                        <input type="hidden" id="edit-assignee" value="李开发">
-                        <div class="tag-select" data-type="person" data-target="edit-assignee" data-value="李开发"></div>
-                    </div>
-                    <div class="form-item" style="flex:1;">
-                        <label>当前状态</label>
-                        <input type="hidden" id="edit-status" value="待开始">
-                        <div class="tag-select" data-type="status" data-target="edit-status" data-value="待开始"></div>
+                    <div class="form-grid-3">
+                        <div class="form-item col-span-1">
+                            <label>创建人</label>
+                            <input type="text" id="edit-creator" readonly style="background:var(--border-light, #f4f5f7); cursor:not-allowed;" placeholder="创建人姓名">
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>负责角色 *</label>
+                            <input type="hidden" id="edit-assignee" value="李开发">
+                            <div class="tag-select" data-type="person" data-target="edit-assignee" data-value="李开发"></div>
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>当前状态 *</label>
+                            <input type="hidden" id="edit-status" value="待开始">
+                            <div class="tag-select" data-type="status" data-target="edit-status" data-value="待开始"></div>
+                        </div>
                     </div>
                 </div>
-                <div class="form-item">
-                    <label>任务耗时 <span style="color:var(--text-muted); font-weight:normal;">(秒)</span></label>
-                    <input type="number" step="1" id="edit-act" placeholder="耗时秒数">
+
+                <!-- 3. 依赖与工时 -->
+                <div class="modal-section">
+                    <div class="modal-section-title">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        依赖与工时
+                    </div>
+                    <div class="form-grid-3">
+                        <div class="form-item col-span-1">
+                            <label>前置依赖 (Pretask)</label>
+                            <input type="text" id="edit-pretask" placeholder="前置任务ID">
+                        </div>
+                        <div class="form-item col-span-1">
+                            <label>任务耗时 <span style="color:var(--text-muted); font-weight:normal; font-size:11px;">(秒，系统自动计算)</span></label>
+                            <input type="number" step="1" id="edit-act" readonly style="background:var(--border-light, #f4f5f7); cursor:not-allowed;" placeholder="耗时秒数">
+                        </div>
+                        <div class="form-item col-span-1"></div>
+                    </div>
                 </div>
-                <div class="form-item">
-                    <label>过程描述 / 备注 / 验证结论</label>
-                    <textarea id="edit-process" rows="4"></textarea>
+
+                <!-- 4. 任务备注 -->
+                <div class="modal-section">
+                    <div class="modal-section-title">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        任务备注
+                    </div>
+                    <div class="form-item">
+                        <textarea id="edit-remarks" rows="2" placeholder="选填，记录任务背景、注意事项或交付物要求..."></textarea>
+                    </div>
                 </div>
             </div>
 
@@ -482,10 +594,10 @@
 
     <!-- Toast Notifications Container -->
     <div class="toast-container" id="toast-container"></div>
-    <script src="js/util.js?v=20260824_v7"></script>
-    <script src="js/data.js?v=20260824_v7"></script>
-    <script src="js/listbox.js?v=20260824_v7"></script>
-    <script src="js/board.js?v=20260824_v7"></script>
-    <script src="js/app.js?v=20260824_v7"></script>
+    <script src="js/util.js?v=20260825_v1"></script>
+    <script src="js/data.js?v=20260825_v1"></script>
+    <script src="js/listbox.js?v=20260825_v1"></script>
+    <script src="js/board.js?v=20260825_v1"></script>
+    <script src="js/app.js?v=20260825_v1"></script>
 </body>
 </html>
