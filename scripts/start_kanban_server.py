@@ -396,19 +396,19 @@ def _parse_flexible_dt(val: Any) -> Optional[datetime]:
     return None
 
 
-def _extract_duration_seconds(card: dict) -> float:
+def _extract_duration_seconds(card: dict) -> Optional[float]:
     """提取卡片实际耗时（秒数）：
-    1. 优先解析 act_hours
-    2. 若为 0/缺失，从 process 日志中提取首次【进行中】至【已完成】时间差秒数
+    口径：与前端 board.js computeCardDuration 严格保持一致：
+    1. 仅对【已完成】或【已验收】的任务计算闭环耗时；在途与未完成任务一律返回 None (显示 '-')
+    2. 优先从 process 审计日志中提取首次【进行中】至【已完成】的时间跨度（严格不含【已验收】）
     3. 兜底从 end_date - start_date 提取秒数
-    4. 在途任务返回 0.0
+    4. 兜底解析已有 act_hours 字段
     """
-    raw_act = card.get("act_hours")
-    if raw_act is not None and str(raw_act).strip() not in ("", "-", "0", "0.0"):
-        sec = _parse_duration_seconds(raw_act)
-        if sec > 0:
-            return sec
+    status = str(card.get("status") or "").strip()
+    if status not in ("已完成", "已验收"):
+        return None
 
+    # 1. 优先从 process 时间线提取首次【进行中】至【已完成】
     proc = str(card.get("process") or "")
     if proc:
         in_prog_ts = None
@@ -426,17 +426,25 @@ def _extract_duration_seconds(card: dict) -> float:
                     if comp_ts is None or dt > comp_ts:
                         comp_ts = dt
         if in_prog_ts and comp_ts and comp_ts >= in_prog_ts:
-            return (comp_ts - in_prog_ts).total_seconds()
+            return float((comp_ts - in_prog_ts).total_seconds())
 
+    # 2. 兜底从 end_date - start_date
     s_date = str(card.get("start_date") or "")
     e_date = str(card.get("end_date") or "")
     if s_date and e_date:
         s_dt = _parse_flexible_dt(s_date)
         e_dt = _parse_flexible_dt(e_date)
         if s_dt and e_dt and e_dt >= s_dt:
-            return (e_dt - s_dt).total_seconds()
+            return float((e_dt - s_dt).total_seconds())
 
-    return 0.0
+    # 3. 兜底从 act_hours 解析
+    raw_act = card.get("act_hours")
+    if raw_act is not None and str(raw_act).strip() not in ("", "-", "0", "0.0"):
+        sec = _parse_duration_seconds(raw_act)
+        if sec > 0:
+            return float(sec)
+
+    return None
 
 
 def check_and_warn_date_compliance(card: dict) -> bool:
@@ -452,10 +460,23 @@ def check_and_warn_date_compliance(card: dict) -> bool:
     return is_compliant
 
 
-def _sort_key(card: dict, field: str):
-    """排序键提取：数值字段按数值比较（est_hours/act_hours/seq/id），日期与字符串字段按字典序"""
+def _sort_key(card: dict, field: str, order: str = "asc"):
+    """排序键提取：
+    - act_hours 遵循 NULLS LAST 规则：无论升降序，无耗时任务一律排在末尾；有耗时任务按数值排序
+    - 数值字段 (est_hours/seq/id) 按数值比较
+    - 日期与字符串字段按字典序比较
+    """
     if field == "act_hours":
-        return _extract_duration_seconds(card)
+        dur = _extract_duration_seconds(card)
+        has_dur = (dur is not None and dur >= 0)
+        seq = int(card.get("seq") or 0)
+        if order == "asc":
+            # 升序 (reverse=False): (0, 耗时小->大) 在前, (1, seq小->大) 在后 (NULLS LAST)
+            return (0 if has_dur else 1, dur if has_dur else 0.0, seq)
+        else:
+            # 降序 (reverse=True): (1, 耗时大->小) 在前, (0, -seq) 在后 (NULLS LAST)
+            return (1 if has_dur else 0, dur if has_dur else 0.0, -seq)
+
     if field == "est_hours":
         try:
             return float(card.get(field) or 0)
@@ -618,13 +639,13 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             if creator_filter:
                 filtered = [c for c in filtered if c.get("creator") == creator_filter]
             if start_from:
-                filtered = [c for c in filtered if str(c.get("start_date") or c.get("start_time") or "")[:10] >= start_from]
+                filtered = [c for c in filtered if (str(c.get("start_date") or c.get("start_time") or "").strip()[:10] and str(c.get("start_date") or c.get("start_time") or "").strip()[:10] >= start_from)]
             if start_to:
-                filtered = [c for c in filtered if str(c.get("start_date") or c.get("start_time") or "")[:10] <= start_to]
+                filtered = [c for c in filtered if (str(c.get("start_date") or c.get("start_time") or "").strip()[:10] and str(c.get("start_date") or c.get("start_time") or "").strip()[:10] <= start_to)]
             if end_from:
-                filtered = [c for c in filtered if str(c.get("end_date") or c.get("end_time") or "")[:10] >= end_from]
+                filtered = [c for c in filtered if (str(c.get("end_date") or c.get("end_time") or "").strip()[:10] and str(c.get("end_date") or c.get("end_time") or "").strip()[:10] >= end_from)]
             if end_to:
-                filtered = [c for c in filtered if str(c.get("end_date") or c.get("end_time") or "")[:10] <= end_to]
+                filtered = [c for c in filtered if (str(c.get("end_date") or c.get("end_time") or "").strip()[:10] and str(c.get("end_date") or c.get("end_time") or "").strip()[:10] <= end_to)]
             if keyword:
                 kw = keyword.lower()
                 filtered = [
@@ -651,7 +672,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             if order not in ORDER_WHITELIST:
                 self._send_json_resp(400, f"非法排序方向 order=[{order}]，支持: asc,desc", None, http_status=400)
                 return
-            filtered = sorted(filtered, key=lambda c: _sort_key(c, sort), reverse=(order == "desc"))
+            filtered = sorted(filtered, key=lambda c: _sort_key(c, sort, order), reverse=(order == "desc"))
 
             # ---- 分页参数解析 ----
             # 契约：省略 page/size 或 size=all → 全量命中集（看板视图）；
@@ -1352,10 +1373,14 @@ def _write_runtime_file(port: int, fingerprint: str):
     """落盘运行时信息，供人工排障与后续工具查询（不做启动快速路径）"""
     try:
         os.makedirs(os.path.dirname(KANBAN_RUNTIME_FILE), exist_ok=True)
+        local_ip = get_local_ip()
         payload = {
             "port": port,
             "pid": os.getpid(),
             "fingerprint": fingerprint,
+            "data_root": _DATA_ROOT,
+            "url": f"http://127.0.0.1:{port}/",
+            "lan_url": f"http://{local_ip}:{port}/",
             "started_at": datetime.now().isoformat(),
         }
         with open(KANBAN_RUNTIME_FILE, "w", encoding="utf-8") as f:
@@ -1370,6 +1395,33 @@ def _remove_runtime_file():
             os.remove(KANBAN_RUNTIME_FILE)
     except Exception:
         pass
+
+
+def resolve_running_kanban(data_root: str = _DATA_ROOT) -> dict | None:
+    """查找属于指定 data_root 的正在运行的看板实例，严格比对指纹与 data_root。"""
+    expected_fingerprint = compute_project_fingerprint(data_root)
+
+    # 1. 优先查 runtime 文件
+    runtime_file = os.path.join(data_root, "user_data", "kanban_server.json")
+    if os.path.exists(runtime_file):
+        try:
+            with open(runtime_file, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            port = meta.get("port")
+            if port and _port_listening(port):
+                health = _query_health(port)
+                if health and health.get("fingerprint") == expected_fingerprint and health.get("data_root") == data_root:
+                    return health
+        except Exception:
+            pass
+
+    # 2. 扫描候选端口 32886..32905
+    for port in range(DEFAULT_PORT, DEFAULT_PORT + PROBE_RANGE + 1):
+        if _port_listening(port):
+            health = _query_health(port)
+            if health and health.get("fingerprint") == expected_fingerprint and health.get("data_root") == data_root:
+                return health
+    return None
 
 
 def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool = False):
@@ -1434,7 +1486,28 @@ def main():
     parser.add_argument("--port", type=int, default=None,
                         help=f"固定服务端口 (默认: 环境变量 KANBAN_PORT 或 {DEFAULT_PORT}+自动探测)")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="监听 Host (默认: 0.0.0.0)")
+    parser.add_argument("--status", action="store_true", help="查询当前项目绑定的看板服务运行状态与访问直达链接")
     args = parser.parse_args()
+
+    if args.status:
+        running = resolve_running_kanban(_DATA_ROOT)
+        if running:
+            port = running.get("port")
+            pid = running.get("pid")
+            local_ip = get_local_ip()
+            print("\n" + "=" * 70)
+            print(f"[RUNNING] ✅ 本项目专属看板服务正在运行中")
+            print(f" 进程 PID   : {pid}")
+            print(f" 绑定端口   : {port}")
+            print(f" 数据根目录 : {running.get('data_root')}")
+            print(f" 本地直达   : http://127.0.0.1:{port}/")
+            if local_ip != "127.0.0.1":
+                print(f" 局域网地址 : http://{local_ip}:{port}/")
+            print("=" * 70 + "\n")
+            sys.exit(0)
+        else:
+            print("\n[STOPPED] ⚪ 本项目专属看板服务当前未运行\n")
+            sys.exit(1)
 
     env_port = os.environ.get("KANBAN_PORT", "").strip()
     if args.port is not None:

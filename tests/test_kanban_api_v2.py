@@ -221,6 +221,32 @@ class TestApiTasksFilter:
         assert r["data"]["total"] == 4
         assert all(c["wp"] == "WP-测试" for c in r["data"]["items"])
 
+    def test_07b_date_range_filters(self, server):
+        """用例 7b: start_from/start_to/end_from/end_to 日期范围过滤"""
+        cards = [
+            _mk_card("T0001", start="2026-08-01", end="2026-08-05"),
+            _mk_card("T0002", start="2026-08-10", end="2026-08-15"),
+            _mk_card("T0003", start="2026-08-20", end="2026-08-25"),
+            _mk_card("T0004", start="", end=""),  # 空日期卡片
+        ]
+        _seed_cards(server, cards)
+
+        # 1. start_from 过滤
+        _, r1 = _api(server, "GET", "/api/tasks?start_from=2026-08-10")
+        assert [c["id"] for c in r1["data"]["items"]] == ["T0002", "T0003"]
+
+        # 2. start_to 过滤 (空日期必须被排除)
+        _, r2 = _api(server, "GET", "/api/tasks?start_to=2026-08-10")
+        assert [c["id"] for c in r2["data"]["items"]] == ["T0001", "T0002"]
+
+        # 3. 闭区间范围过滤
+        _, r3 = _api(server, "GET", "/api/tasks?start_from=2026-08-05&start_to=2026-08-15")
+        assert [c["id"] for c in r3["data"]["items"]] == ["T0002"]
+
+        # 4. end_from & end_to 过滤
+        _, r4 = _api(server, "GET", "/api/tasks?end_from=2026-08-15&end_to=2026-08-30")
+        assert [c["id"] for c in r4["data"]["items"]] == ["T0002", "T0003"]
+
 
 # ===============================================================
 # 用例 8-14: 搜索 / 空结果 / 非法参数 400
@@ -627,16 +653,24 @@ class TestMatrixAndEdgeCases:
         assert starts == ["2026-08-01", "2026-08-02", "2026-08-03"]
 
     def test_44_sort_by_act_hours_numeric(self, server):
-        """用例 44: act_hours 数值排序（确保 10.0 > 2.0 而非字符串比较）"""
+        """用例 44: act_hours 数值排序与 NULLS LAST 机制（已完成任务数值排序，未完成任务沉底）"""
         cards = [
-            _mk_card("T0001", act=2.0),
-            _mk_card("T0002", act=10.0),
-            _mk_card("T0003", act=1.5),
+            _mk_card("T0001", status="已完成", act=2.0),
+            _mk_card("T0002", status="已完成", act=10.0),
+            _mk_card("T0003", status="已完成", act=1.5),
+            _mk_card("T0004", status="待开始", act=0.0),
         ]
         _seed_cards(server, cards)
+        # 升序: 1.5 -> 2.0 -> 10.0 -> T0004 (未完成/无耗时沉底)
         _, r = _api(server, "GET", "/api/tasks?sort=act_hours&order=asc&size=all")
-        acts = [c["act_hours"] for c in r["data"]["items"]]
-        assert acts == [1.5, 2.0, 10.0]
+        items = r["data"]["items"]
+        assert [c["id"] for c in items] == ["T0003", "T0001", "T0002", "T0004"]
+        assert [c["act_hours"] for c in items[:3]] == [1.5, 2.0, 10.0]
+
+        # 降序: 10.0 -> 2.0 -> 1.5 -> T0004 (未完成/无耗时沉底)
+        _, r_desc = _api(server, "GET", "/api/tasks?sort=act_hours&order=desc&size=all")
+        items_desc = r_desc["data"]["items"]
+        assert [c["id"] for c in items_desc] == ["T0002", "T0001", "T0003", "T0004"]
 
     def test_45_role_name_normalization_in_create(self, server):
         """用例 45: 创建任务时传入角色代号 (如 'dev') 自动归一化为中文名 '李开发'"""
