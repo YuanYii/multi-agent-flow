@@ -15,6 +15,8 @@ import hashlib
 import tempfile
 import argparse
 import socket
+import secrets
+import hmac
 import urllib.request
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, unquote
@@ -31,6 +33,7 @@ DEFAULT_PORT = 32886
 PROBE_RANGE = 20
 SERVICE_NAME = "multi-agent-flow-kanban"
 HEALTH_API_VERSION = 1
+ACTIVE_MASTER_TOKEN = secrets.token_hex(16)
 
 
 def get_local_ip() -> str:
@@ -89,6 +92,7 @@ SERVER_STATE = {
     "port": None,
     "pid": os.getpid(),
     "data_root": "",
+    "master_token": ACTIVE_MASTER_TOKEN,
 }
 
 
@@ -515,27 +519,91 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=KANBAN_DIR, **kwargs)
 
     def end_headers(self):
-        # 统一追加跨域与防强缓存响应头（仅对本地回环源或无 Origin 场景响应 CORS）
+        # 统一追加跨域与防强缓存响应头（放行本地回环、同源 Host 或无 Origin 场景）
         origin = self.headers.get("Origin", "")
+        host = self.headers.get("Host", "")
         if origin:
-            if origin == "null" or re.match(r"^https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$", origin):
+            if (
+                origin == "null"
+                or (host and (origin == f"http://{host}" or origin == f"https://{host}"))
+                or re.match(r"^https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$", origin)
+            ):
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Access-Control-Allow-Credentials", "true")
+            else:
+                self.send_header("Access-Control-Allow-Origin", "*")
         else:
             self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, If-Match, X-Board-Version")
+        self.send_header(
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization, If-Match, X-Board-Version, X-Master-Token, X-Device-Name"
+        )
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
         super().end_headers()
 
     def _is_untrusted_origin(self) -> bool:
-        """校验 Origin，防止外部非本地网页发起跨站请求伪造 (CSRF) 篡改看板数据"""
+        """校验 Origin，防止外部跨站请求伪造 (CSRF) 篡改看板数据，放行回环请求与同源 Host 请求"""
         origin = self.headers.get("Origin", "")
         if not origin or origin == "null":
             return False
+        host = self.headers.get("Host", "")
+        if host and (origin == f"http://{host}" or origin == f"https://{host}"):
+            return False
         return not bool(re.match(r"^https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$", origin))
+
+    def _is_master_authorized(self) -> bool:
+        """校验当前请求是否持有合法的主控权限 Token (支持 X-Master-Token, Authorization: Bearer, URL ?token=)"""
+        # 1. Header: X-Master-Token
+        token = self.headers.get("X-Master-Token", "").strip()
+
+        # 2. Header: Authorization: Bearer <token>
+        if not token:
+            auth = self.headers.get("Authorization", "").strip()
+            if auth.startswith("Bearer "):
+                token = auth[7:].strip()
+
+        # 3. URL Query Parameter: ?token=<token>
+        if not token:
+            try:
+                parsed = urlparse(self.path)
+                q = parse_qs(parsed.query)
+                token = (q.get("token", [""])[0] or "").strip()
+            except Exception:
+                token = ""
+
+        if token and hmac.compare_digest(token, ACTIVE_MASTER_TOKEN):
+            return True
+        return False
+
+    def resolve_client_device_name(self) -> str:
+        """非阻塞轻量解析操作终端设备信息（IP + X-Device-Name + UA 平台，三态身份标记）"""
+        custom_device = (self.headers.get("X-Device-Name") or "").strip()
+        if custom_device:
+            try:
+                from urllib.parse import unquote
+                custom_device = unquote(custom_device)
+            except Exception:
+                pass
+        client_ip = self.client_address[0] if hasattr(self, "client_address") and self.client_address else "127.0.0.1"
+        ua = self.headers.get("User-Agent", "") or ""
+
+        os_hint = "macOS" if "Mac" in ua else ("Windows" if "Windows" in ua else ("Linux" if "Linux" in ua else ("iPhone" if "iPhone" in ua else ("Android" if "Android" in ua else "Terminal"))))
+        browser_hint = "Chrome" if "Chrome" in ua else ("Safari" if "Safari" in ua else ("Firefox" if "Firefox" in ua else ("Edge" if "Edg" in ua else "")))
+        env_hint = f"{os_hint} {browser_hint}".strip()
+
+        is_master = self._is_master_authorized()
+        if client_ip in ("127.0.0.1", "::1", "localhost"):
+            device_tag = "主控宿主机"
+        elif is_master:
+            device_tag = "主控远端"
+        else:
+            device_tag = "远端终端"
+
+        desc = custom_device or env_hint or "Web"
+        return f"{device_tag} ({client_ip} / {desc})"
 
     def do_OPTIONS(self):
         self.send_response(200)
@@ -739,12 +807,21 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 6. REST API: GET /api/version (board.json 版本哈希，供前端轮询与乐观锁)
         if path == "/api/version":
-            self._send_json_resp(200, "success", {"v": compute_board_version()})
+            is_master = self._is_master_authorized()
+            device_name = self.resolve_client_device_name()
+            self._send_json_resp(200, "success", {
+                "v": compute_board_version(),
+                "is_master": is_master,
+                "client_device": device_name
+            })
             return
 
         # 7. REST API: GET /api/health (实例健康与项目指纹，供端口复用判定)
         if path == "/api/health":
-            self._send_json_resp(200, "success", dict(SERVER_STATE))
+            health_data = dict(SERVER_STATE)
+            health_data["is_master"] = self._is_master_authorized()
+            health_data["client_device"] = self.resolve_client_device_name()
+            self._send_json_resp(200, "success", health_data)
             return
 
         # 8. 静态资源 Range 请求支持（音视频拖动/断点续传）
@@ -833,6 +910,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 1. 向后兼容：POST /board.json (全量数组落盘)
         if path in ("/board.json", "/user_data/board.json", "/api/save_board"):
+            if not self._is_master_authorized():
+                self._send_json_resp(
+                    403,
+                    "全量导入或覆写数据需主控权限，请携带主控 Token 访问",
+                    {"error_type": "FORBIDDEN_MASTER_REQUIRED"},
+                    http_status=403
+                )
+                return
+
             if not isinstance(body_data, list):
                 self._send_json_resp(400, "载荷必须为任务卡片数组", None, http_status=400)
                 return
@@ -848,6 +934,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 2. REST API: POST /api/tasks 或 /api/cards (创建新任务，支持排他锁自增 ID)
         if path in ("/api/tasks", "/api/cards"):
+            if not self._is_master_authorized():
+                self._send_json_resp(
+                    403,
+                    "新建任务需主控权限，请携带主控 Token 访问",
+                    {"error_type": "FORBIDDEN_MASTER_REQUIRED"},
+                    http_status=403
+                )
+                return
+
             if not isinstance(body_data, dict):
                 self._send_json_resp(400, "请求体必须为 JSON 对象", None, http_status=400)
                 return
@@ -903,14 +998,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 }
                 check_and_warn_date_compliance(new_card)
 
+                device_info = self.resolve_client_device_name()
                 node_id = f"{new_id}-N01"
                 init_process = body_data.get("process") or \
-                    f"[{node_id}]  [{now_str}]  建单并进入【{status}】，操作人: {assignee}" + \
+                    f"[{node_id}]  [{now_str}]  建单并进入【{status}】 | 操作人: {assignee} | 终端: {device_info}" + \
                     (f"\n操作说明: {remarks}" if remarks else "")
                 new_card["process"] = init_process
 
                 cards.append(new_card)
-                append_audit_log(new_id, "PM", "无", status, assignee, f"创建任务: {name}")
+                append_audit_log(new_id, "PM", "无", status, assignee, f"[{device_info}] 创建任务: {name}")
                 return True, 200, f"成功创建任务 {new_id}", new_card
 
             code, msg, data = atomic_mutate_board_data(_mutate_create, expected_version=expected_v)
@@ -919,6 +1015,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 3. REST API: POST /api/tasks/batch-delete 或 /api/cards/batch-delete (批量删除)
         if path in ("/api/tasks/batch-delete", "/api/cards/batch-delete"):
+            if not self._is_master_authorized():
+                self._send_json_resp(
+                    403,
+                    "批量删除任务需主控权限，请携带主控 Token 访问",
+                    {"error_type": "FORBIDDEN_MASTER_REQUIRED"},
+                    http_status=403
+                )
+                return
+
             if not isinstance(body_data, dict) or ("task_ids" not in body_data and "ids" not in body_data):
                 self._send_json_resp(400, "缺少 task_ids 或 ids 列表", None, http_status=400)
                 return
@@ -927,13 +1032,14 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             task_ids_to_del = set(raw_ids)
 
             def _mutate_batch_del(cards):
+                device_info = self.resolve_client_device_name()
                 initial_count = len(cards)
                 remaining = [c for c in cards if c.get("id") not in task_ids_to_del]
                 cards.clear()
                 cards.extend(remaining)
                 deleted_count = initial_count - len(cards)
                 for tid in task_ids_to_del:
-                    append_audit_log(tid, "PM", "-", "已删除", "用户", f"批量删除任务: {tid}")
+                    append_audit_log(tid, "PM", "-", "已删除", "用户", f"[{device_info}] 批量删除任务: {tid}")
                 return True, 200, f"成功删除 {deleted_count} 条任务", {
                     "deleted_count": deleted_count,
                     "deleted": deleted_count,
@@ -955,6 +1061,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             target_status = body_data.get("target_status") or body_data.get("to_status") or body_data.get("status")
             if not target_status:
                 self._send_json_resp(400, "缺少 target_status 目标状态", None, http_status=400)
+                return
+
+            if target_status in ("已验收", "已取消") and not self._is_master_authorized():
+                self._send_json_resp(
+                    403,
+                    f"流转至【{target_status}】终态需主控权限，请携带主控 Token 访问",
+                    {"error_type": "FORBIDDEN_MASTER_REQUIRED", "target_status": target_status},
+                    http_status=403
+                )
                 return
 
             operator_name = normalize_role_name(body_data.get("operator_name") or body_data.get("operator")) or get_default_operator()
@@ -1041,6 +1156,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 1. REST API: PUT /api/tasks/reorder 或 /api/cards/reorder (拖拽卡片重排序)
         if path in ("/api/tasks/reorder", "/api/cards/reorder"):
+            if not self._is_master_authorized():
+                self._send_json_resp(
+                    403,
+                    "调整任务显示排序需主控权限，请携带主控 Token 访问",
+                    {"error_type": "FORBIDDEN_MASTER_REQUIRED"},
+                    http_status=403
+                )
+                return
+
             if not isinstance(body_data, dict) or ("ordered_task_ids" not in body_data and "ordered_ids" not in body_data):
                 self._send_json_resp(400, "缺少 ordered_task_ids 或 ordered_ids", None, http_status=400)
                 return
@@ -1064,6 +1188,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 2. REST API: PUT /api/board/meta 或 /api/preferences (更新偏好配置与标题)
         if path in ("/api/board/meta", "/api/preferences"):
+            if not self._is_master_authorized():
+                self._send_json_resp(
+                    403,
+                    "修改看板偏好与标题需主控权限，请携带主控 Token 访问",
+                    {"error_type": "FORBIDDEN_MASTER_REQUIRED"},
+                    http_status=403
+                )
+                return
+
             if not isinstance(body_data, dict):
                 self._send_json_resp(400, "请求体必须为 JSON 对象", None, http_status=400)
                 return
@@ -1088,6 +1221,23 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 card = next((c for c in cards if c.get("id") == task_id), None)
                 if not card:
                     return False, 404, f"未找到任务 [{task_id}]", None
+
+                # 非主控权限字段级差量防护：仅允许修改 act_hours, remarks, handler
+                if not self._is_master_authorized():
+                    protected_fields = [
+                        "name", "stage", "wp", "wbs", "assignee", "status",
+                        "est_hours", "start_date", "end_date"
+                    ]
+                    for k in protected_fields:
+                        if k in body_data:
+                            val = body_data[k]
+                            if k == "est_hours":
+                                val = _parse_duration_seconds(val)
+                            if val != card.get(k):
+                                return False, 403, f"非主控设备无权修改核心字段 [{k}]，请携带主控 Token 访问", {
+                                    "error_type": "FORBIDDEN_MASTER_REQUIRED",
+                                    "field": k
+                                }
 
                 old_status = card.get("status", "待开始")
                 old_assignee = card.get("assignee", "未分配")
@@ -1130,9 +1280,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
                 check_and_warn_date_compliance(card)
 
+                device_info = self.resolve_client_device_name()
+
                 # 若客户端未显式覆盖 process，但修改了负责人、处理人或状态，自动追加结构化流转记录节点
                 if "process" not in body_data:
-                    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     operator_name = normalize_role_name(body_data.get("operator_name") or body_data.get("operator") or body_data.get("creator")) or get_default_operator()
                     comment = (body_data.get("comment") or body_data.get("note") or body_data.get("remarks") or "").strip()
 
@@ -1143,7 +1294,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     added_logs = []
                     if "status" in updated_keys and new_status != old_status:
                         node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
-                        log_text = f"[{node_id}]  [{now_str}]  状态由【{old_status}】更新至【{new_status}】，操作人: {operator_name}"
+                        log_text = f"[{node_id}]  [{now_str}]  状态由【{old_status}】更新至【{new_status}】 | 操作人: {operator_name} | 终端: {device_info}"
                         if comment:
                             log_text += f"\n操作说明: {comment}"
                         added_logs.append(log_text)
@@ -1152,14 +1303,14 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
                     if "assignee" in updated_keys and new_assignee != old_assignee:
                         node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
-                        log_text = f"[{node_id}]  [{now_str}]  负责人由【{old_assignee or '未分配'}】调整为【{new_assignee or '未分配'}】，操作人: {operator_name}"
+                        log_text = f"[{node_id}]  [{now_str}]  负责人由【{old_assignee or '未分配'}】调整为【{new_assignee or '未分配'}】 | 操作人: {operator_name} | 终端: {device_info}"
                         if comment and "status" not in updated_keys:
                             log_text += f"\n操作说明: {comment}"
                         added_logs.append(log_text)
 
                     if "handler" in updated_keys and new_handler != old_handler:
                         node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
-                        log_text = f"[{node_id}]  [{now_str}]  处理人由【{old_handler or '未分配'}】调整为【{new_handler or '未分配'}】，操作人: {operator_name}"
+                        log_text = f"[{node_id}]  [{now_str}]  处理人由【{old_handler or '未分配'}】调整为【{new_handler or '未分配'}】 | 操作人: {operator_name} | 终端: {device_info}"
                         if comment and "status" not in updated_keys and "assignee" not in updated_keys:
                             log_text += f"\n操作说明: {comment}"
                         added_logs.append(log_text)
@@ -1169,7 +1320,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                         card["process"] = f"{current_process}\n" + "\n".join(added_logs) if current_process else "\n".join(added_logs)
 
                 append_audit_log(task_id, "USER", old_status, card.get("status", "-"),
-                                 card.get("assignee", "用户"), f"更新任务字段: {','.join(updated_keys)}")
+                                 card.get("assignee", "用户"), f"[{device_info}] 更新任务字段: {','.join(updated_keys)}")
                 return True, 200, f"任务 {task_id} 更新成功", {
                     "id": task_id,
                     "updated_fields": updated_keys,
@@ -1191,6 +1342,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             self._send_json_resp(403, "禁止非本地跨域操作 (CSRF 拦截)", None, http_status=403)
             return
 
+        if not self._is_master_authorized():
+            self._send_json_resp(
+                403,
+                "删除任务需主控权限，请携带主控 Token 访问",
+                {"error_type": "FORBIDDEN_MASTER_REQUIRED"},
+                http_status=403
+            )
+            return
+
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
@@ -1209,13 +1369,14 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             task_id = m_task.group(1)
 
             def _mutate_del_one(cards):
+                device_info = self.resolve_client_device_name()
                 initial_len = len(cards)
                 remaining = [c for c in cards if c.get("id") != task_id]
                 if len(remaining) == initial_len:
                     return False, 404, f"未找到待删除任务 [{task_id}]", None
                 cards.clear()
                 cards.extend(remaining)
-                append_audit_log(task_id, "PM", "-", "已删除", "用户", f"删除任务: {task_id}")
+                append_audit_log(task_id, "PM", "-", "已删除", "用户", f"[{device_info}] 删除任务: {task_id}")
                 return True, 200, f"成功删除任务 {task_id}", {"deleted_id": task_id, "deleted": 1}
 
             code, msg, data = atomic_mutate_board_data(_mutate_del_one, expected_version=expected_v)
@@ -1240,13 +1401,14 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             task_ids_to_del = set(ids_list)
 
             def _mutate_del_multi(cards):
+                device_info = self.resolve_client_device_name()
                 initial_len = len(cards)
                 remaining = [c for c in cards if c.get("id") not in task_ids_to_del]
                 cards.clear()
                 cards.extend(remaining)
                 deleted_count = initial_len - len(cards)
                 for tid in task_ids_to_del:
-                    append_audit_log(tid, "PM", "-", "已删除", "用户", f"批量删除任务: {tid}")
+                    append_audit_log(tid, "PM", "-", "已删除", "用户", f"[{device_info}] 批量删除任务: {tid}")
                 return True, 200, f"成功删除 {deleted_count} 条任务", {
                     "deleted": deleted_count,
                     "deleted_count": deleted_count,
@@ -1379,8 +1541,11 @@ def _write_runtime_file(port: int, fingerprint: str):
             "pid": os.getpid(),
             "fingerprint": fingerprint,
             "data_root": _DATA_ROOT,
+            "master_token": ACTIVE_MASTER_TOKEN,
             "url": f"http://127.0.0.1:{port}/",
+            "master_url": f"http://127.0.0.1:{port}/?token={ACTIVE_MASTER_TOKEN}",
             "lan_url": f"http://{local_ip}:{port}/",
+            "lan_master_url": f"http://{local_ip}:{port}/?token={ACTIVE_MASTER_TOKEN}",
             "started_at": datetime.now().isoformat(),
         }
         with open(KANBAN_RUNTIME_FILE, "w", encoding="utf-8") as f:
@@ -1411,6 +1576,8 @@ def resolve_running_kanban(data_root: str = _DATA_ROOT) -> dict | None:
             if port and _port_listening(port):
                 health = _query_health(port)
                 if health and health.get("fingerprint") == expected_fingerprint and health.get("data_root") == data_root:
+                    if "master_token" not in health and meta.get("master_token"):
+                        health["master_token"] = meta.get("master_token")
                     return health
         except Exception:
             pass
@@ -1438,7 +1605,8 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool =
         print(f"[REUSE]  本项目看板服务已在运行 (端口: {result.port})，直接复用既有实例")
         print(f" 既有实例 PID: {result.health.get('pid', '未知')} | 启动于: {result.health.get('data_root', '')}")
         print("=" * 70)
-        print_kanban_urls(result.port, get_local_ip())
+        token = result.health.get("master_token") or ""
+        print_kanban_urls(result.port, get_local_ip(), master_token=token)
         return
 
     # probe_port 在 127.0.0.1 上试探性绑定成功；若最终要求监听其他 host，重建监听
@@ -1456,13 +1624,14 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool =
         port=result.port,
         pid=os.getpid(),
         data_root=_DATA_ROOT,
+        master_token=ACTIVE_MASTER_TOKEN,
     )
 
     _write_runtime_file(result.port, fingerprint)
     atexit.register(_remove_runtime_file)
 
     local_ip = get_local_ip()
-    print_kanban_urls(result.port, local_ip)
+    print_kanban_urls(result.port, local_ip, master_token=ACTIVE_MASTER_TOKEN)
 
     try:
         httpd.serve_forever()
@@ -1471,13 +1640,23 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool =
         httpd.server_close()
 
 
-def print_kanban_urls(port: int, local_ip: str):
+def print_kanban_urls(port: int, local_ip: str, master_token: str = ""):
+    token = master_token or ACTIVE_MASTER_TOKEN
     print("\n" + "=" * 70)
-    print(f"[START]  Multi-Agent Flow 看板 Web 服务已就绪 (端口: {port})")
-    print("=" * 70)
-    print(f" 本地 Web 访问直达: http://127.0.0.1:{port}/")
+    print(f"[START] ✅ Multi-Agent Flow 看板 Web 服务已就绪 (端口: {port})")
+    print(f" 进程 PID   : {os.getpid()}")
+    print(f" 绑定端口   : {port}")
+    print(f" 本地直达   : http://127.0.0.1:{port}/")
     if local_ip != "127.0.0.1":
-        print(f" 局域网访问地址    : http://{local_ip}:{port}/")
+        print(f" 局域网协作 : http://{local_ip}:{port}/ (分享给团队成员，仅协作浏览与推进)")
+    print("\n" + "-" * 70)
+    print(f" 🔑 主控权限令牌 (Master Token) :")
+    print(f" {token}")
+    print("\n ※ 权限说明:")
+    print(f"   1. 携带此 Token 访问 (如 http://127.0.0.1:{port}/?token={token})")
+    print(f"      将获得主控管理权限 (支持新建、物理删除、全量导入、修改标题与终态验收)；")
+    print(f"   2. 每次启动看板均生成全新动态 Token，重启后旧 Token 自动失效；")
+    print(f"   3. 主控若需向其他协作者授予管理权限，可直接复制带 Token 的完整链接发送给对方。")
     print("=" * 70 + "\n")
 
 
@@ -1494,6 +1673,13 @@ def main():
         if running:
             port = running.get("port")
             pid = running.get("pid")
+            token = running.get("master_token") or ""
+            if not token and os.path.exists(KANBAN_RUNTIME_FILE):
+                try:
+                    with open(KANBAN_RUNTIME_FILE, "r", encoding="utf-8") as f:
+                        token = json.load(f).get("master_token") or ""
+                except Exception:
+                    pass
             local_ip = get_local_ip()
             print("\n" + "=" * 70)
             print(f"[RUNNING] ✅ 本项目专属看板服务正在运行中")
@@ -1502,7 +1688,14 @@ def main():
             print(f" 数据根目录 : {running.get('data_root')}")
             print(f" 本地直达   : http://127.0.0.1:{port}/")
             if local_ip != "127.0.0.1":
-                print(f" 局域网地址 : http://{local_ip}:{port}/")
+                print(f" 局域网协作 : http://{local_ip}:{port}/ (分享给团队成员，仅协作浏览与推进)")
+            if token:
+                print("\n" + "-" * 70)
+                print(f" 🔑 主控权限令牌 (Master Token) :")
+                print(f" {token}")
+                print("\n ※ 权限说明:")
+                print(f"   1. 携带此 Token 访问 (如 http://127.0.0.1:{port}/?token={token}) 将获得主控权限；")
+                print(f"   2. 每次启动看板均生成全新动态 Token，重启后旧 Token 自动失效。")
             print("=" * 70 + "\n")
             sys.exit(0)
         else:

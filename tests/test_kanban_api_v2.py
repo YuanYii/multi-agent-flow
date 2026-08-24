@@ -82,7 +82,7 @@ def _free_port() -> int:
     return port
 
 
-def _api(server, method: str, path: str, body=None, headers=None) -> dict:
+def _api(server, method: str, path: str, body=None, headers=None, auth: bool = True) -> tuple:
     """HTTP 请求助手：返回 (status, parsed_json)；path 中的中文自动 URL 编码"""
     import urllib.request
     import urllib.error
@@ -91,8 +91,11 @@ def _api(server, method: str, path: str, body=None, headers=None) -> dict:
     encoded_path = quote(path, safe="/?=&%")
     url = f"http://127.0.0.1:{server['port']}{encoded_path}"
     data = json.dumps(body).encode("utf-8") if body is not None else None
+    h = dict(headers or {})
+    if auth and "X-Master-Token" not in h and "Authorization" not in h:
+        h["X-Master-Token"] = kanban_srv.ACTIVE_MASTER_TOKEN
     req = urllib.request.Request(url, data=data, method=method,
-                                 headers=headers or {})
+                                 headers=h)
     if data is not None and "Content-Type" not in req.headers:
         req.add_header("Content-Type", "application/json")
     try:
@@ -762,3 +765,101 @@ class TestBigDataAndTeardown:
         assert s == 200
         assert r["data"]["total"] == 0
         assert r["data"]["items"] == []
+
+
+# ===============================================================
+# 用例 53-62: 局域网主控权限与并发锁安全防护测试 (Phase 3)
+# ===============================================================
+class TestMasterTokenAndSecurity:
+    def test_53_unauthenticated_post_task_returns_403(self, server):
+        """无 Token 发起 POST /api/tasks 创建任务必须被 403 拦截"""
+        _seed_cards(server, [])
+        s, r = _api(server, "POST", "/api/tasks", {"name": "越权任务"}, auth=False)
+        assert s == 403
+        assert r["code"] == 403
+        assert "主控权限" in r["message"]
+
+    def test_54_unauthenticated_delete_task_returns_403(self, server):
+        """无 Token 发起 DELETE /api/tasks/T0001 必须被 403 拦截"""
+        _seed_cards(server, [_mk_card("T0001")])
+        s, r = _api(server, "DELETE", "/api/tasks/T0001", auth=False)
+        assert s == 403
+        assert r["code"] == 403
+
+    def test_55_unauthenticated_batch_delete_returns_403(self, server):
+        """无 Token 发起 POST /api/tasks/batch-delete 必须被 403 拦截"""
+        _seed_cards(server, [_mk_card("T0001")])
+        s, r = _api(server, "POST", "/api/tasks/batch-delete", {"task_ids": ["T0001"]}, auth=False)
+        assert s == 403
+        assert r["code"] == 403
+
+    def test_56_unauthenticated_reorder_returns_403(self, server):
+        """无 Token 发起 PUT /api/tasks/reorder 必须被 403 拦截"""
+        _seed_cards(server, [_mk_card("T0001"), _mk_card("T0002")])
+        s, r = _api(server, "PUT", "/api/tasks/reorder", {"ordered_task_ids": ["T0002", "T0001"]}, auth=False)
+        assert s == 403
+        assert r["code"] == 403
+
+    def test_57_unauthenticated_board_meta_returns_403(self, server):
+        """无 Token 发起 PUT /api/board/meta 必须被 403 拦截"""
+        s, r = _api(server, "PUT", "/api/board/meta", {"title": "越权修改标题"}, auth=False)
+        assert s == 403
+        assert r["code"] == 403
+
+    def test_58_unauthenticated_legacy_bulk_save_returns_403(self, server):
+        """无 Token 发起 POST /board.json 批量覆写必须被 403 拦截"""
+        s, r = _api(server, "POST", "/board.json", [], auth=False)
+        assert s == 403
+        assert r["code"] == 403
+
+    def test_59_non_master_terminal_transition_returns_403(self, server):
+        """非主控尝试流转至【已验收】或【已取消】必须被 403 阻断"""
+        _seed_cards(server, [_mk_card("T0001", status="已完成")])
+        # 1. 尝试流转到 已验收 (无 Token)
+        s, r = _api(server, "POST", "/api/tasks/T0001/transition", {"target_status": "已验收"}, auth=False)
+        assert s == 403
+        assert "终态需主控权限" in r["message"]
+
+        # 2. 尝试流转到 已取消 (无 Token)
+        s, r = _api(server, "POST", "/api/tasks/T0001/transition", {"target_status": "已取消"}, auth=False)
+        assert s == 403
+        assert "终态需主控权限" in r["message"]
+
+        # 3. 流转至非终态（如 进行中 → 测试中）允许非主控协作者操作
+        s, r = _api(server, "POST", "/api/tasks/T0001/transition", {"target_status": "进行中"}, auth=False)
+        assert s == 200
+
+    def test_60_non_master_put_protected_fields_diff_returns_403(self, server):
+        """非主控尝试通过 PUT /api/tasks/T0001 修改任务名称/负责人/阶段必须被 403 拦截"""
+        _seed_cards(server, [_mk_card("T0001", name="原始任务名", act=1.0)])
+        # 尝试篡改任务名称
+        s, r = _api(server, "PUT", "/api/tasks/T0001", {"name": "篡改名称"}, auth=False)
+        assert s == 403
+        assert "无权修改核心字段" in r["message"]
+
+        # 尝试篡改负责人
+        s, r = _api(server, "PUT", "/api/tasks/T0001", {"assignee": "严经理"}, auth=False)
+        assert s == 403
+
+        # 修改允许的工时与备注允许通过
+        s, r = _api(server, "PUT", "/api/tasks/T0001", {"act_hours": 3.5, "remarks": "协作者更新实际工时"}, auth=False)
+        assert s == 200
+        assert r["data"]["updated_fields"] == ["act_hours", "remarks"]
+
+    def test_61_cors_preflight_and_options_headers(self, server):
+        """OPTIONS 预检请求必须允许 X-Master-Token 与 X-Device-Name 请求头"""
+        s, r = _api(server, "OPTIONS", "/api/tasks", auth=False)
+        assert s == 200
+
+    def test_62_handshake_returns_is_master_status(self, server):
+        """GET /api/version 与 /api/health 正确返回 is_master 握手状态与终端解析"""
+        # 带 Master Token
+        s, r = _api(server, "GET", "/api/version", auth=True)
+        assert s == 200
+        assert r["data"]["is_master"] is True
+        assert "主控" in r["data"]["client_device"]
+
+        # 不带 Token
+        s, r = _api(server, "GET", "/api/version", auth=False)
+        assert s == 200
+        assert r["data"]["is_master"] is False

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>多专家Agent协作任务看板</title><link rel="stylesheet" href="css/styles.css?v=20260824_v6">
+    <title>多专家Agent协作任务看板</title><link rel="stylesheet" href="css/styles.css?v=20260824_v7">
 </head>
 <body>
 
@@ -27,7 +27,8 @@
             <div class="tab" data-target="view-kanban-assignee"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 看板-按负责人</div>
             <div class="tab" data-target="view-kanban-stage"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> 看板-按阶段工作包</div>
         </div>
-        <div class="header-right" style="margin-left: auto; display: flex; align-items: center;">
+        <div class="header-right" style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+            <div id="master-mode-container" style="display:flex; align-items:center; gap:6px;"></div>
             <button class="btn" id="theme-toggle-btn" onclick="toggleTheme()" title="切换浅色/深色主题（默认按日落自动）">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                 <span id="theme-toggle-label">深色</span>
@@ -481,10 +482,10 @@
 
     <!-- Toast Notifications Container -->
     <div class="toast-container" id="toast-container"></div>
-    <script src="js/util.js?v=1.2.0"></script>
-    <script src="js/data.js?v=1.2.0"></script>
-    <script src="js/listbox.js?v=1.2.0"></script>
-    <script src="js/board.js?v=1.2.0"></script>
-    <script src="js/app.js?v=1.2.0"></script>
+    <script src="js/util.js?v=20260824_v7"></script>
+    <script src="js/data.js?v=20260824_v7"></script>
+    <script src="js/listbox.js?v=20260824_v7"></script>
+    <script src="js/board.js?v=20260824_v7"></script>
+    <script src="js/app.js?v=20260824_v7"></script>
 </body>
 </html>

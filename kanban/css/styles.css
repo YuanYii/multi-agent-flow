@@ -1648,3 +1648,58 @@
             align-items: center;
             gap: 4px;
         }
+
+        /* ==========================================================
+           Master Control vs Collaborator Permissions & Mode Badges
+           ========================================================== */
+        .badge-master-mode {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background-color: rgba(16, 185, 129, 0.12);
+            color: #059669;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            user-select: none;
+        }
+
+        .badge-collab-mode {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background-color: rgba(59, 130, 246, 0.12);
+            color: #2563eb;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            user-select: none;
+        }
+
+        .mode-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: currentColor;
+            display: inline-block;
+        }
+
+        .disabled-btn, button:disabled {
+            opacity: 0.45 !important;
+            cursor: not-allowed !important;
+            pointer-events: auto !important;
+            filter: grayscale(0.6);
+        }
+
+        .title-readonly {
+            cursor: default !important;
+        }
+
+        .title-readonly:hover {
+            outline: none !important;
+            background-color: transparent !important;
+        }

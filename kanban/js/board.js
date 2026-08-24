@@ -301,9 +301,19 @@
             if (!el) return;
             applyBoardTitle(getBoardTitle());
 
-            el.addEventListener('focus', () => { boardTitleSnapshot = (el.textContent || '').trim(); });
+            el.addEventListener('focus', () => {
+                if (window.IS_MASTER !== 1) {
+                    el.blur();
+                    return;
+                }
+                boardTitleSnapshot = (el.textContent || '').trim();
+            });
 
             el.addEventListener('keydown', (e) => {
+                if (window.IS_MASTER !== 1) {
+                    e.preventDefault();
+                    return;
+                }
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     el.blur();
@@ -697,6 +707,14 @@
 
             if (card[groupField] === colValue) return;
 
+            // 终态流转红线拦截：非主控模式下禁止直接拖拽流转至【已验收】或【已取消】
+            if (groupField === 'status' && (colValue === '已验收' || colValue === '已取消') && window.IS_MASTER === 0) {
+                if (typeof showToast === 'function') {
+                    showToast(`【${colValue}】属于主控专属终态，协作模式无权流转！`, 'warning');
+                }
+                return;
+            }
+
             let newHandler = card.handler;
             if (groupField === 'assignee') {
                 newHandler = colValue;
@@ -775,6 +793,15 @@
             appendProcessLog(card, logMsg);
             saveStorageData();
             applyFilters();
+
+            if (groupField === 'status' && typeof apiTransitionTask === 'function') {
+                apiTransitionTask(cardId, newVal, (window.__CURRENT_USER__ || '用户'), userComment).then(resp => {
+                    if (resp && resp.ok === false) {
+                        showToast(`状态流转失败: ${resp.message || resp.error}`, 'danger');
+                        fetchBackgroundData(false);
+                    }
+                });
+            }
 
             cancelTransition();
             showToast(`已成功流转 ${cardId} → ${newVal}`);
@@ -1041,12 +1068,11 @@
 
         let filterPersistTimer = null;
         function debouncedPersistFilterAndSort() {
-            persistCurrentFilterAndSortStateSync();
             if (filterPersistTimer) clearTimeout(filterPersistTimer);
             filterPersistTimer = setTimeout(() => {
                 const { filters, sort } = persistCurrentFilterAndSortStateSync();
-                if (typeof apiSaveBoardMeta === 'function') {
-                    apiSaveBoardMeta({ filters, sort });
+                if (typeof saveLocalDeviceViewPreferences === 'function') {
+                    saveLocalDeviceViewPreferences(filters, sort);
                 }
             }, 300);
         }
@@ -1214,6 +1240,9 @@
             // 2. Render both Table and Kanban initial views
             renderTable();
             renderKanbanViews();
+
+            // 3. Apply Master Control UI permissions & badges
+            applyMasterUIPermissions();
         }
 
         // Search, Filter, Sort Handlers
@@ -1306,8 +1335,8 @@
             if (typeof tablePaginationState !== 'undefined') {
                 tablePaginationState.page = 1;
             }
-            if (typeof apiSaveBoardMeta === 'function') {
-                apiSaveBoardMeta({ filters: DEFAULT_SAVED_FILTERS, sort: DEFAULT_SAVED_SORT });
+            if (typeof saveLocalDeviceViewPreferences === 'function') {
+                saveLocalDeviceViewPreferences(DEFAULT_SAVED_FILTERS, DEFAULT_SAVED_SORT);
             }
             applyFilters();
             closeAllCustomPopovers();
@@ -1822,6 +1851,7 @@
             if (editStatusInput) editStatusInput.value = card.status || '待开始';
 
             refreshModalTagSelectors();
+            syncModalFieldPermissions(card);
 
             // 2. Populate Read Mode View (Header Card & Attributes Grid)
             const headCard = document.getElementById('detail-header-card');
@@ -2309,4 +2339,145 @@
                     document.addEventListener('mouseup', onMouseUp);
                 });
             });
+        }
+
+        /* ==========================================================
+           Master Control Mode & Permission Enforcer
+           ========================================================== */
+        function applyMasterUIPermissions() {
+            const isMaster = (window.IS_MASTER === 1);
+
+            // 1. 顶部模式徽章与链接复制按钮
+            const container = document.getElementById('master-mode-container');
+            if (container) {
+                if (isMaster) {
+                    container.innerHTML = `
+                        <span class="badge-master-mode" title="当前为主控管理模式：享有全部读写、终态验收与管理权限">
+                            <span class="mode-dot"></span>主控模式
+                        </span>
+                        <button class="btn sm" onclick="copyCleanCollaboratorLink()" title="复制不含 Token 的纯净局域网链接分享给团队成员（成员打开将自动为协作模式）">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            复制协作链接
+                        </button>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <span class="badge-collab-mode" title="当前为协作者模式：支持常规流转与工时记录，高危管理操作已锁定">
+                            <span class="mode-dot"></span>协作模式
+                        </span>
+                    `;
+                }
+            }
+
+            // 2. 高危管理按钮置灰与 Tooltip 锁定
+            const addBtn = document.getElementById('add-table-record-btn');
+            if (addBtn) {
+                addBtn.disabled = !isMaster;
+                if (!isMaster) {
+                    addBtn.classList.add('disabled-btn');
+                    addBtn.title = "仅主控模式可新增任务（协作端受控锁定）";
+                } else {
+                    addBtn.classList.remove('disabled-btn');
+                    addBtn.title = "添加记录";
+                }
+            }
+
+            const importBtn = document.getElementById('import-json-btn');
+            if (importBtn) {
+                importBtn.disabled = !isMaster;
+                if (!isMaster) {
+                    importBtn.classList.add('disabled-btn');
+                    importBtn.title = "仅主控模式可导入全量 JSON 覆写看板（协作端受控锁定）";
+                } else {
+                    importBtn.classList.remove('disabled-btn');
+                    importBtn.title = "选择并载入本地 board.json 文件";
+                }
+            }
+
+            const batchDelBtn = document.getElementById('batch-delete-btn');
+            if (batchDelBtn) {
+                if (!isMaster) {
+                    batchDelBtn.disabled = true;
+                    batchDelBtn.title = "仅主控模式可执行批量删除";
+                } else {
+                    batchDelBtn.disabled = false;
+                    batchDelBtn.title = "";
+                }
+            }
+
+            // 3. 看板标题可编辑性控制
+            const titleEl = document.getElementById('board-title');
+            if (titleEl) {
+                titleEl.contentEditable = isMaster ? "true" : "false";
+                if (!isMaster) {
+                    titleEl.title = "仅主控模式可修改看板标题";
+                    titleEl.classList.add('title-readonly');
+                } else {
+                    titleEl.title = "点击可编辑标题（Enter 保存 / Esc 取消 / 清空恢复默认）";
+                    titleEl.classList.remove('title-readonly');
+                }
+            }
+
+            // 4. 表格手柄或详情弹窗权限同步
+            const activeTaskId = document.getElementById('edit-original-id') ? document.getElementById('edit-original-id').value : null;
+            if (activeTaskId) {
+                const card = (typeof rawCardsData !== 'undefined') ? rawCardsData.find(c => c.id === activeTaskId) : null;
+                if (card && typeof syncModalFieldPermissions === 'function') {
+                    syncModalFieldPermissions(card);
+                }
+            }
+        }
+
+        function syncModalFieldPermissions(card) {
+            const isMaster = (window.IS_MASTER === 1);
+
+            const editName = document.getElementById('edit-name');
+            const editWp = document.getElementById('edit-wp');
+            const editWbs = document.getElementById('edit-wbs');
+            const editAssignee = document.getElementById('edit-assignee');
+            const editStatus = document.getElementById('edit-status');
+            const deleteBtn = document.getElementById('modal-delete-task-btn');
+
+            if (editName) editName.readOnly = !isMaster;
+            if (editWp) editWp.readOnly = !isMaster;
+            if (editWbs) editWbs.readOnly = !isMaster;
+            if (editAssignee) editAssignee.disabled = !isMaster;
+
+            if (editStatus) {
+                Array.from(editStatus.options || []).forEach(opt => {
+                    if (opt.value === '已验收' || opt.value === '已取消') {
+                        opt.disabled = !isMaster;
+                        if (!isMaster && !opt.text.includes('(主控专属)')) {
+                            opt.text = opt.value + ' (主控专属)';
+                        } else if (isMaster && opt.text.includes('(主控专属)')) {
+                            opt.text = opt.value;
+                        }
+                    }
+                });
+            }
+
+            if (deleteBtn) {
+                deleteBtn.style.display = isMaster ? 'inline-flex' : 'none';
+            }
+        }
+
+        function copyCleanCollaboratorLink() {
+            try {
+                const u = new URL(window.location.href);
+                u.searchParams.delete('token');
+                const cleanUrl = u.toString();
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(cleanUrl).then(() => {
+                        if (typeof showToast === 'function') {
+                            showToast('已复制纯净协作链接到剪贴板，发送给团队成员即可协作访问！');
+                        }
+                    }).catch(() => {
+                        prompt('请复制以下协作链接分享给成员：', cleanUrl);
+                    });
+                } else {
+                    prompt('请复制以下协作链接分享给成员：', cleanUrl);
+                }
+            } catch (e) {
+                prompt('请复制以下协作链接分享给成员：', window.location.origin + window.location.pathname);
+            }
         }

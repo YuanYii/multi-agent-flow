@@ -5,6 +5,85 @@
  * Load order: util.js -> data.js -> listbox.js -> board.js -> app.js
  * ============================================================ */
 
+// 动态 Master Token 与全局权限标记 (纯从当前 URL 读取，0 缓存)
+const urlParams = new URLSearchParams(window.location.search);
+window.MASTER_TOKEN = (urlParams.get('token') || '').trim();
+window.IS_MASTER = window.MASTER_TOKEN ? 1 : 0;
+
+// 设备信息与鉴权请求头构造器
+function getClientDeviceName() {
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || "";
+    let osHint = "Web";
+    if (ua.includes("Mac")) osHint = "macOS";
+    else if (ua.includes("Windows")) osHint = "Windows";
+    else if (ua.includes("Linux")) osHint = "Linux";
+    else if (ua.includes("iPhone")) osHint = "iPhone";
+    else if (ua.includes("Android")) osHint = "Android";
+
+    let browserHint = "";
+    if (ua.includes("Chrome") && !ua.includes("Edg")) browserHint = "Chrome";
+    else if (ua.includes("Safari") && !ua.includes("Chrome")) browserHint = "Safari";
+    else if (ua.includes("Firefox")) browserHint = "Firefox";
+    else if (ua.includes("Edg")) browserHint = "Edge";
+
+    return `${osHint} ${browserHint}`.trim();
+}
+
+function getAuthHeaders(extraHeaders = {}) {
+    const headers = Object.assign({
+        'Content-Type': 'application/json'
+    }, extraHeaders);
+
+    if (window.MASTER_TOKEN) {
+        headers['X-Master-Token'] = window.MASTER_TOKEN;
+    }
+    headers['X-Device-Name'] = getClientDeviceName();
+    return headers;
+}
+
+// 权威服务端握手校准
+function syncMasterAuthStatus(serverData) {
+    if (serverData && typeof serverData.is_master === 'boolean') {
+        window.IS_MASTER = serverData.is_master ? 1 : 0;
+        if (typeof applyMasterUIPermissions === 'function') {
+            applyMasterUIPermissions();
+        }
+    }
+}
+
+// 多设备独立视图偏好存储 (筛选与排序保存在各设备本地 LocalStorage，不污染全局服务端配置)
+function loadLocalDeviceViewPreferences() {
+    try {
+        const localPrefs = localStorage.getItem('kanban_device_view_prefs');
+        if (localPrefs) {
+            const parsed = JSON.parse(localPrefs);
+            if (parsed && typeof parsed === 'object') {
+                if (parsed.filters) {
+                    kanbanPreferences.filters = Object.assign({}, kanbanPreferences.filters || {}, parsed.filters);
+                }
+                if (parsed.sort) {
+                    kanbanPreferences.sort = Object.assign({}, kanbanPreferences.sort || {}, parsed.sort);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[Storage] loadLocalDeviceViewPreferences fallback', e);
+    }
+}
+
+function saveLocalDeviceViewPreferences(filters, sort) {
+    try {
+        const prefs = {
+            filters: filters !== undefined ? filters : (kanbanPreferences.filters || {}),
+            sort: sort !== undefined ? sort : (kanbanPreferences.sort || {}),
+            updated_at: new Date().toISOString()
+        };
+        localStorage.setItem('kanban_device_view_prefs', JSON.stringify(prefs));
+    } catch (e) {
+        console.warn('[Storage] saveLocalDeviceViewPreferences fallback', e);
+    }
+}
+
 // 默认兜底种子数据（初始化为空看板）
 const defaultCardsData = [];
 
@@ -33,6 +112,7 @@ let kanbanPreferences = {
 // -------------------------------------------------------------
 async function loadStorageData() {
     await loadBoardPreferences();
+    loadLocalDeviceViewPreferences();
     if (typeof restoreCardFieldConfig === 'function') {
         restoreCardFieldConfig();
     }
@@ -43,6 +123,9 @@ async function loadStorageData() {
     await fetchKanbanTasksFromServer();
     if (typeof initRender === 'function') {
         initRender();
+    }
+    if (typeof applyMasterUIPermissions === 'function') {
+        applyMasterUIPermissions();
     }
     startVersionPolling();
 }
@@ -61,17 +144,13 @@ async function loadBoardPreferences() {
 
     // 2. 服务端拉取并深度合并最新偏好
     try {
-        const res = await fetch('/api/board/meta?t=' + Date.now());
+        const res = await fetch('/api/board/meta?t=' + Date.now(), {
+            headers: getAuthHeaders()
+        });
         if (res.ok) {
             const resp = await res.json();
             if (resp && resp.data && typeof resp.data === 'object') {
                 const serverPref = resp.data;
-                if (serverPref.filters) {
-                    kanbanPreferences.filters = Object.assign({}, kanbanPreferences.filters || {}, serverPref.filters);
-                }
-                if (serverPref.sort) {
-                    kanbanPreferences.sort = Object.assign({}, kanbanPreferences.sort || {}, serverPref.sort);
-                }
                 kanbanPreferences = Object.assign({}, kanbanPreferences, serverPref);
             }
         }
@@ -129,7 +208,7 @@ async function fetchTableTasksFromServer(params = {}) {
     const url = `/api/tasks?${qs}`;
 
     try {
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: getAuthHeaders() });
         if (res.ok) {
             const resp = await res.json();
             if (resp && resp.data && Array.isArray(resp.data.items)) {
@@ -167,7 +246,7 @@ async function fetchTableTasksFromServer(params = {}) {
  */
 async function fetchKanbanTasksFromServer() {
     try {
-        const res = await fetch('/api/tasks?size=all&t=' + Date.now());
+        const res = await fetch('/api/tasks?size=all&t=' + Date.now(), { headers: getAuthHeaders() });
         if (res.ok) {
             const resp = await res.json();
             if (resp && resp.data && Array.isArray(resp.data.items)) {
@@ -233,19 +312,22 @@ function scheduleNextVersionPoll() {
 
 async function checkServerVersion() {
     try {
-        const res = await fetch('/api/version?t=' + Date.now());
+        const res = await fetch('/api/version?t=' + Date.now(), { headers: getAuthHeaders() });
         if (res.ok) {
             const resp = await res.json();
-            if (resp && resp.data && resp.data.v) {
+            if (resp && resp.data) {
+                syncMasterAuthStatus(resp.data);
                 const serverV = resp.data.v;
-                if (currentBoardVersion && serverV !== currentBoardVersion) {
-                    currentBoardVersion = serverV;
-                    // 后台静默拉取并更新数据（用户处于非编辑状态时）
-                    if (!isUserActiveEditing()) {
-                        await fetchBackgroundData(false);
+                if (serverV) {
+                    if (currentBoardVersion && serverV !== currentBoardVersion) {
+                        currentBoardVersion = serverV;
+                        // 后台静默拉取并更新数据（用户处于非编辑状态时）
+                        if (!isUserActiveEditing()) {
+                            await fetchBackgroundData(false);
+                        }
+                    } else {
+                        currentBoardVersion = serverV;
                     }
-                } else {
-                    currentBoardVersion = serverV;
                 }
             }
         }
@@ -301,8 +383,7 @@ async function apiCreateTask(cardData) {
         const payload = Object.assign({}, cardData);
         if (currentBoardVersion) payload._v = currentBoardVersion;
 
-        const headers = { 'Content-Type': 'application/json' };
-        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+        const headers = getAuthHeaders(currentBoardVersion ? { 'If-Match': currentBoardVersion } : {});
 
         const res = await fetch('/api/tasks', {
             method: 'POST',
@@ -321,7 +402,7 @@ async function apiCreateTask(cardData) {
             throw new Error(resp.message || `服务端返回状态码: ${res.status}`);
         }
     } catch (e) {
-        if (e.message && (e.message.includes('已存在') || e.message.includes('不能为空') || e.message.includes('服务端返回') || e.message.includes('409'))) {
+        if (e.message && (e.message.includes('已存在') || e.message.includes('不能为空') || e.message.includes('服务端返回') || e.message.includes('409') || e.message.includes('主控权限'))) {
             throw e;
         }
         console.warn('[API] /api/tasks offline fallback', e);
@@ -351,8 +432,7 @@ async function apiUpdateTask(taskId, patchData) {
         const payload = Object.assign({}, patchData);
         if (currentBoardVersion) payload._v = currentBoardVersion;
 
-        const headers = { 'Content-Type': 'application/json' };
-        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+        const headers = getAuthHeaders(currentBoardVersion ? { 'If-Match': currentBoardVersion } : {});
 
         const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
             method: 'PUT',
@@ -383,8 +463,7 @@ async function apiUpdateTask(taskId, patchData) {
 async function apiDeleteTask(taskId) {
     isWriteInFlight = true;
     try {
-        const headers = {};
-        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+        const headers = getAuthHeaders(currentBoardVersion ? { 'If-Match': currentBoardVersion } : {});
 
         const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
             method: 'DELETE',
@@ -417,8 +496,7 @@ async function apiBatchDeleteTasks(taskIds) {
         const payload = { task_ids: taskIds };
         if (currentBoardVersion) payload._v = currentBoardVersion;
 
-        const headers = { 'Content-Type': 'application/json' };
-        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+        const headers = getAuthHeaders(currentBoardVersion ? { 'If-Match': currentBoardVersion } : {});
 
         const res = await fetch('/api/tasks/batch-delete', {
             method: 'POST',
@@ -461,8 +539,7 @@ async function apiTransitionTask(taskId, transitionData, operator, note) {
         }
         if (currentBoardVersion) payload._v = currentBoardVersion;
 
-        const headers = { 'Content-Type': 'application/json' };
-        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+        const headers = getAuthHeaders(currentBoardVersion ? { 'If-Match': currentBoardVersion } : {});
 
         const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/transition`, {
             method: 'POST',
@@ -496,8 +573,7 @@ async function apiReorderTasks(orderedTaskIds) {
         const payload = { ordered_task_ids: orderedTaskIds };
         if (currentBoardVersion) payload._v = currentBoardVersion;
 
-        const headers = { 'Content-Type': 'application/json' };
-        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+        const headers = getAuthHeaders(currentBoardVersion ? { 'If-Match': currentBoardVersion } : {});
 
         const res = await fetch('/api/tasks/reorder', {
             method: 'PUT',
@@ -531,7 +607,7 @@ async function apiSaveBoardMeta(prefData) {
     try {
         await fetch('/api/board/meta', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify(kanbanPreferences)
         });
     } catch (e) {}
@@ -559,8 +635,7 @@ async function syncBoardDataToServer() {
     isSyncingToServer = true;
     isWriteInFlight = true;
     try {
-        const headers = { 'Content-Type': 'application/json' };
-        if (currentBoardVersion) headers['If-Match'] = currentBoardVersion;
+        const headers = getAuthHeaders(currentBoardVersion ? { 'If-Match': currentBoardVersion } : {});
 
         const res = await fetch('./board.json', {
             method: 'POST',
