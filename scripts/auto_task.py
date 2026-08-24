@@ -75,6 +75,41 @@ CHAIN_ROLES_E = [
 ]
 
 
+def detect_main_role(task_name: str = "", assignee: str = "", default_role: str = "DEV") -> str:
+    """严格的前缀标签与 Assignee 双重防误判推导主执行角色"""
+    ass = str(assignee or "").strip()
+    if any(k in ass for k in ["马前端", "FRONTEND", "前端"]):
+        return "FRONTEND"
+    if any(k in ass for k in ["章测试", "QA", "测试"]):
+        return "QA"
+    if any(k in ass for k in ["李文通", "DOCS", "文档"]):
+        return "DOCS"
+    if any(k in ass for k in ["吕改特", "DEVOPS", "运维"]):
+        return "DEVOPS"
+    if any(k in ass for k in ["钱架构", "ARCHITECT", "架构"]):
+        return "ARCHITECT"
+    if any(k in ass for k in ["严经理", "PM", "经理"]):
+        return "PM"
+    if any(k in ass for k in ["李开发", "DEV", "开发"]):
+        return "DEV"
+
+    name_clean = str(task_name or "").strip()
+    if re.match(r"^\[(?:Frontend|FE|前端)[^\]]*\]", name_clean, re.IGNORECASE):
+        return "FRONTEND"
+    if re.match(r"^\[(?:QA|Test|测试)[^\]]*\]", name_clean, re.IGNORECASE):
+        return "QA"
+    if re.match(r"^\[(?:Docs|Doc|文档)[^\]]*\]", name_clean, re.IGNORECASE):
+        return "DOCS"
+    if re.match(r"^\[(?:DevOps|Ops|运维)[^\]]*\]", name_clean, re.IGNORECASE):
+        return "DEVOPS"
+    if re.match(r"^\[(?:Arch|Architect|架构)[^\]]*\]", name_clean, re.IGNORECASE):
+        return "ARCHITECT"
+    if re.match(r"^\[(?:Backend|BE|后端|Dev)[^\]]*\]", name_clean, re.IGNORECASE):
+        return "DEV"
+
+    return default_role
+
+
 def resolve_chain(task_type: str, main_role: str) -> tuple:
     """返回 (状态链, 步骤角色表)。
     - 类型 A: L2 标准任务全链 (CHAIN_A: 待开始->进行中->审查中->测试中->已完成->已验收)
@@ -194,10 +229,18 @@ def main():
                 fields = rec.get("fields", {})
                 current_status = str(fields.get("status") or "")
                 board_name = board_name or str(fields.get("name") or fields.get("task_name") or "")
+                card_assignee = str(fields.get("assignee") or "")
+                card_type = str(fields.get("task_type") or fields.get("type") or task_type).upper()
+                if not args.role:
+                    main_role = detect_main_role(board_name, card_assignee, main_role)
+                    chain, step_roles = resolve_chain(card_type, main_role)
         if not task_id or current_status == "":
             if not args.task_name:
                 print("[FAILED]  任务不存在且未提供 --task-name，无法建卡！")
                 sys.exit(1)
+            if not args.role:
+                main_role = detect_main_role(args.task_name, args.assignee, main_role)
+                chain, step_roles = resolve_chain(task_type, main_role)
             if args.simulate:
                 print(f"[AUTO][SIMULATE] 将建卡【待开始】: {args.task_name} (角色 {main_role})")
                 task_id = "SIM"
@@ -233,7 +276,11 @@ def main():
                 task_id = str(rec.get("record_id") or rec.get("fields", {}).get("id"))
                 current_status = str(rec.get("fields", {}).get("status") or "待开始")
                 board_name = str(rec.get("fields", {}).get("name") or args.task_name)
-                print(f"[AUTO]  已建卡 {task_id}【{current_status}】")
+                card_assignee = str(rec.get("fields", {}).get("assignee") or init_assignee)
+                if not args.role:
+                    main_role = detect_main_role(board_name, card_assignee, main_role)
+                    chain, step_roles = resolve_chain(task_type, main_role)
+                print(f"[AUTO]  已建卡 {task_id}【{current_status}】(主角色: {main_role})")
 
         print(f"[AUTO]  任务 {task_id} 当前状态【{current_status}】(类型 {task_type}, 主角色 {main_role})")
 

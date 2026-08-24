@@ -713,6 +713,47 @@ class TestTerminalStatusImmutability:
         assert "终态防篡改" in r2.stdout or r2.returncode != 0
 
 
+# =====================================================================
+# 组 20 · 自动角色推导与 Stage 标准化清洗 (Role Alignment & Stage Sanitization)
+# =====================================================================
+class TestAutoRoleDetectionAndStageNormalization:
+    def test_normalize_stage_name_unit(self):
+        from transition_task import normalize_stage_name
+        assert normalize_stage_name("Sprint-1") == "Sprint 1"
+        assert normalize_stage_name("sprint 1") == "Sprint 1"
+        assert normalize_stage_name("Sprint_2") == "Sprint 2"
+        assert normalize_stage_name("s3") == "Sprint 3"
+        assert normalize_stage_name("Milestone-1") == "Milestone-1"
+        assert normalize_stage_name("阶段一") == "阶段一"
+        assert normalize_stage_name(None) is None
+
+    def test_detect_main_role_unit(self):
+        from auto_task import detect_main_role
+        # 1. 优先经办人
+        assert detect_main_role("用户列表", "马前端") == "FRONTEND"
+        assert detect_main_role("用户列表", "章测试") == "QA"
+        assert detect_main_role("用户列表", "李文通") == "DOCS"
+        # 2. 标签前缀
+        assert detect_main_role("[Frontend] 动态参数配置", "") == "FRONTEND"
+        assert detect_main_role("[FE] 用户界面", "") == "FRONTEND"
+        assert detect_main_role("[QA-PKG-01] 全流程集成测试", "") == "QA"
+        assert detect_main_role("[Backend] 登录接口", "") == "DEV"
+        # 3. 避免正文误判 (例如包含前端字样的后端任务)
+        assert detect_main_role("[Backend] 提供给前端的用户查询接口", "李开发") == "DEV"
+        assert detect_main_role("[Backend] 提供给前端的用户查询接口", "") == "DEV"
+
+    def test_auto_task_frontend_role_aligned(self, env):
+        """验证 auto_task 在未显式传 --role 时，对前端任务自动将操作人对齐为马前端。"""
+        run(env, "auto_task.py", "--task-name", "[Frontend] 系统动态参数配置界面开发", "--type", "A")
+        c = find(env, "T0001")
+        assert c["status"] == "已验收"
+        proc = c.get("process", "")
+        # 确保开工与提审节点的操作人为 马前端，而非 李开发
+        assert "状态由【待开始】更新至【进行中】，操作人: 马前端" in proc
+        assert "状态由【进行中】更新至【审查中】，操作人: 马前端" in proc
+
+
+
 
 
 

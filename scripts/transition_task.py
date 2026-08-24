@@ -160,6 +160,18 @@ def print_duplicate_protocol(task_name, hits):
         print(f"  [重复候选] {h['task_id']} {h['name']} ({h['level']})")
 
 
+def normalize_stage_name(stage_str: Optional[str]) -> Optional[str]:
+    """标准化阶段名称：将 Sprint-1, sprint 1, Sprint_1, S1 等统一格式化为标准规范 'Sprint 1'，
+    非 Sprint 格式（如 Milestone 1、灰度发布）原样放行，绝不破坏。"""
+    if not stage_str or stage_str == "-":
+        return stage_str
+    s = str(stage_str).strip()
+    m = re.match(r"^(?:sprint|stage|s)[\s_\-]*(\d+)$", s, re.IGNORECASE)
+    if m:
+        return f"Sprint {m.group(1)}"
+    return s
+
+
 def transition_task_pipeline(
     config_path: str,
     task_id: str = "",
@@ -188,6 +200,7 @@ def transition_task_pipeline(
 ) -> bool:
     resolved_task_id = task_id or "AUTO"
     extra_log = {"task_id": resolved_task_id}
+    stage = normalize_stage_name(stage)
     logger.info(f"[SECURITY]  触发防错门控校验 ({from_status} -> {to_status}, 模式: {'DRY-RUN' if dry_run else 'REAL'})...", extra=extra_log)
 
     # 0. 模式参数校验：流转模式必须提供 from/to/assignee；仅建卡使用 --create
