@@ -142,15 +142,15 @@ def generate_auto_step_summary(from_st: str, to_st: str, name: str, role_name: s
     elif from_st == "审查中" and to_st == "测试中":
         return f"完成【{n}】代码质量、安全与规范合规性审查，未见明显异常，移交测试"
     elif from_st == "测试中" and to_st == "已完成":
-        return f"完成【{n}】单元测试与集成冒烟验证，功能符合预期，提请 PM 验收"
+        return f"完成【{n}】单元测试与集成冒烟验证，功能符合预期，提请人类用户核验验收"
     elif from_st == "已完成" and to_st == "已验收":
-        return f"核验【{n}】全部交付物与验收标准，确认闭环，完成阶段结项"
+        return f"人类用户核验【{n}】全部交付物与验收标准，确认闭环，完成最终验收"
     elif to_st == "进行中":
         return f"恢复【{n}】至进行中，继续推进研发"
     elif to_st == "已完成":
-        return f"完成【{n}】任务交付，提请 PM 验收"
+        return f"完成【{n}】任务交付，提请人类用户核验验收"
     elif to_st == "已验收":
-        return f"核验【{n}】交付物合规，完成最终验收"
+        return f"人类用户核验【{n}】交付物合规，完成最终验收"
     return f"推进【{n}】由【{from_st}】至【{to_st}】"
 
 

@@ -271,7 +271,7 @@ def check_board_tasks_status(ctx: StageContext) -> CheckResult:
             title="看板任务全终态验收",
             passed=False,
             detail=f"阶段内尚有 {len(unaccepted)} 个任务未完成终态验收: {items_desc}",
-            suggestion="请推动未完成任务经审查/测试流转，并由 PM 严经理执行最终验收 (已完成 -> 已验收)",
+            suggestion="请推动未完成任务经审查/测试流转，并由人类用户执行最终验收 (已完成 -> 已验收，可使用 quick_task.py accept / accept-all)",
             items=unaccepted,
         )
 
