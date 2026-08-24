@@ -176,6 +176,10 @@ def build_and_package() -> bool:
             print(f"[FAIL] 🛑 压缩包内缺失清单路径: {expected_manifest_path}")
             return False
 
+    # 4. 清理中间构建暂存目录
+    if os.path.exists(STAGE_DIR):
+        shutil.rmtree(STAGE_DIR)
+
     print("=" * 75)
     print(f"[SUCCESS]  🎉 千问办公专家套件包打包成功且 100% 通过白皮书红线断言！")
     print(f"👉 产出路径: {OUTPUT_ZIP}")
