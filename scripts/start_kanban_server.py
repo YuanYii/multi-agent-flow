@@ -24,6 +24,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 KANBAN_DIR = os.path.join(SKILL_ROOT, "kanban")
 
+sys.path.insert(0, SCRIPT_DIR)
+from _lib.core.step_summary import generate_step_summary
+
 DEFAULT_PORT = 32886
 PROBE_RANGE = 20
 SERVICE_NAME = "multi-agent-flow-kanban"
@@ -966,16 +969,20 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
                 check_and_warn_date_compliance(card)
 
+                effective_comment = str(comment or "").strip()
+                if not effective_comment:
+                    effective_comment = generate_step_summary(from_status, target_status, card.get("name", ""), operator_name)
+
                 node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
                 log_text = f"[{node_id}]  [{now_str}]  状态由【{from_status}】更新至【{target_status}】，操作人: {operator_name}"
-                if comment:
-                    log_text += f"\n操作说明: {comment}"
+                if effective_comment:
+                    log_text += f"\n操作说明: {effective_comment}"
 
                 current_process = card.get("process", "")
                 card["process"] = f"{current_process}\n{log_text}".strip()
 
                 audit_role = body_data.get("operator_role") or "USER"
-                append_audit_log(task_id, audit_role, from_status, target_status, operator_name, comment)
+                append_audit_log(task_id, audit_role, from_status, target_status, operator_name, effective_comment)
                 return True, 200, "状态流转成功", {
                     "id": task_id,
                     "node_id": node_id,

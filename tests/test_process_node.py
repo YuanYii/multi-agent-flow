@@ -156,6 +156,30 @@ class TestTransitionWritesNodes:
         card = json.loads(board.read_text(encoding="utf-8"))[0]
         assert "-N" not in (card.get("process") or "")
 
+    def test_comment_parameter_properly_saved(self, tmp_path):
+        """显式传入 --comment 时必须成功写入节点说明，不被丢弃"""
+        board, cfg = self._setup(tmp_path)
+        _run_flow(cfg, "--create", "--task-name", "订单结算接口",
+                  "--role", "PM", "--assignee", "李开发")
+        r = _run_flow(cfg, "--task-id", "T0001", "--role", "DEV",
+                      "--from-status", "待开始", "--to-status", "进行中",
+                      "--assignee", "李开发", "--comment", "核心中间件已就绪，开始编写控制器")
+        assert r.returncode == 0
+        card = json.loads(board.read_text(encoding="utf-8"))[0]
+        assert "操作说明: 核心中间件已就绪，开始编写控制器" in card["process"]
+
+    def test_empty_comment_auto_generates_summary(self, tmp_path):
+        """未传入 --comment 时必须自动生成结合任务名称的阶段交付总结，杜绝空心化"""
+        board, cfg = self._setup(tmp_path)
+        _run_flow(cfg, "--create", "--task-name", "支付网关对接",
+                  "--role", "PM", "--assignee", "李开发")
+        r = _run_flow(cfg, "--task-id", "T0001", "--role", "DEV",
+                      "--from-status", "待开始", "--to-status", "进行中",
+                      "--assignee", "李开发")
+        assert r.returncode == 0
+        card = json.loads(board.read_text(encoding="utf-8"))[0]
+        assert "认领【支付网关对接】并进入开发/执行阶段" in card["process"]
+
 
 class TestServerRouteParity:
     """/transition 路由与 transition_task 写入格式统一"""

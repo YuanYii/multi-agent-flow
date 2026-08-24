@@ -21,6 +21,7 @@ from _lib.core.validate_transition import validate, validate_delegation_authorit
 from _lib.boards.board_adapter_factory import get_board_adapter
 from _lib.audit.audit_logger import record_audit_event
 from _lib.core.file_lock import acquire_lock, release_lock, remove_lock_file_if_free, LockBusyError
+from _lib.core.step_summary import generate_step_summary
 from enums import TaskStatus, TaskType, RoleEnum, normalize_role, ROLE_NORMALIZE_MAP
 import paths
 
@@ -506,10 +507,13 @@ def transition_task_pipeline(
         try:
             if hasattr(adapter, "append_process_node"):
                 operator_display = normalize_role(current_role) or current_role
+                effective_comment = (comment or remarks or "").strip()
+                if not effective_comment:
+                    effective_comment = generate_step_summary(from_status or "待开始", to_status, effective_task_name, operator_display)
                 node_id = adapter.append_process_node(
                     resolved_record_id, current_role.upper(),
                     from_status or "-", to_status, operator_display,
-                    comment=remarks or "")
+                    comment=effective_comment)
                 if node_id:
                     logger.info(f" [NODE]  已追加流程节点 {node_id}", extra=extra_log)
                 else:
@@ -542,6 +546,7 @@ def main():
     parser.add_argument("--type", default="A", help="任务类型 (A-G: A为L2标准任务全链; B/C/D/F/G为L1轻量任务短链; E为用户直验)")
     parser.add_argument("--end-time", help="结束时间 (完成/验收必填)")
     parser.add_argument("--remarks", help="追加结构化缺陷或备注描述")
+    parser.add_argument("--comment", default=None, help="操作说明/阶段交付总结 (写入流程节点)")
     parser.add_argument("--active-dev-count", type=int, default=1, help="当前开发人员'进行中'任务数 (并发上限校验用)")
     parser.add_argument("--dry-run", action="store_true", help="开启预检测试模式而不物理写卡")
     parser.add_argument("--creator", default=None, help="真人创建人/系统用户名 (任务新建时记录)")
@@ -564,6 +569,7 @@ def main():
         task_type=args.type,
         end_time=args.end_time,
         remarks=args.remarks,
+        comment=args.comment,
         dry_run=args.dry_run,
         active_dev_count=args.active_dev_count,
         task_name=args.task_name,

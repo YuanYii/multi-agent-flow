@@ -34,6 +34,7 @@ sys.path.insert(0, SCRIPT_DIR)
 
 from transition_task import transition_task_pipeline, ROLE_NAME_MAP, check_duplicate_tasks
 from _lib.boards.board_adapter_factory import get_board_adapter
+from _lib.core.step_summary import generate_step_summary as generate_auto_step_summary
 import paths
 
 CHAIN_A = ["待开始", "进行中", "审查中", "测试中", "已完成"]
@@ -130,28 +131,6 @@ def parse_block_markers(text: str) -> tuple:
     for m in re.finditer(r"【解除】", text):
         clear_pos = m.start()
     return block_pos, clear_pos
-
-
-def generate_auto_step_summary(from_st: str, to_st: str, name: str, role_name: str) -> str:
-    """生成结合具体任务名称的阶段交付实质性总结"""
-    n = name or "当前工作包任务"
-    if from_st == "待开始" and to_st == "进行中":
-        return f"认领【{n}】并进入开发/设计，初始化工作区与依赖"
-    elif from_st == "进行中" and to_st == "审查中":
-        return f"完成【{n}】核心逻辑实现与模块自测，提交代码审查"
-    elif from_st == "审查中" and to_st == "测试中":
-        return f"完成【{n}】代码质量、安全与规范合规性审查，未见明显异常，移交测试"
-    elif from_st == "测试中" and to_st == "已完成":
-        return f"完成【{n}】单元测试与集成冒烟验证，功能符合预期，提请人类用户核验验收"
-    elif from_st == "已完成" and to_st == "已验收":
-        return f"人类用户核验【{n}】全部交付物与验收标准，确认闭环，完成最终验收"
-    elif to_st == "进行中":
-        return f"恢复【{n}】至进行中，继续推进研发"
-    elif to_st == "已完成":
-        return f"完成【{n}】任务交付，提请人类用户核验验收"
-    elif to_st == "已验收":
-        return f"人类用户核验【{n}】交付物合规，完成最终验收"
-    return f"推进【{n}】由【{from_st}】至【{to_st}】"
 
 
 def check_block_resolved(fields: Dict) -> bool:
