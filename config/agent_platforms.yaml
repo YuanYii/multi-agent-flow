@@ -102,3 +102,13 @@ platforms:
     mount_type: "symlink"
     skill_target: ".agents/skills/{skill_name}"
     subagent_export: null
+
+  # 9. 阿里千问办公 (QwenWork / Qoder Plugin)
+  qwen_work:
+    name: "阿里千问办公 (QwenWork / Qoder)"
+    detect_dirs: [".qoder-plugin", ".qoder"]
+    mount_type: "qwen_plugin"
+    plugin_target: ".qoder-plugin/plugin.json"
+    skill_target: "skills/{skill_name}"
+    subagent_export: null
+

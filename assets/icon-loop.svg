@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="YY-Flow 多专家协同研发工作流图标 — 协同闭环">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1120"/>
+      <stop offset="0.55" stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="loop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7C6CF0"/>
+      <stop offset="0.5" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="gate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+    <radialGradient id="vign" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0.55" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.30"/>
+    </radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="ah2" viewBox="0 0 10 10" refX="5.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9 z" fill="#38BDF8"/>
+    </marker>
+  </defs>
+
+  <rect width="200" height="200" rx="46" fill="url(#bg)"/>
+  <rect width="200" height="200" rx="46" fill="url(#vign)"/>
+
+  <!-- 8 段顺时针交接弧（多 Agent 协同流转） -->
+  <g fill="none" stroke="url(#loop)" stroke-width="3" stroke-linecap="round">
+    <path d="M100 42 Q131.4 24.2 141 59"  marker-end="url(#ah2)"/>
+    <path d="M141 59 Q175.8 68.6 158 100" marker-end="url(#ah2)"/>
+    <path d="M158 100 Q175.8 131.4 141 141" marker-end="url(#ah2)"/>
+    <path d="M141 141 Q131.4 175.8 100 158" marker-end="url(#ah2)"/>
+    <path d="M100 158 Q68.6 175.8 59 141"  marker-end="url(#ah2)"/>
+    <path d="M59 141 Q24.2 131.4 42 100"  marker-end="url(#ah2)"/>
+    <path d="M42 100 Q24.2 68.6 59 59"    marker-end="url(#ah2)"/>
+    <path d="M59 59 Q68.6 24.2 100 42"    marker-end="url(#ah2)"/>
+  </g>
+
+  <!-- 8 大专家节点 -->
+  <g>
+    <circle cx="100" cy="42"  r="8.5" fill="#F43F5E" filter="url(#glow)"/>
+    <circle cx="141" cy="59"  r="7"   fill="#FB923C"/>
+    <circle cx="158" cy="100" r="8.5" fill="#38BDF8" filter="url(#glow)"/>
+    <circle cx="141" cy="141" r="7"   fill="#A855F7"/>
+    <circle cx="100" cy="158" r="8.5" fill="#10B981" filter="url(#glow)"/>
+    <circle cx="59"  cy="141" r="7"   fill="#FBBF24"/>
+    <circle cx="42"  cy="100" r="8.5" fill="none"/>
+    <circle cx="42"  cy="100" r="8.5" fill="#6366F1" filter="url(#glow)"/>
+    <circle cx="59"  cy="59"  r="7"   fill="#2DD4BF"/>
+  </g>
+
+  <!-- 中央质量门禁 -->
+  <circle cx="100" cy="100" r="22" fill="url(#gate)" filter="url(#glow)"/>
+  <circle cx="100" cy="100" r="18" fill="#0B1120"/>
+  <path d="M91 100 L97 107 L110 92" fill="none" stroke="#34D399" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

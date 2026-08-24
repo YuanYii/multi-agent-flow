@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B1120"/>
+      <stop offset="50%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="orbitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#818CF8" stop-opacity="0.2"/>
+    </linearGradient>
+    <linearGradient id="coreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#6366F1"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded rectangle -->
+  <rect width="200" height="200" rx="44" fill="url(#bgGrad)" stroke="#334155" stroke-width="2"/>
+
+  <!-- Outer Orbit Rings -->
+  <circle cx="100" cy="100" r="62" fill="none" stroke="url(#orbitGrad)" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.6"/>
+  <circle cx="100" cy="100" r="42" fill="none" stroke="url(#orbitGrad)" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- Connecting Cross Lines -->
+  <line x1="100" y1="38" x2="100" y2="162" stroke="#475569" stroke-width="1.5" stroke-dasharray="2 2"/>
+  <line x1="38" y1="100" x2="162" y2="100" stroke="#475569" stroke-width="1.5" stroke-dasharray="2 2"/>
+  <line x1="56" y1="56" x2="144" y2="144" stroke="#475569" stroke-width="1.5" stroke-dasharray="2 2"/>
+  <line x1="144" y1="56" x2="56" y2="144" stroke="#475569" stroke-width="1.5" stroke-dasharray="2 2"/>
+
+  <!-- 8 Agent Satellite Nodes -->
+  <!-- Top: PM (严经理) -->
+  <circle cx="100" cy="38" r="8" fill="#F43F5E" filter="url(#glow)"/>
+  <!-- Top Right: Architect (钱架构) -->
+  <circle cx="144" cy="56" r="7" fill="#FB923C"/>
+  <!-- Right: Dev (李开发) -->
+  <circle cx="162" cy="100" r="8" fill="#38BDF8" filter="url(#glow)"/>
+  <!-- Bottom Right: Frontend (马前端) -->
+  <circle cx="144" cy="144" r="7" fill="#A855F7"/>
+  <!-- Bottom: QA (章测试) -->
+  <circle cx="100" cy="162" r="8" fill="url(#greenGrad)" filter="url(#glow)"/>
+  <!-- Bottom Left: Reviewer (周审查) -->
+  <circle cx="56" cy="144" r="7" fill="#FBBF24"/>
+  <!-- Left: DevOps (吕改特) -->
+  <circle cx="38" cy="100" r="8" fill="#6366F1" filter="url(#glow)"/>
+  <!-- Top Left: Docs (李文通) -->
+  <circle cx="56" cy="56" r="7" fill="#2DD4BF"/>
+
+  <!-- Central Nexus Core -->
+  <circle cx="100" cy="100" r="22" fill="url(#coreGrad)" filter="url(#glow)"/>
+  <circle cx="100" cy="100" r="18" fill="#0B1120"/>
+  
+  <!-- Flow Symbol inside Core -->
+  <path d="M92 94 L100 86 L108 94 M100 87 L100 113 M92 106 L100 114 L108 106" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="100" cy="100" r="3.5" fill="#34D399"/>
+</svg>

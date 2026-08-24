@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="YY-Flow 多专家协同研发工作流图标 — 协同星核">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1120"/>
+      <stop offset="0.55" stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7C6CF0"/>
+      <stop offset="0.5" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#2DD4BF"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B7CF6"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+    <radialGradient id="vign" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0.55" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.30"/>
+    </radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="ah" viewBox="0 0 10 10" refX="5.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9 z" fill="#7C6CF0"/>
+    </marker>
+  </defs>
+
+  <rect width="200" height="200" rx="46" fill="url(#bg)"/>
+  <rect width="200" height="200" rx="46" fill="url(#vign)"/>
+
+  <!-- 环形工作流轨道（带方向箭头） -->
+  <circle cx="100" cy="100" r="74" fill="none" stroke="url(#ring)" stroke-width="2.5" opacity="0.30"/>
+  <path d="M100 26 A74 74 0 0 1 174 100" fill="none" stroke="url(#ring)" stroke-width="3.5" stroke-linecap="round" marker-end="url(#ah)"/>
+  <path d="M174 100 A74 74 0 0 1 100 174" fill="none" stroke="url(#ring)" stroke-width="3.5" stroke-linecap="round" marker-end="url(#ah)"/>
+  <path d="M100 174 A74 74 0 0 1 26 100" fill="none" stroke="url(#ring)" stroke-width="3.5" stroke-linecap="round" marker-end="url(#ah)"/>
+  <path d="M26 100 A74 74 0 0 1 100 26" fill="none" stroke="url(#ring)" stroke-width="3.5" stroke-linecap="round" marker-end="url(#ah)"/>
+
+  <!-- 8 大专家节点 -->
+  <g>
+    <circle cx="100" cy="42"  r="8.5" fill="#F43F5E" filter="url(#glow)"/>
+    <circle cx="141" cy="59"  r="7"   fill="#FB923C"/>
+    <circle cx="158" cy="100" r="8.5" fill="#38BDF8" filter="url(#glow)"/>
+    <circle cx="141" cy="141" r="7"   fill="#A855F7"/>
+    <circle cx="100" cy="158" r="8.5" fill="#10B981" filter="url(#glow)"/>
+    <circle cx="59"  cy="141" r="7"   fill="#FBBF24"/>
+    <circle cx="42"  cy="100" r="8.5" fill="#6366F1" filter="url(#glow)"/>
+    <circle cx="59"  cy="59"  r="7"   fill="#2DD4BF"/>
+  </g>
+
+  <!-- 中央协同核心 -->
+  <circle cx="100" cy="100" r="24" fill="url(#core)" filter="url(#glow)"/>
+  <circle cx="100" cy="100" r="20" fill="#0B1120"/>
+  <path d="M93 92 L100 85 L107 92 M93 108 L100 115 L107 108" fill="none" stroke="#7C6CF0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="100" cy="100" r="3" fill="#34D399"/>
+</svg>

@@ -19,6 +19,9 @@ kanban/board.json
 kanban/board.json.seq.lock
 docs/*
 !docs/index.html
+!docs/qwen/
+!docs/qwen/*
+dist/
 logs/
 *.lock
 */*.lock
