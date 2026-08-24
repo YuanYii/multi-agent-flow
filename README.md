@@ -169,9 +169,9 @@ python scripts/start_kanban_server.py
 
 ![看板-按状态视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/kanban-status.png)
 
-**看板-按负责人视图** —— 按专家角色查看各自任务负载：
+**看板-按负责角色视图** —— 按专家角色查看各自任务负载：
 
-![看板-按负责人视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/kanban-assignee.png)
+![看板-按负责角色视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/kanban-assignee.png)
 
 **看板-按阶段工作包视图** —— 按阶段工作包（S1–S6）查看任务分布：
 
