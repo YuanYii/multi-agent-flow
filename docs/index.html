@@ -1434,11 +1434,12 @@
             <div class="agent-code">01-pm.yaml · PMP/敏捷规范</div>
           </div>
         </div>
-        <p class="agent-desc" data-i18n="a1_desc">基于 PMP 与敏捷项目管理规范，负责 WBS 工作包拆解、三问分级派发（L0–L2）、阶段准入准出门禁核验与终态验收，恪守事实反驳原则。</p>
+        <p class="agent-desc" data-i18n="a1_desc">基于 PMP 与敏捷规范，负责 WBS 工作包拆解、前后端级联拆单（Mock-First）、开发计划自动风险评级（高/中/低）、阶段门禁核验与终态验收。</p>
         <div class="agent-tags">
           <span class="agent-tag">PMP / 敏捷规范</span>
-          <span class="agent-tag">WBS 拆解分级</span>
-          <span class="agent-tag">阶段管理总结门控</span>
+          <span class="agent-tag">全栈级联拆解</span>
+          <span class="agent-tag">计划风险评估</span>
+          <span class="agent-tag">阶段管理总结</span>
           <span class="agent-tag">终态验收</span>
         </div>
       </div>
@@ -1641,13 +1642,13 @@
         <p data-i18n="f5_p">测试与审查不通过时原卡打回（【已退回】）并自动挂载 DEF-TXXX-N 缺陷单，保留初始开工时间与返工痕迹，杜绝新建孤儿卡刷完工率。</p>
       </div>
 
-      <!-- F6: L0–L2 任务分级与敏捷智能路由 -->
+      <!-- F6: L0–L2 任务分级与全栈级联路由 -->
       <div class="feat-card">
         <div class="feat-icon" style="background:rgba(245, 158, 11, 0.12); border-color:rgba(245, 158, 11, 0.25);">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         </div>
-        <h3 data-i18n="f6_h">L0–L2 任务分级与敏捷智能路由</h3>
-        <p data-i18n="f6_p">根据任务复杂度自动三问分级：L0 轻量即时直答、L1 标准特性快速敏捷流转、L2 架构级重构强制钱架构 ADR 预研会诊，大任务严控、小任务快跑。</p>
+        <h3 data-i18n="f6_h">L0–L2 任务分级与全栈级联路由</h3>
+        <p data-i18n="f6_p">根据复杂度自动三问分级：L0 纯文本直答、L1 敏捷特性流转；复合需求按「三不拆、三必拆」拆分前后端双卡并建立 Mock-First 契约级联，防止串行阻塞。</p>
       </div>
 
       <!-- F7: 全自动单任务流转与断点续跑 -->
@@ -1656,7 +1657,7 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <h3 data-i18n="f7_h">全自动单任务流转与断点续跑</h3>
-        <p data-i18n="f7_p">通过 /yy-flow auto 一条指令全自动执行任务完整生命周期直至已验收，支持 A–G 全类型链自动路由，中断后自动识别当前状态断点续跑。</p>
+        <p data-i18n="f7_p">通过 /yy-flow auto 全自动执行完整生命周期至已验收，结合实际任务名称动态生成阶段交付实质总结，全生命周期注入【Agent Loop】备注并支持断点续跑。</p>
       </div>
 
       <!-- F8: 心跳健康巡检与 14+ 效能雷达 -->
@@ -1665,7 +1666,7 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         </div>
         <h3 data-i18n="f8_h">心跳健康巡检与 14+ 效能雷达</h3>
-        <p data-i18n="f8_p">内置 heartbeat.py 自动化巡检引擎，实时探测任务死锁、在制品（WIP）超限、停滞与瞬时冲卡（TIME_SKEW_INSTANT），精确度量有效交付周期。</p>
+        <p data-i18n="f8_p">内置 heartbeat.py 自动化巡检引擎，支持工时纯秒级存储与 &lt;60s / &lt;3600s / ≥3600s 3 档自适应呈现，实时探测任务死锁、WIP 超限与瞬时冲卡（TIME_SKEW_INSTANT）。</p>
       </div>
     </div>
   </div>
@@ -1957,7 +1958,7 @@ const I18N = {
     crew_tag: 'AI CREW', crew_hd: '8 位专属 AI 专家，各司其职',
     crew_sub: '每个角色拥有独立的 YAML 职责规范与权限红线，分工明确、各司其职。',
     crew_callout_tech: '<b>初始化时自动扫描项目技术架构并回填技术栈</b>，使 8 位专家开箱即精通当前项目语言、框架与单测套件，无需手动配置繁琐 Prompt。',
-    a1_name: 'PM (严经理)', a1_desc: '基于 PMP 与敏捷项目管理规范，负责 WBS 工作包拆解、三问分级派发（L0–L2）、阶段准入准出门禁核验与终态验收，恪守事实反驳原则。',
+    a1_name: 'PM (严经理)', a1_desc: '基于 PMP 与敏捷规范，负责 WBS 工作包拆解、前后端级联拆单（Mock-First）、开发计划自动风险评级（高/中/低）、阶段门禁核验与终态验收。',
     a2_name: '架构师 (钱架构)', a2_desc: '遵循 TOGAF 与云原生架构设计规范，负责系统模块解耦、ADR 架构决策记录、API 接口契约定义、防错机制推演与阶段架构技术总结。',
     a3_name: '后端开发 (李开发)', a3_desc: '遵循 Clean Code、SOLID 设计模式与 TDD 测试驱动开发规范，负责核心业务编码、单元测试覆盖率（≥80%）达标与 DEF 缺陷原单修复。',
     a4_name: '审查员 (周审查)', a4_desc: '严格执行 Google Code Review 规范与 OWASP Top 10 安全审计标准，负责圈复杂度拦截、安全漏洞扫描、架构偏离防错与代码红线合规审查。',
@@ -1972,9 +1973,9 @@ const I18N = {
     f3_h: '强类型交接契约与「无工单不 Git」', f3_p: 'Agent 间流转通过强类型 JSON Payload 结构化交接（含改动文件、覆盖率、缺陷历史）；外部 Commit 必须绑定真实工单，确保工程溯源。',
     f4_h: '敏感凭据安全扫描与全量审计追溯', f4_p: '初始化首步运行 check_secrets.py 扫描 Token/密钥泄露风险；全量流转操作落盘结构化审计日志（audit_query.py），支持按 Task ID 全程回溯。',
     f5_h: '缺陷打回不拆单与原卡闭环追溯', f5_p: '测试与审查不通过时原卡打回（【已退回】）并自动挂载 DEF-TXXX-N 缺陷单，保留初始开工时间与返工痕迹，杜绝新建孤儿卡刷完工率。',
-    f6_h: 'L0–L2 任务分级与敏捷智能路由', f6_p: '根据任务复杂度自动三问分级：L0 轻量即时直答、L1 标准特性快速敏捷流转、L2 架构级重构强制钱架构 ADR 预研会诊，大任务严控、小任务快跑。',
-    f7_h: '全自动单任务流转与断点续跑', f7_p: '通过 /yy-flow auto 一条指令全自动执行任务完整生命周期直至已验收，支持 A–G 全类型链自动路由，中断后自动识别当前状态断点续跑。',
-    f8_h: '心跳健康巡检与 14+ 效能雷达', f8_p: '内置 heartbeat.py 自动化巡检引擎，实时探测任务死锁、在制品（WIP）超限、停滞与瞬时冲卡（TIME_SKEW_INSTANT），精确度量有效交付周期。',
+    f6_h: 'L0–L2 任务分级与全栈级联路由', f6_p: '根据复杂度自动三问分级：L0 纯文本直答、L1 敏捷特性流转；复合需求按「三不拆、三必拆」拆分前后端双卡并建立 Mock-First 契约级联，防止串行阻塞。',
+    f7_h: '全自动单任务流转与断点续跑', f7_p: '通过 /yy-flow auto 全自动执行完整生命周期至已验收，结合实际任务名称动态生成阶段交付实质总结，全生命周期注入【Agent Loop】备注并支持断点续跑。',
+    f8_h: '心跳健康巡检与 14+ 效能雷达', f8_p: '内置 heartbeat.py 自动化巡检引擎，支持工时纯秒级存储与 <60s / <3600s / ≥3600s 3 档自适应呈现，实时探测任务死锁、WIP 超限与瞬时冲卡（TIME_SKEW_INSTANT）。',
     cmd_tag: 'SLASH COMMANDS', cmd_hd: '五大快捷指令，开箱即用',
     cmd_sub: '在 AI 对话中输入 /yy-flow 快捷指令即可触发对应工作流能力，无需记忆底层脚本与参数。',
     cmd1_h: '一键激活工作流', cmd1_p: '执行 7 步标准初始化：凭据扫描、专家导出、架构嗅探、数据落盘、文档骨架、技术栈同步与 PM 编排。',
@@ -2040,7 +2041,7 @@ const I18N = {
     crew_tag: 'AI CREW', crew_hd: '8 Dedicated AI Specialists, Clearly Defined',
     crew_sub: 'Each agent possesses an explicit YAML specification and strict permission redlines.',
     crew_callout_tech: '<b>Automatically scans project technical architecture and overlays tech stacks during setup</b>, making 8 subagents project-ready out-of-the-box without manual prompt tuning.',
-    a1_name: 'PM (Yan)', a1_desc: 'PMP & Agile standards. Governs WBS breakdown, L0–L2 routing, stage exit gates, and final acceptance with zero-speculation facts.',
+    a1_name: 'PM (Yan)', a1_desc: 'PMP & Agile standards. Governs WBS breakdown, fullstack cascading decomposition (Mock-First), automated plan risk assessment, stage exit gates, and final acceptance.',
     a2_name: 'Architect (Qian)', a2_desc: 'TOGAF & Cloud-Native architecture. Governs system decoupling, ADR specifications, API contracts, and stage technical retrospectives.',
     a3_name: 'Backend Dev (Li)', a3_desc: 'Clean Code, SOLID, & TDD. Delivers core logic with >=80% unit test coverage and in-place DEF defect resolution.',
     a4_name: 'Reviewer (Zhou)', a4_desc: 'Google Code Review & OWASP Top 10 standards. Audits cyclomatic complexity, vulnerabilities, and anti-error redlines.',
@@ -2055,9 +2056,9 @@ const I18N = {
     f3_h: 'Typed Handover Contract & No-Task-No-Git', f3_p: 'Inter-agent transitions require strongly-typed JSON payloads (changed files, test coverage, defect history); external commits must strictly bind to genuine tasks.',
     f4_h: 'Credential Security Scan & Audit Trail', f4_p: 'Initial setup runs check_secrets.py to detect token/key leaks; full workflow transitions are logged to audit files (audit_query.py) with task-level traceability.',
     f5_h: 'In-Place Defect Binding (DEF-TXXX-N)', f5_p: 'Rejections return to the original card with DEF structured defect tasks, retaining initial start timestamps and authentic rework lead times without orphan cards.',
-    f6_h: 'L0–L2 Task Tiering & Agile Smart Routing', f6_p: 'Automatic 3-question tiering: L0 lightweight instant answer, L1 standard agile flow, and L2 architecture refactoring with mandatory ADR consultation.',
-    f7_h: 'Full Auto Task Flow & Breakpoint Resume', f7_p: 'Run /yy-flow auto to fully automate task lifecycle to acceptance; supports A–G type chain auto-routing and automatically resumes from breakpoint on interruption.',
-    f8_h: 'Heartbeat Health Radar & 14+ Metrics', f8_p: 'Built-in heartbeat.py engine detects task deadlocks, WIP limits, stalled items, and instant rushing (TIME_SKEW_INSTANT) with true lead times.',
+    f6_h: 'L0–L2 Task Tiering & Cascading Routing', f6_p: 'Automatic 3-question tiering: L0 instant answer, L1 agile flow; fullstack features split into backend/frontend cascades under Mock-First contracts without blocking pipelines.',
+    f7_h: 'Full Auto Task Flow & Dynamic Logs', f7_p: 'Run /yy-flow auto to fully automate lifecycle to acceptance, dynamically generating substantive step summaries with 【Agent Loop】 tags and breakpoint resume.',
+    f8_h: 'Heartbeat Health Radar & 14+ Metrics', f8_p: 'Built-in heartbeat.py engine with pure-second duration storage and 3-tier adaptive formatting (<60s/min/h), detecting deadlocks, WIP limits, and instant rushing (TIME_SKEW_INSTANT).',
     cmd_tag: 'SLASH COMMANDS', cmd_hd: '5 Slash Commands, Ready Out-of-the-Box',
     cmd_sub: 'Type /yy-flow commands in your AI chat to trigger workflow capabilities without memorizing CLI scripts.',
     cmd1_h: 'One-Click Workflow Init', cmd1_p: '7-step standard setup: credential scan, agent export, architecture sniff, data seeding, doc skeleton, tech overlay, and PM orchestration.',
