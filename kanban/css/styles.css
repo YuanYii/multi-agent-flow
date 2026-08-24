@@ -748,6 +748,16 @@
             cursor: grabbing;
         }
 
+        .card[draggable="false"],
+        .column[data-groupfield="stage"] .card {
+            cursor: pointer;
+        }
+
+        .card[draggable="false"]:active,
+        .column[data-groupfield="stage"] .card:active {
+            cursor: pointer;
+        }
+
         .card.dragging {
             opacity: 0.4;
             transform: scale(0.98);
