@@ -97,19 +97,41 @@
                 const lines = String(card.process).split(/\n|\\n/);
                 let inProgressTs = null;
                 let completedTs = null;
-                const timeRegex = /\[(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?(?:[+-]\d{2}:?\d{2}|Z)?)\]/i;
+                const nodeStatusRegex = /^\[(?:T\d+-N\d+|[^\]]+)\]\s+\[(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?(?:[+-]\d{2}:?\d{2}|Z)?)\]\s+(?:状态[:：]\s*【[^】]+】\s*->\s*|状态由【[^】]+】更新至|初始状态)【([^】]+)】/i;
+                const simpleStatusRegex = /^\[(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?(?:[+-]\d{2}:?\d{2}|Z)?)\]\s+\[([^\]]+)\]/i;
+                const dragStatusRegex = /^\[(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?(?:[+-]\d{2}:?\d{2}|Z)?)\].*?更新至【([^】]+)】/i;
 
                 for (const line of lines) {
-                    const tm = line.match(timeRegex);
-                    if (!tm) continue;
-                    const tsStr = tm[1].replace('T', ' ');
+                    let tsStr = null;
+                    let targetStatus = null;
+
+                    const mNode = line.match(nodeStatusRegex);
+                    if (mNode) {
+                        tsStr = mNode[1];
+                        targetStatus = mNode[2];
+                    } else {
+                        const mSimple = line.match(simpleStatusRegex);
+                        if (mSimple) {
+                            tsStr = mSimple[1];
+                            targetStatus = mSimple[2];
+                        } else {
+                            const mDrag = line.match(dragStatusRegex);
+                            if (mDrag) {
+                                tsStr = mDrag[1];
+                                targetStatus = mDrag[2];
+                            }
+                        }
+                    }
+
+                    if (!tsStr || !targetStatus) continue;
+                    tsStr = tsStr.replace('T', ' ');
                     const dt = new Date(tsStr.replace(/-/g, '/')).getTime();
                     if (isNaN(dt)) continue;
 
-                    if (line.includes('更新至【进行中】') || line.includes('初始状态【进行中】')) {
+                    if (targetStatus === '进行中') {
                         if (inProgressTs === null || dt < inProgressTs) inProgressTs = dt;
                     }
-                    if (line.includes('更新至【已完成】') || line.includes('初始状态【已完成】')) {
+                    if (targetStatus === '已完成') {
                         if (completedTs === null || dt > completedTs) completedTs = dt;
                     }
                 }

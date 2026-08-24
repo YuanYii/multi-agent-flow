@@ -35,6 +35,16 @@ from enums import TaskStatus
 from _lib.core import file_lock
 
 
+def sanitize_comment(comment: str, max_len: int = 500) -> str:
+    """清洗说明内容，去除换行符，限制最大长度防止存储膨胀"""
+    if not comment:
+        return ""
+    clean = " ".join(str(comment).replace("\r", " ").replace("\n", " ").split()).strip()
+    if len(clean) > max_len:
+        clean = clean[:max_len] + "... (详见产出报告)"
+    return clean
+
+
 def get_current_os_user() -> str:
     """自动获取当前真人操作者名称（Git用户名优先，OS系统登录名兜底）"""
     try:
@@ -383,9 +393,10 @@ class OfflineBoardAdapter:
                     node_seq = self._next_node_seq(c.get("process"), str(record_id))
                     node_id = f"{record_id}-N{node_seq:02d}"
                     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    clean_comment = sanitize_comment(comment)
                     line = f"[{node_id}]  [{ts}]  状态由【{from_status}】更新至【{to_status}】，操作人: {operator}"
-                    if comment:
-                        line += f"\n操作说明: {comment}"
+                    if clean_comment:
+                        line += f"\n操作说明: {clean_comment}"
                     existing = c.get("process") or ""
                     c["process"] = f"{existing}\n{line}".strip() if existing else line
                     if self._write_cards(cards):

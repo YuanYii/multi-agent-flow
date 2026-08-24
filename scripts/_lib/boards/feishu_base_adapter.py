@@ -135,4 +135,6 @@ class FeishuBaseAdapter:
             existing_remarks = rec["fields"].get(remarks_field_name, "") or ""
         
         combined = f"{existing_remarks}\n\n{new_text}".strip() if existing_remarks else new_text
+        if len(combined) > 8000:
+            combined = "...[更早历史请见本地 board.json]\n" + combined[-7800:]
         return self.update_record(record_id, {remarks_field_name: combined})

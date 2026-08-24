@@ -1298,8 +1298,11 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                         if comment:
                             log_text += f"\n操作说明: {comment}"
                         added_logs.append(log_text)
-                        if new_status in ("已完成", "已验收"):
-                            card["end_date"] = now_str
+                        if new_status in ("已完成", "已验收", "已取消"):
+                            if not card.get("end_date"):
+                                card["end_date"] = now_str
+                        else:
+                            card["end_date"] = ""
 
                     if "assignee" in updated_keys and new_assignee != old_assignee:
                         node_id = f"{task_id}-N{allocate_node_seq(card):02d}"

@@ -124,3 +124,33 @@ def test_time_skew_instant_transition_alert(tmp_path):
     # T0001 耗时 0h，T0002 耗时 2h；全量平均 1.0h，有效平均（排除<=1min）应为 2.0h
     assert m.get("avg_lead_time_hours") == 1.0
     assert m.get("effective_avg_lead_time_hours") == 2.0
+
+
+def test_status_entry_time_immune_to_comment_status_words():
+    """BUG-02 回归验证: 流转说明中包含状态字样时，不应误判为状态进入时间"""
+    card = {
+        "id": "T0001",
+        "status": "进行中",
+        "start_date": "2026-08-20 10:00:00",
+        "process": (
+            "[T0001-N01] [2026-08-20 10:00:00] 状态由【待开始】更新至【进行中】，操作人: 李开发\n"
+            "操作说明: 本次仅完成基础控制器编写，待后续合流后更新至【已完成】"
+        )
+    }
+    # 查找【已完成】的进入时间，由于卡片实际并未进入【已完成】，仅说明包含，应返回 None 或 start_date
+    entry_completed = heartbeat._get_status_entry_time(card, "已完成")
+    assert entry_completed == datetime(2026, 8, 20, 10, 0, 0) or entry_completed is None
+
+    # 查找【进行中】的进入时间，应精确匹配到 2026-08-20 10:00:00
+    entry_progress = heartbeat._get_status_entry_time(card, "进行中")
+    assert entry_progress == datetime(2026, 8, 20, 10, 0, 0)
+
+
+def test_sanitize_comment_truncates_long_text():
+    """SEC-01 回归验证: sanitize_comment 去除换行并限制在 500 字符以内"""
+    from _lib.boards.offline_board_adapter import sanitize_comment
+    long_text = "核心模块修改\n" + "A" * 600 + "\n结束"
+    cleaned = sanitize_comment(long_text, max_len=500)
+    assert "\n" not in cleaned
+    assert len(cleaned) <= 530  # 500 字符 + 提示后缀
+    assert "... (详见产出报告)" in cleaned

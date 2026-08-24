@@ -35,13 +35,29 @@ def _get_status_entry_time(t: Dict[str, Any], status: str) -> datetime | None:
     process = t.get("process")
     if process and isinstance(process, str):
         lines = [line.strip() for line in process.split("\n") if line.strip()]
+        # 行首锚定正则：严格匹配状态段，支持标准双轨格式与历史存量格式，免疫说明中偶现的状态词
+        node_regex = _re.compile(
+            r"^\[(?:T\d+-N\d+|[^\]]+)\]\s+\[(?P<ts>\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)\]\s+"
+            r"(?:状态[:：]\s*【[^】]+】\s*->\s*|状态由【[^】]+】更新至|初始状态)【(?P<target>[^】]+)】"
+        )
         for line in reversed(lines):
-            if f"更新至【{status}】" in line:
-                m = _re.search(r"\[(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)", line)
-                if m:
-                    dt = _parse_dt(m.group(1))
-                    if dt:
-                        return dt
+            m = node_regex.match(line)
+            if m and m.group("target") == status:
+                dt = _parse_dt(m.group("ts"))
+                if dt:
+                    return dt
+            # 兼容极简历史旧格式: "[2026-08-01 10:00:00] [待开始] ..."
+            m_simple = _re.match(r"^\[(?P<ts>\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)\]\s+\[(?P<target>[^\]]+)\]", line)
+            if m_simple and m_simple.group("target") == status:
+                dt = _parse_dt(m_simple.group("ts"))
+                if dt:
+                    return dt
+            # 兼容旧式单行拖拽联动: "[2026-08-01 10:00:00] [看板拖拽联动] 将状态由【待开始】更新至【进行中】"
+            m_drag = _re.search(r"^\[(?P<ts>\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)\].*?更新至【(?P<target>[^】]+)】", line)
+            if m_drag and m_drag.group("target") == status:
+                dt = _parse_dt(m_drag.group("ts"))
+                if dt:
+                    return dt
     # 兜底：新任务卡或无节点历史时，回退至 start_date / start_time
     start_date = t.get("start_date") or t.get("start_time")
     return _parse_dt(start_date)

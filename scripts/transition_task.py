@@ -435,12 +435,15 @@ def transition_task_pipeline(
             resolved_record_id = existing.get("record_id") or resolved_record_id
 
         # 9. 执行物理原子写入
+        exist_fields = (existing.get("fields", {}) if existing else {}) or {}
+        end_time_key = field_mapping.get("end_time") or field_mapping.get("end_date", "end_date")
+        start_time_key = field_mapping.get("start_time") or field_mapping.get("start_date", "start_time")
+
         # 处理人 (handler): 随流转推进更新；终态（已完成/已验收/已取消）默认收敛至 严经理
         target_handler = norm_assignee
         if to_status in ["已完成", "已验收", "已取消"] and (not target_handler or target_handler == normalize_role_name(current_role)):
             target_handler = "严经理"
         elif to_status == "已退回":
-            exist_fields = (existing.get("fields", {}) if existing else {}) or {}
             orig_owner = exist_fields.get("assignee") or exist_fields.get("owner")
             if orig_owner:
                 target_handler = normalize_role_name(orig_owner)
@@ -452,7 +455,13 @@ def transition_task_pipeline(
             update_fields["status"] = to_status
         if owner:
             update_fields[owner_key] = normalize_role_name(owner)
-        if end_time: update_fields[end_time_key] = end_time
+        if to_status in ["已完成", "已验收", "已取消"]:
+            if end_time:
+                update_fields[end_time_key] = end_time
+            elif not (exist_fields.get(end_time_key) or exist_fields.get("end_date") or exist_fields.get("end_time")):
+                update_fields[end_time_key] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            update_fields[end_time_key] = ""  # 迁回活跃状态时强制清空完工时间戳
         if stage: update_fields[field_mapping.get("stage", "stage")] = stage
         if wp: update_fields[field_mapping.get("workpackage", "workpackage")] = wp
         if wbs: update_fields[field_mapping.get("wbs_id", "wbs_id")] = wbs
@@ -461,8 +470,6 @@ def transition_task_pipeline(
         # 1) 首次从【待开始】推进到【进行中】时，动态落盘当前真实开工时间戳
         # 2) 直推终态（已完成/已验收）且尚无 start_date 时，自动补填当前时间
         # 3) 从【已退回】重新领回【进行中】时，保留原有 start_date 不覆盖，保护初始开工时间！
-        start_time_key = field_mapping.get("start_time", "start_time")
-        exist_fields = (existing.get("fields", {}) if existing else {}) or {}
         current_start = exist_fields.get(start_time_key) or exist_fields.get("start_date") or exist_fields.get("start_time")
         if to_status == "进行中" and from_status == "待开始":
             update_fields[start_time_key] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
