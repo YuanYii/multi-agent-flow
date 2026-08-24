@@ -80,13 +80,15 @@ def create_proof_document():
     add_subtitle("套件名称：多专家协同研发工作流 (multi-agent-flow) | 申报主体：任可 | 日期：2026-08-24")
 
     # 2. Section 1: 落地采用与受众数据
-    add_h1("一、 落地采用与实战受众数据证明 (Adoption & Metrics)")
-    add_p("本套件已在真实软件研发与敏捷交付流程中实现深度工程化落地，关键受众与采用数据如下：")
+    add_h1("一、 落地采用、开源影响力与受众数据证明 (Adoption & Metrics)")
+    add_p("本套件已在真实软件研发与敏捷交付流程中实现深度工程化落地，并已建立官方开源主页与代码仓库：")
     
-    t1 = doc.add_table(rows=5, cols=2)
+    t1 = doc.add_table(rows=7, cols=2)
     t1.alignment = WD_TABLE_ALIGNMENT.CENTER
     table_data_1 = [
         ("指标维度", "实测数据与证明事实"),
+        ("官方开源仓库与 Star", "GitHub 仓库地址：https://github.com/YuanYii/multi-agent-flow\n已获得开源开发者关注与 Star 收藏，保持持续活跃迭代。"),
+        ("官方介绍主页与演示站", "官方在线主页：https://yuanyii.github.io/multi-agent-flow/\n提供全景架构、8 专家分工交互与 Web 可视化看板在线演示。"),
         ("实际支持任务数", "已累计实际支持执行 1500+ 项研发协同任务流转，各阶段状态机流转顺畅、无丢单漏单。"),
         ("专家角色覆盖", "完整覆盖 8 大专业岗位：严经理(PM)、钱架构(架构)、李开发(开发)、马前端(前端)、周审查(审查)、章测试(测试)、吕改特(运维)、李文通(文档)。"),
         ("研发返工率下降", "在典型全栈项目中，多角色解耦与原卡缺陷打回机制使缺陷排查返工成本降低 60% 以上。"),
