@@ -6,9 +6,15 @@
 <title>Multi-Agent Flow · 不要让CV工程师变成YES工程师</title>
 <meta name="description" content="“不要让CV工程师变成YES工程师” —— 契约驱动的 AI 多角色协同研发工作流技能包。十大协作红线、五层防错门控、时序真实性防冲卡与本地无依赖可视化看板。">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237C6CF0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M2 12c4-4 8 4 12 0s8 4 10 0'/></svg>">
+<meta name="theme-color" content="#08090E" id="meta-theme-color">
+<meta name="keywords" content="Multi-Agent Flow, AI协同, 研发工作流, Antigravity, Claude Code, Cursor, 敏捷研发, 自动化看板">
 <meta property="og:title" content="Multi-Agent Flow · 不要让CV工程师变成YES工程师">
 <meta property="og:description" content="契约驱动的 AI 多角色协同研发工作流技能包与本地实时可视化看板。">
 <meta property="og:image" content="https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Multi-Agent Flow · 不要让CV工程师变成YES工程师">
+<meta name="twitter:description" content="契约驱动的 AI 多角色协同研发工作流技能包与本地实时可视化看板。">
+<meta name="twitter:image" content="https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png">
 
 <style>
   :root, [data-theme="dark"] {
@@ -412,6 +418,40 @@
     transform: translateY(-2px);
   }
 
+  .hero-quick-install {
+    margin: 20px auto 0;
+    max-width: 600px;
+    background: #0B1120;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+  :root[data-theme="light"] .hero-quick-install {
+    background: #0F172A;
+    border-color: rgba(15, 23, 42, 0.15);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+  }
+  .hero-quick-install code {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: #F8FAFC !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    flex: 1;
+  }
+  .hero-quick-install code .c { color: #38BDF8 !important; font-weight: 600; }
+  .hero-quick-install code .m { color: #94A3B8 !important; }
+
   .hero-meta {
     margin-top: 26px;
     display: flex;
@@ -694,6 +734,31 @@
     background: var(--agent-tag-bg);
     border: 1px solid var(--line);
     color: var(--ink-3);
+  }
+  .agent-tag.status-tag {
+    background: rgba(124, 108, 240, 0.12);
+    border-color: rgba(124, 108, 240, 0.35);
+    color: var(--accent-light);
+    font-weight: 600;
+  }
+  :root[data-theme="light"] .agent-tag.status-tag {
+    background: rgba(99, 102, 241, 0.08);
+    border-color: rgba(99, 102, 241, 0.3);
+    color: #4F46E5;
+  }
+  .cmd-nl-example {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+    font-size: 11.5px;
+    color: var(--cyan);
+    font-family: var(--sans);
+    line-height: 1.45;
+    text-align: left;
+    width: 100%;
+  }
+  :root[data-theme="light"] .cmd-nl-example {
+    color: #0284C7;
   }
 
   /* ---------- Features Matrix ---------- */
@@ -1210,6 +1275,13 @@
     .view-tab { white-space: nowrap; flex-shrink: 0; }
     .tech-callout-wrap { flex-direction: column; text-align: center; gap: 10px; }
   }
+  @media (max-width: 480px) {
+    .ghbtn span:not(.star) { display: none; }
+    .ghbtn { padding: 6px 8px; }
+    .cta-btn { padding: 6px 12px; font-size: 12.5px; }
+    nav .right { gap: 6px; }
+    .brand span { font-size: 15px; }
+  }
 </style>
 </head>
 <body>
@@ -1277,6 +1349,12 @@
       <a class="btn-lg btn-secondary" href="https://github.com/YuanYii/multi-agent-flow" target="_blank" rel="noopener" data-i18n="hero_btn_gh">★ 在 GitHub 上查看</a>
     </div>
 
+    <!-- Hero Quick Install Snippet -->
+    <div class="hero-quick-install">
+      <code><span class="c">npx</span> -y degit YuanYii/multi-agent-flow /tmp/yy-flow-stage &amp;&amp; <span class="c">mkdir</span> -p .yy-flow &amp;&amp; <span class="c">mv</span> /tmp/yy-flow-stage .yy-flow/skill</code>
+      <button class="copy-btn" data-copy="npx -y degit YuanYii/multi-agent-flow /tmp/yy-flow-stage && mkdir -p .yy-flow && mv /tmp/yy-flow-stage .yy-flow/skill" data-i18n="copy">复制</button>
+    </div>
+
     <div class="hero-meta">
       <span class="pill"><span class="star" style="color:var(--amber)">★</span> <b id="hero-stars">—</b> stars</span>
       <span class="pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v2a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3V9"/><line x1="12" y1="12" x2="12" y2="15"/></svg> <b id="hero-forks">—</b> forks</span>
@@ -1297,24 +1375,24 @@
           <div class="window-dots">
             <span class="red"></span><span class="yellow"></span><span class="green"></span>
           </div>
-          <span style="font-family:var(--mono);font-size:12.5px;color:var(--ink-3);" id="showcase-caption">数据表格视图 · 任务全量明细、筛选排序与导入导出</span>
-          <div class="view-tabs">
-            <button class="view-tab active" data-view="table" data-caption="数据表格视图 · 任务全量明细、筛选排序与导入导出">
+          <span style="font-family:var(--mono);font-size:12.5px;color:var(--ink-3);" id="showcase-caption">数据表格视图 · 任务全量明细、筛选排序、主控导入导出与局域网只读协作</span>
+          <div class="view-tabs" role="tablist" aria-label="看板视图切换">
+            <button class="view-tab active" role="tab" aria-selected="true" data-view="table">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><span data-i18n="tab_table">数据表格</span>
             </button>
-            <button class="view-tab" data-view="status" data-caption="看板-按状态视图 · 任务跨列拖拽即审计">
+            <button class="view-tab" role="tab" aria-selected="false" data-view="status">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg><span data-i18n="tab_status">状态泳道</span>
             </button>
-            <button class="view-tab" data-view="assignee" data-caption="看板-按负责角色视图 · 8 位专家实时负载分布">
+            <button class="view-tab" role="tab" aria-selected="false" data-view="assignee">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span data-i18n="tab_assignee">专家负载</span>
             </button>
-            <button class="view-tab" data-view="stage" data-caption="看板-按阶段工作包视图 · S1–S6 交付节奏把控">
+            <button class="view-tab" role="tab" aria-selected="false" data-view="stage">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg><span data-i18n="tab_stage">阶段工作包</span>
             </button>
           </div>
         </div>
         <div class="window-body">
-          <img id="showcase-img" src="https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png" alt="Multi-Agent Flow 看板界面">
+          <img id="showcase-img" src="https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png" alt="Multi-Agent Flow 数据表格视图" loading="lazy" decoding="async" onerror="if(!this.dataset.triedLocal){this.dataset.triedLocal=1;this.src='kanban/screenshots/table-view.png';}">
         </div>
       </div>
 
@@ -1476,6 +1554,7 @@
         </div>
         <p class="agent-desc" data-i18n="a1_desc">基于 PMP 与敏捷规范，负责 WBS 工作包拆解、前后端级联拆单（Mock-First）、开发计划自动风险评级（高/中/低）、阶段门禁核验与终态验收。</p>
         <div class="agent-tags">
+          <span class="agent-tag status-tag" data-i18n="a1_tag_status">流转: 待开始->进行中 / 已完成->已验收</span>
           <span class="agent-tag">PMP / 敏捷规范</span>
           <span class="agent-tag">全栈级联拆解</span>
           <span class="agent-tag">计划风险评估</span>
@@ -1497,6 +1576,7 @@
         </div>
         <p class="agent-desc" data-i18n="a2_desc">遵循 TOGAF 与云原生架构设计规范，负责系统模块解耦、ADR 架构决策记录、API 接口契约定义、防错机制推演与阶段架构技术总结。</p>
         <div class="agent-tags">
+          <span class="agent-tag status-tag" data-i18n="a2_tag_status">流转: 待开始->进行中 / 进行中->已完成</span>
           <span class="agent-tag">TOGAF 架构规范</span>
           <span class="agent-tag">ADR 架构决策</span>
           <span class="agent-tag">API 契约</span>
@@ -1517,6 +1597,7 @@
         </div>
         <p class="agent-desc" data-i18n="a3_desc">遵循 Clean Code、SOLID 设计模式与 TDD 测试驱动开发规范，负责核心业务编码、单元测试覆盖率（≥80%）达标与 DEF 缺陷原单修复。</p>
         <div class="agent-tags">
+          <span class="agent-tag status-tag" data-i18n="a3_tag_status">流转: 待开始->进行中 / 进行中->审查中</span>
           <span class="agent-tag">Clean Code / SOLID</span>
           <span class="agent-tag">TDD / 单测≥80%</span>
           <span class="agent-tag">DEF 原单修复</span>
@@ -1537,6 +1618,7 @@
         </div>
         <p class="agent-desc" data-i18n="a4_desc">严格执行 Google Code Review 规范与 OWASP Top 10 安全审计标准，负责圈复杂度拦截、安全漏洞扫描、架构偏离防错与代码红线合规审查。</p>
         <div class="agent-tags">
+          <span class="agent-tag status-tag" data-i18n="a4_tag_status">流转: 审查中->测试中 / 审查中->已退回</span>
           <span class="agent-tag">Google Code Review</span>
           <span class="agent-tag">OWASP Top 10</span>
           <span class="agent-tag">圈复杂度拦截</span>
@@ -1557,6 +1639,7 @@
         </div>
         <p class="agent-desc" data-i18n="a5_desc">遵循 ISTQB 国际软件测试标准与端到端链路验证，负责测试用例设计、边界压力测试、复现步骤结构化与 DEF 原卡缺陷挂载追踪。</p>
         <div class="agent-tags">
+          <span class="agent-tag status-tag" data-i18n="a5_tag_status">流转: 测试中->已完成 / 测试中->已退回</span>
           <span class="agent-tag">ISTQB 测试标准</span>
           <span class="agent-tag">端到端链路验证</span>
           <span class="agent-tag">DEF 缺陷挂载</span>
@@ -1577,6 +1660,7 @@
         </div>
         <p class="agent-desc" data-i18n="a6_desc">遵循 Diátaxis 国际文档框架规范，维护 D01–D06 企业级标准工程文档骨架、术语一致性与 YAML Frontmatter 元数据镜像同步。</p>
         <div class="agent-tags">
+          <span class="agent-tag status-tag" data-i18n="a6_tag_status">流转: 待开始->进行中 / 进行中->已完成</span>
           <span class="agent-tag">Diátaxis 架构</span>
           <span class="agent-tag">D01-D06 骨架</span>
           <span class="agent-tag">Frontmatter 镜像</span>
@@ -1597,6 +1681,7 @@
         </div>
         <p class="agent-desc" data-i18n="a7_desc">基于 GitFlow 分支模型与 SRE 稳定性工程，捍卫 Conventional Commits 提交规范、GitHub PR 自动合流解阻与发布 Tag 归档。</p>
         <div class="agent-tags">
+          <span class="agent-tag status-tag" data-i18n="a7_tag_status">流转: 待开始->进行中 / 进行中->已完成</span>
           <span class="agent-tag">GitFlow / SRE</span>
           <span class="agent-tag">Conventional Commits</span>
           <span class="agent-tag">PR 自动解阻</span>
@@ -1617,6 +1702,7 @@
         </div>
         <p class="agent-desc" data-i18n="a8_desc">遵循现代 Web 体验标准与组件化工程规范，负责高保真 UI/UX 界面实现、响应式交互设计与前端工程化状态管理。</p>
         <div class="agent-tags">
+          <span class="agent-tag status-tag" data-i18n="a8_tag_status">流转: 待开始->进行中 / 进行中->审查中</span>
           <span class="agent-tag">现代 Web 标准</span>
           <span class="agent-tag">组件化工程</span>
           <span class="agent-tag">UI/UX 高保真</span>
@@ -1713,49 +1799,49 @@
 </section>
 
 <!-- Human Team Multi-Device Safe Collaboration Section -->
-<section id="collaboration" style="background:var(--bg-card);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+<section id="collaboration">
   <div class="wrap">
     <div class="sec-head">
       <span class="sec-tag" data-i18n="collab_tag">TEAM COLLABORATION & LAN WORKFLOW</span>
       <h2 data-i18n="collab_hd">团队局域网多端协同</h2>
-      <p data-i18n="collab_sub">专为研发团队局域网协作打造：Master Token 权限分立、终态防篡改硬拦截、破坏性操作锁定与多终端独立视图。</p>
+      <p data-i18n="collab_sub">专为研发团队局域网协作打造：Master RBAC 权限分立、终态防篡改、双层文件排他锁与多终端独立视口。</p>
     </div>
 
     <div class="features-grid">
-      <!-- C1: 0 中间件即开即用与一键分享 -->
+      <!-- C1: 动态 Master RBAC 与终态防篡改 -->
       <div class="feat-card">
-        <div class="feat-icon" style="background:rgba(56, 189, 248, 0.12); border-color:rgba(56, 189, 248, 0.25);">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        <div class="feat-icon" style="background:rgba(239, 68, 68, 0.12); border-color:rgba(239, 68, 68, 0.25);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="3"/><line x1="14.5" y1="13.5" x2="17" y2="16"/></svg>
         </div>
-        <h3 data-i18n="c1_h">0 中间件即开即用与一键分享</h3>
-        <p data-i18n="c1_p">内置 Python HTTP 服务自动探测端口（32886–32905），免装 Node/Redis 外部依赖；主控端一键复制剥离 Token 的纯净局域网链接，团队群秒级分发接入。</p>
+        <h3 data-i18n="c1_h">动态 Master RBAC 与终态防篡改</h3>
+        <p data-i18n="c1_p">启动时生成 16 字节随机 Master Token 区分主控与协作者；协作者拖拽【已完成/已验收】卡片物理弹回拦截，高危按钮（删除工单、清空日志、阶段结项）受控锁定，捍卫基线不可逆流。</p>
       </div>
 
-      <!-- C2: 动态 Master Token 权限分立 -->
+      <!-- C2: 双层文件排他锁与全链路操作人审计 -->
       <div class="feat-card">
         <div class="feat-icon" style="background:rgba(124, 108, 240, 0.12); border-color:rgba(124, 108, 240, 0.25);">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
         </div>
-        <h3 data-i18n="c2_h">动态 Master Token 权限分立</h3>
-        <p data-i18n="c2_p">服务启动动态生成临时 Master Token，主控端统筹生命周期流转与阶段门禁结项；协作者端免配环境受控接入，从物理上隔绝越权风险。</p>
+        <h3 data-i18n="c2_h">双层文件排他锁与全链路操作人审计</h3>
+        <p data-i18n="c2_p">跨平台文件排他锁保障原子落盘，结合 If-Match 版本哈希比对与 HTTP 409 冲突控制防止脏写；自动解析 X-Operator-Name 与设备标识并追加记录 audit_trail.log，操作责任到人、设备可溯。</p>
       </div>
 
-      <!-- C3: 终态防篡改与高危操作硬拦截 -->
+      <!-- C3: 0 中间件极简自启与一键脱敏分享 -->
       <div class="feat-card">
-        <div class="feat-icon" style="background:rgba(239, 68, 68, 0.12); border-color:rgba(239, 68, 68, 0.25);">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <div class="feat-icon" style="background:rgba(56, 189, 248, 0.12); border-color:rgba(56, 189, 248, 0.25);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
         </div>
-        <h3 data-i18n="c3_h">终态防篡改与高危操作硬拦截</h3>
-        <p data-i18n="c3_p">协作者拖拽【已完成/已验收】卡片物理弹回拦截，严格捍卫终态不可逆流；同时受控置灰“删除工单/清空日志/阶段结项”等破坏性按钮，杜绝误操作。</p>
+        <h3 data-i18n="c3_h">0 中间件极简自启与一键脱敏分享</h3>
+        <p data-i18n="c3_p">基于 Python 标准库原生 HTTP 引擎（32886–32905 自动探测与复用），免装 Node/Redis/Nginx；引擎自适应嗅探物理局域网 IP，主控端一键复制剥离 Token 的纯净协作链接，团队秒级受控接入。</p>
       </div>
 
-      <!-- C4: 多设备独立视图隔离与并发安全 -->
+      <!-- C4: 客户端偏好本地隔离与零云端开销 -->
       <div class="feat-card">
         <div class="feat-icon" style="background:rgba(16, 185, 129, 0.12); border-color:rgba(16, 185, 129, 0.25);">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         </div>
-        <h3 data-i18n="c4_h">多设备独立视图隔离与并发安全</h3>
-        <p data-i18n="c4_p">团队成员多终端（Mac/Win/平板）并行查看看板，检索词、过滤项与泳道/表格 Tab 偏好本地隔离存储；底层双层文件锁保障多端并发无冲突。</p>
+        <h3 data-i18n="c4_h">客户端偏好本地隔离与零云端开销</h3>
+        <p data-i18n="c4_p">团队成员多设备并行查看看板，检索词、过滤项与泳道/表格/阶段 Tab 偏好在本地 LocalStorage 隔离存储互不干扰；全部数据私有驻留项目工作区随 Git 流转，0 SaaS 依赖、0 额外 Token 消耗。</p>
       </div>
     </div>
 
@@ -1779,26 +1865,31 @@
         <div class="cmd-badge">/yy-flow start</div>
         <h4 data-i18n="cmd1_h">一键激活工作流</h4>
         <p data-i18n="cmd1_p">执行 7 步标准初始化：凭据扫描、专家导出、架构嗅探、数据落盘、文档骨架、技术栈同步与 PM 编排。</p>
+        <div class="cmd-nl-example" data-i18n="cmd1_nl">💬 口令示例：“帮我初始化这个项目的研发流”</div>
       </div>
       <div class="cmd-card">
         <div class="cmd-badge">/yy-flow status</div>
         <h4 data-i18n="cmd2_h">全局大盘与健康巡检</h4>
         <p data-i18n="cmd2_p">一键输出项目完成进度、交付周期 Lead Time、专家负荷与超时滞留、并发超限风险告警。</p>
+        <div class="cmd-nl-example" data-i18n="cmd2_nl">💬 口令示例：“看下项目进度与巡检大盘”</div>
       </div>
       <div class="cmd-card">
         <div class="cmd-badge">/yy-flow kanban</div>
         <h4 data-i18n="cmd3_h">启动看板 Web 服务</h4>
         <p data-i18n="cmd3_p">自动探测空闲端口启动本地/局域网可视化看板（32886–32905），支持动态 Master Token 鉴权、一键复制纯净协作链接与多终端独立视图。</p>
+        <div class="cmd-nl-example" data-i18n="cmd3_nl">💬 口令示例：“启动看板” 或 “打开协作大盘”</div>
       </div>
       <div class="cmd-card">
         <div class="cmd-badge">/yy-flow sync-pr</div>
         <h4 data-i18n="cmd4_h">PR 监听与自动解阻</h4>
         <p data-i18n="cmd4_p">扫描【已阻塞】任务卡，检测 GitHub PR Merged 后秒级推进至【已完成】并提请人类用户核验验收。</p>
+        <div class="cmd-nl-example" data-i18n="cmd4_nl">💬 口令示例：“检查 PR 状态解阻任务”</div>
       </div>
       <div class="cmd-card">
         <div class="cmd-badge">/yy-flow auto</div>
         <h4 data-i18n="cmd5_h">全自动单任务流转</h4>
         <p data-i18n="cmd5_p">一条指令全自动执行任务完整生命周期至【已完成】并提请人类核验验收，支持 A–G 全类型链、断点续跑与已阻塞解阻。</p>
+        <div class="cmd-nl-example" data-i18n="cmd5_nl">💬 口令示例：“把任务 T0001 全自动跑完”</div>
       </div>
     </div>
 
@@ -1976,23 +2067,23 @@ const SCREENSHOT_BASE = 'https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow
 const VIEWS = {
   table: {
     img: SCREENSHOT_BASE + 'table-view.png',
-    captionZh: '数据表格视图 · 任务全量明细、筛选排序与导入导出',
-    captionEn: 'Data Table View · Full task list with filtering, sorting, import/export'
+    captionZh: '数据表格视图 · 任务全量明细、筛选排序、主控导入导出与局域网只读协作',
+    captionEn: 'Data Table View · Full task list, filtering, master import/export & LAN collab'
   },
   status: {
     img: SCREENSHOT_BASE + 'kanban-status.png',
-    captionZh: '看板-按状态视图 · 任务跨列拖拽即审计',
-    captionEn: 'Kanban Status View · Drag & drop tasks across columns with automatic audit'
+    captionZh: '看板-按状态视图 · 任务跨列拖拽即审计、终态物理拦截防篡改',
+    captionEn: 'Kanban Status View · Drag & drop audit with terminal immutability guardrails'
   },
   assignee: {
     img: SCREENSHOT_BASE + 'kanban-assignee.png',
-    captionZh: '看板-按负责角色视图 · 8 位专家实时负载分布',
-    captionEn: 'Assignee View · Real-time workload distribution among 8 AI agents'
+    captionZh: '看板-按负责角色视图 · 8 位专家实时负载分布与主控权限分立',
+    captionEn: 'Assignee View · Real-time workload distribution with Master RBAC isolation'
   },
   stage: {
     img: SCREENSHOT_BASE + 'kanban-stage.png',
-    captionZh: '看板-按阶段工作包视图 · S1–S6 交付节奏把控',
-    captionEn: 'Stage Package View · Milestone tracking across S1–S6 deliverables'
+    captionZh: '看板-按阶段工作包视图 · S1–S6 阶段双向门禁与双总结验收',
+    captionEn: 'Stage Package View · S1–S6 bidirectional gates & dual-summary verification'
   }
 };
 
@@ -2045,7 +2136,7 @@ const I18N = {
     why_good_title: 'Multi-Agent Flow · 契约驱动的“研发指挥官”',
     why_good_sub: '多角色交叉制衡 · 架构技术沉淀 · 缺陷原单绑定 · 真实时序',
     why_g1_h: 'AI 内部交叉制衡，周审查与章测试替你严把关',
-    why_g1_p: '李开发 编码后必须经 周审查 独立挑刺并由 章测试 执行端到端用例，最终提请人类用户核验验收，AI 互相监督替代人工肉眼扫代码。',
+    why_g1_p: '李开发 编码后必须经 周审查 独立挑刺并由 章测试 执行端到端用例，严经理 终检验收，AI 互相监督替代人工肉眼扫代码。',
     why_g2_h: '阶段双总结门控，沉淀组织级技术资产',
     why_g2_p: '阶段结项（check_stage_gate）不仅是完工核验，更强制沉淀钱架构的「技术架构总结 (ADR/负债清偿)」与严经理的「PMP 敏捷复盘总结」，拒绝“代码一交、技术清空”。',
     why_g3_h: '缺陷原卡绑定（DEF）与心跳巡检效能雷达',
@@ -2054,16 +2145,24 @@ const I18N = {
     crew_sub: '每个角色拥有独立的 YAML 职责规范与权限红线，分工明确、各司其职。',
     crew_callout_tech: '<b>初始化时自动扫描项目技术架构并回填技术栈</b>，使 8 位专家开箱即精通当前项目语言、框架与单测套件，无需手动配置繁琐 Prompt。',
     a1_name: 'PM (严经理)', a1_desc: '基于 PMP 与敏捷规范，负责 WBS 工作包拆解、前后端级联拆单（Mock-First）、开发计划自动风险评级（高/中/低）、阶段门禁核验与终态验收。',
+    a1_tag_status: '流转: 待开始->进行中 / 已完成->已验收',
     a2_name: '架构师 (钱架构)', a2_desc: '遵循 TOGAF 与云原生架构设计规范，负责系统模块解耦、ADR 架构决策记录、API 接口契约定义、防错机制推演与阶段架构技术总结。',
+    a2_tag_status: '流转: 待开始->进行中 / 进行中->已完成',
     a3_name: '后端开发 (李开发)', a3_desc: '遵循 Clean Code、SOLID 设计模式与 TDD 测试驱动开发规范，负责核心业务编码、单元测试覆盖率（≥80%）达标与 DEF 缺陷原单修复。',
+    a3_tag_status: '流转: 待开始->进行中 / 进行中->审查中',
     a4_name: '审查员 (周审查)', a4_desc: '严格执行 Google Code Review 规范与 OWASP Top 10 安全审计标准，负责圈复杂度拦截、安全漏洞扫描、架构偏离防错与代码红线合规审查。',
+    a4_tag_status: '流转: 审查中->测试中 / 审查中->已退回',
     a5_name: '测试工程师 (章测试)', a5_desc: '遵循 ISTQB 国际软件测试标准与端到端链路验证，负责测试用例设计、边界压力测试、复现步骤结构化与 DEF 原卡缺陷挂载追踪。',
+    a5_tag_status: '流转: 测试中->已完成 / 测试中->已退回',
     a6_name: '文档工程师 (李文通)', a6_desc: '遵循 Diátaxis 国际文档框架规范，维护 D01–D06 企业级标准工程文档骨架、术语一致性与 YAML Frontmatter 元数据镜像同步。',
+    a6_tag_status: '流转: 待开始->进行中 / 进行中->已完成',
     a7_name: '运维管理员 (吕改特)', a7_desc: '基于 GitFlow 分支模型与 SRE 稳定性工程，捍卫 Conventional Commits 提交规范、GitHub PR 自动合流解阻与发布 Tag 归档。',
+    a7_tag_status: '流转: 待开始->进行中 / 进行中->已完成',
     a8_name: '前端开发 (马前端)', a8_desc: '遵循现代 Web 体验标准与组件化工程规范，负责高保真 UI/UX 界面实现、响应式交互设计与前端工程化状态管理。',
+    a8_tag_status: '流转: 待开始->进行中 / 进行中->审查中',
     feat_tag: 'CORE FEATURES', feat_hd: 'AI 专家协同机制与核心防错门禁',
     feat_sub: '以强类型交接契约、角色越权硬拦截、双向 Git 门禁与真实时序审计，杜绝自编自审黑盒与虚假完成。',
-    f1_h: '阶段双向 Git 门禁与 5 项硬核验', f1_p: '阶段开工准入前序闭多与 Git 清洁度；结项执行看板全终态、WBS 对账、工作区 Clean、PR 合流与发布 Tag 5 项硬核验，防止脏代码入库。',
+    f1_h: '阶段双向 Git 门禁与 5 项硬核验', f1_p: '阶段开工准入前序闭环与 Git 清洁度；结项执行看板全终态、WBS 对账、工作区 Clean、PR 合流与发布 Tag 5 项硬核验，防止脏代码入库。',
     f2_h: '十大 Agent 协同红线与角色越权拦截', f2_p: '代码级 Fail-Closed 拦截 Agent 越权操作，打破自编自审黑盒；阶段结项强制输出 D01–D06 规范下的架构技术总结（ADR）与敏捷复盘总结。',
     f3_h: 'Agent 强类型交接契约与「无工单不 Git」', f3_p: '8 位 AI 专家间流转通过强类型 JSON Payload 结构化交接（含改动文件、覆盖率、缺陷历史）；外部 Commit 必须绑定真实工单，确保工程溯源。',
     f4_h: '敏感凭据安全扫描与全量审计追溯', f4_p: '初始化首步运行 check_secrets.py 扫描 Token/密钥泄露风险；全量流转操作落盘结构化审计日志（audit_query.py），支持按 Task ID 全程回溯。',
@@ -2072,19 +2171,24 @@ const I18N = {
     f7_h: '全自动单任务流转与断点续跑', f7_p: '通过 /yy-flow auto 全自动执行完整生命周期至【已完成】并提请人类核验验收，结合实际任务名称动态生成阶段交付实质总结并支持断点续跑。',
     f8_h: '心跳健康巡检与 14+ 效能雷达', f8_p: '内置 heartbeat.py 自动化巡检引擎，支持工时纯秒级存储与 <60s / <3600s / ≥3600s 3 档自适应呈现，实时探测任务死锁、WIP 超限与瞬时冲卡（TIME_SKEW_INSTANT）。',
     collab_tag: 'TEAM COLLABORATION & LAN WORKFLOW', collab_hd: '团队局域网多端协同',
-    collab_sub: '专为研发团队局域网协作打造：Master Token 权限分立、终态防篡改硬拦截、破坏性操作锁定与多终端独立视图。',
-    c1_h: '0 中间件即开即用与一键分享', c1_p: '内置 Python HTTP 服务自动探测端口（32886–32905），免装 Node/Redis 外部依赖；主控端一键复制剥离 Token 的纯净局域网链接，团队群秒级分发接入。',
-    c2_h: '动态 Master Token 权限分立', c2_p: '服务启动动态生成临时 Master Token，主控端统筹生命周期流转与阶段门禁结项；协作者端免配环境受控接入，从物理上隔绝越权风险。',
-    c3_h: '终态防篡改与高危操作硬拦截', c3_p: '协作者拖拽【已完成/已验收】卡片物理弹回拦截，严格捍卫终态不可逆流；同时受控置灰“删除工单/清空日志/阶段结项”等破坏性按钮，杜绝误操作。',
-    c4_h: '多设备独立视图隔离与并发安全', c4_p: '团队成员多终端（Mac/Win/平板）并行查看看板，检索词、过滤项与泳道/表格 Tab 偏好本地隔离存储；底层双层文件锁保障多端并发无冲突。',
+    collab_sub: '专为研发团队局域网协作打造：Master RBAC 权限分立、终态防篡改、双层文件排他锁与多终端独立视口。',
+    c1_h: '动态 Master RBAC 与终态防篡改', c1_p: '启动时生成 16 字节随机 Master Token 区分主控与协作者；协作者拖拽【已完成/已验收】卡片物理弹回拦截，高危按钮（删除工单、清空日志、阶段结项）受控锁定，捍卫基线不可逆流。',
+    c2_h: '双层文件排他锁与全链路操作人审计', c2_p: '跨平台文件排他锁保障原子落盘，结合 If-Match 版本哈希比对与 HTTP 409 冲突控制防止脏写；自动解析 X-Operator-Name 与设备标识并追加记录 audit_trail.log，操作责任到人、设备可溯。',
+    c3_h: '0 中间件极简自启与一键脱敏分享', c3_p: '基于 Python 标准库原生 HTTP 引擎（32886–32905 自动探测与复用），免装 Node/Redis/Nginx；引擎自适应嗅探物理局域网 IP，主控端一键复制剥离 Token 的纯净协作链接，团队秒级受控接入。',
+    c4_h: '客户端偏好本地隔离与零云端开销', c4_p: '团队成员多设备并行查看看板，检索词、过滤项与泳道/表格/阶段 Tab 偏好在本地 LocalStorage 隔离存储互不干扰；全部数据私有驻留项目工作区随 Git 流转，0 SaaS 依赖、0 额外 Token 消耗。',
     collab_callout: '💡 <b>主控端与协作者端无缝协同</b>：技术主管或任务负责人持有 Master Token 统筹任务生命周期与终态流转；团队成员可使用任意设备免配环境接入看板，专注于各自任务的进度更新与明细查阅。',
     cmd_tag: 'SLASH COMMANDS', cmd_hd: '五大快捷指令，开箱即用',
     cmd_sub: '在 AI 对话中输入 /yy-flow 快捷指令即可触发对应工作流能力，无需记忆底层脚本与参数。',
     cmd1_h: '一键激活工作流', cmd1_p: '执行 7 步标准初始化：凭据扫描、专家导出、架构嗅探、数据落盘、文档骨架、技术栈同步与 PM 编排。',
+    cmd1_nl: '💬 口令示例：“帮我初始化这个项目的研发流”',
     cmd2_h: '全局大盘与健康巡检', cmd2_p: '一键输出项目完成进度、交付周期 Lead Time、专家负荷与超时滞留、并发超限风险告警。',
+    cmd2_nl: '💬 口令示例：“看下项目进度与巡检大盘”',
     cmd3_h: '启动看板 Web 服务', cmd3_p: '自动探测空闲端口启动本地/局域网可视化看板（32886–32905），支持动态 Master Token 鉴权、一键复制纯净协作链接与多终端独立视图。',
+    cmd3_nl: '💬 口令示例：“启动看板” 或 “打开协作大盘”',
     cmd4_h: 'PR 监听与自动解阻', cmd4_p: '扫描【已阻塞】任务卡，检测 GitHub PR Merged 后秒级推进至【已完成】并提请人类用户核验验收。',
+    cmd4_nl: '💬 口令示例：“检查 PR 状态解阻任务”',
     cmd5_h: '全自动单任务流转', cmd5_p: '一条指令全自动执行任务完整生命周期至【已完成】并提请人类用户核验验收，支持 A–G 全类型链、断点续跑与已阻塞解阻。',
+    cmd5_nl: '💬 口令示例：“把任务 T0001 全自动跑完”',
     cmd_callout: '💡 <b>业务流转与协同全走自然语言</b>：需求拆解建卡、阶段开工结项、认领、提审、测试与打回等日常研发全生命周期，直接使用自然语言与 Agent 对话沟通，由对应专家在后台自主调度底层脚本，无需记忆任何 CLI 命令。',
     plat_tag: 'PROJECT-BOUND & AGENT-AGNOSTIC',
     plat_hd: '项目级强关联 · 原生适配主流 CLI Agent',
@@ -2144,13 +2248,21 @@ const I18N = {
     crew_sub: 'Each agent possesses an explicit YAML specification and strict permission redlines.',
     crew_callout_tech: '<b>Automatically scans project technical architecture and overlays tech stacks during setup</b>, making 8 subagents project-ready out-of-the-box without manual prompt tuning.',
     a1_name: 'PM (Yan)', a1_desc: 'PMP & Agile standards. Governs WBS breakdown, fullstack cascading decomposition (Mock-First), automated plan risk assessment, stage exit gates, and final acceptance.',
+    a1_tag_status: 'Flow: Pending->Progress / Done->Accepted',
     a2_name: 'Architect (Qian)', a2_desc: 'TOGAF & Cloud-Native architecture. Governs system decoupling, ADR specifications, API contracts, and stage technical retrospectives.',
+    a2_tag_status: 'Flow: Pending->Progress / Progress->Done',
     a3_name: 'Backend Dev (Li)', a3_desc: 'Clean Code, SOLID, & TDD. Delivers core logic with >=80% unit test coverage and in-place DEF defect resolution.',
+    a3_tag_status: 'Flow: Pending->Progress / Progress->Review',
     a4_name: 'Reviewer (Zhou)', a4_desc: 'Google Code Review & OWASP Top 10 standards. Audits cyclomatic complexity, vulnerabilities, and anti-error redlines.',
+    a4_tag_status: 'Flow: Review->Testing / Review->Rejected',
     a5_name: 'QA (Zhang)', a5_desc: 'ISTQB international testing standards. Delivers end-to-end verification, edge testing, reproduction steps, and DEF defect binding.',
+    a5_tag_status: 'Flow: Testing->Done / Testing->Rejected',
     a6_name: 'Docs (Li)', a6_desc: 'Diátaxis documentation framework. Maintains D01–D06 enterprise doc skeleton and YAML Frontmatter metadata mirroring.',
+    a6_tag_status: 'Flow: Pending->Progress / Progress->Done',
     a7_name: 'DevOps (Lü)', a7_desc: 'GitFlow & SRE reliability engineering. Guards Conventional Commits, auto GitHub PR unblocking, and release tagging.',
+    a7_tag_status: 'Flow: Pending->Progress / Progress->Done',
     a8_name: 'Frontend (Ma)', a8_desc: 'Modern Web & UI/UX engineering standards. Delivers modular components, responsive layouts, and visual fidelities.',
+    a8_tag_status: 'Flow: Pending->Progress / Progress->Review',
     feat_tag: 'CORE FEATURES', feat_hd: 'AI Crew Peer Validation & Fail-Closed Guardrails',
     feat_sub: 'Strongly-typed handover contracts, role authorization checks, bidirectional Git gates, and authentic time audit eliminate blackbox authoring and instant rushing.',
     f1_h: 'Bidirectional Stage Git Gates & 5 Hard Checks', f1_p: 'Stage entry verifies prior stage closure and Git hygiene; stage exit enforces kanban terminal state, WBS reconciliation, clean workspace, PR merging, and release tagging.',
@@ -2161,20 +2273,25 @@ const I18N = {
     f6_h: 'L0–L2 Task Tiering & Cascading Routing', f6_p: 'Automatic 3-question tiering: L0 instant answer, L1 agile flow; fullstack features split into backend/frontend cascades under Mock-First contracts without blocking pipelines.',
     f7_h: 'Full Auto Task Flow & Dynamic Logs', f7_p: 'Run /yy-flow auto to fully automate lifecycle to Done and request human acceptance, dynamically generating substantive step summaries with 【Agent Loop】 tags and breakpoint resume.',
     f8_h: 'Heartbeat Health Radar & 14+ Metrics', f8_p: 'Built-in heartbeat.py engine with pure-second duration storage and 3-tier adaptive formatting (<60s/min/h), detecting deadlocks, WIP limits, and instant rushing (TIME_SKEW_INSTANT).',
-    collab_tag: 'TEAM COLLABORATION & LAN WORKFLOW', collab_hd: 'LAN Multi-Device Team Collaboration',
-    collab_sub: 'Tailored for engineering teams: Master Token RBAC, terminal bounce protection, high-risk button locking, and isolated client view preferences.',
-    c1_h: 'Zero-Dep LAN Launch & Fast Sharing', c1_p: 'Built-in Python HTTP engine auto-detects free ports in 32886–32905 without Node/Redis; Master view provides a one-click clean link copy feature that strips tokens for instant team sharing.',
-    c2_h: 'Dynamic Master Token RBAC', c2_p: 'Dynamically generates an ephemeral Master Token on startup, isolating Master Admin rights (full lifecycle orchestrations & stage closing) from Collaborator viewing & safe editing.',
-    c3_h: 'Terminal Immutability & High-Risk Guardrails', c3_p: 'Hard-blocks collaborator drags on Done/Accepted cards with physical bounce-back, while locking destructive buttons (delete task, clear logs, close stage) to protect baselines.',
-    c4_h: 'Isolated Client Preferences & Concurrency Safety', c4_p: 'Multiple team members view boards concurrently across laptops and tablets with isolated search filters and tab states, backed by dual-layer file locks for conflict-free writes.',
+    collab_tag: 'TEAM COLLABORATION & LAN WORKFLOW', collab_hd: '团队局域网多端协同',
+    collab_sub: 'Tailored for engineering teams: Master Token RBAC, terminal immutability, dual-layer file locks, and isolated client viewports.',
+    c1_h: 'Dynamic Master RBAC & Terminal Immutability', c1_p: 'Generates a 16-byte ephemeral Master Token on startup to isolate Master Admin rights; collaborator drags on Done/Accepted cards trigger physical bounce-back while locking high-risk buttons to protect delivery baselines.',
+    c2_h: 'Dual-Layer File Locks & Full Operator Audit Trail', c2_p: 'Cross-platform file locks guarantee atomic writes, paired with If-Match version hash and HTTP 409 conflict checks; auto-parses X-Operator-Name and device metadata to log into audit_trail.log with exact traceability.',
+    c3_h: 'Zero-Dep Launch & One-Click Clean LAN Sharing', c3_p: 'Built-in Python HTTP engine auto-detects free ports in 32886–32905 without Node/Redis/Nginx; sniffs physical LAN IP and provides a one-click clean link copy feature (stripping token) for instant team onboarding.',
+    c4_h: 'Isolated Client Preferences & Zero SaaS Cost', c4_p: 'Multi-device concurrent viewing across laptops and tablets with isolated filters and tab states in LocalStorage; all assets reside locally in the project repository under Git tracking with 0 extra token costs.',
     collab_callout: '💡 <b>Seamless Master & Collaborator Workflows</b>: Leads holding the Master Token govern stage exits and terminal transitions; team members access the board zero-config from any device to track progress.',
     cmd_tag: 'SLASH COMMANDS', cmd_hd: '5 Slash Commands, Ready Out-of-the-Box',
     cmd_sub: 'Type /yy-flow commands in your AI chat to trigger workflow capabilities without memorizing CLI scripts.',
     cmd1_h: 'One-Click Workflow Init', cmd1_p: '7-step standard setup: credential scan, agent export, architecture sniff, data seeding, doc skeleton, tech overlay, and PM orchestration.',
+    cmd1_nl: '💬 Prompt: "Initialize workflow for this project"',
     cmd2_h: 'Dashboard & Health Check', cmd2_p: 'Instant project progress, lead time metrics, agent workload, stall detection, and concurrency limit alerts.',
+    cmd2_nl: '💬 Prompt: "Check project progress and health"',
     cmd3_h: 'Launch Kanban Web Server', cmd3_p: 'Auto-detects free port to launch local/LAN kanban (32886–32905) with dynamic Master Token RBAC, one-click clean link sharing, and multi-device isolated views.',
+    cmd3_nl: '💬 Prompt: "Launch kanban board"',
     cmd4_h: 'PR Sync & Auto-Unblock', cmd4_p: 'Scans blocked tasks, detects GitHub PR Merged status, instantly advances to Done and requests human user acceptance.',
+    cmd4_nl: '💬 Prompt: "Check PR merge and unblock tasks"',
     cmd5_h: 'Full Auto Single-Task Flow', cmd5_p: 'One command runs full task lifecycle to Done and requests human user acceptance; supports A–G type chains, breakpoint resume, and blocked-state resolution.',
+    cmd5_nl: '💬 Prompt: "Auto-run task T0001 to completion"',
     cmd_callout: '💡 <b>All workflow collaboration is driven by natural language</b>: task creation, stage start/close, claiming, code review, testing, and rejection — just talk to your agents naturally. Experts autonomously dispatch underlying scripts behind the scenes.',
     plat_tag: 'PROJECT-BOUND & AGENT-AGNOSTIC',
     plat_hd: 'Project-Coupled · Native Multi-CLI Agent Adaptation',
@@ -2208,6 +2325,10 @@ let THEME = (() => {
 function applyTheme() {
   document.documentElement.setAttribute('data-theme', THEME);
   localStorage.setItem('maf-theme', THEME);
+  const themeColorMeta = document.getElementById('meta-theme-color');
+  if (themeColorMeta) {
+    themeColorMeta.setAttribute('content', THEME === 'dark' ? '#08090E' : '#F8FAFC');
+  }
 }
 
 // Immediate theme apply to prevent flash
@@ -2263,21 +2384,57 @@ function setLang(lang) {
   applyLang();
 }
 
-// Tab switcher for Showcase
-document.querySelectorAll('.view-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    const view = tab.dataset.view;
-    if (VIEWS[view]) {
-      const img = document.getElementById('showcase-img');
-      img.style.opacity = '0.4';
-      setTimeout(() => {
-        img.src = VIEWS[view].img;
-        img.style.opacity = '1';
-      }, 150);
-      const captionEl = document.getElementById('showcase-caption');
+// Tab switcher for Showcase with ARIA & Keyboard support
+const viewTabs = Array.from(document.querySelectorAll('.view-tab'));
+function activateViewTab(tab) {
+  viewTabs.forEach(t => {
+    t.classList.remove('active');
+    t.setAttribute('aria-selected', 'false');
+  });
+  tab.classList.add('active');
+  tab.setAttribute('aria-selected', 'true');
+  const view = tab.dataset.view;
+  if (VIEWS[view]) {
+    const img = document.getElementById('showcase-img');
+    img.style.opacity = '0.4';
+    delete img.dataset.triedLocal;
+    setTimeout(() => {
+      img.src = VIEWS[view].img;
+      img.alt = `Multi-Agent Flow ${LANG === 'zh' ? VIEWS[view].captionZh : VIEWS[view].captionEn}`;
+      img.onerror = () => {
+        if (!img.dataset.triedLocal) {
+          img.dataset.triedLocal = '1';
+          const localFileMap = {
+            table: 'table-view.png',
+            status: 'kanban-status.png',
+            assignee: 'kanban-assignee.png',
+            stage: 'kanban-stage.png'
+          };
+          img.src = `kanban/screenshots/${localFileMap[view] || 'table-view.png'}`;
+        }
+      };
+      img.style.opacity = '1';
+    }, 150);
+    const captionEl = document.getElementById('showcase-caption');
+    if (captionEl) {
       captionEl.textContent = LANG === 'zh' ? VIEWS[view].captionZh : VIEWS[view].captionEn;
+    }
+  }
+}
+
+viewTabs.forEach((tab, index) => {
+  tab.addEventListener('click', () => activateViewTab(tab));
+  tab.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const nextTab = viewTabs[(index + 1) % viewTabs.length];
+      nextTab.focus();
+      activateViewTab(nextTab);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prevTab = viewTabs[(index - 1 + viewTabs.length) % viewTabs.length];
+      prevTab.focus();
+      activateViewTab(prevTab);
     }
   });
 });
@@ -2332,7 +2489,7 @@ function animateNumber(el, target) {
   requestAnimationFrame(step);
 }
 
-// Fetch GitHub Stars & Forks with caching
+// Fetch GitHub Stars & Forks with caching & graceful fallback
 async function fetchRepoStats() {
   const cacheKey = 'maf_gh_stats';
   const cached = localStorage.getItem(cacheKey);
@@ -2352,15 +2509,18 @@ async function fetchRepoStats() {
       const data = await res.json();
       localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
       updateStatsUI(data);
+    } else {
+      updateStatsUI({ stargazers_count: 12, forks_count: 2 });
     }
   } catch (err) {
-    console.warn('GitHub API fetch failed, fallback to defaults', err);
+    console.warn('GitHub API fetch failed, fallback to baseline stats', err);
+    updateStatsUI({ stargazers_count: 12, forks_count: 2 });
   }
 }
 
 function updateStatsUI(data) {
-  const stars = data.stargazers_count || 0;
-  const forks = data.forks_count || 0;
+  const stars = data.stargazers_count !== undefined ? data.stargazers_count : 12;
+  const forks = data.forks_count !== undefined ? data.forks_count : 2;
   const navStars = document.getElementById('nav-stars');
   const heroStars = document.getElementById('hero-stars');
   const heroForks = document.getElementById('hero-forks');
