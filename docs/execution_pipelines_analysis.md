@@ -49,6 +49,10 @@
    - `/yy-flow kanban` → `start_kanban_server.py` 拉起 HTTP 守护进程（默认 32886）；
    - `/yy-flow metrics` → `metrics_analyzer.py` 效能卡点分析；`/yy-flow sync-pr` → `sync_pr_status.py`；`/yy-flow gate` → `check_stage_gate.py`。
 
+**验证与覆盖**：pytest 单测部分覆盖（test_heartbeat_fixes 6 项）；108 仿真未触达（CLI 级）。补盲建议：初始化/巡检 CLI 冒烟段（P2）。
+
+---
+
 ### 链路 2：初始化 7 步 SOP 一键启动链路
 1. **触发源**：`/yy-flow start` 或首次加载检测到 `project_architecture.config.yaml` 缺失。
 2. **执行路径**（`init_skill.sh` / `init_skill.ps1` 物理执行）：
@@ -60,6 +64,10 @@
    - **Step 6 物理建卡**：`quick_task.py create --name "项目技术架构全景鉴定与选型定版"` 建【待开始】工单；
    - **Step 7 深度鉴定与响应契约**：钱架构领单 ➔ 编写 D02 架构文档 ➔ `save_project_architecture.py` 落盘（联动链路 3）➔ PM 验收 ➔ 输出【已识别 xxxx 项目】标志行 + 官方查证凭据 + 8 大专家写权限矩阵表格。
 
+**验证与覆盖**：无端到端自动测试（人工 / init 实跑）。补盲建议：沙箱临时目录真实执行 init 7 步（P2）。
+
+---
+
 ### 链路 3：架构嗅探与能力注入链路
 1. **触发源**：项目接入初始化或架构师执行技术栈同步。
 2. **执行路径**：
@@ -69,17 +77,33 @@
    - `agent_tech_overlay.py` 在【导出时】覆盖能力到各平台 Subagent 产物（agents/*.yaml 模板保持只读，共享安装下不互串）；
    - `update_agent_tech_stacks.py` 校验架构配置后重触发导出；物理读取导出文件 Fail-Closed 断言。
 
+**验证与覆盖**：pytest 单测覆盖（test_save_project_architecture 3 项 + test_tech_capability_expander 3 项 + test_export_global 8 项含导出断言）；108 仿真未触达。
+
+---
+
 ### 链路 4：历史文档隔离归档链路
 1. **触发源**：初始化 Step 5 或历史文档治理。
 2. **执行路径**：`legacy_migrator.py` 深度扫描项目根；父目录名权重 +10、文件名特征 +5、正文前 2KB 语义 +1 综合判定归属 D01~D06；以只读镜像复制到 `docs/{D01-D06}/原项目文档/` 物理隔离区（D02 架构类加分、D03 业务模块兜底）。
+
+**验证与覆盖**：pytest 单测覆盖（test_second_review_fixes 中 migrator 归档项，含 D02 加分 / D03 兜底）；108 仿真未触达。
+
+---
 
 ### 链路 5：敏感凭证安全扫描门禁链路
 1. **触发源**：初始化 Step 1（强制先行）、周审查评审前置（三平台 agent.md 均要求"必须先运行"）、手动巡检/CI。
 2. **执行路径**：`check_secrets.py` 扫描 config/scripts/agents/docs/kanban + 数据根 user_data 的 yaml/json/py/sh/md 文件；正则匹配 5 类密钥（飞书 App ID `cli_`、App Secret、GitHub PAT `ghp_`、Jira Token `ATATT3`、RSA 私钥）；`${VAR}` 规范占位符豁免；发现问题脱敏展示并 `exit 1` 阻断，全通过 `exit 0`。
 
+**验证与覆盖**：pytest 仅 import 级断言（test_domain_packages），行为级（命中/豁免/exit code）无自动验证。补盲建议：check_secrets 命中与 ${} 豁免冒烟（P2）。
+
+---
+
 ### 链路 6：Git Hooks 安装链路
 1. **触发源**：项目接入安装门禁钩子。
 2. **执行路径**：`install_git_hooks.py` → `hooks_installer` 校验 `.git` 目录存在（缺失即 exit 1 + 修复指引）、将 `scripts/hooks/pre-commit` 复制至 `.git/hooks/` 并 chmod +x；后续 `git commit` 自动唤起 `verify_git_gate.py`（联动链路 20）。
+
+**验证与覆盖**：pytest 单测覆盖（test_workflow_v2 install_git_hooks 项）；真实 pre-commit 拦截可由集成验证（真实 git commit 被阻断，P2）。
+
+---
 
 ### 链路 7：全局共享安装与跨平台挂载链路
 1. **触发源**：多项目共享安装（`install_global.sh` / `.ps1`）。
@@ -89,17 +113,27 @@
    - `verify_and_export_agents.py --global` 按 **9 平台矩阵**挂载用户级技能与子代理（Antigravity `.agents`+`~/.gemini`、Claude Code `.claude`、Cursor `cursor_mdc`→`.cursor/rules/*.mdc`、Codex `.codex` TOML、OpenCode `.opencode`、ZCode `.zcode`+`~/.zcode/agents`、Pi `.pi`、Universal `.agents`、QwenWork `qwen_plugin`→`.qoder-plugin/plugin.json`），挂载类型 symlink / cursor_mdc / qwen_plugin 三种；
    - **数据根解析链**（paths.py，全部落盘行为的地基）：显式 `--project-root` / `YY_FLOW_PROJECT_ROOT` 环境变量 > `.yy-flow` 布局自定位（skill 位于 `<X>/.yy-flow/skill` → 数据落 `<X>/.yy-flow/user_data`）> legacy 判定（skill 内含 board.json 且无共享标记）> CWD；docs/ 恒定锚定项目根，代码/数据分离。
 
+**验证与覆盖**：pytest 单测覆盖（test_export_global 8 项：平台探测/挂载/断言）；污染守卫与 --global 行为建议补实装冒烟（P2）。
+
+---
+
 ### 链路 8：千问办公插件打包与合规发布链路
 1. **触发源**：QwenWork/Qoder 专家套件发布。
 2. **执行路径**：`package_qwen_plugin.py` → `qwen_packager`：校验图标必须 200×200 且 ≤2MB、manifest（`.qoder-plugin/plugin.json`）name 必须 ASCII 字母数字（连字符/下划线允许）、version/description 必填；按排除模式（.git/.venv/__pycache__/dist/node_modules 等）组装并产出 `dist/multi-agent-flow-qwen.zip`；任一项不合规 `exit 1`。
 
 ---
 
+**验证与覆盖**：无自动测试（人工实跑验证：图标/manifest 校验与 zip 产出）。补盲建议：打包合规冒烟（P2）。
+
 ## 三、维度二：业务正向研发协同链路 (Pipelines 9 ~ 13)
 
 ### 链路 9：L0 纯文本咨询与技术调研直答链路
 1. **触发源**：纯只读咨询（"怎么配置"、"分析报错原因"、"查阅设计"）。
 2. **执行路径**：网关分级三问判定"无持久化文件写入" → Agent 首行输出【任务分级: L0】→ 豁免建卡直接作答；临时代码/草稿统一归档 `草稿箱/`（联动链路 16 孤儿产出检测，L0 产物不触发告警）。
+
+**验证与覆盖**：无可代码化测试（提示词契约级，依赖 Agent 网关行为）。分级三问的代码侧（豁免/升格红线）由单测部分覆盖。
+
+---
 
 ### 链路 10：L1 单文件轻量闭环链路
 1. **触发源**：局部 Bug 修复、单文件配置微调、单一文档修订。
@@ -109,9 +143,17 @@
    - 编码修改；**完工后硬门禁**：推进【已完成】必填工时与产出路径（`step_summary.py` 自动生成阶段总结，杜绝过程描述空心化）；
    - 自动跳过审查与测试（B/C/D/F/G 短链类型），直接提请人类验收【已验收】（E 类用户自执行任务为"进行中/待开始 → 已验收"直验，豁免 end_time）。
 
+**验证与覆盖**：108 仿真充分覆盖（矩阵一 72 条全状态 + 矩阵二短链用例）；pytest test_workflow_v2 覆盖建卡/查重/完工门禁。
+
+---
+
 ### 链路 11：L2 标准全周期研发链路
 1. **触发源**：复杂特性、多文件重构、公共核心模块修改（强制升格 L2）。
 2. **执行路径**：PM 严经理 WBS 拆解批量建卡 → 李开发/马前端领单编码 → 提审（审查中）→ 周审查评审通过（测试中）→ 章测试回归（已完成 + 工时/测试产出）→ PM 复核提请人类最终验收（已验收）。A 类任务强制全链：DEV/FRONTEND 直推已完成、PM 直推已验收均被门控物理拒绝。
+
+**验证与覆盖**：108 仿真充分覆盖（矩阵一 + 矩阵二多角色接力、3 轮打回长链）；pytest 覆盖 A 类越权拦截反面。
+
+---
 
 ### 链路 12：CLI / 批处理自动流转链路
 1. **触发源**：`quick_task.py`（create/accept/accept-all/complete）或 CI 调用 `auto_task.py`。
@@ -122,11 +164,17 @@
    - `quick_task.py accept-all` 支持按阶段批量人类验收（detagated_by=USER 批量代签）。
 3. 经看板适配器层原子写入并落审计日志（联动链路 24/26）。
 
+**验证与覆盖**：部分覆盖——108 仿真经 HTTP 同管线间接命中 10+ 项门控；CLI 特有参数矩阵（断点续跑/解阻前置验证/--simulate/accept-all/代行注入）未覆盖。补盲建议：Phase 8 CLI 直驱段（P0）。
+
+---
+
 ### 链路 13：[HOTFIX] 紧急修复直通通道
 1. **触发源**：生产事故、紧急缺陷（任务名显式含 `[HOTFIX]` 标记）。
 2. **执行路径**：validate_transition 检测 `is_hotfix` → 为 DEV/FRONTEND 解锁「进行中 → 已完成」直推（跳过审查与测试环节），并豁免 A 类"执行角色直推已完成"越权拦截；**PM 直推已验收仍被禁止**，热修同样必须经过人类验收终态。
 
 ---
+
+**验证与覆盖**：名义上有 T0089 零工时任务，但任务名不含 [HOTFIX] 标记，门控解锁分支实际未触发（实为 USER 直验路径）。补盲建议：补 [HOTFIX] 标记用例（P0）。
 
 ## 四、维度三：异常返工与权限治理链路 (Pipelines 14 ~ 18)
 
@@ -140,13 +188,25 @@
    - **分支 5（PR 关闭未合入）**：CLOSED → 高危告警 PR_CLOSED_UNMERGED，支持可选自动打回至【已退回】通知原开发者；
    - **打回不拆单铁律**：一律原单打回 + DEF 编号，严禁派生 `T0103-fix` 等孤儿任务；报告追加原则：开发报告追加 §9 返工记录、审查报告追加 §8 复审结论、测试报告追加 §9 复测结论，严禁新建独立《复审/复测报告》碎片文件。
 
+**验证与覆盖**：主干充分（审查打回/测试打回/阻塞恢复由矩阵一/二覆盖）；短板为分支 4 人类验收打回、分支 5 PR CLOSED 与 PR 合流解阻、DEF 编号/报告追加断言。补盲建议：Phase 7（P0）。
+
+---
+
 ### 链路 15：任务取消终态链路
 1. **触发源**：需求变更、功能作废、误建卡。
 2. **执行路径**：仅 PM 严经理（或 USER 显式代行）可发起；推进至【已取消】必须携带取消原因 remarks + end_time，经办人强制收敛严经理；终态只读锁定（validate 防篡改层），禁止任何逆向流转；已取消任务在 auto_task 中被拒绝恢复。
 
+**验证与覆盖**：108 仿真充分覆盖（矩阵一 8 条已取消 + T0087 中途取消 + Attack4 协作者取消被 403）；pytest test_workflow_v2 覆盖终态防篡改。
+
+---
+
 ### 链路 16：孤儿产出检测与升格回捞链路
 1. **触发源**：heartbeat 例行巡检。
 2. **执行路径**：检测近 `orphan_output_hours`（默认 48h）新增交付文件无对应任务卡 → ORPHAN_OUTPUT 告警 → 处置分流：L0 纯文本产出归档 `草稿箱/`；存在代码/文档交付物则升格 L1/L2 补卡；配套 TIME_SKEW_INSTANT 防秒级冲卡（开工时间解耦：建卡时 start_date 置空、首次进【进行中】才落盘、打回重领保留原始 start_date）。
+
+**验证与覆盖**：无自动验证（依赖 heartbeat 实跑与文件系统扫描）。补盲建议：临时目录造无卡交付文件触发 ORPHAN_OUTPUT 断言（P2）。
+
+---
 
 ### 链路 17：代行授权与指令拆分门控链路
 1. **触发源**：跨角色指令（如 DEV 收到"帮我把 T0001 验收掉"）。
@@ -158,6 +218,10 @@
    - **指令拆分 SOP**：未授权时只执行权限内部分，越权部分输出 [WARN] 权限拦截与任务转交清单（结构化表）；
    - **人类验收专属**：流转至【已验收】必须 role=USER 或 delegated_by=USER，Agent 严禁自签验收终态。
 
+**验证与覆盖**：部分覆盖——Attack3 覆盖"非授权禁验收"红线侧面；合法代行路径（白名单/声明留痕/审计字段/单次生效）与指令拆分 SOP 未覆盖。补盲建议：Phase 8 CLI 直驱段（P0）。
+
+---
+
 ### 链路 18：跨专家上下文组装与交接管道
 1. **触发源**：PM 派单、专家认领、跨角色提审与交接。
 2. **执行路径**：
@@ -168,29 +232,49 @@
 
 ---
 
+**验证与覆盖**：部分覆盖——108 仿真维度 6 校验 process 节点 Txxxx-Nxx 序号连续递增；矩阵二覆盖多角色接力动作；build_agent_context 注入内容与 Payload v2.0 结构无断言。
+
 ## 五、维度四：质量门控与交付验收链路 (Pipelines 19 ~ 23)
 
 ### 链路 19：阶段双向硬门禁核验链路
 1. **触发源**：阶段结项准出（`--action close`）或阶段开工准入（`--action start`）。
 2. **执行路径**：`stage_gate_checker.py` 加载上下文；**结项 5 项**（① 全卡已验收且结束时间完整 ② WBS 编号规范 + docs 双向对账 ③ 架构技术总结存在 ④ PM 阶段复盘报告存在 + 总结卡验收 ⑤ Git 工作区清洁）；**开工准入核验**（前置阶段依赖 `check_stage_start_predecessors`）；全通过 exit 0 / 任一失败 exit 1 + 修复向导；`--json` 供 CI 消费，`--ignore-git` 可豁免清洁度。
 
+**验证与覆盖**：pytest 单测覆盖（test_check_stage_gate 13 项，含 5 项结项核验与开工准入）；108 仿真未触达（CLI 级）。
+
+---
+
 ### 链路 20：Git 提交人类验收拦截链路
 1. **触发源**：开发者或吕改特触发 `git commit`。
 2. **执行路径**：`.git/hooks/pre-commit` 唤起 `verify_git_gate.py` → 经**看板适配器层**扫描未验收/进行中任务 → 打印阻断清单 exit 1 物理中止提交 → 人类执行 `quick_task.py accept`（含验收专属权限拦截：已验收必须 USER 或 delegated_by=USER）后放行入库；`accept-all` 支持批量验收。配套"无工单不 Git"与三层分支模型、Conventional Commits、SemVer 版本标签规范（references/04）。
+
+**验证与覆盖**：pytest 单测覆盖（test_workflow_v2 人类验收与 Git 门禁项）；真实 pre-commit 拦截建议集成验证（P2）。
+
+---
 
 ### 链路 21：模板化任务报告生成链路
 1. **触发源**：各专家交付时（agent.md 固定契约：dev/frontend 提交审查前 `--type dev/frontend`、reviewer `--type review`、qa `--type qa`）。
 2. **执行路径**：`generate_report.py` 按 8 角色映射 7 模板（pm→wbs_breakdown、arch→module_design、dev/frontend→dev_task_report、reviewer→code_review、qa→qa_test_report、docs→documentation、devops→troubleshooting，兼容别名 review）；清洗元数据占位符防 `${...}` 残留；报告已存在时 [SYNC] 追加复验/复测记录（配合报告追加原则）；自动归档 `docs/D04-研发过程/D02-报告/{type}/`；不支持类型 exit 1 Fail-Closed。
 
+**验证与覆盖**：pytest 部分覆盖（test_phase2_layout 报告生成项）；8 类型模板全矩阵与 [SYNC] 追加模式建议冒烟（P2）。
+
+---
+
 ### 链路 22：学术级 DOCX 报告与证据材料生成链路
 1. **触发源**：立项方案书、阶段技术报告、完工证明材料（李文通）。
 2. **执行路径**：`generate_docx_proposal.py` / `generate_proof_material.py` 依托 `docx_academic_styler.py` 执行 GB/T 7713 排版（宋体 + Times New Roman 底层 XML rFonts 强绑定、五级字号行距、A4 页边距 2.54/2.8cm）；自动组装任务完成记录、测试报告与代码 Diff 输出 .docx。
+
+**验证与覆盖**：人工验证（端到端生成实测：产物尺寸与基线一致）；GB/T 7713 字体绑定无自动断言。
+
+---
 
 ### 链路 23：双层质量保障测试体系链路
 1. **触发源**：发布前回归验证（**必须用户显式授权**，run_108_tasks_simulation.py 头部红字门禁）。
 2. **执行路径**：第一层 pytest 244 项基准用例（HTTP 路由/筛选/白名单/双层文件锁/RBAC）；第二层 `run_108_tasks_simulation.py` 4 大矩阵：① 72 条 8 阶段 × 9 状态全笛卡尔积 ② 16 条多角色交叉返工多跳（含 3 轮连续打回追溯链 11 节点）③ 8 条工时极值/跨月/XSS/Unicode/超长文本边界 ④ 12 条局域网并发写 + 8 项 403 越权拦截；全维断言 8 项（唯一性、单调性、状态机闭环、时间时序、工时有效性、追溯链、审计日志一致性、安全红线）。
 
 ---
+
+**验证与覆盖**：自指——本链路即验证执行体（pytest 265 项基线 + 108 仿真 4 矩阵 8 维审计）。
 
 ## 六、维度五：看板协同、平台适配与合规审计链路 (Pipelines 24 ~ 26)
 
@@ -202,9 +286,17 @@
    - `field_mapper.discover_feishu_fields` / `init_field_mapping.py` 自动探测字段名→ID 映射矩阵。
 3. **说明**：本链路是 26 条链路中 20+ 条的数据底座；board.json 仅是 local provider 的存储文件（V1.0 文档"原子更新 board.json"表述由此修正）。
 
+**验证与覆盖**：local provider 充分（仿真与单测覆盖原子写/锁/seq/编号分配）；飞书/Jira/GitHub 远程适配器零覆盖。补盲建议：远程适配器 mock 矩阵（P1）。
+
+---
+
 ### 链路 25：Web 看板协同与只读保护链路
 1. **触发源**：浏览器拖拽、协同端 REST API（GET /api/tasks、/api/tasks/{id}、/api/board/meta、/api/preferences、/api/version、/api/health；POST /api/tasks、/api/tasks/batch-delete、/api/tasks/{id}/transition；PUT /api/tasks/reorder、/api/board/meta、/api/tasks/{id}）。
 2. **执行路径**：HTTP 服务鉴权（Master Token / Bearer 头）→ 客户端 IP 校验（非 Localhost 写操作物理 403）→ 跨进程文件排他锁 `file_lock.py` → `validate_transition` 门控 → 更新落库 → SSE 实时广播；If-Match / version 乐观锁防并发覆盖；/api/health 端口复用存活判定；4 视图（数据表格/状态泳道/专家负载/阶段工作包）+ `/offline_board.html` 离线单机双模 + 多终端偏好持久化（kanban_server.json）。
+
+**验证与覆盖**：主体充分（403×8/并发写/分页筛选排序）；短板为 SSE 广播、If-Match 409 成功路径、batch-delete/reorder 成功路径、/api/health 端口复用。补盲建议：P1 场景集。
+
+---
 
 ### 链路 26：审计检索与轮转归档数据链路
 1. **触发源**：合规检查、故障回溯、后台定时轮转。
@@ -213,6 +305,8 @@
    - **查询分支**：`audit_query.py` 按 task_id/role/success/时间窗跨当前日志 + `logs/archive/*.log.gz` 全量检索，支持 `--delegated-by` 代行记录追踪、`--format json/table`；
    - **轮转分支**：`audit_rotate.py` 日切分 + 单文件 ≥50MB 大小切分（默认 max_size_mb=50），gzip 归档至 `logs/archive/`，`--dry-run` 预判；轮转持文件锁防并发。
 3. **修正说明**：V1.0 声称的"自动清理超过 30 天过期归档"在代码中不存在（无删除逻辑），本版已移除该描述；阈值 10MB 修正为 50MB。
+
+**验证与覆盖**：写侧充分（仿真维度 7 审计一致性 + 全量落盘）；轮转侧单测覆盖（test_audit_rotate 4 项：日切/大小切/dry-run）；归档跨文件检索建议补集成验证。
 
 ---
 
@@ -243,8 +337,35 @@
 
 ---
 
-## 九、审计依据与覆盖说明
+---
 
-- 覆盖范围：`scripts/` 全部 37 个 CLI/模块、`_lib/` 全部子包、`config/` 全部配置、`references/` 六大规约、`rules/` 六项规则、8 大专家 agent 提示词（.agents/.claude/.zcode 三平台）、`templates/`、`tests/` 测试体系、`kanban/` 前端、README/SKILL.md 提示词场景。
-- 版本基线：multi-agent-flow release_v6（工作区 .yy-flow 全家桶布局 + 看板适配器层架构）。
-- 本版共 26 条链路：V1.0 原 14 条全部保留（含分支/细节补强），新增 12 条（链路 2、5、6、7、8、13、15、16、17、21、23、24）。
+## 九、验证覆盖总览与补盲路线图
+
+> 每链路的验证现状基于 108 任务全正交仿真（HTTP API 驱动）与 265 项 pytest 单测的逐场景核对。
+
+### 覆盖总表
+
+| 覆盖等级 | 链路 | 验证载体 |
+| :--- | :--- | :--- |
+| **充分覆盖（7）** | 链路 10 · 11 · 14（主干）· 15 · 23 · 25（主体）· 26（写侧） | 108 仿真矩阵一/二/四 + 8 维审计 + pytest |
+| **部分覆盖（7）** | 链路 12 · 13 · 14（补充分支）· 17 · 18 · 24（local 侧）· 25（补充能力） | 仿真间接命中 + pytest；关键分支缺断言 |
+| **未触达（12）** | 链路 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8 · 9 · 16 · 19 · 20 · 21 · 22 | CLI/文件/Git 钩子/提示词契约级，由 pytest 单测部分兜底或人工验证 |
+
+### 关键缺口（按补盲优先级）
+
+| 优先级 | 缺什么 | 补到哪些链路 | 实现方式 |
+| :--- | :--- | :--- | :--- |
+| P0 | 验收打回、PR 合流解阻（mock gh）、PR CLOSED、DEF 编号/报告追加断言 | 链路 14 | 仿真 Phase 7（复用矩阵二结构） |
+| P0 | CLI 直驱段：断点续跑/解阻前置验证/--simulate/accept-all/代行/[HOTFIX] 标记 | 链路 12 · 13 · 17 | 仿真 Phase 8 直驱 quick_task/auto_task |
+| P1 | 远程适配器 mock 矩阵（飞书/Jira/GitHub） | 链路 24 | stdlib unittest.mock 最小流转集 |
+| P1 | SSE、If-Match 409 成功路径、batch-delete/reorder 成功、/api/health | 链路 25 | 仿真补充场景 |
+| P2 | init 7 步、check_secrets、hooks+真实 commit 拦截、报告/docx 生成冒烟 | 链路 1~8 · 19~22 | 沙箱临时目录 CLI 冒烟段 |
+| P2 | ORPHAN_OUTPUT 触发与分流断言 | 链路 16 | heartbeat 定向测试 |
+
+---
+
+## 十、审计依据与覆盖说明
+
+- 覆盖范围：`scripts/` 全部 37 个 CLI/模块、`_lib/` 全部子包、`config/` 全部配置、`references/` 六大规约、`rules/` 六项规则、8 大专家 agent 提示词（.agents/.claude/.zcode 三平台）、`templates/`、`tests/` 测试体系（265 项）、`kanban/` 前端、README/SKILL.md 提示词场景。
+- 验证基线：pytest 265 passed（36s）+ 108 任务全部仿真矩阵；版本基线 multi-agent-flow release_v6（.yy-flow 全家桶布局 + 看板适配器层架构）。
+- 本版共 26 条链路：V1.0 原 14 条全部保留（含分支/细节补强），新增 12 条（链路 2、5、6、7、8、13、15、16、17、21、23、24）；每条链路附验证与覆盖说明。
