@@ -5,7 +5,7 @@
   <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/github/stars/YuanYii/multi-agent-flow?style=for-the-badge&logo=github&color=38BDF8" alt="GitHub Stars"></a>
   <a href="https://github.com/YuanYii/multi-agent-flow/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge" alt="License"></a>
   <a href="https://yuanyii.github.io/multi-agent-flow/"><img src="https://img.shields.io/badge/Theme-Dark%20%2F%20Light-F59E0B?style=for-the-badge" alt="Theme Support"></a>
-  <a href="https://github.com/YuanYii/multi-agent-flow/actions"><img src="https://img.shields.io/badge/Tests-253%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow/actions"><img src="https://img.shields.io/badge/Tests-258%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
 </p>
 
 <p align="center">
@@ -91,7 +91,7 @@ python3 scripts/start_kanban_server.py
 ├── agents/                  # 8 大专家角色 YAML 定义
 ├── kanban/                  # 离线与 Web 可视化看板（HTML/JS/CSS）
 ├── references/              # 6 大核心规范（路由/流转/防错/Git/文档/交接）
-├── tests/                   # 253 项全正交自动化测试套件
+├── tests/                   # 258 项全正交自动化测试套件
 └── scripts/                 # 流转/门禁/巡检/看板服务 CLI 引擎
 
 # 初始化后在目标项目生成：

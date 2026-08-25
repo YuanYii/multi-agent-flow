@@ -19,6 +19,7 @@ import secrets
 import hmac
 import urllib.request
 import subprocess
+import ipaddress
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, unquote
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -37,42 +38,99 @@ HEALTH_API_VERSION = 1
 ACTIVE_MASTER_TOKEN = secrets.token_hex(16)
 
 
+def is_valid_lan_ip(ip_str: str) -> bool:
+    """严格校验是否为合法的局域网物理私网 IPv4 地址 (RFC 1918) 并排除虚拟/代理/回环/测试网段"""
+    if not ip_str or not isinstance(ip_str, str):
+        return False
+    try:
+        ip = ipaddress.ip_address(ip_str.strip())
+        # 仅支持 IPv4
+        if ip.version != 4:
+            return False
+        # 排除回环 (127.0.0.0/8)
+        if ip.is_loopback:
+            return False
+        # 排除链路本地 (169.254.0.0/16)
+        if ip.is_link_local:
+            return False
+        # 排除 Fake-IP / 基准测试网段 (198.18.0.0/15)
+        if ip in ipaddress.ip_network("198.18.0.0/15"):
+            return False
+        # 排除运营商级 NAT / Tailscale / WireGuard (100.64.0.0/10)
+        if ip in ipaddress.ip_network("100.64.0.0/10"):
+            return False
+        # 排除文档测试网段 (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24)
+        if (
+            ip in ipaddress.ip_network("192.0.2.0/24")
+            or ip in ipaddress.ip_network("198.51.100.0/24")
+            or ip in ipaddress.ip_network("203.0.113.0/24")
+        ):
+            return False
+        # 排除组播、未指定与保留网段
+        if ip.is_multicast or ip.is_reserved or ip.is_unspecified:
+            return False
+        # 严格限制必须属于 RFC 1918 标准私网网段
+        return (
+            ip in ipaddress.ip_network("10.0.0.0/8")
+            or ip in ipaddress.ip_network("172.16.0.0/12")
+            or ip in ipaddress.ip_network("192.168.0.0/16")
+        )
+    except Exception:
+        return False
+
+
 def get_local_ip() -> str:
     """获取本机局域网真实物理 IP 地址（优先真实的私有网段 192.168.x.x / 10.x.x.x / 172.16-31.x.x，避开虚拟网卡）"""
-    ips = []
-    # 1. 优先尝试系统底层命令探测 (macOS/Linux ifconfig 或 Windows ipconfig)
+    candidates = []
+
+    # 1. 优先尝试系统底层命令探测 (Windows: ipconfig, macOS/BSD: ifconfig, Linux: ip -4 addr / ifconfig)
     try:
-        cmd = ["ipconfig"] if sys.platform.startswith("win") else ["ifconfig"]
-        out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL, timeout=2)
-        found = re.findall(r"(?:inet\s+|IPv4 Address[.\s]*:\s*)(\d+\.\d+\.\d+\.\d+)", out)
-        for ip in found:
-            if ip != "127.0.0.1" and not ip.startswith("169.254.") and ip not in ips:
-                ips.append(ip)
+        if sys.platform.startswith("win"):
+            cmds = [["ipconfig"]]
+        else:
+            cmds = [["ifconfig"], ["ip", "-4", "addr", "show"]]
+
+        for cmd in cmds:
+            try:
+                out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL, timeout=2)
+                found = re.findall(r"(?:inet\s+|IPv4 Address[.\s]*:\s*|inet\s+addr:)(\d+\.\d+\.\d+\.\d+)", out)
+                for ip in found:
+                    if ip not in candidates and is_valid_lan_ip(ip):
+                        candidates.append(ip)
+            except Exception:
+                continue
     except Exception:
         pass
 
-    # 2. 尝试 UDP Socket 探测
+    # 2. 尝试系统主机名全解析
+    try:
+        hostname = socket.gethostname()
+        for ip in socket.gethostbyname_ex(hostname)[2]:
+            if ip not in candidates and is_valid_lan_ip(ip):
+                candidates.append(ip)
+    except Exception:
+        pass
+
+    # 3. 尝试 UDP Socket 外连探测
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         sock_ip = s.getsockname()[0]
         s.close()
-        if sock_ip and sock_ip != "127.0.0.1" and sock_ip not in ips:
-            ips.append(sock_ip)
+        if sock_ip and sock_ip not in candidates and is_valid_lan_ip(sock_ip):
+            candidates.append(sock_ip)
     except Exception:
         pass
 
-    # 优先匹配主流真实私有局域网网段，避开 VPN/虚拟网卡（如 198.18.x）
-    for ip in ips:
-        if ip.startswith("192.168.") or ip.startswith("10."):
+    # 4. 优先级排序匹配：192.168.x.x (P1) > 10.x.x.x (P2) > 172.16-31.x.x (P3)
+    for ip in candidates:
+        if ip.startswith("192.168."):
             return ip
-        if ip.startswith("172."):
-            parts = ip.split(".")
-            if len(parts) >= 2 and parts[1].isdigit() and 16 <= int(parts[1]) <= 31:
-                return ip
-
-    for ip in ips:
-        if ip != "127.0.0.1":
+    for ip in candidates:
+        if ip.startswith("10."):
+            return ip
+    for ip in candidates:
+        if is_valid_lan_ip(ip):
             return ip
 
     return "127.0.0.1"
