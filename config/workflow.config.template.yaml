@@ -26,7 +26,10 @@ board:
   provider: "local"
   board_file: "user_data/board.json"   # 离线看板 JSON 文件路径
   
-  # 看板字段 ID 或 字段名映射 (可通过 scripts/init_field_mapping.py 自动生成)
+  # ⚠️ 字段映射说明：
+#   - provider=local（离线 board.json）时，本地 JSON 使用内置逻辑字段名（id/name/status/assignee/...），
+#     此处的 fields 映射仅对远程看板（feishu_base 等）生效——local 模式会经内置 KANBAN_FIELD_MAP 三级兜底，配置值不影响正确性。
+#   - 远程模式（feishu_base/jira/github_projects）下由 scripts/init_field_mapping.py 自动探测字段 ID。
   fields:
     task_id: "fldfncoTK7"       # 任务编号 (如 T0001)
     wbs_id: "fldRra5C9P"        # WBS编号 (如 1.1.1)

@@ -1,37 +1,16 @@
 #!/usr/bin/env python3
 """
-自动初始化并校验看板字段映射与环境配置
+自动初始化并校验看板字段映射与环境配置 (Field Mapping CLI)
 """
 import os
+import sys
 import json
 import argparse
-import subprocess
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, SCRIPT_DIR)
 
-def discover_feishu_fields(base_token: str, table_id: str) -> dict:
-    """自动调取飞书 CLI 检索字段列表并建立字段名到 ID 的映射。"""
-    cmd = [
-        "npx", "--yes", "@larksuite/cli", "base", "+field-list",
-        "--base-token", base_token,
-        "--table-id", table_id,
-        "--as", "user",
-        "--format", "json"
-    ]
-    print(f"[INFO] 正在扫描飞书 Base 表格字段: token={base_token}, table={table_id}...")
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.returncode != 0:
-        print(f"[WARN] 无法调取 @larksuite/cli: {res.stderr}")
-        return {}
-
-    try:
-        data = json.loads(res.stdout)
-        items = data.get("data", {}).get("items", [])
-        field_mapping = {item.get("field_name"): item.get("field_id") for item in items}
-        print(f"[SUCCESS] 找到 {len(field_mapping)} 个有效看板字段。")
-        return field_mapping
-    except Exception as e:
-        print(f"[ERROR] 解析字段 JSON 失败: {e}")
-        return {}
+from _lib.discovery.field_mapper import discover_feishu_fields
 
 
 def main():

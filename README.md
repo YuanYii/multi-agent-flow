@@ -5,7 +5,7 @@
   <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/github/stars/YuanYii/multi-agent-flow?style=for-the-badge&logo=github&color=38BDF8" alt="GitHub Stars"></a>
   <a href="https://github.com/YuanYii/multi-agent-flow/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge" alt="License"></a>
   <a href="https://yuanyii.github.io/multi-agent-flow/"><img src="https://img.shields.io/badge/Theme-Dark%20%2F%20Light-F59E0B?style=for-the-badge" alt="Theme Support"></a>
-  <a href="https://github.com/YuanYii/multi-agent-flow/actions"><img src="https://img.shields.io/badge/Tests-253%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow/actions"><img src="https://img.shields.io/badge/Tests-258%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
 </p>
 
 <p align="center">
@@ -20,8 +20,7 @@
 
 - 👥 **8 位专属 AI 专家矩阵**：严经理 (PM)、钱架构 (架构师)、李开发 (后端)、马前端 (前端)、周审查 (审查员)、章测试 (测试)、李文通 (文档)、吕改特 (运维)，开箱自动扫描项目技术栈并自适应注入。
 - 🛡️ **十大协同红线与五层防错门禁**：代码级 Fail-Closed 拦截越权操作；阶段开工核验清洁度，阶段结项强制输出架构技术总结（ADR）与敏捷复盘总结；工作区存在未验收代码时物理阻断 `git commit`。
-- 🌐 **团队局域网多端协同 (LAN Workflow)**：内置 0 依赖轻量 Python HTTP 引擎（32886–32905 自动探测），支持动态 Master Token RBAC 权限分立、协作者终态拖拽物理弹回、双层文件排他锁与脱敏协作链接一键分享。
-- 🔄 **全自动流水线流转与断点续跑**：支持 A–G 全类型任务链全自动流转至【已完成】并提请人类用户核验验收；GitHub PR 合流自动解除阻塞。
+- 🎯 **统一入口网关与 L0–L2 智能分流**：控制台指令直通底层运维，业务需求经分级三问网关前置判定（L0即时问答直出、L1短链交付、L2全流程制衡）；全自动流水线支持 A–G 全类型链断点续跑。
 - 🔌 **项目级强关联与多 Agent 终端适配**：数据完全私有落盘于 `.yy-flow/` 目录随 Git 流转，原生兼容 Google Antigravity、Claude Code、Cursor、OpenAI Codex 及阿里千问办公等主流终端。
 
 👉 **完整特性演示与交互体验请访问**：[https://yuanyii.github.io/multi-agent-flow/](https://yuanyii.github.io/multi-agent-flow/)
@@ -46,6 +45,23 @@ git clone https://github.com/YuanYii/multi-agent-flow.git .yy-flow\skill
 powershell -ExecutionPolicy Bypass -File .yy-flow\skill\scripts\init_skill.ps1
 ```
 
+
+### 3. 多项目共享安装（全局部署）
+
+在同时维护多个项目、不希望每个项目都复制一份 Skill 代码时，使用全局共享安装器（Linux/macOS: `install_global.sh`，Windows: `install_global.ps1`）：
+
+```bash
+# Linux/macOS：安装/更新最新 release_v6（或指定分支/标签）
+./scripts/install_global.sh            # 默认 release_v6
+./scripts/install_global.sh v1.0.0     # 固定版本
+```
+
+- **正本位置**：代码物化至 `~/agent-skills/multi-agent-flow`（degit 拉取，无 Node 环境自动回退 tarball），只读共享；
+- **安全守卫**：正本目录若被污染（含 `user_data/board.json`）直接拒绝安装，防止 legacy 数据误判串项目；安装后写入 `.yy-flow-shared` 共享标记；
+- **跨平台挂载**：`verify_and_export_agents.py --global` 自动探测 9 大宿主（Antigravity / Claude Code / Cursor / OpenCode / ZCode / Pi / Universal / QwenWork / Codex）并挂载用户级技能与子代理；
+- **数据隔离**：共享安装下每个项目的运行数据（`user_data/`、锁、审计）仍独立落在各自项目根（解析链：`--project-root` > `YY_FLOW_PROJECT_ROOT` > `.yy-flow` 自定位 > legacy > CWD），`docs/` 恒定锚定项目根随 Git 流转。
+
+> 在项目内首次使用请执行该项目的初始化（`/yy-flow start`）。
 ### 2. 在 Agent 对话中初始化
 
 在 AI 编程终端中输入快捷指令或自然语言口令：
@@ -91,7 +107,7 @@ python3 scripts/start_kanban_server.py
 ├── agents/                  # 8 大专家角色 YAML 定义
 ├── kanban/                  # 离线与 Web 可视化看板（HTML/JS/CSS）
 ├── references/              # 6 大核心规范（路由/流转/防错/Git/文档/交接）
-├── tests/                   # 253 项全正交自动化测试套件
+├── tests/                   # 258 项全正交自动化测试套件
 └── scripts/                 # 流转/门禁/巡检/看板服务 CLI 引擎
 
 # 初始化后在目标项目生成：

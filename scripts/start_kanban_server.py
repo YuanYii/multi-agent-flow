@@ -12,13 +12,13 @@ import json
 import time
 import atexit
 import hashlib
-import tempfile
 import argparse
 import socket
 import secrets
 import hmac
 import urllib.request
 import subprocess
+import ipaddress
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, unquote
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -29,6 +29,7 @@ KANBAN_DIR = os.path.join(SKILL_ROOT, "kanban")
 
 sys.path.insert(0, SCRIPT_DIR)
 from _lib.core.step_summary import generate_step_summary
+from _lib.core.task_spec import resolve_default_stage_wp_wbs
 
 DEFAULT_PORT = 32886
 PROBE_RANGE = 20
@@ -37,42 +38,99 @@ HEALTH_API_VERSION = 1
 ACTIVE_MASTER_TOKEN = secrets.token_hex(16)
 
 
+def is_valid_lan_ip(ip_str: str) -> bool:
+    """严格校验是否为合法的局域网物理私网 IPv4 地址 (RFC 1918) 并排除虚拟/代理/回环/测试网段"""
+    if not ip_str or not isinstance(ip_str, str):
+        return False
+    try:
+        ip = ipaddress.ip_address(ip_str.strip())
+        # 仅支持 IPv4
+        if ip.version != 4:
+            return False
+        # 排除回环 (127.0.0.0/8)
+        if ip.is_loopback:
+            return False
+        # 排除链路本地 (169.254.0.0/16)
+        if ip.is_link_local:
+            return False
+        # 排除 Fake-IP / 基准测试网段 (198.18.0.0/15)
+        if ip in ipaddress.ip_network("198.18.0.0/15"):
+            return False
+        # 排除运营商级 NAT / Tailscale / WireGuard (100.64.0.0/10)
+        if ip in ipaddress.ip_network("100.64.0.0/10"):
+            return False
+        # 排除文档测试网段 (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24)
+        if (
+            ip in ipaddress.ip_network("192.0.2.0/24")
+            or ip in ipaddress.ip_network("198.51.100.0/24")
+            or ip in ipaddress.ip_network("203.0.113.0/24")
+        ):
+            return False
+        # 排除组播、未指定与保留网段
+        if ip.is_multicast or ip.is_reserved or ip.is_unspecified:
+            return False
+        # 严格限制必须属于 RFC 1918 标准私网网段
+        return (
+            ip in ipaddress.ip_network("10.0.0.0/8")
+            or ip in ipaddress.ip_network("172.16.0.0/12")
+            or ip in ipaddress.ip_network("192.168.0.0/16")
+        )
+    except Exception:
+        return False
+
+
 def get_local_ip() -> str:
     """获取本机局域网真实物理 IP 地址（优先真实的私有网段 192.168.x.x / 10.x.x.x / 172.16-31.x.x，避开虚拟网卡）"""
-    ips = []
-    # 1. 优先尝试系统底层命令探测 (macOS/Linux ifconfig 或 Windows ipconfig)
+    candidates = []
+
+    # 1. 优先尝试系统底层命令探测 (Windows: ipconfig, macOS/BSD: ifconfig, Linux: ip -4 addr / ifconfig)
     try:
-        cmd = ["ipconfig"] if sys.platform.startswith("win") else ["ifconfig"]
-        out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL, timeout=2)
-        found = re.findall(r"(?:inet\s+|IPv4 Address[.\s]*:\s*)(\d+\.\d+\.\d+\.\d+)", out)
-        for ip in found:
-            if ip != "127.0.0.1" and not ip.startswith("169.254.") and ip not in ips:
-                ips.append(ip)
+        if sys.platform.startswith("win"):
+            cmds = [["ipconfig"]]
+        else:
+            cmds = [["ifconfig"], ["ip", "-4", "addr", "show"]]
+
+        for cmd in cmds:
+            try:
+                out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL, timeout=2)
+                found = re.findall(r"(?:inet\s+|IPv4 Address[.\s]*:\s*|inet\s+addr:)(\d+\.\d+\.\d+\.\d+)", out)
+                for ip in found:
+                    if ip not in candidates and is_valid_lan_ip(ip):
+                        candidates.append(ip)
+            except Exception:
+                continue
     except Exception:
         pass
 
-    # 2. 尝试 UDP Socket 探测
+    # 2. 尝试系统主机名全解析
+    try:
+        hostname = socket.gethostname()
+        for ip in socket.gethostbyname_ex(hostname)[2]:
+            if ip not in candidates and is_valid_lan_ip(ip):
+                candidates.append(ip)
+    except Exception:
+        pass
+
+    # 3. 尝试 UDP Socket 外连探测
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         sock_ip = s.getsockname()[0]
         s.close()
-        if sock_ip and sock_ip != "127.0.0.1" and sock_ip not in ips:
-            ips.append(sock_ip)
+        if sock_ip and sock_ip not in candidates and is_valid_lan_ip(sock_ip):
+            candidates.append(sock_ip)
     except Exception:
         pass
 
-    # 优先匹配主流真实私有局域网网段，避开 VPN/虚拟网卡（如 198.18.x）
-    for ip in ips:
-        if ip.startswith("192.168.") or ip.startswith("10."):
+    # 4. 优先级排序匹配：192.168.x.x (P1) > 10.x.x.x (P2) > 172.16-31.x.x (P3)
+    for ip in candidates:
+        if ip.startswith("192.168."):
             return ip
-        if ip.startswith("172."):
-            parts = ip.split(".")
-            if len(parts) >= 2 and parts[1].isdigit() and 16 <= int(parts[1]) <= 31:
-                return ip
-
-    for ip in ips:
-        if ip != "127.0.0.1":
+    for ip in candidates:
+        if ip.startswith("10."):
+            return ip
+    for ip in candidates:
+        if is_valid_lan_ip(ip):
             return ip
 
     return "127.0.0.1"
@@ -86,6 +144,13 @@ def _data_root() -> str:
 
 
 _DATA_ROOT = _data_root()
+###############################################################################
+# [IO 约定] Web 服务与 offline_board_adapter 已共享 _lib/core/board_io.py 原子写/锁内核，
+# 均写入同一 user_data/board.json。残余差异仅为调用方各自业务语义：
+#   - server：mtime/size 高速缓存 + HTTP 409 版本乐观锁 + seq 顺序规范化（展示顺序）
+#   - adapter：字段翻译 + append-only 完整性断言 + 锁内任务编号/seq 分配
+# 后续字段或锁语义变更必须同步两处（或继续向共享内核收敛）。
+###############################################################################
 USER_DATA_BOARD = os.path.join(_DATA_ROOT, "user_data", "board.json")
 USER_DATA_PREFERENCES = os.path.join(_DATA_ROOT, "user_data", "preferences.json")
 AUDIT_LOG_FILE = os.path.join(_DATA_ROOT, "user_data", "logs", "audit_trail.log")
@@ -126,7 +191,7 @@ SERVER_STATE = {
 }
 
 
-from _lib.core import file_lock
+from _lib.core import board_io
 from _lib.boards.offline_board_adapter import get_current_os_user
 
 
@@ -178,28 +243,19 @@ def read_board_data() -> list:
 
 
 def atomic_write_board_data(cards: list) -> bool:
-    """持有排他锁 + Temp 文件原子替换写入 board.json"""
+    """持有排他锁 + board_io 共享原子写内核写入 board.json（seq 规范化保留）"""
     os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
-    target_dir = os.path.dirname(USER_DATA_BOARD)
 
     # 规范化 seq 序号
     for idx, card in enumerate(cards, start=1):
         card["seq"] = idx
 
-    handle = None
     try:
-        handle = file_lock.acquire_lock(LOCK_FILE, blocking=True, timeout=5.0)
-        with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
-            json.dump(cards, tf, indent=2, ensure_ascii=False)
-            tmp_name = tf.name
-        os.replace(tmp_name, USER_DATA_BOARD)
-        return True
+        with board_io.board_lock(LOCK_FILE, timeout=5.0):
+            return board_io.atomic_write(USER_DATA_BOARD, cards)
     except Exception as e:
         sys.stderr.write(f"[ERROR] atomic_write_board_data failed: {e}\n")
         return False
-    finally:
-        if handle:
-            file_lock.release_lock(handle)
 
 
 def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
@@ -211,29 +267,25 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
     - 否则执行 mutate_fn，原子替换落盘，返回 (status_code, message, {**result_data, "v": new_v})
     """
     os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
-    target_dir = os.path.dirname(USER_DATA_BOARD)
-    handle = None
     try:
-        handle = file_lock.acquire_lock(LOCK_FILE, blocking=True, timeout=5.0)
-        current_v = compute_board_version()
-        if expected_version and expected_version != current_v:
-            return 409, "数据已被其他操作修改，发生版本冲突 (conflict)", {"v": current_v}
+        with board_io.board_lock(LOCK_FILE, timeout=5.0):
+            current_v = compute_board_version()
+            if expected_version and expected_version != current_v:
+                return 409, "数据已被其他操作修改，发生版本冲突 (conflict)", {"v": current_v}
 
-        cards = read_board_data()
-        success, code, msg, res_data = mutate_fn(cards)
-        if not success:
-            return code, msg, res_data
+            cards = read_board_data()
+            success, code, msg, res_data = mutate_fn(cards)
+            if not success:
+                return code, msg, res_data
 
-        # 规范化 seq 序号
-        for idx, card in enumerate(cards, start=1):
-            card["seq"] = idx
+            # 规范化 seq 序号
+            for idx, card in enumerate(cards, start=1):
+                card["seq"] = idx
 
-        with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
-            json.dump(cards, tf, indent=2, ensure_ascii=False)
-            tmp_name = tf.name
-        os.replace(tmp_name, USER_DATA_BOARD)
+            if not board_io.atomic_write(USER_DATA_BOARD, cards):
+                return 500, "数据写入磁盘失败", None
 
-        new_v = compute_board_version()
+            new_v = compute_board_version()
         if isinstance(res_data, dict):
             res_data["v"] = new_v
         elif res_data is None:
@@ -242,9 +294,6 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
     except Exception as e:
         sys.stderr.write(f"[ERROR] atomic_mutate_board_data failed: {e}\n")
         return 500, f"数据写入磁盘失败: {e}", None
-    finally:
-        if handle:
-            file_lock.release_lock(handle)
 
 
 BOARD_TITLE_SUFFIX = "Multi Agent任务看板"
@@ -298,18 +347,9 @@ def read_preferences_data() -> dict:
 
 
 def atomic_write_preferences_data(pref: dict) -> bool:
-    """原子写入 preferences.json"""
+    """原子写入 preferences.json（board_io 共享原子写内核）"""
     os.makedirs(os.path.dirname(USER_DATA_PREFERENCES), exist_ok=True)
-    target_dir = os.path.dirname(USER_DATA_PREFERENCES)
-    try:
-        with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
-            json.dump(pref, tf, indent=2, ensure_ascii=False)
-            tmp_name = tf.name
-        os.replace(tmp_name, USER_DATA_PREFERENCES)
-        return True
-    except Exception as e:
-        sys.stderr.write(f"[ERROR] atomic_write_preferences_data failed: {e}\n")
-        return False
+    return board_io.atomic_write(USER_DATA_PREFERENCES, pref)
 
 
 def allocate_next_task_id(cards: list) -> str:
@@ -1049,13 +1089,20 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 parsed_est = _parse_duration_seconds(body_data.get("est_hours", 0))
                 end_date_val = (body_data.get("end_date") or now_str) if status in ("已完成", "已验收", "已取消") else ""
 
+                res_stage, res_wp, res_wbs = resolve_default_stage_wp_wbs(
+                    cards,
+                    stage=body_data.get("stage"),
+                    wp=body_data.get("wp") or body_data.get("workpackage"),
+                    wbs=body_data.get("wbs") or body_data.get("wbs_id")
+                )
+
                 new_card = {
                     "id": new_id,
                     "seq": len(cards) + 1,
                     "name": name,
-                    "stage": body_data.get("stage", "S1 需求分析"),
-                    "wp": body_data.get("wp", "WP-1.1"),
-                    "wbs": body_data.get("wbs", ""),
+                    "stage": res_stage,
+                    "wp": res_wp,
+                    "wbs": res_wbs,
                     "pretask": pretask_val,
                     "assignee": assignee,
                     "creator": creator_val,

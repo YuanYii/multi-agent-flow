@@ -81,11 +81,11 @@
 ### 四、 附件上传与路径指引 (Attachments)
 
 1. **套件压缩包 (Plugin Zip Package)**:
-   - 文件路径：[dist/multi-agent-flow-qwen.zip](file:///Users/yuanyi/MyProject/vibeP/skills-design/2_多专家协同研发工作流/multi-agent-flow/dist/multi-agent-flow-qwen.zip)
+   - 文件路径：[dist/multi-agent-flow-qwen.zip](dist/multi-agent-flow-qwen.zip)
    - 体积：**2.47 MB**（≤ 50 MB）
    - 条目数：**96 项**（< 1000）
 2. **图标文件 (Icon Asset)**:
-   - 文件路径：[assets/icon.png](file:///Users/yuanyi/MyProject/vibeP/skills-design/2_多专家协同研发工作流/multi-agent-flow/assets/icon.png)
+   - 文件路径：[assets/icon.png](assets/icon.png)
    - 规格：**严格 200 × 200 像素**，PNG 格式（21.6 KB）
 3. **方案书附件 (Proposal Document)**:
-   - 文件路径：[docs/qwen/QWEN_PLUGIN_PROPOSAL.md](file:///Users/yuanyi/MyProject/vibeP/skills-design/2_多专家协同研发工作流/multi-agent-flow/docs/qwen/QWEN_PLUGIN_PROPOSAL.md)
+   - 文件路径：[docs/qwen/QWEN_PLUGIN_PROPOSAL.md](docs/qwen/QWEN_PLUGIN_PROPOSAL.md)

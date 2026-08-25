@@ -1,4 +1,6 @@
 import os
+import sys
+import argparse
 import docx
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -6,7 +8,12 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls, qn
 
-def create_academic_proof_document():
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SKILL_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+DEFAULT_OUTPUT = os.path.join(SKILL_ROOT, "docs", "qwen", "千问办公专家套件-核心优势证明材料.docx")
+
+
+def create_academic_proof_document(output_path=None, export_path=None):
     doc = docx.Document()
 
     # Standard Academic A4 Margins (GB/T 7713)
@@ -171,11 +178,17 @@ def create_academic_proof_document():
         set_cell(t3.rows[r_idx].cells[2], c3, bold=is_h, font_size_pt=9.5 if is_h else 9.0, font_type="heading" if is_h else "body", bg_hex="F1F5F9" if is_h else None, align=WD_ALIGN_PARAGRAPH.CENTER if is_h else WD_ALIGN_PARAGRAPH.LEFT)
 
     # Save
-    out_docx = "docs/qwen/千问办公专家套件-核心优势证明材料.docx"
-    downloads_docx = "/Users/yuanyi/Downloads/千问办公专家套件-核心优势证明材料.docx"
+    out_docx = output_path or DEFAULT_OUTPUT
+    os.makedirs(os.path.dirname(os.path.abspath(out_docx)), exist_ok=True)
     doc.save(out_docx)
-    doc.save(downloads_docx)
-    print(f"Academic Thesis Proof document saved to {out_docx} and {downloads_docx}")
+    print(f"Academic Thesis Proof document saved to {out_docx}")
+    if export_path:
+        doc.save(export_path)
+        print(f"Exported copy saved to {export_path}")
 
 if __name__ == "__main__":
-    create_academic_proof_document()
+    parser = argparse.ArgumentParser(description="千问办公专家套件核心优势证明材料 (GB/T 7713 学术排版) 生成器")
+    parser.add_argument("--output", default=None, help="产物输出路径 (默认 docs/qwen/千问办公专家套件-核心优势证明材料.docx)")
+    parser.add_argument("--export-to", default=None, help="可选：额外复制一份到指定路径")
+    args = parser.parse_args()
+    create_academic_proof_document(output_path=args.output, export_path=args.export_to)

@@ -351,3 +351,101 @@ class TestResolveRunningKanban:
         finally:
             server.shutdown()
             server.server_close()
+
+
+class TestLocalIpProbe:
+    """局域网物理私网 IP 探测与虚拟网卡强校验测试"""
+
+    def test_is_valid_lan_ip_valid_cases(self):
+        """合法 RFC 1918 私网 IPv4 地址必须放行"""
+        valid_ips = [
+            "192.168.1.1",
+            "192.168.31.74",
+            "10.0.0.1",
+            "10.10.10.10",
+            "172.16.0.1",
+            "172.20.10.3",
+            "172.31.255.254",
+        ]
+        for ip in valid_ips:
+            assert kanban_srv.is_valid_lan_ip(ip) is True, f"Expected {ip} to be valid LAN IP"
+
+    def test_is_valid_lan_ip_filters_virtual_and_public(self):
+        """虚拟网卡、Fake-IP、CGNAT、回环及公网 IP 必须严格拦截"""
+        invalid_ips = [
+            # Fake-IP / Benchmark (198.18.0.0/15)
+            "198.18.0.1",
+            "198.18.0.84",
+            "198.19.255.254",
+            # CGNAT / Tailscale (100.64.0.0/10)
+            "100.64.0.1",
+            "100.100.100.100",
+            "100.127.255.254",
+            # 回环与链路本地
+            "127.0.0.1",
+            "127.0.0.2",
+            "169.254.1.1",
+            # 测试与保留网段
+            "192.0.2.1",
+            "198.51.100.1",
+            "203.0.113.1",
+            # 公网 IP
+            "8.8.8.8",
+            "1.1.1.1",
+            "114.114.114.114",
+            # 非 RFC 1918 的 172 网段
+            "172.15.0.1",
+            "172.32.0.1",
+            # 非法输入
+            "",
+            None,
+            "invalid_ip",
+            "256.0.0.1",
+        ]
+        for ip in invalid_ips:
+            assert kanban_srv.is_valid_lan_ip(ip) is False, f"Expected {ip} to be rejected"
+
+    def test_get_local_ip_returns_valid_or_loopback(self):
+        """运行态 get_local_ip() 返回结果必须合法，且绝不可返回 198.18.x 或 100.64.x"""
+        local_ip = kanban_srv.get_local_ip()
+        assert isinstance(local_ip, str)
+        assert local_ip != ""
+        if local_ip != "127.0.0.1":
+            assert kanban_srv.is_valid_lan_ip(local_ip) is True
+        assert not local_ip.startswith("198.18.")
+        assert not local_ip.startswith("198.19.")
+        assert not local_ip.startswith("100.64.")
+        assert not local_ip.startswith("169.254.")
+
+    def test_get_local_ip_fallback_to_loopback_when_all_fake(self, monkeypatch):
+        """当所有探测源均仅有 Fake-IP 时，确定性安全回退至 127.0.0.1"""
+        monkeypatch.setattr(kanban_srv.subprocess, "check_output", lambda *a, **kw: "inet 198.18.0.1\ninet 100.64.0.1")
+        monkeypatch.setattr(kanban_srv.socket, "gethostbyname_ex", lambda *a, **kw: ("host", [], ["198.18.0.84"]))
+        monkeypatch.setattr(kanban_srv.socket, "socket", lambda *a, **kw: type("DummySocket", (), {
+            "connect": lambda *args: None,
+            "getsockname": lambda *args: ("198.18.0.1", 0),
+            "close": lambda *args: None
+        })())
+
+        result = kanban_srv.get_local_ip()
+        assert result == "127.0.0.1"
+
+    def test_get_local_ip_priority_order(self, monkeypatch):
+        """优先级测试: 192.168.x.x > 10.x.x.x > 172.16-31.x.x"""
+        # 1. 192.168 存在时优先返回 192.168
+        monkeypatch.setattr(kanban_srv.subprocess, "check_output", lambda *a, **kw: "inet 10.0.0.5\ninet 192.168.1.100\ninet 172.20.0.1")
+        monkeypatch.setattr(kanban_srv.socket, "gethostbyname_ex", lambda *a, **kw: ("host", [], []))
+        monkeypatch.setattr(kanban_srv.socket, "socket", lambda *a, **kw: type("DummySocket", (), {
+            "connect": lambda *args: None,
+            "getsockname": lambda *args: ("127.0.0.1", 0),
+            "close": lambda *args: None
+        })())
+        assert kanban_srv.get_local_ip() == "192.168.1.100"
+
+        # 2. 无 192.168 时优先返回 10.x.x.x
+        monkeypatch.setattr(kanban_srv.subprocess, "check_output", lambda *a, **kw: "inet 10.0.0.5\ninet 172.20.0.1")
+        assert kanban_srv.get_local_ip() == "10.0.0.5"
+
+        # 3. 仅有 172.x 时返回 172.x
+        monkeypatch.setattr(kanban_srv.subprocess, "check_output", lambda *a, **kw: "inet 172.20.0.1")
+        assert kanban_srv.get_local_ip() == "172.20.0.1"

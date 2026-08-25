@@ -1,4 +1,6 @@
 import os
+import sys
+import argparse
 import docx
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -6,10 +8,20 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls, qn
 
-def generate_academic_proposal():
-    template_path = "/Users/yuanyi/Downloads/32e9bad9-cf02-4c40-b19c-c0043f3f5179.docx"
-    out_path = "docs/qwen/千问办公专家套件方案书-多专家协同研发工作流.docx"
-    download_copy = "/Users/yuanyi/Downloads/千问办公专家套件方案书-多专家协同研发工作流.docx"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SKILL_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+DEFAULT_TEMPLATE = os.path.join(SKILL_ROOT, "templates", "qwen_proposal_template.docx")
+DEFAULT_OUTPUT = os.path.join(SKILL_ROOT, "docs", "qwen", "千问办公专家套件方案书-多专家协同研发工作流.docx")
+
+
+def generate_academic_proposal(template_path=None, out_path=None, export_path=None):
+    template_path = template_path or DEFAULT_TEMPLATE
+    out_path = out_path or DEFAULT_OUTPUT
+    if not os.path.isfile(template_path):
+        print(f"[ERROR] 方案书模板文件不存在: {template_path}")
+        print("        请将官方模板放入 templates/qwen_proposal_template.docx 或使用 --template 指定。")
+        sys.exit(1)
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
 
     doc = docx.Document(template_path)
 
@@ -217,8 +229,15 @@ def generate_academic_proposal():
 
     # Save
     doc.save(out_path)
-    doc.save(download_copy)
-    print(f"Academic Thesis Proposal saved to {out_path} and {download_copy}")
+    print(f"Academic Thesis Proposal saved to {out_path}")
+    if export_path:
+        doc.save(export_path)
+        print(f"Exported copy saved to {export_path}")
 
 if __name__ == "__main__":
-    generate_academic_proposal()
+    parser = argparse.ArgumentParser(description="千问办公专家套件方案书 (GB/T 7713 学术排版) 生成器")
+    parser.add_argument("--template", default=None, help="方案书模板 docx 路径 (默认 templates/qwen_proposal_template.docx)")
+    parser.add_argument("--output", default=None, help="产物输出路径 (默认 docs/qwen/千问办公专家套件方案书-多专家协同研发工作流.docx)")
+    parser.add_argument("--export-to", default=None, help="可选：额外复制一份到指定路径")
+    args = parser.parse_args()
+    generate_academic_proposal(template_path=args.template, out_path=args.output, export_path=args.export_to)

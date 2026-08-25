@@ -22,6 +22,7 @@ from _lib.boards.board_adapter_factory import get_board_adapter
 from _lib.audit.audit_logger import record_audit_event
 from _lib.core.file_lock import acquire_lock, release_lock, remove_lock_file_if_free, LockBusyError
 from _lib.core.step_summary import generate_step_summary
+from _lib.core.task_spec import resolve_default_stage_wp_wbs
 from enums import TaskStatus, TaskType, RoleEnum, normalize_role, ROLE_NORMALIZE_MAP
 import paths
 
@@ -277,6 +278,12 @@ def transition_task_pipeline(
             else:
                 effective_owner = effective_assignee if role_upper == "PM" else expected_self
 
+            try:
+                all_cards = adapter.list_records(limit=2000)
+            except Exception:
+                all_cards = []
+            res_stage, res_wp, res_wbs = resolve_default_stage_wp_wbs(all_cards, stage=stage, wp=wp, wbs=wbs)
+
             create_fields = {
                 "task_id": task_id,
                 "task_name": task_name,
@@ -284,12 +291,14 @@ def transition_task_pipeline(
                 "assignee": effective_owner,
                 "owner": effective_owner,
                 "handler": effective_assignee,
-                "stage": stage or "-",
-                "workpackage": wp or "-",
-                "wbs_id": wbs or "-",
+                "stage": res_stage,
+                "workpackage": res_wp,
+                "wbs_id": res_wbs,
                 "creator": creator or None,
                 "start_date": None,
-                "process": remarks or None,
+                "est_hours": 0.0,
+                "act_hours": 0.0,
+                "process": None,
                 "remarks": remarks or None,
             }
             created_id = adapter.create_record(create_fields)
@@ -406,6 +415,12 @@ def transition_task_pipeline(
             now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             initial_status = "待开始"  # 所有任务卡必须经历【待开始】
             effective_owner = normalize_role_name(owner) if owner else norm_assignee
+            try:
+                all_cards = adapter.list_records(limit=2000)
+            except Exception:
+                all_cards = []
+            res_stage, res_wp, res_wbs = resolve_default_stage_wp_wbs(all_cards, stage=stage, wp=wp, wbs=wbs)
+
             create_fields = {
                 "task_id": task_id,
                 "task_name": task_name or "工作包任务",
@@ -413,9 +428,9 @@ def transition_task_pipeline(
                 "assignee": effective_owner,
                 "owner": effective_owner,
                 "handler": norm_assignee,
-                "stage": stage or "-",
-                "workpackage": wp or "-",
-                "wbs_id": wbs or "-",
+                "stage": res_stage,
+                "workpackage": res_wp,
+                "wbs_id": res_wbs,
                 "start_date": None,
                 "process": remarks or None,
                 "remarks": remarks or None,

@@ -1768,13 +1768,13 @@
         <p data-i18n="f5_p">测试与审查不通过时原卡打回（【已退回】）并自动挂载 DEF-TXXX-N 缺陷单，保留初始开工时间与返工痕迹，杜绝新建孤儿卡刷完工率。</p>
       </div>
 
-      <!-- F6: L0–L2 任务分级与全栈级联路由 -->
+      <!-- F6: 统一入口网关与 L0–L2 智能分流 -->
       <div class="feat-card">
         <div class="feat-icon" style="background:rgba(245, 158, 11, 0.12); border-color:rgba(245, 158, 11, 0.25);">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         </div>
-        <h3 data-i18n="f6_h">L0–L2 任务分级与全栈级联路由</h3>
-        <p data-i18n="f6_p">根据复杂度自动三问分级：L0 纯文本直答、L1 敏捷特性流转；复合需求按「三不拆、三必拆」拆分前后端双卡并建立 Mock-First 契约级联，防止串行阻塞。</p>
+        <h3 data-i18n="f6_h">统一入口网关与 L0–L2 智能分流</h3>
+        <p data-i18n="f6_p">控制台指令直通运维底层；业务需求强制经分级三问网关判定（L0无卡直答、L1短链交付、L2全链制衡）；复合需求自动按 Mock-First 建立前后端级联。</p>
       </div>
 
       <!-- F7: 全自动单任务流转与断点续跑 -->
@@ -2167,7 +2167,7 @@ const I18N = {
     f3_h: 'Agent 强类型交接契约与「无工单不 Git」', f3_p: '8 位 AI 专家间流转通过强类型 JSON Payload 结构化交接（含改动文件、覆盖率、缺陷历史）；外部 Commit 必须绑定真实工单，确保工程溯源。',
     f4_h: '敏感凭据安全扫描与全量审计追溯', f4_p: '初始化首步运行 check_secrets.py 扫描 Token/密钥泄露风险；全量流转操作落盘结构化审计日志（audit_query.py），支持按 Task ID 全程回溯。',
     f5_h: '缺陷打回不拆单与原卡闭环追溯', f5_p: '测试与审查不通过时原卡打回（【已退回】）并自动挂载 DEF-TXXX-N 缺陷单，保留初始开工时间与返工痕迹，杜绝新建孤儿卡刷完工率。',
-    f6_h: 'L0–L2 任务分级与全栈级联路由', f6_p: '根据复杂度自动三问分级：L0 纯文本直答、L1 敏捷特性流转；复合需求按「三不拆、三必拆」拆分前后端双卡并建立 Mock-First 契约级联，防止串行阻塞。',
+    f6_h: '统一入口网关与 L0–L2 智能分流', f6_p: '控制台指令直通运维底层；业务需求强制经分级三问网关判定（L0无卡直答、L1短链交付、L2全链制衡）；复合需求自动按 Mock-First 建立前后端级联。',
     f7_h: '全自动单任务流转与断点续跑', f7_p: '通过 /yy-flow auto 全自动执行完整生命周期至【已完成】并提请人类核验验收，结合实际任务名称动态生成阶段交付实质总结并支持断点续跑。',
     f8_h: '心跳健康巡检与 14+ 效能雷达', f8_p: '内置 heartbeat.py 自动化巡检引擎，支持工时纯秒级存储与 <60s / <3600s / ≥3600s 3 档自适应呈现，实时探测任务死锁、WIP 超限与瞬时冲卡（TIME_SKEW_INSTANT）。',
     collab_tag: 'TEAM COLLABORATION & LAN WORKFLOW', collab_hd: '团队局域网多端协同',
@@ -2270,7 +2270,7 @@ const I18N = {
     f3_h: 'Agent Typed Handover Contract & No-Task-No-Git', f3_p: '8 AI subagents transition tasks via strongly-typed JSON payloads (changed files, test coverage, defect history); external commits must strictly bind to genuine tasks.',
     f4_h: 'Credential Security Scan & Audit Trail', f4_p: 'Initial setup runs check_secrets.py to detect token/key leaks; full workflow transitions are logged to audit files (audit_query.py) with task-level traceability.',
     f5_h: 'In-Place Defect Binding (DEF-TXXX-N)', f5_p: 'Rejections return to the original card with DEF structured defect tasks, retaining initial start timestamps and authentic rework lead times without orphan cards.',
-    f6_h: 'L0–L2 Task Tiering & Cascading Routing', f6_p: 'Automatic 3-question tiering: L0 instant answer, L1 agile flow; fullstack features split into backend/frontend cascades under Mock-First contracts without blocking pipelines.',
+    f6_h: 'Unified Gateway & L0–L2 Smart Tiering', f6_p: 'Control commands bypass directly to O&M tools; business intents pass through the 3-question gateway (L0 instant answer, L1 agile flow, L2 full governance); fullstack tasks cascade via Mock-First.',
     f7_h: 'Full Auto Task Flow & Dynamic Logs', f7_p: 'Run /yy-flow auto to fully automate lifecycle to Done and request human acceptance, dynamically generating substantive step summaries with 【Agent Loop】 tags and breakpoint resume.',
     f8_h: 'Heartbeat Health Radar & 14+ Metrics', f8_p: 'Built-in heartbeat.py engine with pure-second duration storage and 3-tier adaptive formatting (<60s/min/h), detecting deadlocks, WIP limits, and instant rushing (TIME_SKEW_INSTANT).',
     collab_tag: 'TEAM COLLABORATION & LAN WORKFLOW', collab_hd: '团队局域网多端协同',

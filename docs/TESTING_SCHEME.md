@@ -3,8 +3,8 @@
 > **版本**：v1.0.0  
 > **更新日期**：2026-08-24  
 > **适用范围**：multi-agent-flow 多专家协同研发工作流、看板前后端引擎、局域网主控/协作鉴权体系与数据质量审计。  
-> **基准测试脚本**：[`scripts/run_108_tasks_simulation.py`](file:///Users/yuanyi/MyProject/vibeP/skills-design/2_多专家协同研发工作流/multi-agent-flow/scripts/run_108_tasks_simulation.py)  
-> **单元/集成测试**：[`tests/test_kanban_api_v2.py`](file:///Users/yuanyi/MyProject/vibeP/skills-design/2_多专家协同研发工作流/multi-agent-flow/tests/test_kanban_api_v2.py) & [`tests/test_kanban_server.py`](file:///Users/yuanyi/MyProject/vibeP/skills-design/2_多专家协同研发工作流/multi-agent-flow/tests/test_kanban_server.py)
+> **基准测试脚本**：[`scripts/run_108_tasks_simulation.py`](scripts/run_108_tasks_simulation.py)  
+> **单元/集成测试**：[`tests/test_kanban_api_v2.py`](tests/test_kanban_api_v2.py) & [`tests/test_kanban_server.py`](tests/test_kanban_server.py)
 
 ---
 
