@@ -45,6 +45,23 @@ git clone https://github.com/YuanYii/multi-agent-flow.git .yy-flow\skill
 powershell -ExecutionPolicy Bypass -File .yy-flow\skill\scripts\init_skill.ps1
 ```
 
+
+### 3. 多项目共享安装（全局部署）
+
+在同时维护多个项目、不希望每个项目都复制一份 Skill 代码时，使用全局共享安装器（Linux/macOS: `install_global.sh`，Windows: `install_global.ps1`）：
+
+```bash
+# Linux/macOS：安装/更新最新 release_v6（或指定分支/标签）
+./scripts/install_global.sh            # 默认 release_v6
+./scripts/install_global.sh v1.0.0     # 固定版本
+```
+
+- **正本位置**：代码物化至 `~/agent-skills/multi-agent-flow`（degit 拉取，无 Node 环境自动回退 tarball），只读共享；
+- **安全守卫**：正本目录若被污染（含 `user_data/board.json`）直接拒绝安装，防止 legacy 数据误判串项目；安装后写入 `.yy-flow-shared` 共享标记；
+- **跨平台挂载**：`verify_and_export_agents.py --global` 自动探测 9 大宿主（Antigravity / Claude Code / Cursor / OpenCode / ZCode / Pi / Universal / QwenWork / Codex）并挂载用户级技能与子代理；
+- **数据隔离**：共享安装下每个项目的运行数据（`user_data/`、锁、审计）仍独立落在各自项目根（解析链：`--project-root` > `YY_FLOW_PROJECT_ROOT` > `.yy-flow` 自定位 > legacy > CWD），`docs/` 恒定锚定项目根随 Git 流转。
+
+> 在项目内首次使用请执行该项目的初始化（`/yy-flow start`）。
 ### 2. 在 Agent 对话中初始化
 
 在 AI 编程终端中输入快捷指令或自然语言口令：
