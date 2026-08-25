@@ -144,6 +144,12 @@ def _data_root() -> str:
 
 
 _DATA_ROOT = _data_root()
+###############################################################################
+# [双轨 IO 约定] Web 服务自研 board.json 读写内核（mtime/size 高速缓存 + 409 乐观锁
+# + tmp+os.replace 原子写），与 _lib/boards/offline_board_adapter.py 并存且写入同一文件。
+# 二者字段结构必须保持兼容（id/name/status/assignee/...）；后续字段或锁语义变更时
+# 必须同步修改两处，或择机将 server IO 收敛至 OfflineBoardAdapter 共享内核。
+###############################################################################
 USER_DATA_BOARD = os.path.join(_DATA_ROOT, "user_data", "board.json")
 USER_DATA_PREFERENCES = os.path.join(_DATA_ROOT, "user_data", "preferences.json")
 AUDIT_LOG_FILE = os.path.join(_DATA_ROOT, "user_data", "logs", "audit_trail.log")
