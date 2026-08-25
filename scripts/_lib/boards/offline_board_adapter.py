@@ -17,8 +17,7 @@ import os
 import re
 import sys
 import json
-import tempfile
-import datetime
+from datetime import datetime
 import subprocess
 import getpass
 from typing import Dict, Any, List, Optional
@@ -32,7 +31,7 @@ if __package__ in (None, ""):
         sys.path.insert(0, _scripts_root)
 
 from enums import TaskStatus
-from _lib.core import file_lock
+from _lib.core import file_lock, board_io
 
 
 def sanitize_comment(comment: str, max_len: int = 500) -> str:
@@ -117,19 +116,8 @@ class OfflineBoardAdapter:
     # 内部工具：读写
     # ------------------------------------------------------------------
     def _read_cards(self) -> List[Dict[str, Any]]:
-        """读取看板全部卡片（JSON 数组）。文件不存在返回空列表。"""
-        if not os.path.exists(self.board_file):
-            return []
-        try:
-            with open(self.board_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if isinstance(data, list):
-                return data
-            if isinstance(data, dict) and isinstance(data.get("cards"), list):
-                return data["cards"]
-        except Exception:
-            return []
-        return []
+        """读取看板全部卡片（JSON 数组，经 board_io 共享内核）。文件不存在返回空列表。"""
+        return board_io.load_cards(self.board_file)
 
     def _write_cards(self, cards: List[Dict[str, Any]]) -> bool:
         """原子写：先写临时文件再 os.replace，避免半写文件。内置只追加完整性校验断言。"""
@@ -144,24 +132,8 @@ class OfflineBoardAdapter:
                 sys.stderr.write(f"[FATAL 数据完整性校验失败] 检测到企图物理删除历史任务卡 {missing}！已硬拦截物理写入。\n")
                 return False
 
-        tmp_path = None
-        try:
-            os.makedirs(os.path.dirname(self.board_file) or ".", exist_ok=True)
-            fd, tmp_path = tempfile.mkstemp(
-                dir=os.path.dirname(self.board_file) or ".",
-                prefix=".board_tmp_", suffix=".json"
-            )
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(cards, f, ensure_ascii=False, indent=2)
-            os.replace(tmp_path, self.board_file)
-            return True
-        except Exception:
-            if tmp_path and os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                except Exception:
-                    pass
-            return False
+        # 写入统一走 board_io 共享原子写内核（排他锁由调用方在锁内持有）
+        return board_io.atomic_write(self.board_file, cards)
 
     def _translate(self, fields: Dict[str, Any]) -> Dict[str, Any]:
         """skill 字段 key/配置值 → 看板 JSON 字段名，白名单外字段丢弃。"""
@@ -271,7 +243,7 @@ class OfflineBoardAdapter:
                     if st and et:
                         mins = self._calc_minutes(st, et)
                         if mins is not None:
-                            c["act_hours"] = f"{mins} min"
+                            c["act_hours"] = round(mins / 60.0, 2)
                     return self._write_cards(cards)
             return False
 
@@ -337,12 +309,14 @@ class OfflineBoardAdapter:
 
             translated = self._translate(merged_fields)
             translated["id"] = task_id
-            translated.setdefault("status", "进行中")
+            translated.setdefault("status", "待开始")
             translated.setdefault("wbs", "-")
             translated.setdefault("wp", "-")
             translated.setdefault("stage", merged_fields.get("stage") or "-")
-            translated.setdefault("act_hours", 0)
+            translated.setdefault("est_hours", 0.0)
+            translated.setdefault("act_hours", 0.0)
             translated.setdefault("creator", merged_fields.get("creator") or get_current_os_user())
+            translated.setdefault("process", "")
 
             # 时间计算
             st = translated.get("start_date") or translated.get("start_time")
@@ -350,7 +324,7 @@ class OfflineBoardAdapter:
             if st and et:
                 mins = self._calc_minutes(st, et)
                 if mins is not None:
-                    translated["act_hours"] = f"{mins} min"
+                    translated["act_hours"] = round(mins / 60.0, 2)
 
             max_seq = max([int(c.get("seq") or 0) for c in cards] or [0])
             translated["seq"] = max_seq + 1
@@ -392,7 +366,7 @@ class OfflineBoardAdapter:
                 if str(c.get("id")) == str(record_id):
                     node_seq = self._next_node_seq(c.get("process"), str(record_id))
                     node_id = f"{record_id}-N{node_seq:02d}"
-                    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     clean_comment = sanitize_comment(comment)
                     line = f"[{node_id}]  [{ts}]  状态由【{from_status}】更新至【{to_status}】，操作人: {operator}"
                     if clean_comment:

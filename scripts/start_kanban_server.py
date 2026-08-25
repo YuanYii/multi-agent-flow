@@ -12,7 +12,6 @@ import json
 import time
 import atexit
 import hashlib
-import tempfile
 import argparse
 import socket
 import secrets
@@ -30,6 +29,7 @@ KANBAN_DIR = os.path.join(SKILL_ROOT, "kanban")
 
 sys.path.insert(0, SCRIPT_DIR)
 from _lib.core.step_summary import generate_step_summary
+from _lib.core.task_spec import resolve_default_stage_wp_wbs
 
 DEFAULT_PORT = 32886
 PROBE_RANGE = 20
@@ -145,10 +145,11 @@ def _data_root() -> str:
 
 _DATA_ROOT = _data_root()
 ###############################################################################
-# [双轨 IO 约定] Web 服务自研 board.json 读写内核（mtime/size 高速缓存 + 409 乐观锁
-# + tmp+os.replace 原子写），与 _lib/boards/offline_board_adapter.py 并存且写入同一文件。
-# 二者字段结构必须保持兼容（id/name/status/assignee/...）；后续字段或锁语义变更时
-# 必须同步修改两处，或择机将 server IO 收敛至 OfflineBoardAdapter 共享内核。
+# [IO 约定] Web 服务与 offline_board_adapter 已共享 _lib/core/board_io.py 原子写/锁内核，
+# 均写入同一 user_data/board.json。残余差异仅为调用方各自业务语义：
+#   - server：mtime/size 高速缓存 + HTTP 409 版本乐观锁 + seq 顺序规范化（展示顺序）
+#   - adapter：字段翻译 + append-only 完整性断言 + 锁内任务编号/seq 分配
+# 后续字段或锁语义变更必须同步两处（或继续向共享内核收敛）。
 ###############################################################################
 USER_DATA_BOARD = os.path.join(_DATA_ROOT, "user_data", "board.json")
 USER_DATA_PREFERENCES = os.path.join(_DATA_ROOT, "user_data", "preferences.json")
@@ -190,7 +191,7 @@ SERVER_STATE = {
 }
 
 
-from _lib.core import file_lock
+from _lib.core import board_io
 from _lib.boards.offline_board_adapter import get_current_os_user
 
 
@@ -242,28 +243,19 @@ def read_board_data() -> list:
 
 
 def atomic_write_board_data(cards: list) -> bool:
-    """持有排他锁 + Temp 文件原子替换写入 board.json"""
+    """持有排他锁 + board_io 共享原子写内核写入 board.json（seq 规范化保留）"""
     os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
-    target_dir = os.path.dirname(USER_DATA_BOARD)
 
     # 规范化 seq 序号
     for idx, card in enumerate(cards, start=1):
         card["seq"] = idx
 
-    handle = None
     try:
-        handle = file_lock.acquire_lock(LOCK_FILE, blocking=True, timeout=5.0)
-        with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
-            json.dump(cards, tf, indent=2, ensure_ascii=False)
-            tmp_name = tf.name
-        os.replace(tmp_name, USER_DATA_BOARD)
-        return True
+        with board_io.board_lock(LOCK_FILE, timeout=5.0):
+            return board_io.atomic_write(USER_DATA_BOARD, cards)
     except Exception as e:
         sys.stderr.write(f"[ERROR] atomic_write_board_data failed: {e}\n")
         return False
-    finally:
-        if handle:
-            file_lock.release_lock(handle)
 
 
 def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
@@ -275,29 +267,25 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
     - 否则执行 mutate_fn，原子替换落盘，返回 (status_code, message, {**result_data, "v": new_v})
     """
     os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
-    target_dir = os.path.dirname(USER_DATA_BOARD)
-    handle = None
     try:
-        handle = file_lock.acquire_lock(LOCK_FILE, blocking=True, timeout=5.0)
-        current_v = compute_board_version()
-        if expected_version and expected_version != current_v:
-            return 409, "数据已被其他操作修改，发生版本冲突 (conflict)", {"v": current_v}
+        with board_io.board_lock(LOCK_FILE, timeout=5.0):
+            current_v = compute_board_version()
+            if expected_version and expected_version != current_v:
+                return 409, "数据已被其他操作修改，发生版本冲突 (conflict)", {"v": current_v}
 
-        cards = read_board_data()
-        success, code, msg, res_data = mutate_fn(cards)
-        if not success:
-            return code, msg, res_data
+            cards = read_board_data()
+            success, code, msg, res_data = mutate_fn(cards)
+            if not success:
+                return code, msg, res_data
 
-        # 规范化 seq 序号
-        for idx, card in enumerate(cards, start=1):
-            card["seq"] = idx
+            # 规范化 seq 序号
+            for idx, card in enumerate(cards, start=1):
+                card["seq"] = idx
 
-        with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
-            json.dump(cards, tf, indent=2, ensure_ascii=False)
-            tmp_name = tf.name
-        os.replace(tmp_name, USER_DATA_BOARD)
+            if not board_io.atomic_write(USER_DATA_BOARD, cards):
+                return 500, "数据写入磁盘失败", None
 
-        new_v = compute_board_version()
+            new_v = compute_board_version()
         if isinstance(res_data, dict):
             res_data["v"] = new_v
         elif res_data is None:
@@ -306,9 +294,6 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
     except Exception as e:
         sys.stderr.write(f"[ERROR] atomic_mutate_board_data failed: {e}\n")
         return 500, f"数据写入磁盘失败: {e}", None
-    finally:
-        if handle:
-            file_lock.release_lock(handle)
 
 
 BOARD_TITLE_SUFFIX = "Multi Agent任务看板"
@@ -362,18 +347,9 @@ def read_preferences_data() -> dict:
 
 
 def atomic_write_preferences_data(pref: dict) -> bool:
-    """原子写入 preferences.json"""
+    """原子写入 preferences.json（board_io 共享原子写内核）"""
     os.makedirs(os.path.dirname(USER_DATA_PREFERENCES), exist_ok=True)
-    target_dir = os.path.dirname(USER_DATA_PREFERENCES)
-    try:
-        with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
-            json.dump(pref, tf, indent=2, ensure_ascii=False)
-            tmp_name = tf.name
-        os.replace(tmp_name, USER_DATA_PREFERENCES)
-        return True
-    except Exception as e:
-        sys.stderr.write(f"[ERROR] atomic_write_preferences_data failed: {e}\n")
-        return False
+    return board_io.atomic_write(USER_DATA_PREFERENCES, pref)
 
 
 def allocate_next_task_id(cards: list) -> str:
@@ -1113,13 +1089,20 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 parsed_est = _parse_duration_seconds(body_data.get("est_hours", 0))
                 end_date_val = (body_data.get("end_date") or now_str) if status in ("已完成", "已验收", "已取消") else ""
 
+                res_stage, res_wp, res_wbs = resolve_default_stage_wp_wbs(
+                    cards,
+                    stage=body_data.get("stage"),
+                    wp=body_data.get("wp") or body_data.get("workpackage"),
+                    wbs=body_data.get("wbs") or body_data.get("wbs_id")
+                )
+
                 new_card = {
                     "id": new_id,
                     "seq": len(cards) + 1,
                     "name": name,
-                    "stage": body_data.get("stage", "S1 需求分析"),
-                    "wp": body_data.get("wp", "WP-1.1"),
-                    "wbs": body_data.get("wbs", ""),
+                    "stage": res_stage,
+                    "wp": res_wp,
+                    "wbs": res_wbs,
                     "pretask": pretask_val,
                     "assignee": assignee,
                     "creator": creator_val,

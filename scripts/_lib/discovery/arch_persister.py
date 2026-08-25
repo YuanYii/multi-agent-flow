@@ -60,6 +60,20 @@ def save_architecture_config(arch_dict: dict) -> bool:
         arch_dict["meta"] = {}
     arch_dict["meta"]["initialized"] = True
 
+    tech_stack = arch_dict.get("tech_stack", {})
+    object_list_fields = ["languages", "databases_and_storage", "frameworks", "tools_and_services"]
+    for fld in object_list_fields:
+        if fld in tech_stack:
+            items = tech_stack[fld]
+            if isinstance(items, list):
+                norm_items = []
+                for item in items:
+                    if isinstance(item, str):
+                        norm_items.append({"name": item})
+                    elif isinstance(item, dict) and "name" in item:
+                        norm_items.append(item)
+                tech_stack[fld] = norm_items
+
     # 2. 自动派生 3~5 项专家能力并回填
     expert_caps = expand_expert_capabilities(arch_dict)
     if "tech_stack" not in arch_dict:

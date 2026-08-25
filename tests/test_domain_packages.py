@@ -112,3 +112,30 @@ class TestDomainLogicUnits:
             if pattern.search(fake_feishu_token):
                 findings.append(desc)
         assert "飞书 App ID / Token" in findings
+
+    def test_resolve_default_stage_wp_wbs_spec(self):
+        """验证用户未指定阶段/工作包/WBS编号时，自动继承最新阶段并生成三段式标准编号"""
+        from _lib.core.task_spec import resolve_default_stage_wp_wbs
+
+        # 1. 空看板时：默认使用 S1 阶段与 1.1.1 编号
+        stg, wp, wbs = resolve_default_stage_wp_wbs([])
+        assert "S1" in stg
+        assert wp == "WP-S1-01 常规研发工作包"
+        assert wbs == "1.1.1"
+
+        # 2. 已有 S1 和 S2 任务时：自动继承最新阶段 S2，并自增 WBS 编号
+        cards = [
+            {"id": "T0001", "stage": "S1 需求分析", "wp": "WP-1.1", "wbs": "1.1.1"},
+            {"id": "T0002", "stage": "S2 核心研发", "wp": "WP-S2-01", "wbs": "2.1.1"},
+        ]
+        stg, wp, wbs = resolve_default_stage_wp_wbs(cards)
+        assert "S2" in stg
+        assert wp == "WP-S2-01 常规研发工作包"
+        assert wbs == "2.1.2"
+
+        # 3. 用户显式指定部分字段时：仅对缺省字段进行推导
+        stg, wp, wbs = resolve_default_stage_wp_wbs(cards, stage="S3 系统测试")
+        assert stg == "S3 系统测试"
+        assert wp == "WP-S3-01 常规研发工作包"
+        assert wbs == "3.1.1"
+
