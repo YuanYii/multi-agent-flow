@@ -822,10 +822,18 @@ class TestHumanAcceptanceAndGitGate:
         assert "未检索到处于【已完成】待人类验收的任务" in r.stdout
 
     def test_install_git_hooks(self, env):
-        """验证 install_git_hooks.py 正常运行并完成钩子安装。"""
-        r = run(env, "install_git_hooks.py")
-        assert r.returncode == 0
+        """验证 install_git_hooks.py 支持 --project-root 定向安装钩子到指定仓库。"""
+        import subprocess as _sp
+        project_root = str(env["tmp"])
+        _sp.run(["git", "init", "-q"], cwd=project_root, check=True)
+        sub_env = os.environ.copy()
+        sub_env["YY_FLOW_PROJECT_ROOT"] = project_root
+        r = _sp.run([sys.executable, os.path.join(SCRIPTS, "install_git_hooks.py"),
+                     "--project-root", project_root],
+                    capture_output=True, text=True, cwd=REPO_ROOT, env=sub_env)
+        assert r.returncode == 0, f"exit={r.returncode}\nstdout={r.stdout}\nstderr={r.stderr}"
         assert "成功安装 Git 门禁钩子" in r.stdout
+        assert os.path.exists(os.path.join(project_root, ".git", "hooks", "pre-commit"))
 
 
 
