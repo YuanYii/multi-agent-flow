@@ -30,6 +30,8 @@ import re
 import sys
 import time
 import socket
+import shutil
+import datetime
 import tempfile
 import threading
 import subprocess
@@ -502,7 +504,7 @@ class SimulationRunner:
         subprocess.run([
             sys.executable, os.path.join(SCRIPTS_DIR, "quick_task.py"), "complete",
             "--task-id", "T0116", "--role", "QA", "--from-status", "测试中",
-            "--to-status", "已完成", "--assignee", "严经理", "--end-time", "2026-08-26 12:00:00"
+            "--to-status", "已完成", "--assignee", "严经理", "--end-time", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ], env=self.env, check=True)
         self.stats["cli_transitions"] += 6
 
@@ -540,7 +542,7 @@ class SimulationRunner:
         subprocess.run([
             sys.executable, os.path.join(SCRIPTS_DIR, "quick_task.py"), "complete",
             "--task-id", "T0117", "--role", "QA", "--from-status", "测试中",
-            "--to-status", "已完成", "--assignee", "严经理", "--end-time", "2026-08-26 12:00:00"
+            "--to-status", "已完成", "--assignee", "严经理", "--end-time", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ], env=self.env, check=True)
         self.stats["cli_transitions"] += 7
 
@@ -564,7 +566,7 @@ class SimulationRunner:
         subprocess.run([
             sys.executable, os.path.join(SCRIPTS_DIR, "quick_task.py"), "complete",
             "--task-id", "T0118", "--role", "QA", "--from-status", "测试中",
-            "--to-status", "已完成", "--assignee", "严经理", "--end-time", "2026-08-26 12:00:00"
+            "--to-status", "已完成", "--assignee", "严经理", "--end-time", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ], env=self.env, check=True)
         # 单卡 accept
         subprocess.run([
@@ -670,15 +672,61 @@ class SimulationRunner:
     # 阶段八：Git 提交人类验收硬拦截验证 (Pipeline 11)
     # =========================================================================
     def run_phase_8_git_gate_verifier_pipeline(self):
-        print("\n▶ [Phase 8] 正在执行 Git Pre-Commit 人类验收强门控核验 (Pipeline 11)...")
-        res = subprocess.run([
-            sys.executable, os.path.join(SCRIPTS_DIR, "verify_git_gate.py"),
-            "--stage", "S1"
+        print("\n▶ [Phase 8] 正在执行真实 Git Pre-Commit 人类验收硬拦截集成验证 (Pipeline 11)...")
+        # 0. 准备沙箱运行配置（使 CLI 管线可解析并读取沙箱看板）
+        shutil.copyfile(
+            os.path.join(REPO_ROOT, "config", "workflow.config.template.yaml"),
+            os.path.join(self.user_data_dir, "workflow.config.yaml"))
+        # 1. 沙箱 git 仓库 + 安装 pre-commit 钩子
+        subprocess.run(["git", "init", "-q"], cwd=self.tmp_root, check=True)
+        subprocess.run(["git", "config", "user.email", "sim@test.local"], cwd=self.tmp_root, check=True)
+        subprocess.run(["git", "config", "user.name", "Simulation"], cwd=self.tmp_root, check=True)
+        res_install = subprocess.run([
+            sys.executable, os.path.join(SCRIPTS_DIR, "install_git_hooks.py"),
+            "--project-root", self.tmp_root
         ], env=self.env, capture_output=True, text=True)
-        # 门禁正常执行返回 0 或 1 均属预期行为（无未处理异常抛出）
-        assert res.returncode in (0, 1)
+        assert res_install.returncode == 0, f"install_git_hooks 失败: {res_install.stderr}"
+        # 2. 沙箱项目根暴露 scripts/（钩子内相对路径调用 verify_git_gate.py）
+        scripts_link = os.path.join(self.tmp_root, "scripts")
+        if not os.path.exists(scripts_link):
+            os.symlink(SCRIPTS_DIR, scripts_link)
+        # 3. 造一张【已完成】（未验收）卡
+        s, r = self.request("POST", "/api/tasks", {
+            "id": "T9999", "name": "未验收阻塞提交卡", "stage": "S1 需求分析",
+            "wp": "WP-需求", "wbs": "1.9", "assignee": "严经理",
+            "status": "已完成", "end_date": "2026-08-25 12:00:00"
+        }, is_master=True)
+        assert s == 200
+        # 4. 写文件 + commit → 断言被 pre-commit 拦截（exit != 0）
+        with open(os.path.join(self.tmp_root, "sim_probe.txt"), "w", encoding="utf-8") as f:
+            f.write("sim")
+        subprocess.run(["git", "add", "sim_probe.txt"], cwd=self.tmp_root, check=True)
+        res_commit = subprocess.run(["git", "commit", "-m", "sim: 未验收时提交"],
+                                    cwd=self.tmp_root, env=self.env, capture_output=True, text=True)
+        assert res_commit.returncode != 0, "存在未验收任务时 commit 未被 pre-commit 拦截！"
+        self.stats["security_403_passed"] += 1
+        # 5. 单卡验收 T9999 后（其余已完成卡未验收）→ commit 仍应被拦截
+        subprocess.run([
+            sys.executable, os.path.join(SCRIPTS_DIR, "quick_task.py"), "accept",
+            "--task-id", "T9999"
+        ], env=self.env, check=True)
+        res_commit_mid = subprocess.run(["git", "commit", "-m", "sim: 单卡验收后提交"],
+                                        cwd=self.tmp_root, env=self.env, capture_output=True, text=True)
+        assert res_commit_mid.returncode != 0, "存在其他未验收卡时 commit 不应放行！"
+        # 6. 全量验收清空未验收 → commit 放行
+        subprocess.run([
+            sys.executable, os.path.join(SCRIPTS_DIR, "quick_task.py"), "accept-all"
+        ], env=self.env, check=True)
+        res_commit2 = subprocess.run(["git", "commit", "-m", "sim: 全量验收后提交"],
+                                     cwd=self.tmp_root, env=self.env, capture_output=True, text=True)
+        assert res_commit2.returncode == 0, f"全量验收后 commit 仍被拦截: {res_commit2.stderr}"
+        # 7. 移除 T9999 恢复 116 张基准（不干扰 Phase15 唯一性审计）
+        cards = json.load(open(self.board_path, encoding="utf-8"))
+        cards = [c for c in cards if str(c.get("id")) != "T9999"]
+        with open(self.board_path, "w", encoding="utf-8") as f:
+            json.dump(cards, f, ensure_ascii=False, indent=2)
         self.stats["pipeline_checks_passed"] += 1
-        print("  ✓ Git Pre-Commit 门禁扫描与拦截机制核验通过！")
+        print("  ✓ 真实 git commit 未验收拦截 → 单卡验收仍拦 → 全量验收放行 端到端验证通过！")
 
     # =========================================================================
     # 阶段九：架构自动嗅探、落盘与 Subagent 导出断言 (Pipeline 2)
@@ -694,7 +742,7 @@ class SimulationRunner:
         # 1. auto_scan_stack
         res_scan = subprocess.run([
             sys.executable, os.path.join(SCRIPTS_DIR, "auto_scan_stack.py"),
-            "--project-root", self.tmp_root, "--save"
+            self.tmp_root
         ], env=self.env, capture_output=True, text=True)
         assert res_scan.returncode == 0, f"auto_scan_stack 失败: {res_scan.stderr}"
 
@@ -931,8 +979,8 @@ class SimulationRunner:
         audit_report.append(("7. 审计日志双向一致性 (Audit Log Alignment)", dim7_valid, f"产生审计记录: {len(audit_lines)} 条, 覆盖全部变更事件"))
 
         # 维度 8: 安全红线拦截合规性
-        dim8_valid = (self.stats["security_403_passed"] == 8)
-        audit_report.append(("8. 安全红线拦截合规性 (RBAC Redline Pass)", dim8_valid, f"403 越权拦截通过率: {self.stats['security_403_passed']}/8 (100%)"))
+        dim8_valid = (self.stats["security_403_passed"] >= 8)
+        audit_report.append(("8. 安全红线拦截合规性 (RBAC Redline Pass)", dim8_valid, f"403 越权拦截 + Git 门禁拦截通过: {self.stats['security_403_passed']} 项 (≥8 达标)"))
 
         # 维度 9: CLI 与自动化批处理覆盖率 (CLI Pipeline Coverage)
         dim9_valid = (self.stats["cli_tasks_created"] >= 7 and self.stats["cli_transitions"] >= 10)

@@ -1,0 +1,12 @@
+{
+  "name": "multi-agent-flow-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-Agent Flow 看板 Web UI 端到端点击测试 (Playwright)",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0"
+  }
+}
