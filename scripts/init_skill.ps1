@@ -22,6 +22,21 @@ Write-Host "  数据根 (DATA_ROOT): $DataRoot" -ForegroundColor Cyan
 Write-Host "  技能根 (SKILL_ROOT): $SkillRoot" -ForegroundColor Cyan
 Write-Host "==============================================================================" -ForegroundColor Cyan
 
+Write-Host "[SETUP]     [Step 0/7] 校验 Python 环境与第三方依赖 (requirements.txt)..." -ForegroundColor Yellow
+if (-not (Get-Command python -ErrorAction SilentlyContinue) -and -not (Get-Command python3 -ErrorAction SilentlyContinue)) {
+    Write-Host "[FATAL]     未检测到 Python 运行环境，请先安装 Python 3.9+ 并加入 PATH 后重试。" -ForegroundColor Red
+    exit 1
+}
+$pyCmd = if (Get-Command python -ErrorAction SilentlyContinue) { "python" } else { "python3" }
+& $pyCmd -c "import yaml, docx" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[DEPS]      检测到依赖缺失，尝试自动安装 requirements.txt ..." -ForegroundColor Cyan
+    & $pyCmd -m pip install -r "$SkillRoot\requirements.txt" 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[WARN]      自动安装失败，请手动执行: $pyCmd -m pip install -r `"$SkillRoot\requirements.txt`"" -ForegroundColor Yellow
+    }
+}
+
 Write-Host "[SECURITY]  [Step 1/7] 强执行敏感凭据泄露安全扫描 (check_secrets.py)..." -ForegroundColor Yellow
 python "$ScriptDir\check_secrets.py"
 
