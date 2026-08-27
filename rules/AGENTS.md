@@ -24,7 +24,8 @@
 - `/yy-flow status` -> 运行 `heartbeat.py` 巡检脚本，输出全局大盘进度条、交付周期与告警；
 - `/yy-flow kanban` -> 后台启动 `start_kanban_server.py`（默认不带 `--port`，自动探测/复用），展示 Web 看板访问链接与大盘；
 - `/yy-flow sync-pr` -> 运行 `sync_pr_status.py` 扫描【已阻塞】任务卡，检测 GitHub PR Merged 自动推进至【已完成】并唤起 PM 验收；
-- `/yy-flow auto` -> 运行 `auto_task.py` 执行看板全生命周期状态机快速演练/测试对齐（日常真实多角色协同请直接使用自然语言对话调度）。
+- `/yy-flow auto <需求>` -> 端到端全自动多专家研发流水线：由主 Agent / PM 严经理串行调度多专家子代理（`flow-dev` ➔ `flow-reviewer` ➔ `flow-qa`）完成实体代码开发与测试，到达【已完成】主动停机交付（严禁 Agent 代签验收；最多允许打回自愈 2 轮；代码保留在工作区，严禁擅自 git commit）；
+- `/yy-flow test-pipeline` -> 运行 `auto_task.py` 执行底层看板状态机与管道冒烟测试。
 
 > [!IMPORTANT]
 > **跨平台 Python 解释器执行红线**：AI Agent 在调用 `run_command` 执行任何工作流 CLI 脚本时，必须根据宿主操作系统自适应前缀：**Linux/macOS 使用 `python3`，Windows 环境必须使用 `python`**，严禁硬编码导致命令找不到。
@@ -65,6 +66,7 @@
 8. **无工单绝对禁止执行 Git 提交与 PR 追更擅自拆单（内外隔离）**：执行 `git commit`、`git push` 或发起 PR 前，内部必须有明确的看板活跃工单承载；外部 Commit Message 与 PR 正文严格保持纯净通用，严禁注入内部任务编号（如 T00xx）与虚拟专家人名；响应 PR Review 追更时必须沿用原工单打回流转，严禁新建碎片工单。
 9. **绝对禁止物理删除看板任务与直接篡改底层 board.json**：看板任务全生命周期只增不减，绝对禁止使用任何文本编辑工具（`replace_file_content` / `write_to_file`）或脚本直接修改/删除 `board.json` 文件；作废任务必须由 PM 严经理（或授权代行）调用 `quick_task.py complete` 流转至【已取消】终态归档。
 10. **绝对禁止终态逆流篡改**：已达到【已验收】或【已取消】终态归档的工单，禁止逆向流转为【进行中】、【审查中】或【已阻塞】。
+11. **绝对禁止代行人类验收（人类专属终态红线）**：任何 Agent 严禁调用 `quick_task.py accept` / `accept-all`，严禁以任何形式传入 `--delegated-by USER`、伪造 `role=USER` 或推动任务进入【已验收】终态；自动化与代行流转只允许声明 `PM` 来源（或省略），到【已完成】即停并提请人类用户验收。验收合法通道仅为：Web 看板主控 Token 操作，或真人终端执行 accept（自带 TTY 检测 + [y/N] 确认）。
 
 ---
 

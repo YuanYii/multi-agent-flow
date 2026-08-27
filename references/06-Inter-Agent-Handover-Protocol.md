@@ -54,7 +54,7 @@
 | **审查通过** | REVIEWER | QA | 审查报告、安全/规范评估 (前端含可访问性/响应式) | `python3 scripts/transition_task.py --role REVIEWER --from-status 审查中 --to-status 测试中 ...` |
 | **审查打回** | REVIEWER | DEV / FRONTEND | 结构化缺陷信息 `DEF-TXXX-N` | `python3 scripts/transition_task.py --role REVIEWER --from-status 审查中 --to-status 已退回 ...` |
 | **测试通过** | QA | PM | 测试报告、功能点复验覆盖表、`end_time` | `python3 scripts/transition_task.py --role QA --from-status 测试中 --to-status 已完成 ...` |
-| **PM 验收终态**| PM | 终态记录 | 终态验收评级、文档结项 | `python3 scripts/transition_task.py --role PM --from-status 已完成 --to-status 已验收 ...` |
+| **人类验收终态**| PM / 人类用户 | 终态归档 | 阶段交付总结与验收标准结项 (Agent 严禁代签) | 由人类用户在终端执行 `python3 scripts/quick_task.py accept --task-id <ID>` 或在 Web 看板点击验收 |
 
 ---
 
