@@ -65,8 +65,10 @@ class TestNodeAllocation:
         first_line = process.split("\n")[0]
         assert first_line.startswith("[T0005-N01]")
         assert "[2026-" in first_line  # 时间戳在节点 ID 后
-        assert "状态由【测试中】更新至【已完成】，操作人: 章测试" in first_line
-        assert "[QA]" not in first_line  # 角色段已去除（角色=操作人，冗余）
+        assert "状态由【测试中】更新至【已完成】" in first_line
+        assert "角色: 章测试" in first_line
+        assert "操作人: 章测试" in first_line
+        assert "[QA]" not in first_line  # 角色段已去除（规范化为中文，无方括号）
         assert "(操作人" not in first_line  # 不再用括号
         lines = process.split("\n")
         assert lines[1].startswith("操作说明: 回归通过")
@@ -140,12 +142,12 @@ class TestTransitionWritesNodes:
         for i, line in enumerate(node_lines, start=1):
             assert f"T0001-N{i:02d}" in line
 
-        # 严格验证操作人对应当前触发角色（而非下一环节的 assignee 接手人）
-        assert "操作人: 李开发" in node_lines[0]
-        assert "操作人: 李开发" in node_lines[1]
-        assert "操作人: 周审查" in node_lines[2]
-        assert "操作人: 章测试" in node_lines[3]
-        assert "操作人: 严经理" in node_lines[4]
+        # 严格验证触发角色对应当前流转环节（而非下一环节的 assignee 接手人）
+        assert "角色: 李开发" in node_lines[0]
+        assert "角色: 李开发" in node_lines[1]
+        assert "角色: 周审查" in node_lines[2]
+        assert "角色: 章测试" in node_lines[3]
+        assert "角色: 严经理" in node_lines[4]
 
     def test_create_does_not_consume_node(self, tmp_path):
         """建单是卡片诞生非流程节点 → 不写节点行、不占号"""

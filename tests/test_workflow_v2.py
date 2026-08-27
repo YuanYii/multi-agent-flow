@@ -771,14 +771,14 @@ class TestAutoRoleDetectionAndStageNormalization:
         assert detect_main_role("[Backend] 提供给前端的用户查询接口", "") == "DEV"
 
     def test_auto_task_frontend_role_aligned(self, env):
-        """验证 auto_task 在未显式传 --role 时，对前端任务自动将操作人对齐为马前端。"""
+        """验证 auto_task 在未显式传 --role 时，对前端任务自动将处理角色对齐为马前端。"""
         run(env, "auto_task.py", "--task-name", "[Frontend] 系统动态参数配置界面开发", "--type", "A")
         c = find(env, "T0001")
         assert c["status"] == "已完成"
         proc = c.get("process", "")
-        # 确保开工与提审节点的操作人为 马前端，而非 李开发
-        assert "状态由【待开始】更新至【进行中】，操作人: 马前端" in proc
-        assert "状态由【进行中】更新至【审查中】，操作人: 马前端" in proc
+        # 确保开工与提审节点的执行角色为 马前端，而非 李开发
+        assert "状态由【待开始】更新至【进行中】，角色: 马前端" in proc
+        assert "状态由【进行中】更新至【审查中】，角色: 马前端" in proc
 
 
 # =====================================================================

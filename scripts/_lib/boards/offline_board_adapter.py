@@ -30,7 +30,7 @@ if __package__ in (None, ""):
     if _scripts_root not in sys.path:
         sys.path.insert(0, _scripts_root)
 
-from enums import TaskStatus
+from enums import TaskStatus, normalize_role
 from _lib.core import file_lock, board_io
 
 
@@ -349,11 +349,11 @@ class OfflineBoardAdapter:
 
     def append_process_node(self, record_id: str, role: str,
                             from_status: str, to_status: str,
-                            operator: str, comment: str = "") -> "str | None":
+                            operator: str = "", comment: str = "") -> "str | None":
         """锁内分配节点号并向 process 字段追加结构化流转节点。
 
         节点格式（两行，说明可选）:
-          [{节点ID}]  [{时间戳}]  状态由【{from}】更新至【{to}】，操作人: {操作人}
+          [{节点ID}]  [{时间戳}]  状态由【{from}】更新至【{to}】，角色: {角色}，操作人: {操作人}
           操作说明: {说明}
 
         节点号在 board.json.seq.lock 排他锁内取该卡 max(N)+1 —— 并发安全、
@@ -368,7 +368,9 @@ class OfflineBoardAdapter:
                     node_id = f"{record_id}-N{node_seq:02d}"
                     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     clean_comment = sanitize_comment(comment)
-                    line = f"[{node_id}]  [{ts}]  状态由【{from_status}】更新至【{to_status}】，操作人: {operator}"
+                    effective_role = normalize_role(role) or "用户"
+                    effective_operator = operator or get_current_os_user() or "用户"
+                    line = f"[{node_id}]  [{ts}]  状态由【{from_status}】更新至【{to_status}】，角色: {effective_role}，操作人: {effective_operator}"
                     if clean_comment:
                         line += f"\n操作说明: {clean_comment}"
                     existing = c.get("process") or ""

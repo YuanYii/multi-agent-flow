@@ -23,6 +23,7 @@ from _lib.audit.audit_logger import record_audit_event
 from _lib.core.file_lock import acquire_lock, release_lock, remove_lock_file_if_free, LockBusyError
 from _lib.core.step_summary import generate_step_summary
 from _lib.core.task_spec import resolve_default_stage_wp_wbs
+from _lib.boards.offline_board_adapter import get_current_os_user
 from enums import normalize_role, ROLE_NORMALIZE_MAP
 import paths
 
@@ -194,6 +195,7 @@ def transition_task_pipeline(
     wbs: str = None,
     owner: str = None,
     creator: str = None,
+    operator: str = None,
     delegated_by: str = "",
     delegation_reason: str = "",
     create_only: bool = False,
@@ -528,13 +530,14 @@ def transition_task_pipeline(
         #     但烧掉的节点号不复用，审计日志仍有完整记录
         try:
             if hasattr(adapter, "append_process_node"):
-                operator_display = normalize_role(current_role) or current_role
+                effective_role = normalize_role(current_role) or "用户"
+                effective_operator = operator or get_current_os_user() or "用户"
                 effective_comment = (comment or remarks or "").strip()
                 if not effective_comment:
-                    effective_comment = generate_step_summary(from_status or "待开始", to_status, effective_task_name, operator_display)
+                    effective_comment = generate_step_summary(from_status or "待开始", to_status, effective_task_name, effective_role)
                 node_id = adapter.append_process_node(
-                    resolved_record_id, current_role.upper(),
-                    from_status or "-", to_status, operator_display,
+                    resolved_record_id, effective_role,
+                    from_status or "-", to_status, effective_operator,
                     comment=effective_comment)
                 if node_id:
                     logger.info(f" [NODE]  已追加流程节点 {node_id}", extra=extra_log)
@@ -572,6 +575,7 @@ def main():
     parser.add_argument("--active-dev-count", type=int, default=1, help="当前开发人员'进行中'任务数 (并发上限校验用)")
     parser.add_argument("--dry-run", action="store_true", help="开启预检测试模式而不物理写卡")
     parser.add_argument("--creator", default=None, help="真人创建人/系统用户名 (任务新建时记录)")
+    parser.add_argument("--operator", default=None, help="真实人类操作人姓名 (缺省自动读取 Git/OS 用户名)")
     parser.add_argument("--delegated-by", default="", help="提权代行来源角色 (如 PM/USER),留痕到 audit,需在白名单内")
     parser.add_argument("--delegation-reason", default="", help="提权代行理由 (人类用户显式授权时必填)")
     parser.add_argument("--create", action="store_true", help="显式建单模式：创建任务卡【待开始】并分配处理人，不执行流转")
@@ -600,6 +604,7 @@ def main():
         wbs=args.wbs,
         owner=args.owner,
         creator=args.creator,
+        operator=args.operator,
         delegated_by=args.delegated_by,
         delegation_reason=args.delegation_reason,
         create_only=args.create,

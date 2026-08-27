@@ -1201,6 +1201,14 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 from_status = card.get("status", "待开始")
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+                # 关键防御：在更新 card["handler"] 前暂存发起流转的当前执行角色，防止被下游覆盖
+                origin_role = (
+                    normalize_role_name(body_data.get("role") or body_data.get("action_role"))
+                    or card.get("handler")
+                    or card.get("assignee")
+                    or "用户"
+                )
+
                 card["status"] = target_status
                 new_assignee = normalize_role_name(body_data.get("assignee"))
                 if new_assignee:
@@ -1228,7 +1236,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     effective_comment = generate_step_summary(from_status, target_status, card.get("name", ""), operator_name)
 
                 node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
-                log_text = f"[{node_id}]  [{now_str}]  状态由【{from_status}】更新至【{target_status}】，操作人: {operator_name}"
+                log_text = f"[{node_id}]  [{now_str}]  状态由【{from_status}】更新至【{target_status}】，角色: {origin_role}，操作人: {operator_name}"
                 if effective_comment:
                     log_text += f"\n操作说明: {effective_comment}"
 
@@ -1422,7 +1430,13 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     added_logs = []
                     if "status" in updated_keys and new_status != old_status:
                         node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
-                        log_text = f"[{node_id}]  [{now_str}]  状态由【{old_status}】更新至【{new_status}】 | 操作人: {operator_name} | 终端: {device_info}"
+                        action_role = (
+                            normalize_role_name(body_data.get("role") or body_data.get("action_role"))
+                            or (old_handler if old_handler != "未分配" else None)
+                            or (old_assignee if old_assignee != "未分配" else None)
+                            or "用户"
+                        )
+                        log_text = f"[{node_id}]  [{now_str}]  状态由【{old_status}】更新至【{new_status}】，角色: {action_role}，操作人: {operator_name}"
                         if comment:
                             log_text += f"\n操作说明: {comment}"
                         added_logs.append(log_text)
