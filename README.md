@@ -5,6 +5,7 @@
   <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/github/stars/YuanYii/multi-agent-flow?style=for-the-badge&logo=github&color=38BDF8" alt="GitHub Stars"></a>
   <a href="https://github.com/YuanYii/multi-agent-flow/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge" alt="License"></a>
   <a href="https://yuanyii.github.io/multi-agent-flow/"><img src="https://img.shields.io/badge/Theme-Dark%20%2F%20Light-F59E0B?style=for-the-badge" alt="Theme Support"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow/actions/workflows/tests.yml"><img src="https://github.com/YuanYii/multi-agent-flow/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
 </p>
 
 <p align="center">
@@ -97,6 +98,16 @@ python3 scripts/start_kanban_server.py
 [![Multi-Agent Flow 数据表格视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png)](https://yuanyii.github.io/multi-agent-flow/)
 
 ---
+
+---
+
+## 🔐 安全边界（Security Boundary）
+
+- **本看板与 CLI 引擎面向个人 / 团队内网环境设计，请勿将服务端口直接暴露到公网**。看板默认绑定 `0.0.0.0` 并在控制台打印局域网协作链接；如需跨互联网协作，请自行置于 VPN 或反向代理 + 认证之后。
+- **Master Token 是全权凭据**：启动时打印于控制台，持有者可对看板数据执行全部写操作（增删改、导入覆写、批量删除）。请勿粘贴到公开聊天、截图或代码仓库中；多端协同时仅分发给可信成员。
+- **鉴权模型为单层主控制**：LAN 协作端默认只读视角，无用户级账号体系与细粒度 RBAC；浏览器本地保存的偏好相互隔离，但权限以「是否持 Token」唯一判定。
+- **CORS 默认放开**以便局域网内多端访问，网络边界防护依赖部署环境（内网/防火墙）而非应用层。
+- **合规自扫描**：`scripts/check_secrets.py` 在初始化时扫描技能包自身，不会读取或上传你的业务代码。
 
 ## 📁 目录架构说明
 

@@ -1,0 +1,73 @@
+# YY-Flow 全量自动化测试流水线
+# Job 1: pytest 单元测试套件（266 用例，发布阻断级）
+# Job 2: Playwright 看板 Web UI 端到端冒烟（依赖 runner 预装 Chrome；暂为观察级，不阻断）
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    name: Unit / API / Gate Tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安装依赖
+        run: pip install -r requirements-dev.txt
+
+      - name: 运行全量单元测试
+        run: python -m pytest tests/ -q --junitxml=test-reports/pytest-junit.xml
+
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-junit
+          path: test-reports/pytest-junit.xml
+
+  playwright-e2e:
+    name: Kanban Web UI E2E (Playwright)
+    runs-on: ubuntu-latest
+    continue-on-error: true   # 观察级：稳定后再移除该开关转阻断级
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: 安装 Python 依赖（看板服务）
+        run: pip install -r requirements-dev.txt
+
+      - name: 安装 Node 依赖
+        working-directory: e2e
+        run: npm ci
+
+      - name: 运行端到端测试（runner 预装 Google Chrome，对应 channel:chrome）
+        working-directory: e2e
+        run: npx playwright test --reporter=line
+
+      - name: 上传失败现场
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            e2e/test-results/
+            kanban/screenshots/
+          if-no-files-found: ignore
