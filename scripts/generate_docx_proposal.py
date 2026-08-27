@@ -2,16 +2,24 @@ import os
 import sys
 import argparse
 import docx
-from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml import parse_xml
-from docx.oxml.ns import nsdecls, qn
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 DEFAULT_TEMPLATE = os.path.join(SKILL_ROOT, "templates", "qwen_proposal_template.docx")
 DEFAULT_OUTPUT = os.path.join(SKILL_ROOT, "docs", "qwen", "千问办公专家套件方案书-多专家协同研发工作流.docx")
+
+sys.path.insert(0, SCRIPT_DIR)
+from _lib.core.docx_academic_styler import (
+    COLOR_BLACK,
+    COLOR_HEADING,
+    COLOR_MUTED,
+    setup_academic_page,
+    format_academic_run,
+    clear_and_add_runs,
+    set_academic_cell as set_cell,
+)
 
 
 def generate_academic_proposal(template_path=None, out_path=None, export_path=None):
@@ -24,80 +32,7 @@ def generate_academic_proposal(template_path=None, out_path=None, export_path=No
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
 
     doc = docx.Document(template_path)
-
-    # Standard Academic A4 Margins (GB/T 7713: 2.54cm top/bottom, 3.18cm left/right or 2.8cm)
-    for section in doc.sections:
-        section.top_margin = Inches(1.0)      # 2.54 cm
-        section.bottom_margin = Inches(1.0)   # 2.54 cm
-        section.left_margin = Inches(1.1)     # 2.8 cm
-        section.right_margin = Inches(1.1)    # 2.8 cm
-
-    # Academic Palette: Standard Black & Charcoal
-    COLOR_BLACK = RGBColor(0, 0, 0)
-    COLOR_HEADING = RGBColor(17, 24, 39)
-    COLOR_MUTED = RGBColor(75, 85, 99)
-
-    # Default Normal Style to Academic SongTi + Times New Roman
-    for s_name in ["Normal", "正文"]:
-        if s_name in doc.styles:
-            s = doc.styles[s_name]
-            s.font.name = "Times New Roman"
-            s.font.size = Pt(10.5)
-            rFonts = s.element.rPr.get_or_add_rFonts()
-            rFonts.set(qn("w:eastAsia"), "宋体")
-            rFonts.set(qn("w:ascii"), "Times New Roman")
-            rFonts.set(qn("w:hAnsi"), "Times New Roman")
-            rFonts.set(qn("w:cs"), "Times New Roman")
-
-    def clear_paragraph(p):
-        for r in list(p.runs):
-            p._p.remove(r._r)
-
-    def format_academic_run(run, font_size_pt, font_type="body", bold=False, color=COLOR_BLACK):
-        run.font.size = Pt(font_size_pt)
-        run.bold = bold
-        run.font.color.rgb = color
-        rPr = run._r.get_or_add_rPr()
-        rFonts = rPr.get_or_add_rFonts()
-        if font_type in ["title", "heading"]:
-            rFonts.set(qn("w:eastAsia"), "黑体")
-            rFonts.set(qn("w:ascii"), "Times New Roman")
-            rFonts.set(qn("w:hAnsi"), "Times New Roman")
-            rFonts.set(qn("w:cs"), "Times New Roman")
-        elif font_type == "meta":
-            rFonts.set(qn("w:eastAsia"), "楷体")
-            rFonts.set(qn("w:ascii"), "Times New Roman")
-            rFonts.set(qn("w:hAnsi"), "Times New Roman")
-            rFonts.set(qn("w:cs"), "Times New Roman")
-        else:  # body / table
-            rFonts.set(qn("w:eastAsia"), "宋体")
-            rFonts.set(qn("w:ascii"), "Times New Roman")
-            rFonts.set(qn("w:hAnsi"), "Times New Roman")
-            rFonts.set(qn("w:cs"), "Times New Roman")
-        rFonts.set(qn("w:hint"), "eastAsia")
-
-    def format_paragraph(p, space_before=3, space_after=3, line_spacing=1.3, align=WD_ALIGN_PARAGRAPH.LEFT):
-        p.paragraph_format.space_before = Pt(space_before)
-        p.paragraph_format.space_after = Pt(space_after)
-        p.paragraph_format.line_spacing = line_spacing
-        p.paragraph_format.alignment = align
-
-    def clear_and_add_runs(p, runs_spec, space_before=3, space_after=3, line_spacing=1.3, align=WD_ALIGN_PARAGRAPH.LEFT):
-        clear_paragraph(p)
-        format_paragraph(p, space_before=space_before, space_after=space_after, line_spacing=line_spacing, align=align)
-        for text, size_pt, font_type, bold, color in runs_spec:
-            r = p.add_run(text)
-            format_academic_run(r, font_size_pt=size_pt, font_type=font_type, bold=bold, color=color)
-
-    def set_cell(cell, text, bold=False, font_size_pt=9.0, font_type="body", bg_hex=None, align=WD_ALIGN_PARAGRAPH.LEFT):
-        p = cell.paragraphs[0]
-        clear_paragraph(p)
-        format_paragraph(p, space_before=2, space_after=2, line_spacing=1.15, align=align)
-        run = p.add_run(text)
-        format_academic_run(run, font_size_pt=font_size_pt, font_type=font_type, bold=bold, color=COLOR_BLACK)
-        if bg_hex:
-            shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{bg_hex}"/>')
-            cell._tc.get_or_add_tcPr().append(shading)
+    setup_academic_page(doc)  # GB/T 7713 页边距 + 全局样式（公共模块单点维护）
 
     # 1. Format Paragraphs (Academic Thesis Scale)
     for p in doc.paragraphs:

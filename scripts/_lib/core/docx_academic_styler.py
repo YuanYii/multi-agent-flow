@@ -132,3 +132,46 @@ def set_academic_cell(cell, text, bold=False, font_size_pt=9.0, font_type="body"
     if bg_hex:
         shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{bg_hex}"/>')
         cell._tc.get_or_add_tcPr().append(shading)
+
+
+def setup_academic_page(doc, top_margin_in=1.0, bottom_margin_in=1.0,
+                        left_margin_in=1.1, right_margin_in=1.1):
+    """对已有 Document（新建或模板加载）应用 GB/T 7713 学术页边距与全局默认样式。
+
+    与 init_academic_document 配套：模板场景用本函数补设页面，
+    全新文档场景直接使用 init_academic_document 一步到位。
+    """
+    for section in doc.sections:
+        section.top_margin = Inches(top_margin_in)      # 2.54 cm
+        section.bottom_margin = Inches(bottom_margin_in)  # 2.54 cm
+        section.left_margin = Inches(left_margin_in)    # 2.8 cm
+        section.right_margin = Inches(right_margin_in)  # 2.8 cm
+
+    for s_name in ["Normal", "正文"]:
+        if s_name in doc.styles:
+            s = doc.styles[s_name]
+            s.font.name = "Times New Roman"
+            s.font.size = Pt(10.5)
+            rFonts = s.element.rPr.get_or_add_rFonts()
+            rFonts.set(qn("w:eastAsia"), "宋体")
+            rFonts.set(qn("w:ascii"), "Times New Roman")
+            rFonts.set(qn("w:hAnsi"), "Times New Roman")
+            rFonts.set(qn("w:cs"), "Times New Roman")
+    return doc
+
+
+def clear_and_add_runs(p, runs_spec, space_before=3, space_after=3,
+                       line_spacing=1.3, align=WD_ALIGN_PARAGRAPH.LEFT):
+    """清空既有段落并按规格批量写入学术 Run（多行混排场景统一入口）。
+
+    runs_spec: [(text, size_pt, font_type, bold, color), ...]
+    """
+    clear_paragraph(p)
+    p.paragraph_format.space_before = Pt(space_before)
+    p.paragraph_format.space_after = Pt(space_after)
+    p.paragraph_format.line_spacing = line_spacing
+    p.paragraph_format.alignment = align
+    for text, size_pt, font_type, bold, color in runs_spec:
+        r = p.add_run(text)
+        format_academic_run(r, font_size_pt=size_pt, font_type=font_type, bold=bold, color=color)
+    return p

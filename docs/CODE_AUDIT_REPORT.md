@@ -1,5 +1,7 @@
 # Multi-Agent Flow · 全量代码审查与冗余逻辑分析报告
 
+> **处置进度（2026-08-27 复审）**：死代码 #1~#3 已在 commit a94f44a 清除；死代码 #4（docx_academic_styler 未闭环）与重复逻辑 #2（Word 排版函数多头维护）已合并处置——两个 docx 生成脚本已重构为消费 `_lib/core/docx_academic_styler.py` 公共模块；重复逻辑 #1（角色归一化双头维护）已收敛至 `scripts/enums.py` 单一来源。
+
 > **报告版本**：v1.0.0  
 > **审查日期**：2026-08-26  
 > **审查范围**：全量 Python 源码 (`scripts/`、`scripts/_lib/`)、测试套件 (`tests/`)、Web 看板 (`kanban/js/`) 与前端资源  

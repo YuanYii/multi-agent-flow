@@ -30,6 +30,7 @@ KANBAN_DIR = os.path.join(SKILL_ROOT, "kanban")
 sys.path.insert(0, SCRIPT_DIR)
 from _lib.core.step_summary import generate_step_summary
 from _lib.core.task_spec import resolve_default_stage_wp_wbs
+from enums import ROLE_NORMALIZE_MAP as ROLE_NAME_MAP, normalize_role as _normalize_role_cn
 
 DEFAULT_PORT = 32886
 PROBE_RANGE = 20
@@ -363,31 +364,18 @@ def allocate_next_task_id(cards: list) -> str:
     return f"T{max_id + 1:04d}"
 
 
-# 角色编码/子代理标识 → 角色名（与 transition_task.ROLE_NAME_MAP 同源；
-# 看板 assignee 恒存中文名，编码仅作入参别名）
-ROLE_NAME_MAP = {
-    "PM": "严经理", "ARCHITECT": "钱架构", "DEV": "李开发",
-    "FRONTEND": "马前端", "REVIEWER": "周审查", "QA": "章测试",
-    "DOCS": "李文通", "DEVOPS": "吕改特",
-    "pm": "严经理", "architect": "钱架构", "dev": "李开发",
-    "frontend": "马前端", "reviewer": "周审查", "qa": "章测试",
-    "docs": "李文通", "devops": "吕改特",
-    "flow-pm": "严经理", "flow-architect": "钱架构", "flow-dev": "李开发",
-    "flow-frontend": "马前端", "flow-reviewer": "周审查", "flow-qa": "章测试",
-    "flow-docs": "李文通", "flow-devops": "吕改特",
-    "pm_user": "严经理", "architect_user": "钱架构",
-    "dev_user": "李开发", "dev_user_1": "李开发", "dev_user_2": "李开发",
-    "frontend_user": "马前端", "reviewer_user": "周审查", "reviewer_user_1": "周审查",
-    "qa_user": "章测试", "docs_user": "李文通", "devops_user": "吕改特",
-}
-
-
+# 角色归一化单一来源收敛（CODE_AUDIT_REPORT 重复逻辑 #1）：
+# 映射表与归一化逻辑统一维护在 scripts/enums.py（ROLE_NORMALIZE_MAP / normalize_role），
+# transition_task 与本模块共用同一实现；看板 assignee 恒存中文名，编码仅作入参别名。
 def normalize_role_name(val) -> str:
-    """角色编码/子代理 ID/占位符 归一化为中文角色名；未命中原样返回"""
+    """角色编码/子代理 ID/占位符 归一化为中文角色名；未命中原样返回。
+
+    注意：与 enums.normalize_role 的差异仅在空值语义——看板过滤/兜底链依赖
+    空值映射为空串（falsy），因此空输入直接短路，非空场景完全委托单一来源。
+    """
     if not val:
         return ""
-    key = str(val).strip()
-    return ROLE_NAME_MAP.get(key, ROLE_NAME_MAP.get(key.lower(), ROLE_NAME_MAP.get(key.upper(), key)))
+    return _normalize_role_cn(val)
 
 
 # 流程节点 ID（如 T0001-N03）：任务ID + 任务内单调递增节点序号
