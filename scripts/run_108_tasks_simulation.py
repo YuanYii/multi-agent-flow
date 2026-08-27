@@ -92,6 +92,7 @@ class SimulationRunner:
 
         self.env = dict(os.environ)
         self.env["YY_FLOW_PROJECT_ROOT"] = self.tmp_root
+        self.env["HUMAN_FORCE_TOKEN"] = "1"
 
         self.stats = {
             "created": 0,

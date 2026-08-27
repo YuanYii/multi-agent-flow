@@ -59,6 +59,138 @@ def run(env, *args, expect=0):
     return r
 
 
+class _PtyResult:
+    """run_tty/run_accept 的返回对象，兼容 CompletedProcess 的 returncode/stdout 访问。"""
+    def __init__(self, returncode, stdout):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = ""
+
+
+def run_tty(env, *args, expect=0):
+    """通用 PTY 运行助手：以伪终端运行任意 scripts 脚本，模拟真人交互终端。
+    用于 --force-verify-operator / accept 等带 TTY 检测与 [y/N] 确认的命令。"""
+    script = args[0]
+    rest = list(args[1:])
+    if script == "quick_task.py":
+        cmd = [sys.executable, os.path.join(SCRIPTS, script), rest[0], "--config", str(env["cfg"]), *rest[1:]]
+    else:
+        cmd = [sys.executable, os.path.join(SCRIPTS, script), "--config", str(env["cfg"]), *rest]
+    sub_env = os.environ.copy()
+    sub_env["YY_FLOW_PROJECT_ROOT"] = str(env.get("tmp") or env["board"].parent)
+    import pty as _pty
+    import select as _select
+    import time as _time
+    master_fd, slave_fd = _pty.openpty()
+    try:
+        p = subprocess.Popen(cmd, stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
+                             cwd=REPO_ROOT, env=sub_env, close_fds=True)
+        os.close(slave_fd)
+        out_chunks = []
+        sent_y = False
+        deadline = _time.time() + 30
+        while _time.time() < deadline:
+            ready, _, _ = _select.select([master_fd], [], [], 0.5)
+            if ready:
+                try:
+                    chunk = os.read(master_fd, 4096)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                out_chunks.append(chunk.decode("utf-8", errors="replace"))
+                if not sent_y and "请输入 y" in "".join(out_chunks):
+                    try:
+                        os.write(master_fd, b"y\n")
+                    except OSError:
+                        pass
+                    sent_y = True
+            if p.poll() is not None and sent_y:
+                try:
+                    while True:
+                        chunk = os.read(master_fd, 4096)
+                        if not chunk:
+                            break
+                        out_chunks.append(chunk.decode("utf-8", errors="replace"))
+                except OSError:
+                    pass
+                break
+        os.close(master_fd)
+        p.wait()
+        out = "".join(out_chunks)
+    finally:
+        try:
+            os.close(master_fd)
+        except OSError:
+            pass
+    assert p.returncode == expect, f"exit={p.returncode} (期望 {expect})\nstdout={out}"
+    return _PtyResult(p.returncode, out)
+
+
+def run_accept(env, *args, expect=0):
+    """人类验收专用: 以 PTY 伪终端运行 quick_task accept/accept-all 并自动应答 [y/N] 确认。
+    quick_task accept 自 2026-08-27 起带 TTY 物理检测 + 交互确认，非交互子进程会被拦截；
+    本助手通过 pty 模拟"真人终端敲 y"，是测试套件中模拟人类验收的合法通道。"""
+    script = "quick_task.py"
+    rest = list(args)
+    cmd = [sys.executable, os.path.join(SCRIPTS, script), rest[0], "--config", str(env["cfg"]), *rest[1:]]
+    sub_env = os.environ.copy()
+    sub_env["YY_FLOW_PROJECT_ROOT"] = str(env.get("tmp") or env["board"].parent)
+    import pty as _pty
+    import select as _select
+    import time as _time
+    master_fd, slave_fd = _pty.openpty()
+    try:
+        # stdout/stderr 同样接到 pty 从端：子进程 print 输出经 pty 回显到 master，
+        # 这样既能读到提示文本，也能向子进程 stdin 写入 "y"
+        p = subprocess.Popen(cmd, stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
+                             cwd=REPO_ROOT, env=sub_env, close_fds=True)
+        os.close(slave_fd)
+        out_chunks = []
+        sent_y = False
+        deadline = _time.time() + 30
+        while _time.time() < deadline:
+            ready, _, _ = _select.select([master_fd], [], [], 0.5)
+            if ready:
+                try:
+                    chunk = os.read(master_fd, 4096)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                out_chunks.append(chunk.decode("utf-8", errors="replace"))
+                if not sent_y and "请输入 y" in "".join(out_chunks):
+                    try:
+                        os.write(master_fd, b"y\n")
+                    except OSError:
+                        pass
+                    sent_y = True
+            if p.poll() is not None and sent_y:
+                # 子进程已退出且已应答，再清空一次输出即可收尾
+                try:
+                    while True:
+                        chunk = os.read(master_fd, 4096)
+                        if not chunk:
+                            break
+                        out_chunks.append(chunk.decode("utf-8", errors="replace"))
+                except OSError:
+                    pass
+                break
+        os.close(master_fd)
+        p.wait()
+        out = "".join(out_chunks)
+    finally:
+        try:
+            os.close(master_fd)
+        except OSError:
+            pass
+    assert p.returncode == expect, f"exit={p.returncode} (期望 {expect})\nstdout={out}"
+    return _PtyResult(p.returncode, out)
+
+
+
+
+
 def cards(env):
     if not env["board"].exists():
         return []
@@ -143,8 +275,8 @@ class TestClaim:
         assert status_of(env, "T0001") == "进行中"  # 先建待开始再流转
 
     def test_e_class_direct_accept(self, env):
-        run(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status",
-            "已验收", "--assignee", "严经理", "--task-name", "审批事项", "--type", "E", "--delegated-by", "USER")
+        run_tty(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status",
+            "已验收", "--assignee", "严经理", "--task-name", "审批事项", "--type", "E", "--force-verify-operator")
         assert status_of(env, "T0001") == "已验收"
 
     def test_blocked_requires_remark(self, env):
@@ -224,25 +356,25 @@ class TestAutoChains:
     def test_a_full_chain(self, env):
         run(env, "auto_task.py", "--task-name", "自动开发任务", "--role", "DEV", "--type", "A")
         assert status_of(env, "T0001") == "已完成"
-        run(env, "quick_task.py", "accept", "--task-id", "T0001")
+        run_accept(env, "accept", "--task-id", "T0001")
         assert status_of(env, "T0001") == "已验收"
 
     def test_b_short_chain(self, env):
         run(env, "auto_task.py", "--task-name", "自动架构选型", "--role", "ARCHITECT", "--type", "B")
         assert status_of(env, "T0001") == "已完成"
-        run(env, "quick_task.py", "accept", "--task-id", "T0001")
+        run_accept(env, "accept", "--task-id", "T0001")
         assert status_of(env, "T0001") == "已验收"
 
     def test_f_chain(self, env):
         run(env, "auto_task.py", "--task-name", "阶段总结", "--role", "PM", "--type", "F")
         assert status_of(env, "T0001") == "已完成"
-        run(env, "quick_task.py", "accept", "--task-id", "T0001")
+        run_accept(env, "accept", "--task-id", "T0001")
         assert status_of(env, "T0001") == "已验收"
 
     def test_e_chain(self, env):
         run(env, "auto_task.py", "--task-name", "自执行事项", "--role", "PM", "--type", "E")
         assert status_of(env, "T0001") == "已完成"
-        run(env, "quick_task.py", "accept", "--task-id", "T0001")
+        run_accept(env, "accept", "--task-id", "T0001")
         assert status_of(env, "T0001") == "已验收"
 
     def test_simulate_no_write(self, env):
@@ -264,14 +396,14 @@ class TestAutoResume:
         set_status_direct(env, tid, pre)
         run(env, "auto_task.py", "--task-id", tid, "--type", "A")
         assert status_of(env, tid) == "已完成"
-        run(env, "quick_task.py", "accept", "--task-id", tid)
+        run_accept(env, "accept", "--task-id", tid)
         assert status_of(env, tid) == "已验收"
 
     def test_idempotent_accepted(self, env):
         run(env, "auto_task.py", "--task-name", "幂等任务", "--role", "DEV", "--type", "A")
         run(env, "auto_task.py", "--task-id", "T0001", "--type", "A")
         assert status_of(env, "T0001") == "已完成"
-        run(env, "quick_task.py", "accept", "--task-id", "T0001")
+        run_accept(env, "accept", "--task-id", "T0001")
         assert status_of(env, "T0001") == "已验收"
         run(env, "auto_task.py", "--task-id", "T0001", "--type", "A")
         assert status_of(env, "T0001") == "已验收"
@@ -489,7 +621,7 @@ class TestOwnerAndHandlerSemantics:
         assert c.get("handler") == "严经理"    # 处理人收敛至严经理
 
         # 5. 已完成 -> 已验收
-        run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--end-time", now_str, "--delegated-by", "USER")
+        run_tty(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--end-time", now_str, "--force-verify-operator")
         c = find(env, "T0001")
         assert c.get("assignee") == "李开发"   # 负责人不变
         assert c.get("handler") == "严经理"    # 处理人终态为严经理
@@ -553,7 +685,7 @@ class TestIndependentTasksAndFieldMappingSafety:
         assert c.get("handler") == "严经理"   # 处理人收敛至严经理
 
         # 4. PM 验收: 已完成 -> 已验收
-        out = run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", "2026-08-17 10:00:00", "--delegated-by", "USER")
+        out = run_tty(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", "2026-08-17 10:00:00", "--force-verify-operator")
         assert out.returncode == 0
         c = find(env, "T0001")
         assert c.get("status") == "已验收"
@@ -580,7 +712,7 @@ class TestIndependentTasksAndFieldMappingSafety:
         assert c.get("handler") == "严经理"
 
         # PM 验收
-        out = run(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", "2026-08-17 10:00:00", "--delegated-by", "USER")
+        out = run_tty(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", "2026-08-17 10:00:00", "--force-verify-operator")
         assert out.returncode == 0
         c = find(env, "T0001")
         assert c.get("status") == "已验收"
@@ -662,7 +794,8 @@ class TestATypeTransitionGuards:
         run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "常规代码开发", "--assignee", "DEV", "--type", "A")
         # 尝试越权直验
         r = run(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status", "已验收", "--assignee", "严经理", "--task-id", "T0001", "--type", "A", "--end-time", "2026-08-23 10:00:00", expect=1)
-        assert "禁止直接由" in r.stdout or "越权拦截" in r.stdout
+        assert ("禁止直接由" in r.stdout or "越权拦截" in r.stdout
+                or "人类专属门禁" in r.stdout or "不再被承认" in r.stdout)
 
 
 # =====================================================================
@@ -689,7 +822,7 @@ class TestTerminalStartDateFallback:
         c_before = find(env, "T0001")
         assert not c_before.get("start_date")
 
-        r = run(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status", "已验收", "--assignee", "严经理", "--task-id", "T0001", "--type", "E", "--end-time", "2026-08-23 12:00:00", "--delegated-by", "USER")
+        r = run_tty(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status", "已验收", "--assignee", "严经理", "--task-id", "T0001", "--type", "E", "--end-time", "2026-08-23 12:00:00", "--force-verify-operator")
         assert r.returncode == 0
         c_after = find(env, "T0001")
         assert c_after.get("start_date") is not None
@@ -729,7 +862,7 @@ class TestTerminalStatusImmutability:
     def test_accepted_task_cannot_be_reverted(self, env):
         """已验收终态卡片严禁逆流至进行中或已阻塞。"""
         run(env, "auto_task.py", "--name", "终态测试任务", "--type", "A", "--role", "DEV")
-        run(env, "quick_task.py", "accept", "--task-id", "T0001")
+        run_accept(env, "accept", "--task-id", "T0001")
         c = find(env, "T0001")
         assert c["status"] == "已验收"
 
@@ -790,13 +923,14 @@ class TestHumanAcceptanceAndGitGate:
         run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "待验收任务", "--assignee", "PM")
         # 尝试由 PM 自主代签验收（无 delegated-by USER）
         r = run(env, "transition_task.py", "--role", "PM", "--from-status", "待开始", "--to-status", "已验收", "--assignee", "严经理", "--task-id", "T0001", "--type", "E", "--end-time", "2026-08-24 12:00:00", expect=1)
-        assert "人类用户专属终态" in r.stdout or "权限拦截" in r.stdout
+        assert ("人类用户专属终态" in r.stdout or "权限拦截" in r.stdout
+                or "人类专属门禁" in r.stdout or "不再被承认" in r.stdout)
 
     def test_human_acceptance_via_quick_task(self, env):
         """人类用户通过 quick_task.py accept 成功推进至【已验收】。"""
         run(env, "auto_task.py", "--task-name", "快速验收任务", "--type", "A")
         assert status_of(env, "T0001") == "已完成"
-        r = run(env, "quick_task.py", "accept", "--task-id", "T0001", "--remarks", "用户查验通过")
+        r = run_accept(env, "accept", "--task-id", "T0001", "--remarks", "用户查验通过")
         assert r.returncode == 0
         assert status_of(env, "T0001") == "已验收"
 
@@ -806,7 +940,7 @@ class TestHumanAcceptanceAndGitGate:
         run(env, "auto_task.py", "--task-name", "用户鉴权中间件编写", "--type", "A")
         assert status_of(env, "T0001") == "已完成"
         assert status_of(env, "T0002") == "已完成"
-        r = run(env, "quick_task.py", "accept-all")
+        r = run_accept(env, "accept-all")
         assert r.returncode == 0
         assert status_of(env, "T0001") == "已验收"
         assert status_of(env, "T0002") == "已验收"
@@ -819,14 +953,14 @@ class TestHumanAcceptanceAndGitGate:
         assert "Git 提交与结项门禁未通过" in r.stdout
 
         # 验收后放行
-        run(env, "quick_task.py", "accept", "--task-id", "T0001")
+        run_accept(env, "accept", "--task-id", "T0001")
         r2 = run(env, "verify_git_gate.py")
         assert r2.returncode == 0
         assert "所有关联任务均已处于终态" in r2.stdout
 
     def test_accept_all_empty_prompt(self, env):
         """当无已完成任务时，accept-all 输出清晰的空任务提示。"""
-        r = run(env, "quick_task.py", "accept-all")
+        r = run_accept(env, "accept-all")
         assert r.returncode == 0
         assert "未检索到处于【已完成】待人类验收的任务" in r.stdout
 

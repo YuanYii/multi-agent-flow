@@ -24,6 +24,53 @@ sys.path.insert(0, SCRIPTS)
 from _lib.boards.offline_board_adapter import OfflineBoardAdapter  # noqa: E402
 
 
+def _run_flow_tty(cfg, *args):
+    """PTY 变体：模拟真人终端执行 transition_task.py（TTY 检测 + y 确认）。"""
+    import pty as _pty
+    import select as _select
+    import time as _time
+    import os as _os
+    cmd = [sys.executable, os.path.join(SCRIPTS, "transition_task.py"), "--config", str(cfg), *args]
+    mfd, sfd = _pty.openpty()
+    p = subprocess.Popen(cmd, stdin=sfd, stdout=sfd, stderr=sfd, close_fds=True)
+    _os.close(sfd)
+    out = []
+    sent = False
+    deadline = _time.time() + 30
+    while _time.time() < deadline:
+        ready, _, _ = _select.select([mfd], [], [], 0.5)
+        if ready:
+            try:
+                chunk = _os.read(mfd, 4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            out.append(chunk.decode("utf-8", errors="replace"))
+            if not sent and "请输入 y" in "".join(out):
+                try:
+                    _os.write(mfd, b"y\n")
+                except OSError:
+                    pass
+                sent = True
+        if p.poll() is not None and sent:
+            try:
+                while True:
+                    chunk = _os.read(mfd, 4096)
+                    if not chunk:
+                        break
+                    out.append(chunk.decode("utf-8", errors="replace"))
+            except OSError:
+                pass
+            break
+    try:
+        _os.close(mfd)
+    except OSError:
+        pass
+    p.wait()
+    return subprocess.CompletedProcess(cmd, p.returncode, "".join(out), "")
+
+
 def _mk_board(tmp_path, cards):
     board = tmp_path / "b.json"
     board.write_text(json.dumps(cards, ensure_ascii=False), encoding="utf-8")
@@ -127,13 +174,16 @@ class TestTransitionWritesNodes:
             ("--task-id", "T0001", "--role", "QA", "--from-status", "测试中",
              "--to-status", "已完成", "--assignee", "严经理",
              "--end-time", "2026-08-16 16:40:00", "--remarks", "测试通过"),
-            ("--task-id", "T0001", "--role", "PM", "--from-status", "已完成",
-             "--to-status", "已验收", "--assignee", "严经理",
-             "--end-time", "2026-08-16 16:41:00", "--delegated-by", "USER"),
         ]
         for step in steps:
             r = _run_flow(cfg, *step)
             assert r.returncode == 0, (step, r.stdout[-300:])
+
+        # 人类验收一步走 PTY（模拟真人终端确认）
+        r = _run_flow_tty(cfg, "--task-id", "T0001", "--role", "PM", "--from-status", "已完成",
+                          "--to-status", "已验收", "--assignee", "严经理",
+                          "--end-time", "2026-08-16 16:41:00", "--force-verify-operator")
+        assert r.returncode == 0, (r.stdout[-300:])
 
         card = json.loads(board.read_text(encoding="utf-8"))[0]
         assert card["status"] == "已验收"
