@@ -9,6 +9,9 @@ from typing import List, Tuple
 SECRET_PATTERNS = [
     (re.compile(r'cli_[a-zA-Z0-9]{16,}', re.IGNORECASE), "飞书 App ID / Token"),
     (re.compile(r'(app_secret|appsecret|secret)\s*:\s*["\']?[a-zA-Z0-9]{20,}', re.IGNORECASE), "硬编码 App Secret"),
+    # 等号赋值风格（Python/JS/TS/Env）: SECRET = "..." / const appSecret = "..."
+    # 值字符集扩展含 -_. 等常见密钥字符（如 sk- 前缀密钥），并要求引号包裹或首字符非纯数字以免误伤普通数字赋值
+    (re.compile(r'(?:const|let|var|)\s*(?:[A-Z_]*|app[A-Za-z]*)?(?:SECRET|secret|Secret)[A-Z_a-z_0-9]*\s*=\s*["\'][^"\']{20,}["\']', re.IGNORECASE), "硬编码密钥(等号赋值)"),
     (re.compile(r'ghp_[a-zA-Z0-9]{36}', re.IGNORECASE), "GitHub Personal Access Token"),
     (re.compile(r'ATATT3[a-zA-Z0-9_\-=]{40,}', re.IGNORECASE), "Jira API Token"),
     (re.compile(r'-----BEGIN ' + r'PRIVATE KEY-----'), "RSA 私钥凭证")

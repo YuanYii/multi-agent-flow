@@ -30,7 +30,13 @@ def _get_status_entry_time(t: Dict[str, Any], status: str) -> Optional[datetime]
         # 行首锚定正则：严格匹配状态段，支持标准双轨格式与历史存量格式，免疫说明中偶现的状态词
         node_regex = _re.compile(
             r"^\[(?:T\d+-N\d+|[^\]]+)\]\s+\[(?P<ts>\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)\]\s+"
-            r"(?:状态[:：]\s*【[^】]+】\s*->\s*|状态由【[^】]+】更新至|初始状态)【(?P<target>[^】]+)】"
+            r"(?:状态[:：]\s*【[^】]+】\s*->\s*"          # 标准: 状态: 【A】 -> 【B】
+            r"|状态由【[^】]+】更新至"                        # 标准: 状态由【A】更新至【B】
+            r"|状态(?:由[^】\u3011]*)?更新[到至]"             # 容错: 状态更新至/更新到【B】(缺"由")
+            r"|状态(?:被)?(?:变更|切换|置)为"                  # 容错: 变更为/置为【B】
+            r"|(?:状态)?[:：]?\s*【[^】]+】\s*(?:->|→|=>)\s*"  # 容错: 【A】->【B】 / 【A】→【B】 箭头简写
+            r"|初始状态)"
+            r"【(?P<target>[^】]+)】"
         )
         for line in reversed(lines):
             m = node_regex.match(line)
@@ -48,6 +54,19 @@ def _get_status_entry_time(t: Dict[str, Any], status: str) -> Optional[datetime]
             m_drag = _re.search(r"^\[(?P<ts>\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)\].*?更新至【(?P<target>[^】]+)】", line)
             if m_drag and m_drag.group("target") == status:
                 dt = _parse_dt(m_drag.group("ts"))
+                if dt:
+                    return dt
+            # 通用兜底：时间戳可在行内任意位置（带/不带方括号），动作词覆盖
+            # 更新至/更新到/变更为/置为/箭头简写（【A】->【B】、状态: 【A】=>【B】）
+            # 仅当动作词后目标与查询状态一致才采纳，防止说明性文字误伤
+            m_any = _re.search(
+                r"(?P<ts>\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)"
+                r".*?(?:更新[到至]|变更[成为]|置为|[:：]\s*【[^】]+】\s*(?:->|→|=>)\s*|(?:->|→|=>)\s*)"
+                r"【(?P<target>[^】]+)】",
+                line,
+            )
+            if m_any and m_any.group("target") == status:
+                dt = _parse_dt(m_any.group("ts"))
                 if dt:
                     return dt
     # 兜底：新任务卡或无节点历史时，回退至 start_date / start_time
@@ -131,6 +150,19 @@ def run_heartbeat(
         norms = [_norm(n) for n in card_names if _norm(n)]
         orphan_hours = float(thresholds.get("orphan_output_hours", 48))
         cutoff = now.timestamp() - orphan_hours * 3600
+        # 历史孤儿兜底窗口：48h 窗口外的旧文件只报一次（ORPHAN_HISTORICAL, info 级），
+        # 通过哨兵文件记录已告警集合，避免每次巡检重复轰炸
+        historical_sentinel = os.path.join(_paths.resolve_data_root(), "user_data", "orphan_historical.reported.json")
+        historical_reported = set()
+        try:
+            import json as _json
+            if os.path.exists(historical_sentinel):
+                with open(historical_sentinel, "r", encoding="utf-8") as _f:
+                    historical_reported = set(_json.load(_f))
+        except Exception:
+            historical_reported = set()
+        newly_reported = []
+
         for base_dir in doc_dirs:
             if not os.path.isdir(base_dir):
                 continue
@@ -140,18 +172,37 @@ def run_heartbeat(
                         continue
                     fp = os.path.join(root, fn)
                     try:
-                        if os.path.getmtime(fp) < cutoff:
-                            continue
+                        mtime = os.path.getmtime(fp)
                     except Exception:
                         continue
                     nb = _norm(os.path.splitext(fn)[0])
-                    if nb and not any(nb in c or c in nb for c in norms):
+                    unclaimed = bool(nb) and not any(nb in c or c in nb for c in norms)
+                    if not unclaimed:
+                        continue
+                    if mtime >= cutoff:
                         alerts.append({
                             "severity": "warning",
                             "code": "ORPHAN_OUTPUT",
                             "task_id": "-",
                             "message": f"孤儿成果: {fp} (近 {orphan_hours:.0f}h 新增但看板无对应任务，建议补录；若为 L0 即时问答产出：归档至 草稿箱/ 或升级为 L1 建卡)",
                         })
+                    elif fp not in historical_reported:
+                        # 超窗历史文件：一次性 info 兜底，防止 48h 前无卡文档永久隐形
+                        alerts.append({
+                            "severity": "info",
+                            "code": "ORPHAN_HISTORICAL",
+                            "task_id": "-",
+                            "message": f"历史孤儿成果: {fp} (超 {orphan_hours:.0f}h 窗口的存量无卡文档，本次一次性提示；建议批量归档 草稿箱/ 或补录历史任务)",
+                        })
+                        newly_reported.append(fp)
+        if newly_reported:
+            try:
+                import json as _json
+                os.makedirs(os.path.dirname(historical_sentinel), exist_ok=True)
+                with open(historical_sentinel, "w", encoding="utf-8") as _f:
+                    _json.dump(sorted(historical_reported | set(newly_reported)), _f, ensure_ascii=False)
+            except Exception:
+                pass
     except Exception:
         pass
 
