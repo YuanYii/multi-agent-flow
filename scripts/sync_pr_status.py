@@ -238,8 +238,8 @@ def sync_blocked_prs(
                     task_type=t_type,
                     end_time=now_str,
                     remarks=unblock_remarks,
-                    delegated_by="USER",
-                    delegation_reason=f"PR #{pr_ref} 合流自动解阻",
+                    delegated_by="PM",
+                    delegation_reason=f"AUTOMATION(PR_SYNC): PR #{pr_ref} 合流自动解阻 (非人类授权)",
                 )
                 if ok:
                     unblocked_tasks.append({
@@ -291,8 +291,8 @@ def sync_blocked_prs(
                         assignee=assignee,
                         task_type=t_type,
                         remarks=reject_remarks,
-                        delegated_by="USER",
-                        delegation_reason=f"PR #{pr_ref} 未合入关闭自动打回",
+                        delegated_by="PM",
+                        delegation_reason=f"AUTOMATION(PR_SYNC): PR #{pr_ref} 未合入关闭自动打回 (非人类授权)",
                     )
                     if ok:
                         rejected_tasks.append({

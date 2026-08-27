@@ -185,6 +185,9 @@ def transition_task_pipeline(
     assignee: str = "",
     task_type: str = "A",
     est_hours: float = 0.0,
+    pretask: str = None,
+    ignore_pretask: bool = False,
+    start_time: str = None,
     end_time: str = None,
     remarks: str = None,
     comment: str = None,
@@ -199,6 +202,8 @@ def transition_task_pipeline(
     operator: str = None,
     delegated_by: str = "",
     delegation_reason: str = "",
+    force_verify_operator: bool = False,
+    force_reopen: bool = False,
     create_only: bool = False,
     force: bool = False,
     no_dup_check: bool = False,
@@ -219,6 +224,22 @@ def transition_task_pipeline(
         logger.error(f"[FAILED]  [代行未授权] 角色 {current_role} 不接受来自 {delegated_by} 的代行授权,硬阻断！", extra=extra_log)
         record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"代行未授权阻断: {delegated_by} 代行 {current_role}", delegated_by=delegated_by, delegation_reason=delegation_reason)
         return False
+
+    # 0.1 安全门禁 (2026-08-27): 流转至【已验收】必须携带真实人类操作凭据 (Fail-Closed)
+    #     合法通道仅两种:
+    #       A) Web 看板 API 持主控 Token 验证后注入 delegated_by="OPERATOR_VIA_TOKEN";
+    #       B) 真人终端调用 (--force-verify-operator / quick_task accept): 由入口层完成
+    #          isatty 检测与 [y/N] 交互确认后注入。
+    #     CLI 显式伪造 role=USER 或 delegated_by=USER 均不再被承认。
+    if to_status == "已验收":
+        _operator_vouched = bool(force_verify_operator) or (
+            str(delegated_by or "").strip().upper() == "OPERATOR_VIA_TOKEN"
+        )
+        if not _operator_vouched:
+            print("[REJECT 人类专属门禁] 流转至【已验收】必须由真实人类授权: Web 看板主控 Token 验收, 或真人终端执行 quick_task.py accept。CLI 自报 role/delegated-by=USER 不再被承认！")
+            logger.error("[FAILED]  [人类专属门禁] 流转至【已验收】必须由真实人类授权: Web 看板主控 Token 验收, 或真人终端执行 quick_task.py accept。CLI 自报 role/delegated-by=USER 不再被承认！", extra=extra_log)
+            record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, "人类专属验收门禁拦截: 缺少真实人类操作凭据", delegated_by=delegated_by, delegation_reason=delegation_reason)
+            return False
 
     # 1. 尝试获取并发独占锁 (Fail-Closed 硬拦截)
     #    AUTO 场景使用全局建单锁，特定 task_id 使用 per-task 锁
@@ -298,11 +319,12 @@ def transition_task_pipeline(
                 "workpackage": res_wp,
                 "wbs_id": res_wbs,
                 "creator": creator or None,
-                "start_date": None,
+                "start_date": start_time or None,
                 "type": task_type or "A",
                 "task_type": task_type or "A",
                 "est_hours": est_hours or 0.0,
                 "act_hours": 0.0,
+                "pretask": pretask or None,
                 "process": None,
                 "remarks": remarks or None,
             }
@@ -361,6 +383,10 @@ def transition_task_pipeline(
         resolved_record_id = record_id or task_id
         existing = adapter.get_record(resolved_record_id) if resolved_record_id else None
 
+        eff_pretask = pretask
+        if not eff_pretask and existing:
+            eff_pretask = existing.get("fields", {}).get("pretask")
+
         # 5. 强制运行防护门控 (并发上限与 HOTFIX 特权透传，未通过则直接抛错中断！)
         is_valid = validate(
             role=current_role,
@@ -375,6 +401,11 @@ def transition_task_pipeline(
             remarks=remarks or "",
             delegated_by=delegated_by or "",
             delegation_reason=delegation_reason or "",
+            pretask=eff_pretask or "",
+            adapter=adapter,
+            ignore_pretask=ignore_pretask or force,
+            force_verify_operator=force_verify_operator,
+            force_reopen=force_reopen,
         )
 
         if not is_valid:
@@ -441,6 +472,7 @@ def transition_task_pipeline(
                 "task_type": task_type or "A",
                 "est_hours": est_hours or 0.0,
                 "act_hours": 0.0,
+                "pretask": pretask or None,
                 "process": remarks or None,
                 "remarks": remarks or None,
             }
@@ -456,6 +488,20 @@ def transition_task_pipeline(
             logger.info(f" 任务 {task_id} 在看板中不存在，已成功初始化建单为【{initial_status}】(负责人: {effective_owner}, 处理人: {norm_assignee})", extra=extra_log)
             record_audit_event(task_id, current_role, "新建", initial_status, norm_assignee, True, "任务自动初始化建单", delegated_by=delegated_by, delegation_reason=delegation_reason)
         else:
+            resolved_record_id = existing.get("record_id") or resolved_record_id
+
+        # 8.1 同步更新主负责人字段（生命周期保持稳定）
+        if owner and not create_only:
+            update_fields[field_mapping.get("owner", "assignee")] = normalize_role_name(owner)
+
+        if not resolved_record_id:
+            resolved_record_id = task_id or (existing.get("record_id") if existing else None)
+        if not resolved_record_id:
+            logger.error("[FAILED]  无法确定物理更新的记录 ID，硬阻断！", extra=extra_log)
+            record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "无法确定记录ID", delegated_by=delegated_by, delegation_reason=delegation_reason)
+            return False
+
+        if existing and not task_id:
             resolved_record_id = existing.get("record_id") or resolved_record_id
 
         # 9. 执行物理原子写入
@@ -486,24 +532,57 @@ def transition_task_pipeline(
                 update_fields[end_time_key] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         else:
             update_fields[end_time_key] = ""  # 迁回活跃状态时强制清空完工时间戳
+
+        # 终态纠偏重开 (force_reopen) 专属清洗逻辑：
+        # 若重开至【进行中】，必须物理清洗原有结束时间戳与生效工时，避免效能度量负数畸变；
+        # 且若经办人未显式指定（或仍为 PM），自动回退至任务原始负责人 (Owner)
+        if force_reopen and to_status == "进行中":
+            update_fields[end_time_key] = ""
+            update_fields["end_date"] = ""
+            update_fields["act_hours"] = None
+            orig_owner = exist_fields.get("owner") or exist_fields.get("handler") or ""
+            if orig_owner and (not assignee or assignee in ["PM", "严经理"]):
+                update_fields[handler_key] = orig_owner
+                target_handler = orig_owner
+                logger.info(f" [REOPEN]  已自动将重开工单经办人回退至原负责人: {orig_owner}", extra=extra_log)
+
         if stage: update_fields[field_mapping.get("stage", "stage")] = stage
         if wp: update_fields[field_mapping.get("workpackage", "workpackage")] = wp
         if wbs: update_fields[field_mapping.get("wbs_id", "wbs_id")] = wbs
         if task_name: update_fields[field_mapping.get("task_name", "task_name")] = task_name
         # 领取开工与终态开工时间兜底：
-        # 1) 首次从【待开始】推进到【进行中】时，动态落盘当前真实开工时间戳
-        # 2) 直推终态（已完成/已验收）且尚无 start_date 时，自动补填当前时间
+        # 1) 首次从【待开始】推进到【进行中】时，动态落盘当前真实开工时间戳（若未显式指定 start_time）
+        # 2) 直推终态（已完成/已验收）且尚无 start_date 时：
+        #    - 若提供了 start_time，使用 start_time；
+        #    - 若提供了 est_hours > 0，自动按 (end_time - est_hours) 智能回溯开工时间戳；
+        #    - 否则补填当前时间。
         # 3) 从【已退回】重新领回【进行中】时，保留原有 start_date 不覆盖，保护初始开工时间！
         current_start = exist_fields.get(start_time_key) or exist_fields.get("start_date") or exist_fields.get("start_time")
-        if to_status == "进行中" and from_status == "待开始":
+        if start_time:
+            update_fields[start_time_key] = start_time
+        elif to_status == "进行中" and from_status == "待开始":
             update_fields[start_time_key] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        elif to_status in ["进行中", "已完成", "已验收"] and not current_start:
+        elif to_status in ["已完成", "已验收"]:
+            eff_end = update_fields.get(end_time_key) or end_time or datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            if not current_start or current_start == eff_end:
+                if est_hours and float(est_hours) > 0:
+                    try:
+                        e_dt = datetime.datetime.strptime(str(eff_end).strip(), '%Y-%m-%d %H:%M:%S')
+                        s_dt = e_dt - datetime.timedelta(minutes=int(float(est_hours) * 60))
+                        update_fields[start_time_key] = s_dt.strftime('%Y-%m-%d %H:%M:%S')
+                        update_fields["act_hours"] = float(est_hours)
+                    except Exception:
+                        if not current_start:
+                            update_fields[start_time_key] = eff_end
+                elif not current_start:
+                    update_fields[start_time_key] = eff_end
+        elif to_status in ["进行中"] and not current_start:
             update_fields[start_time_key] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         orig_handler = (existing.get("fields", {}).get(handler_key) or existing.get("fields", {}).get("handler") if existing else None) or current_role
 
         try:
-            success = adapter.update_record(resolved_record_id, update_fields)
+            success = adapter.update_record(resolved_record_id, update_fields, force_reopen=force_reopen)
             if not success:
                 logger.error("[FAILED]  物理 API 写入失败，硬阻断流转！", extra=extra_log)
                 record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "看板状态 API 写入失败", delegated_by=delegated_by, delegation_reason=delegation_reason)
@@ -577,6 +656,9 @@ def main():
     parser.add_argument("--assignee", default="", help="同步更新的处理人 (流转模式必填；--create 建卡模式必填)")
     parser.add_argument("--type", default="A", help="任务类型 (A-G: A为L2标准任务全链; B/C/D/F/G为L1轻量任务短链; E为用户直验)")
     parser.add_argument("--est-hours", type=float, default=0.0, help="预估工时 (小时)")
+    parser.add_argument("--pretask", default=None, help="前置依赖任务编号 (如 T0001 或 T0001,T0002)")
+    parser.add_argument("--ignore-pretask", action="store_true", help="忽略前置任务状态强制推进")
+    parser.add_argument("--start-time", default=None, help="开始时间 (格式 YYYY-MM-DD HH:MM:SS)")
     parser.add_argument("--end-time", help="结束时间 (完成/验收必填)")
     parser.add_argument("--remarks", help="追加结构化缺陷或备注描述")
     parser.add_argument("--comment", default=None, help="操作说明/阶段交付总结 (写入流程节点)")
@@ -585,12 +667,39 @@ def main():
     parser.add_argument("--creator", default=None, help="真人创建人/系统用户名 (任务新建时记录)")
     parser.add_argument("--operator", default=None, help="真实人类操作人姓名 (缺省自动读取 Git/OS 用户名)")
     parser.add_argument("--delegated-by", default="", help="提权代行来源角色 (如 PM/USER),留痕到 audit,需在白名单内")
-    parser.add_argument("--delegation-reason", default="", help="提权代行理由 (人类用户显式授权时必填)")
+    parser.add_argument("--delegation-reason", default="", help="提权代行理由")
+    parser.add_argument("--force-verify-operator", action="store_true",
+                        help="[仅限真人交互] 声明本次为真人终端操作 (自动 TTY 检测 + [y/N] 二次确认)；非交互环境会被物理阻断")
+    parser.add_argument("--force-reopen", action="store_true",
+                        help="终态纠偏重开模式：允许由 PM (严经理) 或真实人类用户 (USER) 将已验收/已取消工单受控回退至进行中或已完成")
     parser.add_argument("--create", action="store_true", help="显式建单模式：创建任务卡【待开始】并分配处理人，不执行流转")
     parser.add_argument("--force", action="store_true", help="重复任务校验命中时强制创建（用户已确认重复创建）")
     parser.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
     args = parser.parse_args()
+
+    # 0.2 真人操作凭据入口门禁 (2026-08-27 安全加固):
+    #     --force-verify-operator 仅是"声明"，绝不直接可信 —— 必须同时满足:
+    #       a) stdin 为交互式终端 (TTY 检测，物理阻断自动化子进程/管道/CI);
+    #       b) 目标状态必须是【已验收】(仅人类专属终态才允许声明真人操作，其余状态视为滥用拒绝);
+    #       c) 完成 [y/N] 二次确认 (真人敲击，防任何非阻塞脚本静默穿透)。
+    #     全部通过后才向管线注入 force_verify_operator=True。
+    _force_op = bool(getattr(args, "force_verify_operator", False))
+    if _force_op:
+        if not sys.stdin.isatty():
+            print("[REJECT 物理拦截] --force-verify-operator 仅限真人交互终端使用！非交互/自动化环境请走 Web 看板主控 Token 验收。")
+            sys.exit(1)
+        if args.to_status != "已验收":
+            print("[REJECT 越权拦截] --force-verify-operator 只能用于流转至【已验收】的人类专属验收，其他状态流转禁止声明真人操作！")
+            sys.exit(1)
+        print("[SECURITY]  即将以真人身份执行最终验收，任务将永久流转至【已验收】终态 (不可逆)。")
+        try:
+            confirm = input("请输入 y 确认 (其他任意键取消): ").strip().lower()
+        except EOFError:
+            confirm = ""
+        if confirm != "y":
+            print("[CANCEL]  已取消操作，任务状态未变更。")
+            sys.exit(1)
 
     ok = transition_task_pipeline(
         config_path=args.config,
@@ -602,6 +711,9 @@ def main():
         assignee=args.assignee,
         task_type=args.type,
         est_hours=args.est_hours,
+        pretask=args.pretask,
+        ignore_pretask=args.ignore_pretask,
+        start_time=args.start_time,
         end_time=args.end_time,
         remarks=args.remarks,
         comment=args.comment,
@@ -616,6 +728,8 @@ def main():
         operator=args.operator,
         delegated_by=args.delegated_by,
         delegation_reason=args.delegation_reason,
+        force_verify_operator=_force_op,
+        force_reopen=bool(getattr(args, "force_reopen", False)),
         create_only=args.create,
         force=args.force,
         no_dup_check=args.no_dup_check,

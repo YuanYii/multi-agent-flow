@@ -84,6 +84,9 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
     "workpackage": "wp",
     "process_desc": "process",
     "remarks": "remarks",
+    "pretask": "pretask",
+    "pre_task": "pretask",
+    "depends_on": "pretask",
     "attachment": None,
 }
 
@@ -224,28 +227,56 @@ class OfflineBoardAdapter:
                     return {"record_id": c.get("id"), "fields": c}
             return None
 
-    def update_record(self, record_id: str, fields: Dict[str, Any]) -> bool:
+    def update_record(self, record_id: str, fields: Dict[str, Any], force_reopen: bool = False) -> bool:
         """更新指定任务的状态/处理人/描述等字段；记录不存在或企图篡改已验收终态核心状态时返回 False。"""
         with file_lock.acquire_lock(self.seq_lock_file, blocking=True, timeout=5.0):
             cards = self._read_cards()
             for c in cards:
                 if str(c.get("id")) == str(record_id):
-                    # 防篡改硬拦截：在终态【已验收】或【已取消】时，禁止将其跨跃更新至非终态状态
+                    # 防篡改硬拦截：在终态【已验收】或【已取消】时，禁止将其跨跃更新至非终态状态（除非显式携带 force_reopen）
                     translated = self._translate(fields)
                     curr_st = c.get("status")
                     if curr_st in ("已验收", "已取消"):
                         new_st = translated.get("status")
                         if new_st and new_st != curr_st:
-                            print(f"[REJECT 终态防篡改] 任务 {record_id} 已处于最终【{curr_st}】状态，绝对禁止将其修改为【{new_st}】！")
-                            return False
+                            if not force_reopen:
+                                print(f"[REJECT 终态防篡改] 任务 {record_id} 已处于最终【{curr_st}】状态，绝对禁止将其修改为【{new_st}】！若需管理员纠偏请使用 --force-reopen。")
+                                return False
+                            print(f"[AUDIT 重开放行] 任务 {record_id} 由终态【{curr_st}】受控纠偏重开至【{new_st}】。")
                     c.update(translated)
-                    # 若存在开始与结束时间，自动按 (结束-开始) 计算实际工时 (分钟)
+                    # pretask 规范化与自依赖拦截
+                    if "pretask" in translated:
+                        raw_pre = translated["pretask"]
+                        if raw_pre:
+                            pre_ids = [p.strip() for p in re.split(r"[,;\s]+", str(raw_pre)) if p.strip()]
+                            if record_id in pre_ids:
+                                print(f"[REJECT 依赖校验失败] 任务 {record_id} 不能将自身作为前置依赖！")
+                                return False
+                            c["pretask"] = ",".join(pre_ids) if pre_ids else None
+                        else:
+                            c["pretask"] = None
+                    # 若存在开始与结束时间，自动按 (结束-开始) 计算实际工时 (小时)
                     st = c.get("start_date") or c.get("start_time")
                     et = c.get("end_date") or c.get("end_time")
+                    est_h = float(c.get("est_hours") or 0.0)
                     if st and et:
                         mins = self._calc_minutes(st, et)
                         if mins is not None:
-                            c["act_hours"] = round(mins / 60.0, 2)
+                            if mins == 0 and est_h > 0:
+                                from datetime import datetime, timedelta
+                                try:
+                                    e_dt = datetime.strptime(str(et).strip(), "%Y-%m-%d %H:%M:%S")
+                                    s_dt = e_dt - timedelta(minutes=int(est_h * 60))
+                                    c["start_date"] = s_dt.strftime("%Y-%m-%d %H:%M:%S")
+                                    c["act_hours"] = float(est_h)
+                                except Exception:
+                                    c["act_hours"] = float(est_h)
+                            else:
+                                c["act_hours"] = round(max(1, mins) / 60.0, 2)
+                    elif c.get("status") not in ("已完成", "已验收", "已取消"):
+                        # 活跃态（进行中/待开始等）且未设定有效结束时间，实际工时与完工日期彻底清空
+                        c["act_hours"] = None
+                        c["end_date"] = None
                     return self._write_cards(cards)
             return False
 
@@ -282,6 +313,8 @@ class OfflineBoardAdapter:
         e_dt = parse_dt(end_str)
         if s_dt and e_dt:
             diff_sec = (e_dt - s_dt).total_seconds()
+            if diff_sec <= 0:
+                return 0
             return max(1, int(diff_sec // 60))
         return None
 
@@ -327,13 +360,35 @@ class OfflineBoardAdapter:
             translated.setdefault("creator", merged_fields.get("creator") or get_current_os_user())
             translated.setdefault("process", "")
 
-            # 时间计算
+            # pretask 规范化与自依赖拦截
+            raw_pretask = translated.get("pretask") or merged_fields.get("pretask") or merged_fields.get("pre_task") or merged_fields.get("depends_on")
+            if raw_pretask:
+                pre_ids = [p.strip() for p in re.split(r"[,;\s]+", str(raw_pretask)) if p.strip()]
+                if task_id in pre_ids:
+                    sys.stderr.write(f"[REJECT 依赖校验失败] 任务 {task_id} 不能将自身作为前置依赖！\n")
+                    return None
+                translated["pretask"] = ",".join(pre_ids) if pre_ids else None
+            else:
+                translated["pretask"] = None
+
+            # 时间与实际工时计算
             st = translated.get("start_date") or translated.get("start_time")
             et = translated.get("end_date") or translated.get("end_time")
+            est_h = float(translated.get("est_hours") or 0.0)
             if st and et:
                 mins = self._calc_minutes(st, et)
                 if mins is not None:
-                    translated["act_hours"] = round(mins / 60.0, 2)
+                    if mins == 0 and est_h > 0:
+                        from datetime import datetime, timedelta
+                        try:
+                            e_dt = datetime.strptime(str(et).strip(), "%Y-%m-%d %H:%M:%S")
+                            s_dt = e_dt - timedelta(minutes=int(est_h * 60))
+                            translated["start_date"] = s_dt.strftime("%Y-%m-%d %H:%M:%S")
+                            translated["act_hours"] = float(est_h)
+                        except Exception:
+                            translated["act_hours"] = float(est_h)
+                    else:
+                        translated["act_hours"] = round(max(1, mins) / 60.0, 2)
 
             max_seq = max([int(c.get("seq") or 0) for c in cards] or [0])
             translated["seq"] = max_seq + 1

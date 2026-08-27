@@ -3,12 +3,15 @@
 自动任务编排引擎 (Auto Task CLI) — /yy-flow auto 底层实现
 
 能力:
-  1. 全类型链定义: A 类六步 / B/C/D/G 特权短链 / F 类 / E 类直验，统一终点【已验收】;
+  1. 全类型链定义: A 类五步 / B/C/D/G 特权短链 / F 类 / E 类, 统一终点【已完成】;
+     最终验收(已验收)为人类用户专属终态, 自动化链一律不触碰;
   2. 任意节点续跑: 读取当前状态, 计算剩余链逐节点执行; 任务不存在时先建卡【待开始】;
   3. 挂起态处理: 已退回→处理 DEF 后恢复; 已阻塞→必须先通过阻断解除前置验证
-     (备注含【解除】记录且晚于【阻断】) 才能恢复; 已取消→拒绝恢复; 已验收→幂等完成;
-  4. 代行注入: 链内各步骤以 --delegated-by USER --delegation-reason auto 代行执行,
+     (备注含【解除】记录且晚于【阻断】) 才能恢复; 已取消→拒绝恢复; 已完成/已验收→幂等返回;
+  4. 代行注入: 链内各步骤以 --delegated-by PM --delegation-reason auto 代行执行,
      复用现有代行白名单, 不绕过五层门控/并发锁/审计;
+     安全红线: 绝不注入 delegated_by=USER —— "人类用户授权代行"只能来自真实人类的
+     Web 看板主控 Token 操作或真人终端交互确认, 禁止由自动化程序伪造;
   5. --simulate: 复用 dry-run 语义, 不落库仅演示; 链级锁防多链/人工并发; 任一步失败整链停止。
 
 用法:
@@ -153,10 +156,13 @@ def main():
     parser.add_argument("--type", default="A", help="任务类型 (A-G: A为L2标准任务全链; B/C/D/F/G为L1轻量任务短链; E为用户直验)")
     parser.add_argument("--est-hours", type=float, default=0.0, help="预估工时 (小时)")
     parser.add_argument("--remarks", default="", help="任务备注/交付说明")
+    parser.add_argument("--pretask", default=None, help="前置依赖任务编号 (如 T0001)")
+    parser.add_argument("--ignore-pretask", action="store_true", help="忽略前置依赖未就绪拦截")
+    parser.add_argument("--start-time", default=None, help="显式指定开始时间 (格式 YYYY-MM-DD HH:MM:SS)")
     parser.add_argument("--stage", default="", help="建卡时写入阶段")
     parser.add_argument("--wp", default="", help="建卡时写入工作包")
     parser.add_argument("--wbs", default="", help="建卡时写入 WBS")
-    parser.add_argument("--delegated-by", default="USER", help="代行来源 (默认 USER)")
+    parser.add_argument("--delegated-by", default="PM", help="代行来源 (默认 PM；严禁传入 USER——人类专属验收凭据不可由程序伪造)")
     parser.add_argument("--delegation-reason", default="auto", help="代行理由")
     parser.add_argument("--simulate", action="store_true", help="模拟模式：不落库仅演示流转")
     parser.add_argument("--force", action="store_true", help="建卡重复校验命中时强制创建")
@@ -236,6 +242,9 @@ def main():
                     task_name=args.task_name,
                     task_type=task_type,
                     est_hours=args.est_hours,
+                    pretask=args.pretask,
+                    ignore_pretask=args.ignore_pretask,
+                    start_time=getattr(args, "start_time", None),
                     stage=args.stage or None,
                     wp=args.wp or None,
                     wbs=args.wbs or None,
@@ -319,6 +328,7 @@ def main():
             need_end_time = target in ("已完成", "已验收") and task_type != "E"
             dynamic_end_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") if need_end_time else None
             step_comment = generate_auto_step_summary(prev, target, board_name, step_role)
+            step_start_time = args.start_time if prev == "待开始" else None
             print(f"[AUTO]  执行: {prev} -> {target} (角色 {step_role}, 处理人 {step_assignee})")
             ok = transition_task_pipeline(
                 config_path=args.config,
@@ -328,6 +338,9 @@ def main():
                 to_status=target,
                 assignee=step_assignee,
                 task_type=task_type,
+                est_hours=float(args.est_hours or 0.0),
+                ignore_pretask=args.ignore_pretask,
+                start_time=step_start_time,
                 end_time=dynamic_end_time,
                 remarks=None,
                 comment=step_comment,
@@ -340,7 +353,7 @@ def main():
                 sys.exit(1)
             prev = target
 
-        print(f"[AUTO]  ✅ 任务 {task_id} 自动化流水线交付完成，当前终态【{prev}】！")
+        print(f"[AUTO]  ✅ 任务 {task_id} 自动化流水线交付完成，当前终态【{prev}】！ (自动链止步于【已完成】，最终验收请由人类用户在 Web 看板或真人终端执行)")
         if prev == "已完成":
             print(f"  💡 [提请人类验收] 请人类用户核验代码与交付物后执行验收: /yy-flow accept {task_id} 或 python3 scripts/quick_task.py accept --task-id {task_id}")
         sys.exit(0)

@@ -11,7 +11,9 @@ def generate_step_summary(from_st: str, to_st: str, name: str = "", role_name: s
     """生成结合具体任务名称与角色的阶段交付实质性总结"""
     clean_name = (name or "当前工作包任务").strip()
 
-    if from_st in ("新建", "待开始") and to_st == "进行中":
+    if from_st in ("已验收", "已取消") and to_st in ("进行中", "已完成"):
+        return f"管理员执行终态纠偏重开【{clean_name}】，状态回退至【{to_st}】重新推进与审计留痕"
+    elif from_st in ("新建", "待开始") and to_st == "进行中":
         return f"认领【{clean_name}】并进入开发/执行阶段，初始化工作区与相关依赖"
     elif from_st == "进行中" and to_st == "审查中":
         return f"完成【{clean_name}】核心功能实现与模块自测，提交代码审查与规范核验"

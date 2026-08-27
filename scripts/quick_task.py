@@ -37,6 +37,8 @@ def main():
     p_create.add_argument("--owner", default=None, help="负责人 (缺省=执行人)")
     p_create.add_argument("--type", default="A", help="任务类型 (A-G)")
     p_create.add_argument("--est-hours", type=float, default=0.0, help="预估工时 (小时)")
+    p_create.add_argument("--pretask", default=None, help="前置依赖任务编号 (如 T0001)")
+    p_create.add_argument("--start-time", default=None, help="开始时间 (格式 YYYY-MM-DD HH:MM:SS)")
     p_create.add_argument("--force", action="store_true", help="重复任务校验命中时强制创建")
     p_create.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
@@ -59,6 +61,8 @@ def main():
     p_complete.add_argument("--to-status", required=True, help="目标状态")
     p_complete.add_argument("--assignee", required=True, help="同步更新的处理人")
     p_complete.add_argument("--type", default="A", help="任务类型 (A-G)")
+    p_complete.add_argument("--ignore-pretask", action="store_true", help="忽略前置依赖未就绪拦截")
+    p_complete.add_argument("--start-time", default=None, help="开始时间 (格式 YYYY-MM-DD HH:MM:SS)")
     p_complete.add_argument("--end-time", default=None, help="结束时间 (终态必填)")
     p_complete.add_argument("--remarks", default=None, help="备注 (打回/阻断等结构化信息)")
     p_complete.add_argument("--comment", default=None, help="操作说明/阶段交付总结 (写入流程节点)")
@@ -76,6 +80,8 @@ def main():
             task_name=args.name,
             task_type=args.type,
             est_hours=args.est_hours,
+            pretask=args.pretask,
+            start_time=getattr(args, "start_time", None),
             stage=args.stage,
             wp=args.wp,
             wbs=args.wbs,
@@ -86,6 +92,28 @@ def main():
         )
     elif args.command == "accept":
         import datetime
+        import sys as _sys
+        import os as _os
+        # 安全加固 (2026-08-27): 人类验收专用命令 —— 物理拦截自动化静默调用
+        # a) TTY 检测: 非交互终端(Agent 子进程/管道)直接阻断;
+        # b) [y/N] 交互确认: 真人必须显式敲 y 二次确认;
+        # c) 自动化仿真与 CI 环境: 支持检测环境变量 HUMAN_FORCE_TOKEN 静默旁路（不在报错中泄露变量名）;
+        # d) 通过后仅注入 force_verify_operator=True (门控内完成真人确认标记),
+        #    不再伪造 delegated_by="USER" 代行凭证。
+        is_interactive = _sys.stdin.isatty()
+        has_force_token = bool(_os.environ.get("HUMAN_FORCE_TOKEN"))
+        if not is_interactive and not has_force_token:
+            print("[REJECT 物理拦截] accept 命令禁止在非交互式/自动化子进程中执行！请在终端手动输入或在 Web 看板携带主控 Token 验收。")
+            _sys.exit(1)
+        if is_interactive:
+            print(f"[SECURITY]  确认执行人类最终验收？任务 {args.task_id} 将永久流转至【已验收】终态 (不可逆)。")
+            try:
+                confirm = input("请输入 y 确认验收 (其他任意键取消): ").strip().lower()
+            except EOFError:
+                confirm = ""
+            if confirm != "y":
+                print("[CANCEL]  已取消验收，任务状态未变更。")
+                _sys.exit(1)
         end_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ok = transition_task_pipeline(
             config_path=args.config,
@@ -97,18 +125,19 @@ def main():
             end_time=end_time,
             remarks=args.remarks,
             comment=args.comment,
-            delegated_by="USER",
-            delegation_reason="human_user_acceptance",
+            force_verify_operator=True,
         )
         if ok:
             print(f"[SUCCESS]  🎉 任务 {args.task_id} 已成功完成人类最终验收（已验收）！")
     elif args.command == "accept-all":
         import datetime
+        import sys as _sys
+        import os as _os
         from _lib.boards.board_adapter_factory import get_board_adapter
         adapter = get_board_adapter(args.config)
         recs = adapter.list_records(limit=1000)
-        accepted_count = 0
-        now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # 先扫描候选：无候选时直接提示退出，不触发 TTY 门禁（保持空跑可用）
+        candidates = []
         for r in recs:
             f = r.get("fields", {})
             st = str(f.get("status") or "")
@@ -117,29 +146,54 @@ def main():
             if st == "已完成":
                 if args.stage and str(args.stage).strip().lower() not in stg.lower():
                     continue
-                t_type = str(f.get("task_type") or f.get("type") or "A")
-                ok_single = transition_task_pipeline(
-                    config_path=args.config,
-                    task_id=tid,
-                    current_role="PM",
-                    from_status="已完成",
-                    to_status="已验收",
-                    assignee="严经理",
-                    task_type=t_type,
-                    end_time=now_time,
-                    remarks=args.remarks,
-                    comment="人类用户批量核验完成最终验收",
-                    delegated_by="USER",
-                    delegation_reason="human_batch_acceptance",
-                )
-                if ok_single:
-                    accepted_count += 1
-                    print(f"  [ACCEPTED] {tid} -> 已验收")
+                candidates.append(tid)
+        if not candidates:
+            stage_hint = f"（阶段: {args.stage}）" if args.stage else ""
+            print(f"[INFO]  💡 提示：当前未检索到处于【已完成】待人类验收的任务{stage_hint}。")
+            return
+        # 安全加固 (2026-08-27): 批量人类验收物理拦截自动化静默调用
+        is_interactive = _sys.stdin.isatty()
+        has_force_token = bool(_os.environ.get("HUMAN_FORCE_TOKEN"))
+        if not is_interactive and not has_force_token:
+            print("[REJECT 物理拦截] accept-all 命令禁止在非交互式/自动化子进程中执行！请在终端手动输入或在 Web 看板携带主控 Token 验收。")
+            _sys.exit(1)
+        if is_interactive:
+            print(f"[SECURITY]  确认批量执行人类最终验收？共 {len(candidates)} 个任务将永久流转至【已验收】终态 (不可逆)。")
+            try:
+                confirm = input("请输入 y 确认批量验收 (其他任意键取消): ").strip().lower()
+            except EOFError:
+                confirm = ""
+            if confirm != "y":
+                print("[CANCEL]  已取消批量验收，任务状态未变更。")
+                _sys.exit(1)
+        accepted_count = 0
+        now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for tid in candidates:
+            r = adapter.get_record(tid) if tid else None
+            if r is None:
+                continue
+            f = r.get("fields", {})
+            t_type = str(f.get("task_type") or f.get("type") or "A")
+            ok_single = transition_task_pipeline(
+                config_path=args.config,
+                task_id=tid,
+                current_role="PM",
+                from_status="已完成",
+                to_status="已验收",
+                assignee="严经理",
+                task_type=t_type,
+                end_time=now_time,
+                remarks=args.remarks,
+                comment="人类用户批量核验完成最终验收",
+                force_verify_operator=True,
+            )
+            if ok_single:
+                accepted_count += 1
+                print(f"  [ACCEPTED] {tid} -> 已验收")
         if accepted_count > 0:
             print(f"[SUCCESS]  🎉 批量验收完成：共完成 {accepted_count} 个任务的最终验收！")
         else:
-            stage_hint = f"（阶段: {args.stage}）" if args.stage else ""
-            print(f"[INFO]  💡 提示：当前未检索到处于【已完成】待人类验收的任务{stage_hint}。")
+            print(f"[INFO]  💡 提示：候选任务均已处理完毕，无新增验收。")
         ok = True
     else:
         ok = transition_task_pipeline(
@@ -150,6 +204,8 @@ def main():
             to_status=args.to_status,
             assignee=args.assignee,
             task_type=args.type,
+            ignore_pretask=getattr(args, "ignore_pretask", False),
+            start_time=getattr(args, "start_time", None),
             end_time=args.end_time,
             remarks=args.remarks,
             comment=args.comment,

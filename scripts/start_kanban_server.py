@@ -904,7 +904,9 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         if path == "/api/health":
             port = SERVER_STATE.get("port") or getattr(self.server, "server_port", 32886)
             local_ip = get_local_ip()
-            health_data = dict(SERVER_STATE)
+            # 安全加固 (2026-08-27): 深拷贝并剥离 master_token —— 该接口无需任何凭证即可访问，
+            # 明文返回 Token 等于把主控权限交给任意可触达端口的进程/局域网设备。
+            health_data = {k: v for k, v in SERVER_STATE.items() if k != "master_token"}
             health_data["is_master"] = self._is_master_authorized()
             health_data["client_device"] = self.resolve_client_device_name()
             health_data["local_ip"] = local_ip
@@ -1184,6 +1186,20 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 )
                 return
 
+            # 安全加固 (2026-08-27 / V3 闭环): 终态【已验收/已取消】逆流回中间状态 = 管理员纠偏(REOPEN)，
+            # 必须持有主控 Token；无 Token 一律拒绝，杜绝任意客户端静默回滚终态审计结论。
+            if target_status not in ("已验收", "已取消") and not self._is_master_authorized():
+                # 仍需在 mutate 闭包内确认实际 from 状态（卡片可能在请求间隙被改），这里只做入口预检
+                _pre_card = next((c for c in read_board_data() if c.get("id") == task_id), None)
+                if _pre_card and _pre_card.get("status") in ("已验收", "已取消"):
+                    self._send_json_resp(
+                        403,
+                        f"终态【{_pre_card.get('status')}】回滚 (REOPEN) 需主控权限，请携带主控 Token 访问",
+                        {"error_type": "FORBIDDEN_MASTER_REQUIRED", "reopen": True, "from_status": _pre_card.get("status")},
+                        http_status=403
+                    )
+                    return
+
             header_op = self.headers.get("X-Operator-Name", "")
             if header_op:
                 try:
@@ -1196,6 +1212,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 or get_default_operator()
             )
             comment = (body_data.get("comment") or body_data.get("note") or "").strip()
+            # 安全加固 (2026-08-27): 本端点不经过 CLI 门控管线，上方的主控 Token 强校验即本路径
+            # 唯一授权关口。审计角色默认值此前硬编码为 "USER"，导致未持票的普通流转也被记录成
+            # 人类用户操作；现改为按授权等级如实标记：
+            #   - 已验收/已取消: 必经主控 Token 校验 -> 记为 USER@MASTER_TOKEN (持票人类操作)
+            #   - 其余流转: 记为 WEB (看板终端常规操作)
+            if target_status in ("已验收", "已取消"):
+                audit_role_default = "USER@MASTER_TOKEN"
+            else:
+                audit_role_default = "WEB"
 
             def _mutate_trans(cards):
                 card = next((c for c in cards if c.get("id") == task_id), None)
@@ -1204,6 +1229,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
                 from_status = card.get("status", "待开始")
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                _is_reopen = from_status in ("已验收", "已取消") and target_status not in ("已验收", "已取消")
+                if _is_reopen and not self._is_master_authorized():
+                    # 二次防御：并发窗口内卡片状态被改终态后再次校验
+                    return False, 403, "终态回滚 (REOPEN) 需主控权限", None
 
                 # 关键防御：在更新 card["handler"] 前暂存发起流转的当前执行角色，防止被下游覆盖
                 origin_role = (
@@ -1240,14 +1269,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     effective_comment = generate_step_summary(from_status, target_status, card.get("name", ""), operator_name)
 
                 node_id = f"{task_id}-N{allocate_node_seq(card):02d}"
-                log_text = f"[{node_id}]  [{now_str}]  状态由【{from_status}】更新至【{target_status}】，角色: {origin_role}，操作人: {operator_name}"
+                _reopen_mark = "【REOPEN 管理员纠偏】" if _is_reopen else ""
+                log_text = f"[{node_id}]  [{now_str}]  {_reopen_mark}状态由【{from_status}】更新至【{target_status}】，角色: {origin_role}，操作人: {operator_name}"
                 if effective_comment:
                     log_text += f"\n操作说明: {effective_comment}"
 
                 current_process = card.get("process", "")
                 card["process"] = f"{current_process}\n{log_text}".strip()
 
-                audit_role = body_data.get("operator_role") or "USER"
+                audit_role = str(body_data.get("operator_role") or "").strip() or audit_role_default
                 append_audit_log(task_id, audit_role, from_status, target_status, operator_name, effective_comment)
                 return True, 200, "状态流转成功", {
                     "id": task_id,
@@ -1821,7 +1851,8 @@ def main():
     parser = argparse.ArgumentParser(description="Multi-Agent Flow 看板简易 HTTP 服务")
     parser.add_argument("--port", type=int, default=None,
                         help=f"固定服务端口 (默认: 环境变量 KANBAN_PORT 或 {DEFAULT_PORT}+自动探测)")
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="监听 Host (默认: 0.0.0.0)")
+    parser.add_argument("--host", type=str, default="127.0.0.1",
+                        help="监听 Host (安全默认: 127.0.0.1 仅本机；需要局域网协作时显式传 --host 0.0.0.0)")
     parser.add_argument("--status", action="store_true", help="查询当前项目绑定的看板服务运行状态与访问直达链接")
     args = parser.parse_args()
 
