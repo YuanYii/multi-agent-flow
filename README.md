@@ -5,7 +5,6 @@
   <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/github/stars/YuanYii/multi-agent-flow?style=for-the-badge&logo=github&color=38BDF8" alt="GitHub Stars"></a>
   <a href="https://github.com/YuanYii/multi-agent-flow/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge" alt="License"></a>
   <a href="https://yuanyii.github.io/multi-agent-flow/"><img src="https://img.shields.io/badge/Theme-Dark%20%2F%20Light-F59E0B?style=for-the-badge" alt="Theme Support"></a>
-  <a href="https://github.com/YuanYii/multi-agent-flow/actions"><img src="https://img.shields.io/badge/Tests-258%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
 </p>
 
 <p align="center">
@@ -45,6 +44,8 @@ git clone https://github.com/YuanYii/multi-agent-flow.git .yy-flow\skill
 powershell -ExecutionPolicy Bypass -File .yy-flow\skill\scripts\init_skill.ps1
 ```
 
+
+> 💡 **依赖说明**：核心引擎优先使用 Python 标准库实现，运行时仅依赖 PyYAML 与 python-docx 两项：`python3 -m pip install -r requirements.txt`（本地跑测试再加装 `requirements-dev.txt`）。`init_skill.sh` 已内置依赖自检，检测到缺失时会尽力自动补装。
 
 ### 3. 多项目共享安装（全局部署）
 
@@ -107,7 +108,7 @@ python3 scripts/start_kanban_server.py
 ├── agents/                  # 8 大专家角色 YAML 定义
 ├── kanban/                  # 离线与 Web 可视化看板（HTML/JS/CSS）
 ├── references/              # 6 大核心规范（路由/流转/防错/Git/文档/交接）
-├── tests/                   # 258 项全正交自动化测试套件
+├── tests/                   # 266 项全正交自动化测试套件
 └── scripts/                 # 流转/门禁/巡检/看板服务 CLI 引擎
 
 # 初始化后在目标项目生成：

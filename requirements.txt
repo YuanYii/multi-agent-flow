@@ -1,0 +1,7 @@
+# YY-Flow (multi-agent-flow) 运行时依赖清单
+# 核心引擎（状态机流转、门禁、看板服务、心跳巡检）优先使用 Python 标准库实现，
+# 以下为全库扫描确认的唯一两个第三方运行时依赖。
+# 安装: python3 -m pip install -r requirements.txt   （Windows 将 python3 替换为 python）
+
+PyYAML>=6.0         # workflow.config.yaml / agent_platforms.yaml 等配置解析（transition_task / start_kanban_server / 门禁等 12 处引用）
+python-docx>=1.1.0  # Word 文档生成：千问方案书与证明材料（scripts/generate_docx_proposal.py / scripts/generate_proof_material.py）

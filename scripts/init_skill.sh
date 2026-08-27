@@ -32,6 +32,17 @@ echo "  数据根 (DATA_ROOT): ${DATA_ROOT}"
 echo "  技能根 (SKILL_ROOT): ${SKILL_ROOT}"
 echo "=============================================================================="
 
+echo "[SETUP]   [Step 0/7] 校验 Python 环境与第三方依赖 (requirements.txt)..."
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "[FATAL]   未检测到 python3，请先安装 Python 3.9+ 后重试。"
+    exit 1
+fi
+if ! python3 -c "import yaml, docx" >/dev/null 2>&1; then
+    echo "[DEPS]    检测到依赖缺失，尝试自动安装 requirements.txt ..."
+    python3 -m pip install -r "${SKILL_ROOT}/requirements.txt" >/dev/null 2>&1 \
+        || echo "[WARN]    自动安装失败（PEP 668 受管环境等场景），请手动执行: python3 -m pip install -r ${SKILL_ROOT}/requirements.txt"
+fi
+
 echo "[SECURITY]  [Step 1/7] 强执行敏感凭据泄露安全扫描 (check_secrets.py)..."
 python3 "${SCRIPT_DIR}/check_secrets.py"
 

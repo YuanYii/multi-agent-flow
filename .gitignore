@@ -44,3 +44,11 @@ e2e/node_modules/
 e2e/test-results/
 e2e/playwright-report/
 e2e/.runtime/
+
+# 依赖清单（防 pip 补包产物误入版本库）
+*.egg-info/
+.venv/
+venv/
+
+# 本地测试报告产物
+test-reports/
