@@ -151,6 +151,8 @@ def main():
     parser.add_argument("--role", default="", help="主执行角色 (DEV/FRONTEND/ARCHITECT/DOCS/DEVOPS/PM；缺省按类型推导)")
     parser.add_argument("--assignee", default="", help="建卡时初始经办人（缺省按 role 推导）")
     parser.add_argument("--type", default="A", help="任务类型 (A-G: A为L2标准任务全链; B/C/D/F/G为L1轻量任务短链; E为用户直验)")
+    parser.add_argument("--est-hours", type=float, default=0.0, help="预估工时 (小时)")
+    parser.add_argument("--remarks", default="", help="任务备注/交付说明")
     parser.add_argument("--stage", default="", help="建卡时写入阶段")
     parser.add_argument("--wp", default="", help="建卡时写入工作包")
     parser.add_argument("--wbs", default="", help="建卡时写入 WBS")
@@ -226,16 +228,18 @@ def main():
             else:
                 # 建卡：走 transition_task --create（含重复校验/权限/审计）
                 init_assignee = args.assignee or ROLE_NAME_MAP.get(main_role, main_role)
+                initial_remarks = args.remarks or None
                 ok = transition_task_pipeline(
                     config_path=args.config,
                     current_role=main_role,
                     assignee=init_assignee,
                     task_name=args.task_name,
                     task_type=task_type,
+                    est_hours=args.est_hours,
                     stage=args.stage or None,
                     wp=args.wp or None,
                     wbs=args.wbs or None,
-                    remarks="【Agent Loop】",
+                    remarks=initial_remarks,
                     create_only=True,
                     force=args.force,
                     no_dup_check=args.no_dup_check,
@@ -325,7 +329,7 @@ def main():
                 assignee=step_assignee,
                 task_type=task_type,
                 end_time=dynamic_end_time,
-                remarks="【Agent Loop】",
+                remarks=None,
                 comment=step_comment,
                 dry_run=args.simulate,
                 delegated_by=delegated_by,

@@ -36,6 +36,7 @@ def main():
     p_create.add_argument("--wbs", default=None, help="WBS 编号")
     p_create.add_argument("--owner", default=None, help="负责人 (缺省=执行人)")
     p_create.add_argument("--type", default="A", help="任务类型 (A-G)")
+    p_create.add_argument("--est-hours", type=float, default=0.0, help="预估工时 (小时)")
     p_create.add_argument("--force", action="store_true", help="重复任务校验命中时强制创建")
     p_create.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
@@ -74,6 +75,7 @@ def main():
             assignee=assignee,
             task_name=args.name,
             task_type=args.type,
+            est_hours=args.est_hours,
             stage=args.stage,
             wp=args.wp,
             wbs=args.wbs,

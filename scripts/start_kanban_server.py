@@ -420,7 +420,7 @@ def append_audit_log(task_id: str, role: str, from_status: str, to_status: str, 
 # GET /api/tasks 筛选 / 排序 / 分页 参数处理
 # ---------------------------------------------------------------
 PAGE_SIZES_WHITELIST = (10, 20, 50, 100)
-SORT_FIELDS_WHITELIST = ("seq", "id", "est_hours", "act_hours", "start_date", "end_date")
+SORT_FIELDS_WHITELIST = ("seq", "id", "type", "est_hours", "act_hours", "start_date", "end_date")
 ORDER_WHITELIST = ("asc", "desc")
 
 
@@ -741,6 +741,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             wp_filter = query.get("wp", [None])[0]
             handler_filter = query.get("handler", [None])[0]
             creator_filter = query.get("creator", [None])[0]
+            type_filter = query.get("type", [None])[0]
             start_from = query.get("start_from", [None])[0]
             start_to = query.get("start_to", [None])[0]
             end_from = query.get("end_from", [None])[0]
@@ -750,6 +751,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             filtered = cards
             if status_filter:
                 filtered = [c for c in filtered if c.get("status") == status_filter]
+            if type_filter:
+                filtered = [c for c in filtered if (c.get("type") or "A").upper() == type_filter.upper()]
             if assignee_filter:
                 assignee_list = [a.strip() for a in assignee_filter.split(",") if a.strip()]
                 if assignee_list:
@@ -788,6 +791,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     or kw in str(c.get("remarks", "")).lower()
                     or kw in str(c.get("wbs", "")).lower()
                     or kw in str(c.get("process", "")).lower()
+                    or kw in str(c.get("type", "")).lower()
                 ]
 
             # ---- 排序参数解析（白名单 + 强校验） ----

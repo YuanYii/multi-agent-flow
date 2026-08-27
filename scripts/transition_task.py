@@ -184,6 +184,7 @@ def transition_task_pipeline(
     to_status: str = "",
     assignee: str = "",
     task_type: str = "A",
+    est_hours: float = 0.0,
     end_time: str = None,
     remarks: str = None,
     comment: str = None,
@@ -298,7 +299,9 @@ def transition_task_pipeline(
                 "wbs_id": res_wbs,
                 "creator": creator or None,
                 "start_date": None,
-                "est_hours": 0.0,
+                "type": task_type or "A",
+                "task_type": task_type or "A",
+                "est_hours": est_hours or 0.0,
                 "act_hours": 0.0,
                 "process": None,
                 "remarks": remarks or None,
@@ -434,6 +437,10 @@ def transition_task_pipeline(
                 "workpackage": res_wp,
                 "wbs_id": res_wbs,
                 "start_date": None,
+                "type": task_type or "A",
+                "task_type": task_type or "A",
+                "est_hours": est_hours or 0.0,
+                "act_hours": 0.0,
                 "process": remarks or None,
                 "remarks": remarks or None,
             }
@@ -569,6 +576,7 @@ def main():
     parser.add_argument("--to-status", default="", help="目标状态 (流转模式必填；--create 建卡模式可省略)")
     parser.add_argument("--assignee", default="", help="同步更新的处理人 (流转模式必填；--create 建卡模式必填)")
     parser.add_argument("--type", default="A", help="任务类型 (A-G: A为L2标准任务全链; B/C/D/F/G为L1轻量任务短链; E为用户直验)")
+    parser.add_argument("--est-hours", type=float, default=0.0, help="预估工时 (小时)")
     parser.add_argument("--end-time", help="结束时间 (完成/验收必填)")
     parser.add_argument("--remarks", help="追加结构化缺陷或备注描述")
     parser.add_argument("--comment", default=None, help="操作说明/阶段交付总结 (写入流程节点)")
@@ -593,6 +601,7 @@ def main():
         to_status=args.to_status,
         assignee=args.assignee,
         task_type=args.type,
+        est_hours=args.est_hours,
         end_time=args.end_time,
         remarks=args.remarks,
         comment=args.comment,

@@ -73,6 +73,8 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
     "handler": "handler",
     "creator": "creator",
     "priority": None,
+    "task_type": "type",
+    "type": "type",
     "estimated_hours": "est_hours",
     "actual_hours": "act_hours",
     "start_time": "start_date",
@@ -88,7 +90,7 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
 # 看板原生字段集合（直接透传的白名单）
 KANBAN_NATIVE_FIELDS = {
     "id", "name", "wbs", "status", "assignee", "handler", "creator", "est_hours", "act_hours",
-    "start_date", "end_date", "stage", "wp", "process", "remarks", "pretask", "seq",
+    "start_date", "end_date", "stage", "wp", "process", "remarks", "pretask", "seq", "type",
 }
 
 _TASK_ID_RE = re.compile(r"^T(\d+)$")
@@ -313,8 +315,15 @@ class OfflineBoardAdapter:
             translated.setdefault("wbs", "-")
             translated.setdefault("wp", "-")
             translated.setdefault("stage", merged_fields.get("stage") or "-")
-            translated.setdefault("est_hours", 0.0)
-            translated.setdefault("act_hours", 0.0)
+            translated.setdefault("type", merged_fields.get("type") or merged_fields.get("task_type") or "A")
+            try:
+                translated["est_hours"] = float(translated.get("est_hours", 0.0) or 0.0)
+            except (ValueError, TypeError):
+                translated["est_hours"] = 0.0
+            try:
+                translated["act_hours"] = float(translated.get("act_hours", 0.0) or 0.0)
+            except (ValueError, TypeError):
+                translated["act_hours"] = 0.0
             translated.setdefault("creator", merged_fields.get("creator") or get_current_os_user())
             translated.setdefault("process", "")
 
