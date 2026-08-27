@@ -3,7 +3,6 @@
 动态角色 Prompt 上下文裁剪合成器 (Build Agent Context CLI)
 """
 import os
-import sys
 import yaml
 import argparse
 from typing import Dict, Any
@@ -11,8 +10,6 @@ from typing import Dict, Any
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKFLOW_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 AGENTS_DIR = os.path.join(WORKFLOW_ROOT, "agents")
-RULES_DIR = os.path.join(WORKFLOW_ROOT, "rules")
-REFERENCES_DIR = os.path.join(WORKFLOW_ROOT, "references")
 
 def load_role_yaml(role: str) -> Dict[str, Any]:
     role_map = {
@@ -34,12 +31,6 @@ def load_role_yaml(role: str) -> Dict[str, Any]:
             return yaml.safe_load(f) or {}
     return {}
 
-def read_markdown_section(filepath: str, max_lines: int = 40) -> str:
-    if os.path.exists(filepath):
-        with open(filepath, "r", encoding="utf-8") as f:
-            lines = [line for line in f if line.strip() and not line.startswith('# ')]
-            return "".join(lines[:max_lines])
-    return ""
 
 def build_context(role: str, action: str = "general") -> str:
     role_upper = role.upper()

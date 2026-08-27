@@ -15,23 +15,6 @@ from _lib.boards.offline_board_adapter import OfflineBoardAdapter
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-def exponential_backoff_retry(max_retries: int = 3, initial_delay: float = 1.0):
-    """通用 API 请求指数退避重试装饰器"""
-    import time
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            delay = initial_delay
-            for attempt in range(1, max_retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    if attempt == max_retries:
-                        raise e
-                    print(f"[WARN]  [网络重试退避] 第 {attempt} 次请求失败 ({e})，将在 {delay} 秒后发起重试...")
-                    time.sleep(delay)
-                    delay *= 2
-        return wrapper
-    return decorator
 
 def get_board_adapter(config_file: str = None) -> Any:
     """根据 workflow.config.yaml 自动创建并返回适配器实例。

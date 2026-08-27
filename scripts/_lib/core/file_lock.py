@@ -169,25 +169,3 @@ def remove_lock_file_if_free(lock_path):
         return False
     finally:
         release_lock(handle)
-
-
-def read_lock_meta(lock_path):
-    """读取锁文件元数据 {pid, ts}；文件不存在或不可读时返回空 dict。"""
-    try:
-        with open(lock_path, "r", encoding="utf-8", errors="ignore") as f:
-            content = f.read(256)
-        meta = {}
-        for part in content.split():
-            if part.startswith("pid="):
-                try:
-                    meta["pid"] = int(part.split("=", 1)[1])
-                except ValueError:
-                    pass
-            elif part.startswith("ts="):
-                try:
-                    meta["ts"] = int(part.split("=", 1)[1])
-                except ValueError:
-                    pass
-        return meta
-    except Exception:
-        return {}

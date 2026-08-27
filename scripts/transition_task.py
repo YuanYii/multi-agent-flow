@@ -11,7 +11,7 @@ import time
 import datetime
 import argparse
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 from difflib import SequenceMatcher
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,7 +23,7 @@ from _lib.audit.audit_logger import record_audit_event
 from _lib.core.file_lock import acquire_lock, release_lock, remove_lock_file_if_free, LockBusyError
 from _lib.core.step_summary import generate_step_summary
 from _lib.core.task_spec import resolve_default_stage_wp_wbs
-from enums import TaskStatus, TaskType, RoleEnum, normalize_role, ROLE_NORMALIZE_MAP
+from enums import normalize_role, ROLE_NORMALIZE_MAP
 import paths
 
 # 容错型日志格式化类，防 traceback 泄漏

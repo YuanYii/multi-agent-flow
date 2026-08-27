@@ -21,7 +21,7 @@ import json
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from _lib.audit.audit_logger import rotate_if_needed, get_audit_log_file, get_archive_dir
+from _lib.audit.audit_logger import rotate_if_needed, get_audit_log_file
 
 
 def main():

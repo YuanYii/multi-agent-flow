@@ -32,7 +32,7 @@ from typing import Dict, List, Optional
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from transition_task import transition_task_pipeline, ROLE_NAME_MAP, check_duplicate_tasks
+from transition_task import transition_task_pipeline, ROLE_NAME_MAP
 from _lib.boards.board_adapter_factory import get_board_adapter
 from _lib.core.step_summary import generate_step_summary as generate_auto_step_summary
 import paths
