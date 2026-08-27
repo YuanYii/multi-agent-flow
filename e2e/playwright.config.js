@@ -18,7 +18,8 @@ module.exports = defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    channel: 'chrome',
+    // 优先 runner 预装 Chrome;不可用时回落 Playwright 托管 Chromium(CI 显式安装)
+    ...(process.env.CI ? {} : { channel: 'chrome' }),
     headless: true,
     viewport: { width: 1440, height: 900 },
     screenshot: 'only-on-failure',

@@ -43,11 +43,16 @@ class TestResolveDataRoot:
         assert got == str(tmp_path / "rel")
 
     def test_legacy_when_board_json_in_skill_root(self, monkeypatch, tmp_path):
-        """skill 拷贝含 user_data/board.json → data_root = skill_root（存量安装零迁移）"""
-        # 本仓库自身就是 legacy 安装（user_data/board.json 已存在）——直接验证
-        assert os.path.isfile(os.path.join(paths.skill_root(), "user_data", "board.json"))
-        got = paths.resolve_data_root(env={}, cwd=str(tmp_path))
-        assert got == paths.skill_root()
+        """skill 拷贝含 user_data/board.json → data_root = skill_root（存量安装零迁移）
+        通过临时改写 _SCRIPT_DIR 构造受控 legacy 布局，不依赖本仓库恰好为 legacy 安装
+        （CI runner 的干净 checkout 无 user_data/board.json）。"""
+        fake_skill = tmp_path / "legacyskill"
+        (fake_skill / "scripts").mkdir(parents=True)
+        (fake_skill / "user_data").mkdir()
+        (fake_skill / "user_data" / "board.json").write_text("[]", encoding="utf-8")
+        monkeypatch.setattr(paths, "_SCRIPT_DIR", str(fake_skill / "scripts"))
+        got = paths.resolve_data_root(env={}, cwd=str(tmp_path / "hostcwd"))
+        assert got == str(fake_skill)
 
     def test_dir_without_board_json_is_not_legacy(self, monkeypatch, tmp_path):
         """仅 user_data/ 目录而无 board.json 不触发 legacy（防误建目录误判）。

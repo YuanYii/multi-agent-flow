@@ -58,7 +58,13 @@ jobs:
         working-directory: e2e
         run: npm ci
 
-      - name: 运行端到端测试（runner 预装 Google Chrome，对应 channel:chrome）
+      # runner 预装 Chrome 版本不可控且可能缺失；显式安装 Playwright 托管的
+      # Chromium + 系统依赖，保证端到端环境确定性
+      - name: 安装 Playwright Chromium 浏览器
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: 运行端到端测试
         working-directory: e2e
         run: npx playwright test --reporter=line
 

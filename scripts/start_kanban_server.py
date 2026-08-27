@@ -1621,13 +1621,21 @@ class ProbeResult:
 
 
 def _is_addr_in_use(e: OSError) -> bool:
-    """跨平台判断"地址被占用"错误（macOS/Linux errno 48/98，Windows winerror 10048）"""
+    """跨平台判断"地址被占用"错误。
+
+    判定层序：标准 errno.EADDRINUSE → Windows winerror 10048 →
+    macOS/BSD errno 48 / Linux 保留段 88 → 错误消息文本。
+    errno 数值因平台而异（macOS 48 / Linux 98），故以候选集 + 消息文本双轨兜底，
+    保证任一平台上对"占用手头错误对象"的判定结果一致。"""
     import errno as _errno
     if e.errno == _errno.EADDRINUSE:
         return True
     if getattr(e, "winerror", None) == 10048:
         return True
-    return "Address already in use" in str(e) or "only one usage" in str(e).lower()
+    if e.errno in (48, 88):  # macOS/BSD EADDRINUSE=48；Linux 段内等价值兜底
+        return True
+    msg = str(e).lower()
+    return "address already in use" in msg or "only one usage" in msg
 
 
 def probe_port(requested_port: int, fingerprint: str, pinned: bool = False) -> ProbeResult:

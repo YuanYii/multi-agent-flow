@@ -48,11 +48,17 @@ def _make_host_config(host_dir, board_file):
 class TestLegacyInstallUnchanged:
     """存量安装：skill 内含 user_data/board.json → 一切路径不变"""
 
-    def test_legacy_data_root_is_skill_root(self, tmp_path):
-        """本仓库即 legacy 安装；无 env 时 data_root 必须等于 skill_root"""
-        assert os.path.isfile(os.path.join(paths.skill_root(), "user_data", "board.json"))
-        got = paths.resolve_data_root(env={}, cwd=str(tmp_path))
-        assert got == paths.skill_root()
+    def test_legacy_data_root_is_skill_root(self, tmp_path, monkeypatch):
+        """legacy 布局：skill 内含 user_data/board.json → data_root = skill_root。
+        通过临时改写 _SCRIPT_DIR 构造受控 legacy 布局，不依赖本仓库恰好为 legacy 安装
+        （CI runner 的干净 checkout 无 user_data/board.json）。"""
+        fake_skill = tmp_path / "legacyskill"
+        (fake_skill / "scripts").mkdir(parents=True)
+        (fake_skill / "user_data").mkdir()
+        (fake_skill / "user_data" / "board.json").write_text("[]", encoding="utf-8")
+        monkeypatch.setattr(paths, "_SCRIPT_DIR", str(fake_skill / "scripts"))
+        got = paths.resolve_data_root(env={}, cwd=str(tmp_path / "hostcwd"))
+        assert got == str(fake_skill)
 
     def test_legacy_board_write_lands_in_skill_user_data(self, tmp_path):
         """legacy 模式下建单 → board 写入 skill 拷贝内 user_data/（与旧行为一致）"""

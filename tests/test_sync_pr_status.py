@@ -6,6 +6,7 @@ Unit tests for sync_pr_status.py (YY-Flow GitHub PR Gate & Auto-Unblock)
 import os
 import sys
 import json
+import shutil
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -115,6 +116,18 @@ def mock_pr_board_env(tmp_path):
     ]
     with open(user_data / "board.json", "w", encoding="utf-8") as f:
         json.dump(board_cards, f, ensure_ascii=False)
+
+    # transition_task_pipeline 走 get_board_adapter → resolve_runtime_config 解析链,
+    # 需要项目内 runtime 配置（等价于 init_skill.sh step 4 生成的宿主配置）。
+    # 模板为 local provider,与 CI 干净环境兼容（本地 config/workflow.config.yaml
+    # 为 gitignored 文件,不能作为测试依赖）。
+    cfg_candidates = [
+        os.path.join(PROJECT_ROOT, "config", "workflow.config.template.yaml"),
+        os.path.join(PROJECT_ROOT, "config", "workflow.config.yaml"),
+    ]
+    cfg_src = next((c for c in cfg_candidates if os.path.isfile(c)), None)
+    assert cfg_src, "找不到 workflow 配置或模板"
+    shutil.copy(cfg_src, user_data / "workflow.config.yaml")
 
     return str(proj_dir)
 
