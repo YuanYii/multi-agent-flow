@@ -66,7 +66,7 @@ function syncMasterAuthStatus(serverData) {
     }
 }
 
-// 多设备独立视图偏好存储 (筛选与排序保存在各设备本地 LocalStorage，不污染全局服务端配置)
+// 多设备独立视图偏好存储 (筛选、排序与卡片字段配置保存在各设备本地 LocalStorage，不污染全局服务端配置)
 function loadLocalDeviceViewPreferences() {
     try {
         const localPrefs = localStorage.getItem('kanban_device_view_prefs');
@@ -79,6 +79,9 @@ function loadLocalDeviceViewPreferences() {
                 if (parsed.sort) {
                     kanbanPreferences.sort = Object.assign({}, kanbanPreferences.sort || {}, parsed.sort);
                 }
+                if (parsed.card_field_config && typeof parsed.card_field_config === 'object') {
+                    kanbanPreferences.card_field_config = Object.assign({}, kanbanPreferences.card_field_config || {}, parsed.card_field_config);
+                }
             }
         }
     } catch (e) {
@@ -86,11 +89,12 @@ function loadLocalDeviceViewPreferences() {
     }
 }
 
-function saveLocalDeviceViewPreferences(filters, sort) {
+function saveLocalDeviceViewPreferences(filters, sort, card_field_config) {
     try {
         const prefs = {
             filters: filters !== undefined ? filters : (kanbanPreferences.filters || {}),
             sort: sort !== undefined ? sort : (kanbanPreferences.sort || {}),
+            card_field_config: card_field_config !== undefined ? card_field_config : (kanbanPreferences.card_field_config || {}),
             updated_at: new Date().toISOString()
         };
         localStorage.setItem('kanban_device_view_prefs', JSON.stringify(prefs));

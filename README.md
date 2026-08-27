@@ -45,16 +45,20 @@ git clone https://github.com/YuanYii/multi-agent-flow.git .yy-flow\skill
 powershell -ExecutionPolicy Bypass -File .yy-flow\skill\scripts\init_skill.ps1
 ```
 
-
 > 💡 **依赖说明**：核心引擎优先使用 Python 标准库实现，运行时仅依赖 PyYAML 与 python-docx 两项：`python3 -m pip install -r requirements.txt`（本地跑测试再加装 `requirements-dev.txt`）。`init_skill.sh` 已内置依赖自检，检测到缺失时会尽力自动补装。
+
+### 2. 在 Agent 对话中初始化
+
+在 AI 编程终端中输入快捷指令或自然语言口令：
+> 💬 `/yy-flow start` 或 *“帮我初始化这个项目的研发流”*
 
 ### 3. 多项目共享安装（全局部署）
 
 在同时维护多个项目、不希望每个项目都复制一份 Skill 代码时，使用全局共享安装器（Linux/macOS: `install_global.sh`，Windows: `install_global.ps1`）：
 
 ```bash
-# Linux/macOS：安装/更新最新 release_v6（或指定分支/标签）
-./scripts/install_global.sh            # 默认 release_v6
+# Linux/macOS：安装/更新最新版本（或指定分支/标签）
+./scripts/install_global.sh            # 默认最新版本
 ./scripts/install_global.sh v1.0.0     # 固定版本
 ```
 
@@ -64,10 +68,6 @@ powershell -ExecutionPolicy Bypass -File .yy-flow\skill\scripts\init_skill.ps1
 - **数据隔离**：共享安装下每个项目的运行数据（`user_data/`、锁、审计）仍独立落在各自项目根（解析链：`--project-root` > `YY_FLOW_PROJECT_ROOT` > `.yy-flow` 自定位 > legacy > CWD），`docs/` 恒定锚定项目根随 Git 流转。
 
 > 在项目内首次使用请执行该项目的初始化（`/yy-flow start`）。
-### 2. 在 Agent 对话中初始化
-
-在 AI 编程终端中输入快捷指令或自然语言口令：
-> 💬 `/yy-flow start` 或 *“帮我初始化这个项目的研发流”*
 
 ---
 
@@ -99,8 +99,6 @@ python3 scripts/start_kanban_server.py
 
 ---
 
----
-
 ## 🔐 安全边界（Security Boundary）
 
 - **本看板与 CLI 引擎面向个人 / 团队内网环境设计，请勿将服务端口直接暴露到公网**。看板默认绑定 `0.0.0.0` 并在控制台打印局域网协作链接；如需跨互联网协作，请自行置于 VPN 或反向代理 + 认证之后。
@@ -119,7 +117,7 @@ python3 scripts/start_kanban_server.py
 ├── agents/                  # 8 大专家角色 YAML 定义
 ├── kanban/                  # 离线与 Web 可视化看板（HTML/JS/CSS）
 ├── references/              # 6 大核心规范（路由/流转/防错/Git/文档/交接）
-├── tests/                   # 266 项全正交自动化测试套件
+├── tests/                   # 313 项自动化测试套件
 └── scripts/                 # 流转/门禁/巡检/看板服务 CLI 引擎
 
 # 初始化后在目标项目生成：

@@ -1538,6 +1538,9 @@
                 const field = cb.getAttribute('data-field');
                 if (field) cardFieldConfig[field] = cb.checked;
             });
+            if (typeof saveLocalDeviceViewPreferences === 'function') {
+                saveLocalDeviceViewPreferences(undefined, undefined, cardFieldConfig);
+            }
             if (typeof apiSaveBoardMeta === 'function') {
                 apiSaveBoardMeta({ card_field_config: cardFieldConfig });
             }
@@ -1546,6 +1549,9 @@
 
         function setAllCardFields(checked) {
             BOARD_FIELDS.forEach(f => { cardFieldConfig[f.key] = checked; });
+            if (typeof saveLocalDeviceViewPreferences === 'function') {
+                saveLocalDeviceViewPreferences(undefined, undefined, cardFieldConfig);
+            }
             if (typeof apiSaveBoardMeta === 'function') {
                 apiSaveBoardMeta({ card_field_config: cardFieldConfig });
             }
