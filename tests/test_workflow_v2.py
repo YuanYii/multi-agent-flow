@@ -27,8 +27,17 @@ def env(tmp_path):
     """每用例独立临时看板 + 配置。"""
     board = tmp_path / "board.json"
     cfg = tmp_path / "workflow.config.yaml"
-    with open(os.path.join(REPO_ROOT, "config", "workflow.config.yaml"), encoding="utf-8") as f:
-        base = yaml.safe_load(f)
+    # CI 环境无本地实例配置（gitignored），回退到模板为基底（local 模式下
+    # fields 映射不参与逻辑，模板值与本地实例配置功能等价）；两边都缺失才报错。
+    base = None
+    for candidate in ("workflow.config.yaml", "workflow.config.template.yaml"):
+        p = os.path.join(REPO_ROOT, "config", candidate)
+        if os.path.exists(p):
+            with open(p, encoding="utf-8") as f:
+                base = yaml.safe_load(f)
+            break
+    if base is None:
+        raise FileNotFoundError("config/workflow.config.yaml 与模板均不存在")
     base["board"]["board_file"] = str(board)
     cfg.write_text(yaml.safe_dump(base, allow_unicode=True, sort_keys=False), encoding="utf-8")
     return {"board": board, "cfg": cfg, "tmp": tmp_path}
