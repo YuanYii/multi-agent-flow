@@ -403,6 +403,32 @@ class TestApiMutation:
         assert s == 400
         assert r["code"] == 400
 
+    def test_23b_post_srp_composite_task_400(self, server):
+        """用例 23b: POST 复合大卡触发单一职责校验拦截 → 400"""
+        _seed_cards(server, [])
+        s, r = _api(server, "POST", "/api/tasks", {
+            "name": "编写架构方案并开发前后端页面",
+            "assignee": "李开发",
+            "type": "A"
+        })
+        assert s == 400
+        assert r["code"] == 400
+        assert r["data"]["error_type"] == "COMPOSITE_TASK_VIOLATION"
+        assert len(r["data"]["suggested_splits"]) >= 1
+
+    def test_23c_post_srp_force_bypass_200(self, server):
+        """用例 23c: POST 携带 force=true 绕过单一职责校验 → 200"""
+        _seed_cards(server, [])
+        s, r = _api(server, "POST", "/api/tasks", {
+            "name": "编写架构方案并开发前后端页面",
+            "assignee": "李开发",
+            "type": "A",
+            "force": True
+        })
+        assert s == 200
+        assert r["code"] == 200
+        assert r["data"]["id"] == "T0001"
+
     def test_24_put_update_task(self, server):
         """用例 24: PUT 更新单条任务字段"""
         _seed_cards(server, [_mk_card("T0001", "原名称", "待开始")])

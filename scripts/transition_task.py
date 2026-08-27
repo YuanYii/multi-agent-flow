@@ -23,6 +23,7 @@ from _lib.audit.audit_logger import record_audit_event
 from _lib.core.file_lock import acquire_lock, release_lock, remove_lock_file_if_free, LockBusyError
 from _lib.core.step_summary import generate_step_summary
 from _lib.core.task_spec import resolve_default_stage_wp_wbs
+from _lib.core.task_linter import lint_task_single_responsibility
 from _lib.boards.offline_board_adapter import get_current_os_user
 from enums import normalize_role, ROLE_NORMALIZE_MAP
 import paths
@@ -286,6 +287,29 @@ def transition_task_pipeline(
                 logger.error("[FAILED]  [建卡拦截] --create 模式必须提供 --task-name！", extra=extra_log)
                 record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, "建卡缺失任务名", delegated_by=delegated_by, delegation_reason=delegation_reason)
                 return False
+
+            # 单一任务原则 (SRP) 前置校验：拦截跨领域混合、并列复合动作、任务类型与角色不匹配等复合大卡
+            srp_ok, srp_vtype, srp_reasons, srp_splits = lint_task_single_responsibility(
+                name=task_name,
+                task_type=task_type or "A",
+                assignee=effective_assignee,
+                est_hours=est_hours or 0.0
+            )
+            if not srp_ok:
+                if not force:
+                    logger.error(f"[FAILED]  [单一任务原则拦截] 任务卡 [{task_name}] 违反单一职责规范 ({srp_vtype})！", extra=extra_log)
+                    for r in srp_reasons:
+                        logger.error(f"  ❌ 原因: {r}", extra=extra_log)
+                    if srp_splits:
+                        logger.info("  💡 推荐原子任务拆解清单:", extra=extra_log)
+                        for s in srp_splits:
+                            logger.info(f"     ➔ {s}", extra=extra_log)
+                    logger.info("  👉 如确需特殊情况强制建卡，请追加 --force 参数重跑。", extra=extra_log)
+                    record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, f"单一任务校验拦截: {'; '.join(srp_reasons)}", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                    return False
+                else:
+                    logger.warning(f"[WARN]  [单一任务原则覆盖] 用户确认强制创建（--force），忽略 {len(srp_reasons)} 条单一职责告警: {'; '.join(srp_reasons)}", extra=extra_log)
+
             # 重复任务校验：命中时输出重复内容并终止命令（无弹窗），用户决策后以 --force 重跑
             if not no_dup_check:
                 dup_hits = check_duplicate_tasks(adapter, task_name, dup_cfg, exclude_task_id=task_id)

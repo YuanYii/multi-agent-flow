@@ -39,7 +39,7 @@ def main():
     p_create.add_argument("--est-hours", type=float, default=0.0, help="预估工时 (小时)")
     p_create.add_argument("--pretask", default=None, help="前置依赖任务编号 (如 T0001)")
     p_create.add_argument("--start-time", default=None, help="开始时间 (格式 YYYY-MM-DD HH:MM:SS)")
-    p_create.add_argument("--force", action="store_true", help="重复任务校验命中时强制创建")
+    p_create.add_argument("--force", action="store_true", help="强制创建任务（跳过单一职责拦截与重复校验）")
     p_create.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
     p_accept = sub.add_parser("accept", help="人类用户专属验收命令（将已完成推进至已验收）")

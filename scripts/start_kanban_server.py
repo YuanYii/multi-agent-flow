@@ -31,6 +31,7 @@ KANBAN_DIR = os.path.join(SKILL_ROOT, "kanban")
 sys.path.insert(0, SCRIPT_DIR)
 from _lib.core.step_summary import generate_step_summary
 from _lib.core.task_spec import resolve_default_stage_wp_wbs
+from _lib.core.task_linter import lint_task_single_responsibility
 from enums import ROLE_NORMALIZE_MAP as ROLE_NAME_MAP, normalize_role as _normalize_role_cn
 
 DEFAULT_PORT = 32886
@@ -1042,6 +1043,32 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             if not name:
                 self._send_json_resp(400, "任务名称 (name) 不能为空", None, http_status=400)
                 return
+
+            # 单一任务原则 (SRP) 校验：拦截复合任务与大杂烩卡片
+            if not body_data.get("force", False):
+                assignee_input = normalize_role_name(body_data.get("assignee")) or "李开发"
+                task_type_input = str(body_data.get("type") or body_data.get("task_type") or "A").strip()
+                raw_est = body_data.get("est_hours", 0)
+                est_h = (_parse_duration_seconds(raw_est) / 3600.0) if raw_est else 0.0
+                srp_ok, srp_vtype, srp_reasons, srp_splits = lint_task_single_responsibility(
+                    name=name,
+                    task_type=task_type_input,
+                    assignee=assignee_input,
+                    est_hours=est_h
+                )
+                if not srp_ok:
+                    self._send_json_resp(
+                        400,
+                        f"任务创建失败：违反单一任务原则 ({srp_reasons[0]})",
+                        {
+                            "error_type": "COMPOSITE_TASK_VIOLATION",
+                            "violation_type": srp_vtype,
+                            "reasons": srp_reasons,
+                            "suggested_splits": srp_splits
+                        },
+                        http_status=400
+                    )
+                    return
 
             def _mutate_create(cards):
                 req_id = str(body_data.get("id", "")).strip()

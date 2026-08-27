@@ -1840,9 +1840,82 @@
                 if (wrap && typeof syncUiSelectLabel === 'function') syncUiSelectLabel(wrap);
             }
 
+            const hintEl = document.getElementById('new-name-hint');
+            if (hintEl) {
+                hintEl.style.display = 'none';
+                hintEl.innerHTML = '';
+            }
+
             document.getElementById('add-modal').classList.add('show');
             setTimeout(() => { const el = document.getElementById('new-name'); if (el) el.focus(); }, 50);
         }
+
+        // 前端单一任务原则 (SRP) 轻量实时预检
+        function lintTaskNameFrontend(name) {
+            if (!name || !name.trim()) return { isValid: true, reason: '' };
+            const clean = name.trim();
+            if (clean.toUpperCase().startsWith('[HOTFIX]') || clean.toUpperCase().startsWith('[BUGFIX]') || clean.toUpperCase().startsWith('[EMERGENCY]')) {
+                return { isValid: true, reason: '' };
+            }
+            // 1. 复合动作连词检测
+            const conjRegex = /(并且|以及|同时|并|顺便|且)(?:开发|实现|完成|编写|设计|部署|测试|优化|配置|接入|上线|重构|集成|修复)/i;
+            const m = clean.match(conjRegex);
+            if (m) {
+                return {
+                    isValid: false,
+                    reason: `检测到复合并列动作 [${m[0]}]。单一职责原则建议将复合目标拆分为独立原子卡片。`
+                };
+            }
+            // 2. 跨正交领域检测
+            const safePhrases = ['筛选与排序', '筛选和排序', '增删改查', '导入和导出', '登录与登出', '启用与禁用', '前后端组件化', '前后端协作'];
+            let sanitized = clean.toLowerCase();
+            safePhrases.forEach(sp => { sanitized = sanitized.replace(sp.toLowerCase(), ''); });
+
+            const domains = {
+                '架构': ['adr', '架构', '选型', '方案设计'],
+                '后端': ['sql', '接口', 'api', 'orm', '数据库', 'rbac', '后端'],
+                '前端': ['组件', '弹窗', 'vue', 'react', '页面', 'ui', 'css', '样式', 'hook', '前端'],
+                '测试': ['压测', 'e2e', '自动化测试', '回归用例', '性能测试'],
+                '运维': ['nginx', 'docker', 'k8s', 'ci/cd', '部署', '流水线'],
+                '文档': ['用户手册', '开发文档', '接口文档', 'readme', '操作指引']
+            };
+            const matched = [];
+            for (const [dName, kws] of Object.entries(domains)) {
+                if (kws.some(kw => sanitized.includes(kw))) {
+                    matched.push(dName);
+                }
+            }
+            if (matched.length >= 2) {
+                return {
+                    isValid: false,
+                    reason: `当前任务涉及多个正交领域 [${matched.join(' + ')}]。建议由不同专职角色独立建卡承接。`
+                };
+            }
+            return { isValid: true, reason: '' };
+        }
+
+        let newNameDebounceTimer = null;
+        document.addEventListener('DOMContentLoaded', () => {
+            const newNameInput = document.getElementById('new-name');
+            if (newNameInput) {
+                newNameInput.addEventListener('input', (e) => {
+                    if (newNameDebounceTimer) clearTimeout(newNameDebounceTimer);
+                    newNameDebounceTimer = setTimeout(() => {
+                        const hintEl = document.getElementById('new-name-hint');
+                        if (!hintEl) return;
+                        const res = lintTaskNameFrontend(e.target.value);
+                        if (!res.isValid) {
+                            hintEl.style.display = 'block';
+                            hintEl.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px; margin-right:4px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><strong>单一职责提示:</strong> ${res.reason}`;
+                        } else {
+                            hintEl.style.display = 'none';
+                            hintEl.innerHTML = '';
+                        }
+                    }, 250);
+                });
+            }
+        });
+
         function closeAddModal() {
             document.getElementById('add-modal').classList.remove('show');
         }

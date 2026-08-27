@@ -2,4 +2,4 @@
 # 安装: python3 -m pip install -r requirements-dev.txt
 
 -r requirements.txt
-pytest>=8.0         # 单元测试套件（tests/，313 用例）
+pytest>=8.0         # 单元测试套件（tests/，349 用例）

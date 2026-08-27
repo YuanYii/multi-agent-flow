@@ -117,7 +117,7 @@ python3 scripts/start_kanban_server.py
 ├── agents/                  # 8 大专家角色 YAML 定义
 ├── kanban/                  # 离线与 Web 可视化看板（HTML/JS/CSS）
 ├── references/              # 6 大核心规范（路由/流转/防错/Git/文档/交接）
-├── tests/                   # 313 项自动化测试套件
+├── tests/                   # 349 项自动化测试套件
 └── scripts/                 # 流转/门禁/巡检/看板服务 CLI 引擎
 
 # 初始化后在目标项目生成：
