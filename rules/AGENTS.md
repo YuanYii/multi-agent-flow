@@ -25,8 +25,6 @@
 - `/yy-flow kanban` -> 后台启动 `start_kanban_server.py`（默认不带 `--port`，自动探测/复用），展示 Web 看板访问链接与大盘；
 - `/yy-flow sync-pr` -> 运行 `sync_pr_status.py` 扫描【已阻塞】任务卡，检测 GitHub PR Merged 自动推进至【已完成】并唤起 PM 验收；
 - `/yy-flow auto <需求>` -> 端到端全自动多专家研发流水线：由主 Agent / PM 严经理串行调度多专家子代理（`flow-dev` ➔ `flow-reviewer` ➔ `flow-qa`）完成实体代码开发与测试，到达【已完成】主动停机交付（严禁 Agent 代签验收；最多允许打回自愈 2 轮；代码保留在工作区，严禁擅自 git commit）；
-- `/yy-flow test-pipeline` -> 运行 `auto_task.py` 执行底层看板状态机与管道冒烟测试。
-
 > [!IMPORTANT]
 > **跨平台 Python 解释器执行红线**：AI Agent 在调用 `run_command` 执行任何工作流 CLI 脚本时，必须根据宿主操作系统自适应前缀：**Linux/macOS 使用 `python3`，Windows 环境必须使用 `python`**，严禁硬编码导致命令找不到。
 >

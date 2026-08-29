@@ -61,14 +61,6 @@ HELP_MANUAL = {
             "script": "scripts/auto_task.py --task \"<需求>\"",
             "typical_usage": "/yy-flow auto \"实现用户登录与鉴权接口\""
         },
-        {
-            "command": "/yy-flow test-pipeline",
-            "aliases": ["/yy-flow smoke"],
-            "title": "底层管道冒烟测试",
-            "description": "通过生成临时测试任务卡，全流程遍历状态机节点并强制校验门禁逻辑，确保工具链环境健康。",
-            "script": "pytest scripts/test_pipeline.py",
-            "typical_usage": "/yy-flow test-pipeline"
-        }
     ],
     "experts": [
         {"role": "PM", "name": "严经理", "title": "项目经理", "duties": "WBS 维护、任务分级（L0/L1/L2）、并发控制、阶段结项与终态验收"},
