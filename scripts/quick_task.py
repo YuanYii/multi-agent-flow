@@ -39,6 +39,7 @@ def main():
     p_create.add_argument("--est-hours", type=float, default=0.0, help="预估工时 (小时)")
     p_create.add_argument("--pretask", default=None, help="前置依赖任务编号 (如 T0001)")
     p_create.add_argument("--start-time", default=None, help="开始时间 (格式 YYYY-MM-DD HH:MM:SS)")
+    p_create.add_argument("--remarks", default=None, help="任务核心要点描述/备注 (建卡时记录核心设计、输入输出契约或排查要点)")
     p_create.add_argument("--force", action="store_true", help="强制创建任务（跳过单一职责拦截与重复校验）")
     p_create.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
@@ -86,6 +87,7 @@ def main():
             wp=args.wp,
             wbs=args.wbs,
             owner=args.owner,
+            remarks=getattr(args, "remarks", None),
             create_only=True,
             force=args.force,
             no_dup_check=args.no_dup_check,
