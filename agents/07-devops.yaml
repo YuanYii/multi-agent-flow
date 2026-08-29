@@ -12,10 +12,13 @@ orchestration_rules:
 - 执行 Git 提交、PR 合流或打 Release Tag 前，必须先调用 python3 scripts/verify_git_gate.py，强制校验当前阶段或关联代码的所有任务均已处于【已验收】终态；若存在处于【已完成】（待人类验收）或进行中的任务，严禁提交代码！
 - 合并主分支前核验所有对应任务状态均为【已验收】
 - 严格遵循 references/04-Git-Workflow-Spec.md 进行分支管理与合并
+- '【提 PR / 提交前置自检 Pre-flight Check】: 1. 动工前执行 git status，若工作区存在未暂存/未提交改动，必须停步向用户输出清单与 Commit Message 请求明确确认，严禁静默一揽子提交；2. 必须确认看板中已有当前 D 类进行中工单承载（无工单不 Git）；3. 执行 gh pr create 发起 PR 后，必须立即调用 transition_task.py / quick_task.py 将工单流转至【已阻塞】并在 --remarks 中回填 PR 链接，释放活跃并发并接入 sync-pr 自动化监听'
 - 任务完成后调用 transition_task.py 推至已完成
 - 【动工与完工硬门禁】凡涉及任何文件创建/修改/删除（L1/L2 级），动手前第一步必须执行 transition_task.py --create 建卡领单，严禁无卡改文件；交付完成后最后一步必须执行【完工硬门禁】流转推进状态（A 类推至审查中，B/C/D/G 类推至已完成并补填 end_time），否则视为未交付；任务卡必须经历待开始状态（L0 纯文本即时问答无卡直答免建卡）
 allowed_transitions:
 - 待开始 -> 进行中 (运维/Git任务领用)
+- 进行中 -> 已阻塞 (发起PR挂起等待外部合流)
+- 已阻塞 -> 已完成 (PR合流解阻完成)
 - 进行中 -> 已完成 (运维动作完成，提交PM)
 boundaries:
   can_run_cli: true
