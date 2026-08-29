@@ -1011,37 +1011,199 @@
     background: rgba(52, 211, 153, 0.15);
   }
 
-  .quick-step-box {
+  .quick-modes-grid {
     margin-top: 36px;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    max-width: 760px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    max-width: 900px;
     margin-left: auto;
     margin-right: auto;
   }
-  .step-item {
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 16px;
-    background: var(--bg-card);
+  /* Quickstart Divider & 3-Column Pipeline Cards */
+  .quick-cards-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 760px;
+    margin: 36px auto 26px auto;
+    position: relative;
   }
-  .step-num {
-    font-family: var(--mono);
-    color: var(--cyan);
+  .quick-cards-divider::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: var(--line);
+  }
+  .quick-cards-divider > span {
+    position: relative;
+    background: var(--bg);
+    padding: 5px 16px;
     font-size: 12px;
-    font-weight: 700;
-    margin-bottom: 6px;
+    font-weight: 600;
+    color: var(--ink-2);
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
-  .step-title {
-    font-size: 14px;
+  :root[data-theme="light"] .quick-cards-divider > span {
+    background: #FFFFFF;
+    border-color: #E2E8F0;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  }
+  .quick-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.25fr;
+    gap: 16px;
+    max-width: 1100px;
+    margin: 0 auto;
+    align-items: stretch;
+  }
+  .quick-step-card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    background: var(--bg-card);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  }
+  :root[data-theme="light"] .quick-step-card {
+    background: #FFFFFF;
+    border-color: rgba(226, 232, 240, 0.9);
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+  }
+  .quick-step-card:hover {
+    border-color: rgba(56, 189, 248, 0.45);
+    box-shadow: 0 8px 24px rgba(56, 189, 248, 0.08);
+  }
+  .quick-step-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .quick-step-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--cyan);
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    padding: 2.5px 8px;
+    border-radius: 5px;
+    letter-spacing: 0.3px;
+  }
+  .quick-step-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    font-weight: 600;
+    opacity: 0.85;
+  }
+  .quick-step-title {
+    font-size: 15px;
     font-weight: 700;
     color: var(--ink);
-    margin-bottom: 4px;
+    line-height: 1.35;
   }
-  .step-desc {
+  .quick-step-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     font-size: 12.5px;
     color: var(--ink-2);
+    line-height: 1.55;
+    flex: 1;
+  }
+  .quick-step-env-box {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  :root[data-theme="light"] .quick-step-env-box {
+    background: #F8FAFC;
+    border-color: #E2E8F0;
+  }
+  .quick-env-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .quick-env-tag {
+    font-size: 10px;
+    font-family: var(--mono);
+    opacity: 0.75;
+    font-weight: 500;
+  }
+  .quick-step-feat {
+    font-size: 11.5px;
+    color: var(--ink-2);
+    opacity: 0.9;
+    line-height: 1.45;
+    padding-top: 1px;
+  }
+  .quick-step-foot-note {
+    font-size: 11.5px;
+    color: var(--ink-2);
+    opacity: 0.75;
+    line-height: 1.45;
+    margin-top: auto;
+    padding-top: 2px;
+  }
+  @media (max-width: 960px) {
+    .quick-cards-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .step-cmd-line {
+    margin: 3px 0 1px 0;
+    display: block;
+  }
+  .step-nl-hl {
+    display: inline-block;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    color: #38BDF8;
+    padding: 3px 7px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.45;
+    word-break: break-all;
+  }
+  .step-nl-hl b {
+    font-weight: 700;
+    color: inherit;
+  }
+  :root[data-theme="light"] .step-nl-hl {
+    background: rgba(2, 132, 199, 0.08);
+    border-color: rgba(2, 132, 199, 0.28);
+    color: #0284C7;
+  }
+  :root[data-theme="light"] .step-nl-hl b {
+    color: #0284C7;
+  }
+  @media (max-width: 820px) {
+    .quick-modes-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   /* ---------- Footer ---------- */
@@ -1244,6 +1406,21 @@
     line-height: 1.6;
   }
   .cmd-nl-callout b { color: var(--cyan); }
+  .cmd-nl-callout .nl-inline {
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    color: var(--cyan);
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  :root[data-theme="light"] .cmd-nl-callout .nl-inline {
+    background: rgba(2, 132, 199, 0.08);
+    border-color: rgba(2, 132, 199, 0.25);
+    color: #0284C7;
+  }
 
   /* ---------- Responsive Queries ---------- */
   @media (max-width: 1080px) {
@@ -1351,8 +1528,8 @@
 
     <!-- Hero Quick Install Snippet -->
     <div class="hero-quick-install">
-      <code><span class="c">npx</span> -y degit YuanYii/multi-agent-flow /tmp/yy-flow-stage &amp;&amp; <span class="c">mkdir</span> -p .yy-flow &amp;&amp; <span class="c">mv</span> /tmp/yy-flow-stage .yy-flow/skill</code>
-      <button class="copy-btn" data-copy="npx -y degit YuanYii/multi-agent-flow /tmp/yy-flow-stage && mkdir -p .yy-flow && mv /tmp/yy-flow-stage .yy-flow/skill" data-i18n="copy">复制</button>
+      <code>帮我安装skill https://github.com/YuanYii/multi-agent-flow</code>
+      <button class="copy-btn" data-copy="帮我安装skill https://github.com/YuanYii/multi-agent-flow" data-i18n="copy">复制</button>
     </div>
 
     <div class="hero-meta">
@@ -1999,7 +2176,7 @@
         <div class="term-nav-tabs">
           <button class="term-tab-btn active" data-tab="degit">npx degit（推荐）</button>
           <button class="term-tab-btn" data-tab="tarball">tarball 纯脚本</button>
-          <button class="term-tab-btn" data-tab="windows">Windows PS</button>
+          <button class="term-tab-btn" data-tab="windows">Windows / 对话安装</button>
           <button class="term-tab-btn" data-tab="kanban">启动本地看板</button>
         </div>
       </div>
@@ -2019,21 +2196,99 @@
       </div>
     </div>
 
-    <div class="quick-step-box">
-      <div class="step-item">
-        <div class="step-num">STEP 01</div>
-        <div class="step-title" data-i18n="step1_h">安装技能包</div>
-        <div class="step-desc" data-i18n="step1_p">通过 degit 或 tarball 将技能包安装至项目的 <code>.yy-flow/skill</code>。</div>
+    <div class="quick-cards-divider">
+      <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span data-i18n="p_divider_label">或在 AI 对话框中三步开启研发流</span></span>
+    </div>
+
+    <div class="quick-cards-grid">
+      <!-- 卡片 01: 安装 -->
+      <div class="quick-step-card">
+        <div class="quick-step-head">
+          <span class="quick-step-badge">STEP 01</span>
+          <span class="quick-step-tag" data-i18n="p_s1_tag">全平台通用</span>
+        </div>
+        <div class="quick-step-title" data-i18n="p_s1_title">自然语言安装技能包</div>
+        <div class="quick-step-body">
+          <div class="quick-step-env-box">
+            <div class="quick-env-title">
+              <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1.5px;margin-right:4px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span data-i18n="p_s1_box_title">AI 对话框直接发送</span></span>
+              <span class="quick-env-tag" data-i18n="p_s1_box_tag">一键挂载</span>
+            </div>
+            <div class="step-cmd-line">
+              <span class="step-nl-hl"><b>帮我安装skill https://github.com/YuanYii/multi-agent-flow</b></span>
+            </div>
+            <div class="quick-step-feat">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1.5px;margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span data-i18n="p_s1_feat">自动挂载技能包与 8 位专属 AI 专家能力</span>
+            </div>
+          </div>
+          <div class="quick-step-foot-note" data-i18n="p_s1_foot">适用于 Antigravity CLI、Claude Code、Codex、Cursor 等任意环境。</div>
+        </div>
       </div>
-      <div class="step-item">
-        <div class="step-num">STEP 02</div>
-        <div class="step-title" data-i18n="step2_h">Agent 初始化与架构扫描</div>
-        <div class="step-desc" data-i18n="step2_p">在 AI 对话中输入 <code>/yy-flow start</code>，自动扫描代码库技术架构，并将项目技术栈动态注入 8 大专家 Subagent。</div>
+
+      <!-- 卡片 02: 初始化 -->
+      <div class="quick-step-card">
+        <div class="quick-step-head">
+          <span class="quick-step-badge">STEP 02</span>
+          <span class="quick-step-tag" data-i18n="p_s2_tag">纯自然语言</span>
+        </div>
+        <div class="quick-step-title" data-i18n="p_s2_title">架构扫描与初始化</div>
+        <div class="quick-step-body">
+          <div class="quick-step-env-box">
+            <div class="quick-env-title">
+              <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1.5px;margin-right:4px;"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><span data-i18n="p_s2_box_title">发送初始化口令</span></span>
+              <span class="quick-env-tag" data-i18n="p_s2_box_tag">架构嗅探</span>
+            </div>
+            <div class="step-cmd-line">
+              <span class="step-nl-hl"><b>初始化yy-flow</b></span>
+            </div>
+            <div class="quick-step-feat">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1.5px;margin-right:4px;"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg><span data-i18n="p_s2_feat">自动遍历项目架构依赖，自适应注入技术栈</span>
+            </div>
+          </div>
+          <div class="quick-step-foot-note">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1.5px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span data-i18n="p_s2_foot">此时技能尚未加载生效，全平台均使用纯自然语言口令。</span>
+          </div>
+        </div>
       </div>
-      <div class="step-item">
-        <div class="step-num">STEP 03</div>
-        <div class="step-title" data-i18n="step3_h">开始敏捷研发</div>
-        <div class="step-desc" data-i18n="step3_p">使用自然语言对话，让 8 位专家自主协同推进任务与阶段交付。</div>
+
+      <!-- 卡片 03: 区分环境协同 -->
+      <div class="quick-step-card">
+        <div class="quick-step-head">
+          <span class="quick-step-badge">STEP 03</span>
+          <span class="quick-step-tag" data-i18n="p_s3_tag">按环境分流</span>
+        </div>
+        <div class="quick-step-title" data-i18n="p_s3_title">研发协同与生效机制</div>
+        <div class="quick-step-body">
+          <!-- CLI 终端 -->
+          <div class="quick-step-env-box">
+            <div class="quick-env-title">
+              <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1.5px;margin-right:4px;"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><span>CLI 终端 Agent</span></span>
+              <span class="quick-env-tag">Claude Code / Codex / Zcode</span>
+            </div>
+            <div style="color:var(--amber);font-weight:700;font-size:11px;display:flex;align-items:center;gap:4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span data-i18n="p_s3_cli_warn">必须重启 CLI 进程生效拓扑</span>
+            </div>
+            <div class="step-cmd-line">
+              <span class="step-nl-hl" style="font-size:11px;"><b>/yy-flow 启动看板</b></span> <span style="font-size:10px;opacity:0.65;font-family:var(--sans);">或自然语言</span>
+            </div>
+          </div>
+
+          <!-- 桌面端 IDE -->
+          <div class="quick-step-env-box">
+            <div class="quick-env-title">
+              <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1.5px;margin-right:4px;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span>桌面端 IDE Agent</span></span>
+              <span class="quick-env-tag">Cursor / AutoClaw / WorkBuddy</span>
+            </div>
+            <div style="color:var(--emerald);font-weight:700;font-size:11px;display:flex;align-items:center;gap:4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span data-i18n="p_s3_ide_ready">免重启 · 即刻开始敏捷研发</span>
+            </div>
+            <div class="step-cmd-line">
+              <span class="step-nl-hl" style="font-size:11px;"><b>使用yy-flow 帮我开始做这个需求并拆解任务</b></span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -2096,8 +2351,8 @@ const TERMINAL_TABS = {
     copy: `mkdir -p .yy-flow/skill && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/main.tar.gz | tar xz -C .yy-flow/skill --strip-components=1`
   },
   windows: {
-    code: `<span class="m"># Windows PowerShell 安装</span><br><span class="c">git clone</span> https://github.com/YuanYii/multi-agent-flow.git .yy-flow\\skill<br><span class="c">powershell</span> -ExecutionPolicy Bypass -File .yy-flow\\skill\\scripts\\init_skill.ps1`,
-    copy: `git clone https://github.com/YuanYii/multi-agent-flow.git .yy-flow\\skill\npowershell -ExecutionPolicy Bypass -File .yy-flow\\skill\\scripts\\init_skill.ps1`
+    code: `<span class="m"># 对话框直接输入（全平台 / Windows 推荐）</span><br><span class="c">帮我安装skill</span> https://github.com/YuanYii/multi-agent-flow`,
+    copy: `帮我安装skill https://github.com/YuanYii/multi-agent-flow`
   },
   kanban: {
     code: `<span class="m"># 启动本地实时可视化看板 Web 服务（跨平台自动探测）</span><br><span class="c">python3</span> scripts/start_kanban_server.py <span class="m"># Windows 请使用 python</span><br><br><span class="m"># 控制台输出访问链接（默认 http://127.0.0.1:32886）</span>`,
@@ -2204,9 +2459,23 @@ const I18N = {
     inst_tag: 'GET STARTED', inst_hd: '一行命令，立即装入项目',
     inst_sub: '适用于 Antigravity CLI、Codex、Claude Code、Cursor 等任意支持 Skill 规约的 AI 编程环境。',
     copy: '复制', copied: '已复制 ✓',
-    step1_h: '安装技能包', step1_p: '通过 degit 或 tarball 将技能包安装至项目的 .yy-flow/skill。',
-    step2_h: 'Agent 初始化与架构扫描', step2_p: '在 AI 对话中输入 /yy-flow start，自动扫描代码库技术架构，并将项目技术栈动态注入 8 大专家 Subagent。',
-    step3_h: '开始敏捷研发', step3_p: '使用自然语言对话，让 8 位专家自主协同推进任务与阶段交付。',
+    p_divider_label: '或在 AI 对话框中三步开启研发流',
+    p_s1_tag: '全平台通用',
+    p_s1_title: '自然语言安装技能包',
+    p_s1_box_title: 'AI 对话框直接发送',
+    p_s1_box_tag: '一键挂载',
+    p_s1_feat: '自动挂载技能包与 8 位专属 AI 专家能力',
+    p_s1_foot: '适用于 Antigravity CLI、Claude Code、Codex、Cursor 等任意环境。',
+    p_s2_tag: '纯自然语言',
+    p_s2_title: '架构扫描与初始化',
+    p_s2_box_title: '发送初始化口令',
+    p_s2_box_tag: '架构嗅探',
+    p_s2_feat: '自动遍历项目架构依赖，自适应注入技术栈',
+    p_s2_foot: '此时技能尚未加载生效，全平台均使用纯自然语言口令。',
+    p_s3_tag: '按环境分流',
+    p_s3_title: '研发协同与生效机制',
+    p_s3_cli_warn: '必须重启 CLI 进程生效拓扑',
+    p_s3_ide_ready: '免重启 · 即刻开始敏捷研发',
     footer_desc: '· MIT Licensed · AI 专家协同与团队敏捷研发工作流', footer_doc: '技术文档'
   },
   en: {
@@ -2307,9 +2576,23 @@ const I18N = {
     inst_tag: 'GET STARTED', inst_hd: 'Install in One Command',
     inst_sub: 'Works seamlessly with Antigravity CLI, Codex, Claude Code, Cursor, or any Skill-compatible agent.',
     copy: 'Copy', copied: 'Copied ✓',
-    step1_h: 'Install Skill', step1_p: 'Download skill package into your project root at .yy-flow/skill.',
-    step2_h: 'Agent Setup & Tech Scan', step2_p: 'Type /yy-flow start in agent chat to trigger 7-step setup, scanning tech architecture and injecting into subagents.',
-    step3_h: 'Agile Engineering', step3_p: 'Collaborate with your 8-agent crew using natural language prompts.',
+    p_divider_label: 'Or start workflow in 3 steps via AI chat',
+    p_s1_tag: 'Universal',
+    p_s1_title: 'Natural Language Install',
+    p_s1_box_title: 'Send Prompt in AI Chat',
+    p_s1_box_tag: 'Auto Mount',
+    p_s1_feat: 'Auto-clones skill package and registers 8 AI specialists',
+    p_s1_foot: 'Works across Antigravity CLI, Claude Code, Codex, Cursor, etc.',
+    p_s2_tag: 'Natural Language',
+    p_s2_title: 'Architecture Scan & Setup',
+    p_s2_box_title: 'Send Setup Prompt',
+    p_s2_box_tag: 'Tech Sniff',
+    p_s2_feat: 'Inspects dependencies and overlays custom stack onto 8 agents',
+    p_s2_foot: 'Use natural language prompt as skill is not yet loaded.',
+    p_s3_tag: 'By Environment',
+    p_s3_title: 'Agile Engineering & Reload',
+    p_s3_cli_warn: 'Must restart CLI session to load',
+    p_s3_ide_ready: 'Ready immediately without restart',
     footer_desc: '· MIT Licensed · AI Crew Orchestration & Team Agile Workflow', footer_doc: 'Documentation'
   }
 };

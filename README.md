@@ -21,7 +21,7 @@
 - 👥 **8 位专属 AI 专家矩阵**：严经理 (PM)、钱架构 (架构师)、李开发 (后端)、马前端 (前端)、周审查 (审查员)、章测试 (测试)、李文通 (文档)、吕改特 (运维)，开箱自动扫描项目技术栈并自适应注入。
 - 🛡️ **十大协同红线与五层防错门禁**：代码级 Fail-Closed 拦截越权操作；阶段开工核验清洁度，阶段结项强制输出架构技术总结（ADR）与敏捷复盘总结；工作区存在未验收代码时物理阻断 `git commit`。
 - 🎯 **统一入口网关与 L0–L2 智能分流**：控制台指令直通底层运维，业务需求经分级三问网关前置判定（L0即时问答直出、L1短链交付、L2全流程制衡）；全自动流水线支持 A–G 全类型链断点续跑。
-- 🔌 **项目级强关联与多 Agent 终端适配**：数据完全私有落盘于 `.yy-flow/` 目录随 Git 流转，原生兼容 Google Antigravity、Claude Code、Cursor、OpenAI Codex 及阿里千问办公等主流终端。
+- 🔌 **项目级强关联与多 Agent 终端适配**：数据完全私有落盘于 `.yy-flow/` 目录随 Git 流转，原生兼容 Google Antigravity、Claude Code、Cursor、OpenAI Codex、OpenCode、ZCode 等主流终端与 IDE。
 
 👉 **完整特性演示与交互体验请访问**：[https://yuanyii.github.io/multi-agent-flow/](https://yuanyii.github.io/multi-agent-flow/)
 
@@ -29,7 +29,37 @@
 
 ## 🚀 快速开始
 
-### 1. 一行命令安装到项目
+无论使用哪种 AI 环境，均支持**在 AI 对话框中直接输入自然语言三步完成挂载与启动**：
+
+### 🛠️ 三步极简流水线
+
+```text
+┌──────────────────────────────┬──────────────────────────────┬────────────────────────────────┐
+│ STEP 01 · 全平台通用         │ STEP 02 · 纯自然语言         │ STEP 03 · 按环境分流           │
+│ 自然语言安装技能包           │ 架构扫描与初始化             │ 研发协同与生效机制             │
+├──────────────────────────────┼──────────────────────────────┼────────────────────────────────┤
+│ 💬 AI 对话框直接发送：       │ 💬 发送初始化口令：          │ 💻 CLI 终端 Agent (Claude/...) │
+│ 帮我安装skill https://...    │ 初始化yy-flow                │ ⚠️ 重启 CLI 进程 ➔ /yy-flow ...│
+│                              │                              ├────────────────────────────────┤
+│ 📦 自动挂载 8 位专属 AI 专家 │ 🧠 自动嗅探依赖并注入技术栈  │ 🖥️ 桌面端 IDE Agent (Cursor...)│
+│ 适用于全平台 AI 编程环境     │ 💡 技能生效前统一走自然语言  │ ✅ 免重启 ➔ 使用yy-flow 开始...│
+└──────────────────────────────┴──────────────────────────────┴────────────────────────────────┘
+```
+
+### 两种使用模式指引
+
+YY-Flow 适配 **CLI 终端 Agent** 与 **桌面端 IDE Agent** 两种交互场景：
+
+| 流程环节 | 模式 1：CLI 终端 Agent<br>*(Claude Code / Codex / Zcode / OpenCode 等)* | 模式 2：桌面端 IDE Agent<br>*(Cursor / AutoClaw / WorkBuddy 等)* |
+| :--- | :--- | :--- |
+| **STEP 01 技能安装** | 对话输入：`帮我安装skill https://github.com/YuanYii/multi-agent-flow` | 对话输入：`帮我安装skill https://github.com/YuanYii/multi-agent-flow` |
+| **STEP 02 架构初始化** | 对话输入：`初始化yy-flow`<br>*(未生效前全平台统一使用纯自然语言口令)* | 对话输入：`初始化yy-flow`<br>*(未生效前全平台统一使用纯自然语言口令)* |
+| **STEP 03 生效机制** | ⚠️ **需重启 CLI 进程生效拓扑**<br>*(CLI 启动时加载技能拓扑，重启后即可完成 8 位专家挂载)* | ✅ **免重启 · 即刻开始敏捷研发**<br>*(桌面端 IDE 能够热重载工作区内的 `.yy-flow` 与专家规则)* |
+| **STEP 04 研发协同** | **双通道支持**：<br>• 斜杠指令：`/yy-flow status`、`/yy-flow 启动看板`、`/yy-flow help`<br>• 自然语言：`使用yy-flow，启动看板`、`使用yy-flow 帮我开始做这个需求并拆解任务` | **纯自然语言直接驱动**：<br>直接在对话框中沟通推进（无 `/yy-flow` 斜杠指令）：<br>• `使用yy-flow 帮我开始做这个需求并拆解任务`<br>• `使用yy-flow，启动看板` |
+
+---
+
+### 命令行脚本安装备选（针对无自然语言安装能力的终端）
 
 ```bash
 cd /path/to/your-project
@@ -39,20 +69,11 @@ npx -y degit YuanYii/multi-agent-flow /tmp/yy-flow-stage && mkdir -p .yy-flow &&
 
 # 方式 B: tarball 脚本安装（免 Node 环境）
 mkdir -p .yy-flow/skill && curl -L https://github.com/YuanYii/multi-agent-flow/archive/refs/heads/main.tar.gz | tar xz -C .yy-flow/skill --strip-components=1
-
-# 方式 C: Windows PowerShell 安装
-git clone https://github.com/YuanYii/multi-agent-flow.git .yy-flow\skill
-powershell -ExecutionPolicy Bypass -File .yy-flow\skill\scripts\init_skill.ps1
 ```
 
 > 💡 **依赖说明**：核心引擎优先使用 Python 标准库实现，运行时仅依赖 PyYAML 与 python-docx 两项：`python3 -m pip install -r requirements.txt`（本地跑测试再加装 `requirements-dev.txt`）。`init_skill.sh` 已内置依赖自检，检测到缺失时会尽力自动补装。
 
-### 2. 在 Agent 对话中初始化
-
-在 AI 编程终端中输入快捷指令或自然语言口令：
-> 💬 `/yy-flow start` 或 *“帮我初始化这个项目的研发流”*
-
-### 3. 多项目共享安装（全局部署）
+### 多项目共享安装（全局部署）
 
 在同时维护多个项目、不希望每个项目都复制一份 Skill 代码时，使用全局共享安装器（Linux/macOS: `install_global.sh`，Windows: `install_global.ps1`）：
 
@@ -67,7 +88,7 @@ powershell -ExecutionPolicy Bypass -File .yy-flow\skill\scripts\init_skill.ps1
 - **跨平台挂载**：`verify_and_export_agents.py --global` 自动探测 8 大主流宿主（Antigravity / Claude Code / Cursor / OpenCode / ZCode / Pi / Universal / Codex）并挂载用户级技能与子代理；
 - **数据隔离**：共享安装下每个项目的运行数据（`user_data/`、锁、审计）仍独立落在各自项目根（解析链：`--project-root` > `YY_FLOW_PROJECT_ROOT` > `.yy-flow` 自定位 > legacy > CWD），`docs/` 恒定锚定项目根随 Git 流转。
 
-> 在项目内首次使用请执行该项目的初始化（`/yy-flow start`）。
+> 在项目内首次使用请执行该项目的初始化（对话输入 `初始化yy-flow`）。
 
 ---
 
@@ -76,11 +97,11 @@ powershell -ExecutionPolicy Bypass -File .yy-flow\skill\scripts\init_skill.ps1
 | 快捷指令 | 自然语言口令示例 | 核心功能 |
 | :--- | :--- | :--- |
 | **`/yy-flow help`** | “查看工作流使用帮助” 或 “yy-flow有哪些命令” | 查看全景指令帮助手册、8 大专家职责与协同流转规范 |
-| **`/yy-flow start`** | “帮我初始化这个项目的研发流” | 执行 7 步标准初始化：凭据扫描、架构嗅探、专家注入与 PM 编排 |
+| **`/yy-flow start`** | “初始化yy-flow” 或 “帮我初始化这个项目的研发流” | 执行 7 步标准初始化：凭据扫描、架构嗅探、专家注入与 PM 编排 |
 | **`/yy-flow status`** | “看下项目进度与巡检大盘” | 一键输出项目总体进度、Lead Time 交付周期与风险告警 |
-| **`/yy-flow kanban`** | “启动看板” 或 “打开协作大盘” | 启动本地/局域网可视化看板（默认 32886 端口），输出主控与协作链接 |
+| **`/yy-flow kanban`** | “使用yy-flow，启动看板” 或 “启动看板” | 启动本地/局域网可视化看板（默认 32886 端口），输出主控与协作链接 |
 | **`/yy-flow sync-pr`** | “检查 PR 状态解阻任务” | 监听 GitHub PR Merged 状态，自动推进至【已完成】并提请验收 |
-| **`/yy-flow auto`** | “把任务 T0001 全自动跑完” | 全自动执行完整生命周期至【已完成】并提请人类核验验收 |
+| **`/yy-flow auto`** | “使用yy-flow 帮我开始做这个需求并拆解任务” | 全自动执行完整生命周期至【已完成】并提请人类核验验收 |
 
 > 💡 **日常协同全走自然语言**：需求拆解、阶段结项、认领、提审、测试打回等均可直接自然语言沟通，专家在后台自主调度底层脚本。
 
