@@ -1,6 +1,6 @@
 ---
 name: yy-flow
-description: 适用于 AI 多 Agent 与人类团队协同研发的多角色状态流转、质量审计、防错闭环与看板自动化工作流技能包。可通过 /yy-flow、/yy-flow start、/yy-flow status、/yy-flow kanban、/yy-flow metrics 快捷指令或自然语言唤醒。
+description: 适用于 AI 多 Agent 与人类团队协同研发的多角色状态流转、质量审计、防错闭环与看板自动化工作流技能包。可通过 /yy-flow help、/yy-flow start、/yy-flow status、/yy-flow kanban 快捷指令或自然语言唤醒。
 version: 1.0.0
 ---
 
@@ -18,7 +18,7 @@ version: 1.0.0
 
 | 分支类型 | 触发特征与指令 | 处理机制与响应契约 | 典型场景 |
 | :--- | :--- | :--- | :--- |
-| **分支 A：系统控制台操作** | `/yy-flow start`<br>`/yy-flow status`<br>`/yy-flow kanban`<br>`/yy-flow sync-pr`<br>`/yy-flow gate` | **直通底层运维引擎**（0 前置分级），直接执行对应脚本并输出系统状态。 | 初始化 SOP、启动看板、大盘巡检、PR 解阻、阶段门禁核验 |
+| **分支 A：系统控制台操作** | `/yy-flow help`<br>`/yy-flow start`<br>`/yy-flow status`<br>`/yy-flow kanban`<br>`/yy-flow sync-pr` | **直通底层运维引擎**（0 前置分级），直接执行对应脚本并输出系统状态。 | 查看帮助手册、初始化 SOP、启动看板、大盘巡检、PR 解阻 |
 | **分支 B：业务研发与交互意图** | 自然语言需求、代码修改、特性开发、缺陷修复、排查排障、`/yy-flow auto` | **强制前置执行【分级三问】**，并在回复首行显式输出分级标识：<br>`【任务分级: L0 即时问答 / L1 短链任务 / L2 标准研发】` | “写个登录接口”、“优化下正则”、“解释函数逻辑” |
 
 ### 2. 业务需求【分级三问】决策流
@@ -51,6 +51,7 @@ version: 1.0.0
 
 | 快捷指令 | 触发行为与职责 | 核心联动 |
 | :--- | :--- | :--- |
+| **`/yy-flow help`** | **全景帮助手册**：输出工作流全量快捷指令矩阵、8 大专家职责定义与协同流转规约速查 | 运行 `show_help.py`，格式化呈现全量指令与流转手册 |
 | **`/yy-flow`** 或 **`/yy-flow start`** | **一键激活工作流**：自动执行初始化 7 步 SOP 并唤起 PM 严经理进行项目鉴定与任务编排 | 运行 `init_skill.sh`，生成 `user_data/` 并导出 8 大专家 |
 | **`/yy-flow status`** | **看板全局大盘与健康巡检**：一键输出项目完成进度、交付周期 Lead Time、专家负荷与风险阻断告警 | 运行 `heartbeat.py`，整合大盘统计、超时滞留与并发告警 |
 | **`/yy-flow kanban`** | **看板 Web 服务就绪**：启动内置可视化看板 HTTP 服务并输出访问链接（默认 32886 端口） | 运行 `start_kanban_server.py`，支持多视图切换与 PR/Issue 徽标渲染 |
@@ -58,7 +59,7 @@ version: 1.0.0
 | **`/yy-flow auto <需求>`** | **全自动多专家研发流水线**：由主 Agent 串行调度多专家子代理（DEV ➔ REVIEWER ➔ QA ➔ PM）进行实体代码开发、审查与测试，在【已完成】主动停机交付（严禁代签验收，最多自愈打回 2 轮；代码保留在本地工作区，严禁擅自 git commit） | 运行 `auto_task.py --task "<需求>"` |
 | **`/yy-flow test-pipeline`** | **底层管道冒烟测试**：通过生成临时测试任务卡，全流程遍历状态机节点（从 0 状态到终态）并强制校验门禁逻辑，确保工具链环境健康 | 运行 `pytest scripts/test_pipeline.py` |
 
-> 💡 **业务流转与协同全走自然语言**：任务拆解建卡、阶段开工（`check_stage_gate.py --action start`）、阶段结项（`check_stage_gate.py --action close`）、认领、提审、测试与打回等日常研发生命周期，直接使用自然语言与 Agent 对话沟通，由对应专家在后台自主调度底层脚本。
+> 💡 **业务流转与协同全走自然语言**：任务拆解建卡、阶段结项、认领、提审、测试与打回等日常研发生命周期，直接使用自然语言与 Agent 对话沟通，由对应专家在后台自主调度底层脚本。
 
 ---
 
