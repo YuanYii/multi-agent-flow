@@ -43,6 +43,10 @@ deployment_and_ci:
     - "stage"
     - "prod"
 
-third_party_integrations:        # 第三方 API 与服务集成
-  - name: "Feishu Base API"
-    purpose: "看板自动化同步与任务管理"
+# third_party_integrations: 第三方 API 与服务集成
+#   默认留空——鉴定阶段按真实代码（grep 集成目录/依赖）逐项填充，避免误导
+#   （例如本项目无飞书 SDK 时不应预填 Feishu Base API）。需要时按如下结构添加：
+# third_party_integrations:
+#   - name: "示例 API"
+#     purpose: "说明用途"
+third_party_integrations: []
