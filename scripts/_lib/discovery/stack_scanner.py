@@ -112,40 +112,59 @@ def scan_project_stack(target_dir: Optional[str] = None) -> Dict[str, Any]:
                     info["testing_frameworks"].append("pytest")
                 if "uvicorn" in content and "Uvicorn" not in info["backend_frameworks"]:
                     info["backend_frameworks"].append("Uvicorn")
+                # 存储/数据库识别（requirements.txt 分支此前缺失，导致仅含 SQLAlchemy 等项目 storage 为空）
+                if ("sqlalchemy" in content or "sqlmodel" in content) and "SQLAlchemy / SQLModel" not in info["storage"]:
+                    info["storage"].append("SQLAlchemy / SQLModel")
+                if "sqlite" in content and "SQLite" not in info["storage"]:
+                    info["storage"].append("SQLite")
+                if ("psycopg" in content or "asyncpg" in content or "postgresql" in content) and "PostgreSQL" not in info["storage"]:
+                    info["storage"].append("PostgreSQL")
+                if ("pymysql" in content or "mysql" in content) and "MySQL" not in info["storage"]:
+                    info["storage"].append("MySQL")
+                if "redis" in content and "Redis" not in info["storage"]:
+                    info["storage"].append("Redis")
+                if ("pymongo" in content or "mongodb" in content) and "MongoDB" not in info["storage"]:
+                    info["storage"].append("MongoDB")
         except Exception:
             pass
 
     # 4. 探测 package.json (Node/前端技术栈)
+    #    聚合根与子目录全部命中文件，避免 monorepo 根壳 package.json（仅含 scripts）优先命中
+    #    而遗漏 frontend/ / web/ 下含框架依赖的 package.json，导致误判 Vanilla HTML5
     pkg_files = find_files("package.json")
     if pkg_files:
         if "JavaScript / TypeScript" not in info["languages"]:
             info["languages"].append("JavaScript / TypeScript")
-        try:
-            with open(pkg_files[0], "r", encoding="utf-8", errors="ignore") as f:
-                pkg_data = json.load(f)
-                if pkg_data.get("name") and info["project_name"] in ["未知应用", "src", "app", "workspace"]:
-                    info["project_name"] = pkg_data.get("name")
-                deps = {}
+        deps = {}
+        picked_name = None
+        for pf in pkg_files:
+            try:
+                with open(pf, "r", encoding="utf-8", errors="ignore") as f:
+                    pkg_data = json.load(f)
+                if pkg_data.get("name") and picked_name is None:
+                    picked_name = pkg_data.get("name")
                 deps.update(pkg_data.get("dependencies", {}))
                 deps.update(pkg_data.get("devDependencies", {}))
-                deps_keys = " ".join(deps.keys()).lower()
+            except Exception:
+                continue
+        if picked_name and info["project_name"] in ["未知应用", "src", "app", "workspace"]:
+            info["project_name"] = picked_name
+        deps_keys = " ".join(deps.keys()).lower()
 
-                if "vue" in deps_keys and "Vue.js" not in info["frontend_frameworks"]:
-                    info["frontend_frameworks"].append("Vue.js")
-                if "react" in deps_keys and "React" not in info["frontend_frameworks"]:
-                    info["frontend_frameworks"].append("React")
-                if "next" in deps_keys and "Next.js" not in info["frontend_frameworks"]:
-                    info["frontend_frameworks"].append("Next.js")
-                if "vite" in deps_keys and "Vite" not in info["build_tools"]:
-                    info["build_tools"].append("Vite")
-                if "tailwindcss" in deps_keys and "TailwindCSS" not in info["frontend_frameworks"]:
-                    info["frontend_frameworks"].append("TailwindCSS")
-                if "jest" in deps_keys and "Jest" not in info["testing_frameworks"]:
-                    info["testing_frameworks"].append("Jest")
-                if "vitest" in deps_keys and "Vitest" not in info["testing_frameworks"]:
-                    info["testing_frameworks"].append("Vitest")
-        except Exception:
-            pass
+        if "vue" in deps_keys and "Vue.js" not in info["frontend_frameworks"]:
+            info["frontend_frameworks"].append("Vue.js")
+        if "react" in deps_keys and "React" not in info["frontend_frameworks"]:
+            info["frontend_frameworks"].append("React")
+        if "next" in deps_keys and "Next.js" not in info["frontend_frameworks"]:
+            info["frontend_frameworks"].append("Next.js")
+        if "vite" in deps_keys and "Vite" not in info["build_tools"]:
+            info["build_tools"].append("Vite")
+        if "tailwindcss" in deps_keys and "TailwindCSS" not in info["frontend_frameworks"]:
+            info["frontend_frameworks"].append("TailwindCSS")
+        if "jest" in deps_keys and "Jest" not in info["testing_frameworks"]:
+            info["testing_frameworks"].append("Jest")
+        if "vitest" in deps_keys and "Vitest" not in info["testing_frameworks"]:
+            info["testing_frameworks"].append("Vitest")
 
     # 5. 探测 go.mod
     go_files = find_files("go.mod")
