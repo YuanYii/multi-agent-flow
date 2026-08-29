@@ -30,9 +30,6 @@ from _lib.discovery.field_mapper import discover_feishu_fields
 # 4. 文档治理域 (_lib/docs)
 from _lib.docs.legacy_migrator import EXCLUDE_DIRS, CATEGORY_KEYWORDS, classify_document, scan_and_migrate_legacy_docs
 
-# 5. 打包导出域 (_lib/export)
-from _lib.export.qwen_packager import validate_icon, validate_manifest, package_plugin
-
 # 门面 CLI 模块
 import check_stage_gate
 import verify_git_gate as cli_verify_git_gate
@@ -42,7 +39,6 @@ import metrics_analyzer
 import auto_scan_stack
 import save_project_architecture
 import migrate_legacy_docs
-import package_qwen_plugin
 import install_git_hooks
 
 
@@ -76,13 +72,10 @@ class TestDomainPackagesIntegrity:
         assert save_project_architecture.validate_schema is validate_schema
         assert save_project_architecture.clean_list is clean_list
 
-    def test_docs_and_export_facade_reexport_integrity(self):
-        """验证 docs 与 export 域的门面脚本完整重导出了迁移与打包函数"""
+    def test_docs_facade_reexport_integrity(self):
+        """验证 docs 域的门面脚本完整重导出了迁移函数"""
         assert migrate_legacy_docs.classify_document is classify_document
         assert migrate_legacy_docs.scan_and_migrate_legacy_docs is scan_and_migrate_legacy_docs
-        assert package_qwen_plugin.validate_icon is validate_icon
-        assert package_qwen_plugin.validate_manifest is validate_manifest
-        assert package_qwen_plugin.package_plugin is package_plugin
 
 
 class TestDomainLogicUnits:

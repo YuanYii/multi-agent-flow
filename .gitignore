@@ -18,12 +18,7 @@ user_data/
 kanban/board.json
 kanban/board.json.seq.lock
 docs/*
-!docs/index.html
-!docs/TESTING_SCHEME.md
-!docs/execution_pipelines_analysis.md
-!docs/CODE_AUDIT_REPORT.md
-!docs/qwen/
-!docs/qwen/*
+
 dist/
 logs/
 *.lock

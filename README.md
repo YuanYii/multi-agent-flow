@@ -64,7 +64,7 @@ powershell -ExecutionPolicy Bypass -File .yy-flow\skill\scripts\init_skill.ps1
 
 - **正本位置**：代码物化至 `~/agent-skills/multi-agent-flow`（degit 拉取，无 Node 环境自动回退 tarball），只读共享；
 - **安全守卫**：正本目录若被污染（含 `user_data/board.json`）直接拒绝安装，防止 legacy 数据误判串项目；安装后写入 `.yy-flow-shared` 共享标记；
-- **跨平台挂载**：`verify_and_export_agents.py --global` 自动探测 9 大宿主（Antigravity / Claude Code / Cursor / OpenCode / ZCode / Pi / Universal / QwenWork / Codex）并挂载用户级技能与子代理；
+- **跨平台挂载**：`verify_and_export_agents.py --global` 自动探测 8 大主流宿主（Antigravity / Claude Code / Cursor / OpenCode / ZCode / Pi / Universal / Codex）并挂载用户级技能与子代理；
 - **数据隔离**：共享安装下每个项目的运行数据（`user_data/`、锁、审计）仍独立落在各自项目根（解析链：`--project-root` > `YY_FLOW_PROJECT_ROOT` > `.yy-flow` 自定位 > legacy > CWD），`docs/` 恒定锚定项目根随 Git 流转。
 
 > 在项目内首次使用请执行该项目的初始化（`/yy-flow start`）。
