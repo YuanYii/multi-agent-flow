@@ -2025,9 +2025,51 @@
         }
 
         // Task Detail & Audit Logs Traceability Modal Controls
-        function openTaskDetail(cardId) {
-            const card = rawCardsData.find(c => c.id === cardId);
-            if (!card) return;
+        async function openTaskDetail(cardId) {
+            if (!cardId) return;
+
+            // 1. 三级降级策略查找目标任务卡片
+            // 级别 A: 全量卡片池 rawCardsData
+            let card = (typeof rawCardsData !== 'undefined' && Array.isArray(rawCardsData)) ? rawCardsData.find(c => c.id === cardId) : null;
+
+            // 级别 B: 当前表格页数据集 tableServerData.items
+            if (!card && typeof tableServerData !== 'undefined' && tableServerData && Array.isArray(tableServerData.items)) {
+                card = tableServerData.items.find(c => c.id === cardId);
+                if (card && typeof rawCardsData !== 'undefined' && Array.isArray(rawCardsData)) {
+                    rawCardsData.push(card);
+                }
+            }
+
+            // 级别 C: 内存均未命中时，即时发起 REST API 单卡拉取并回填数据池
+            if (!card) {
+                try {
+                    const authHeaders = (typeof getAuthHeaders === 'function') ? getAuthHeaders() : { 'Content-Type': 'application/json' };
+                    const res = await fetch('/api/tasks/' + encodeURIComponent(cardId) + '?t=' + Date.now(), { headers: authHeaders });
+                    if (res.ok) {
+                        const resp = await res.json();
+                        if (resp && resp.data) {
+                            card = resp.data;
+                            if (typeof rawCardsData !== 'undefined' && Array.isArray(rawCardsData)) {
+                                const existIdx = rawCardsData.findIndex(c => c.id === cardId);
+                                if (existIdx >= 0) {
+                                    rawCardsData[existIdx] = card;
+                                } else {
+                                    rawCardsData.push(card);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[API] openTaskDetail async fallback error:', e);
+                }
+            }
+
+            if (!card) {
+                if (typeof showToast === 'function') {
+                    showToast(`未能加载任务 [${cardId}] 详情，请刷新看板后重试`, 'warning');
+                }
+                return;
+            }
 
             // 1. Populate Edit Mode Inputs
             const editId = document.getElementById('edit-id');

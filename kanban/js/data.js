@@ -192,9 +192,26 @@ let tableServerData = {
 };
 
 async function fetchBackgroundData(isInitial = false) {
-    // 默认通过服务端分页拉取表格首页数据（20条），不全量传输
-    if (typeof loadTablePage === 'function') {
-        await loadTablePage(1);
+    try {
+        // 1. 同步拉取最新的全量卡片数据池 rawCardsData (确保详情弹窗/看板/统计拥有全量最新数据)
+        if (typeof fetchKanbanTasksFromServer === 'function') {
+            await fetchKanbanTasksFromServer();
+        }
+
+        // 2. 刷新当前表格页
+        if (typeof loadTablePage === 'function') {
+            const curPage = (typeof tablePaginationState !== 'undefined' && tablePaginationState && tablePaginationState.page) ? tablePaginationState.page : 1;
+            await loadTablePage(curPage);
+        }
+
+        // 3. 触发当前激活视图的筛选重绘与徽标统计刷新
+        if (typeof applyFilters === 'function') {
+            applyFilters();
+        } else if (typeof renderKanbanViews === 'function') {
+            renderKanbanViews();
+        }
+    } catch (e) {
+        console.warn('[API] fetchBackgroundData sync error:', e);
     }
 }
 
