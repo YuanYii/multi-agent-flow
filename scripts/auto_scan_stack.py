@@ -28,6 +28,11 @@ def main():
 
     info = scan_project_stack(args.target_dir)
 
+    # 管道消费模式：仅输出纯 JSON，避免 Banner 文本污染 stdout 导致 jq / json.loads 解析失败
+    if args.json:
+        print(json.dumps(info, ensure_ascii=False, indent=2))
+        return
+
     print("==============================================================================")
     print(f"[PRE-SCAN]   Multi-Agent Flow · 项目技术架构物理预扫描结果")
     print("==============================================================================")
@@ -41,10 +46,6 @@ def main():
     print(f"• 测试框架: {info['testing_framework']}")
     print(f"• 构建/部署: {', '.join(info['build_tools']) if info['build_tools'] else '未识别'}")
     print("==============================================================================")
-
-    # 格式化输出供管道消费
-    if args.json:
-        print(json.dumps(info, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
