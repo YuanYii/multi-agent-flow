@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """
 项目架构技术栈与 README 自动物理预扫描工具 (Auto Scan Stack CLI)
+
+Windows 调用约定：
+- 调用请用相对路径（如 `python scripts/auto_scan_stack.py .`）或 Windows 形式 `C:/...`，
+  避免 `python /c/.../script.py`（Git Bash 会把 `/c` 翻成 `C:\\c` 导致文件找不到）。
+- PYTHONPATH 分隔符用 `;`（类 Unix 用 `:`）；入口脚本已自引导 sys.path，通常无需手工设置。
 """
 import os
 import sys
 import json
+import argparse
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
@@ -13,8 +19,19 @@ from _lib.discovery.stack_scanner import scan_project_stack
 
 
 def main():
-    target_dir = sys.argv[1] if len(sys.argv) > 1 else None
-    info = scan_project_stack(target_dir)
+    parser = argparse.ArgumentParser(description="项目架构技术栈与 README 自动物理预扫描工具")
+    parser.add_argument("target_dir", nargs="?", default=None,
+                        help="目标项目目录（默认：当前工作目录）")
+    parser.add_argument("--json", action="store_true",
+                        help="以 JSON 格式输出供管道消费")
+    args = parser.parse_args()
+
+    info = scan_project_stack(args.target_dir)
+
+    # 管道消费模式：仅输出纯 JSON，避免 Banner 文本污染 stdout 导致 jq / json.loads 解析失败
+    if args.json:
+        print(json.dumps(info, ensure_ascii=False, indent=2))
+        return
 
     print("==============================================================================")
     print(f"[PRE-SCAN]   Multi-Agent Flow · 项目技术架构物理预扫描结果")
@@ -29,10 +46,6 @@ def main():
     print(f"• 测试框架: {info['testing_framework']}")
     print(f"• 构建/部署: {', '.join(info['build_tools']) if info['build_tools'] else '未识别'}")
     print("==============================================================================")
-
-    # 格式化输出供管道消费
-    if "--json" in sys.argv:
-        print(json.dumps(info, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

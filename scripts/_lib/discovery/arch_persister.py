@@ -50,8 +50,15 @@ def validate_schema(data: dict) -> bool:
         return False
 
 
-def save_architecture_config(arch_dict: dict) -> bool:
-    """持久化架构配置并执行 Fail-Closed 断言"""
+def save_architecture_config(arch_dict: dict, skip_export: bool = False) -> bool:
+    """持久化架构配置并执行 Fail-Closed 断言。
+
+    skip_export=True（或环境变量 YY_FLOW_SKIP_AGENT_EXPORT=1/true/yes）时跳过
+    Antigravity 专属 Subagent 导出与断言，使架构定版可在 WorkBuddy / Claude Code /
+    Cursor / Codex 等非 Antigravity 宿主落地，避免被强制生成冗余产物或因断言失败阻断。
+    """
+    if os.environ.get("YY_FLOW_SKIP_AGENT_EXPORT", "").strip().lower() in ("1", "true", "yes"):
+        skip_export = True
     config_path = _paths.arch_config_path()
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
 
@@ -92,29 +99,32 @@ def save_architecture_config(arch_dict: dict) -> bool:
     os.replace(tmp_path, config_path)
     print(f"[SUCCESS]  架构配置已安全落盘: {config_path}")
 
-    # 5. 联动重导出 Subagent
-    export_script = os.path.join(_paths.skill_root(), "scripts", "verify_and_export_agents.py")
-    res = subprocess.run([sys.executable, export_script, "--target-project-dir", _paths.project_root()], capture_output=True, text=True)
-    if res.returncode != 0:
-        sys.stderr.write(f"[FAIL-CLOSED ERROR] Subagent 重新导出失败: {res.stderr}\n")
-        return False
-    print("[SUCCESS]  专家 Subagent 已携专属能力完成刷新导出。")
+    # 5+6. 联动重导出 Subagent（Antigravity 专属，可按宿主跳过）
+    #     核心落盘（步骤 1-4）与导出解耦：非 Antigravity 宿主用 --skip-export / 环境变量跳过，
+    #     避免被强制生成 .agents 冗余产物或因断言失败阻断架构定版。
+    if not skip_export:
+        export_script = os.path.join(_paths.skill_root(), "scripts", "verify_and_export_agents.py")
+        res = subprocess.run([sys.executable, export_script, "--target-project-dir", _paths.project_root()], capture_output=True, text=True)
+        if res.returncode != 0:
+            sys.stderr.write(f"[FAIL-CLOSED ERROR] Subagent 重新导出失败: {res.stderr}\n")
+            return False
+        print("[SUCCESS]  专家 Subagent 已携专属能力完成刷新导出。")
 
-    # 6. Fail-Closed 物理断言
-    sample_agents = [
-        os.path.join(_paths.project_root(), ".agents", "agents", "flow-dev", "agent.md"),
-        os.path.join(_paths.project_root(), ".agents", "agents", "flow-frontend", "agent.md"),
-    ]
-    verified = False
-    for sa in sample_agents:
-        if os.path.exists(sa):
-            with open(sa, "r", encoding="utf-8") as f:
-                c = f.read()
-            if "### 专属技术栈能力" in c:
-                verified = True
-                break
-    if not verified and any(os.path.exists(sa) for sa in sample_agents):
-        sys.stderr.write("[FAIL-CLOSED ERROR] 导出的专家 Subagent 缺少注入的专属技术栈能力，落盘被阻断！\n")
-        return False
+        # 6. Fail-Closed 物理断言
+        sample_agents = [
+            os.path.join(_paths.project_root(), ".agents", "agents", "flow-dev", "agent.md"),
+            os.path.join(_paths.project_root(), ".agents", "agents", "flow-frontend", "agent.md"),
+        ]
+        verified = False
+        for sa in sample_agents:
+            if os.path.exists(sa):
+                with open(sa, "r", encoding="utf-8") as f:
+                    c = f.read()
+                if "### 专属技术栈能力" in c:
+                    verified = True
+                    break
+        if not verified and any(os.path.exists(sa) for sa in sample_agents):
+            sys.stderr.write("[FAIL-CLOSED ERROR] 导出的专家 Subagent 缺少注入的专属技术栈能力，落盘被阻断！\n")
+            return False
 
     return True

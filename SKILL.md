@@ -58,8 +58,6 @@ version: 1.0.0
 | **`/yy-flow kanban`** | **看板 Web 服务就绪**：启动内置可视化看板 HTTP 服务并输出访问链接（默认 32886 端口） | 运行 `start_kanban_server.py`，支持多视图切换与 PR/Issue 徽标渲染 |
 | **`/yy-flow sync-pr`** | **PR 状态监听与合流自动解阻**：扫描【已阻塞】任务卡，检测 GitHub PR Merged 自动推进至【已完成】并唤起 PM 验收 | 运行 `sync_pr_status.py` / `heartbeat.py --sync-pr` |
 | **`/yy-flow auto <需求>`** | **全自动多专家研发流水线**：由主 Agent 串行调度多专家子代理（DEV ➔ REVIEWER ➔ QA ➔ PM）进行实体代码开发、审查与测试，在【已完成】主动停机交付（严禁代签验收，最多自愈打回 2 轮；代码保留在本地工作区，严禁擅自 git commit） | 运行 `auto_task.py --task "<需求>"` |
-| **`/yy-flow test-pipeline`** | **底层管道冒烟测试**：通过生成临时测试任务卡，全流程遍历状态机节点（从 0 状态到终态）并强制校验门禁逻辑，确保工具链环境健康 | 运行 `pytest scripts/test_pipeline.py` |
-
 > 💡 **业务流转与协同全走自然语言**：任务拆解建卡、阶段结项、认领、提审、测试与打回等日常研发生命周期，直接使用自然语言与 Agent 对话沟通，由对应专家在后台自主调度底层脚本。
 
 ---

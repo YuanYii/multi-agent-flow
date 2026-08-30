@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
 项目技术架构与专家技术栈安全定版工具 (Save Project Architecture CLI)
+
+Windows 调用约定：
+- 调用请用相对路径（如 `python scripts/save_project_architecture.py --name X`）或 Windows 形式 `C:/...`，
+  避免 `python /c/.../script.py`（Git Bash 会把 `/c` 翻成 `C:\\c` 导致文件找不到）。
+- PYTHONPATH 分隔符用 `;`（类 Unix 用 `:`）；入口脚本已自引导 sys.path，通常无需手工设置。
+- 非 Antigravity 宿主（WorkBuddy / Claude Code / Cursor / Codex 等）用 --skip-export 跳过专属 Subagent 导出。
 """
 import os
 import sys
@@ -31,6 +37,8 @@ def main():
     parser.add_argument("--db", help="数据库与存储 (逗号分隔)")
     parser.add_argument("--test-framework", help="测试框架")
     parser.add_argument("--min-coverage", type=int, default=80, help="最低测试覆盖率")
+    parser.add_argument("--skip-export", action="store_true",
+                        help="跳过 Antigravity 专属 Subagent 导出（多宿主/WorkBuddy 等非 Antigravity 环境用，等价于 env YY_FLOW_SKIP_AGENT_EXPORT=1）")
 
     args = parser.parse_args()
 
@@ -80,7 +88,7 @@ def main():
             },
         }
 
-    ok = save_architecture_config(arch_dict)
+    ok = save_architecture_config(arch_dict, skip_export=args.skip_export)
     if not ok:
         sys.exit(1)
     sys.exit(0)
