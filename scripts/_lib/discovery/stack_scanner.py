@@ -95,6 +95,16 @@ def scan_project_stack(target_dir: Optional[str] = None) -> Dict[str, Any]:
                     info["storage"].append("SQLite")
                 if "sqlalchemy" in content.lower() or "sqlmodel" in content.lower():
                     info["storage"].append("SQLAlchemy / SQLModel")
+                # 与 requirements.txt 分支对齐：补齐 PostgreSQL/MySQL/Redis/MongoDB 探测
+                if ("psycopg" in content.lower() or "asyncpg" in content.lower()
+                        or "postgresql" in content.lower()) and "PostgreSQL" not in info["storage"]:
+                    info["storage"].append("PostgreSQL")
+                if ("pymysql" in content.lower() or "mysql" in content.lower()) and "MySQL" not in info["storage"]:
+                    info["storage"].append("MySQL")
+                if "redis" in content.lower() and "Redis" not in info["storage"]:
+                    info["storage"].append("Redis")
+                if ("pymongo" in content.lower() or "mongodb" in content.lower()) and "MongoDB" not in info["storage"]:
+                    info["storage"].append("MongoDB")
         except Exception:
             pass
 
@@ -143,8 +153,8 @@ def scan_project_stack(target_dir: Optional[str] = None) -> Dict[str, Any]:
                     pkg_data = json.load(f)
                 if pkg_data.get("name") and picked_name is None:
                     picked_name = pkg_data.get("name")
-                deps.update(pkg_data.get("dependencies", {}))
-                deps.update(pkg_data.get("devDependencies", {}))
+                deps.update(pkg_data.get("dependencies") or {})
+                deps.update(pkg_data.get("devDependencies") or {})
             except Exception:
                 continue
         if picked_name and info["project_name"] in ["未知应用", "src", "app", "workspace"]:
