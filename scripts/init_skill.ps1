@@ -111,6 +111,9 @@ foreach ($dir in $DocsDirs) {
 
 python "$ScriptDir\migrate_legacy_docs.py"
 
+Write-Host "[MIGRATE]  [Step 5.5/7] 检测存量看板工单并执行自然周无损平滑迁移 (migrate_legacy_board.py)..." -ForegroundColor Yellow
+python "$ScriptDir\migrate_legacy_board.py"
+
 Write-Host "[SYNC]  [Step 6/7] 专家团队技术栈同步（导出时合并至各平台 Subagent）..." -ForegroundColor Yellow
 python "$ScriptDir\update_agent_tech_stacks.py"
 

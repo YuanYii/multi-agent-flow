@@ -114,6 +114,13 @@ def docs_root(**kw) -> str:
     return os.path.join(project_root(**kw), "docs")
 
 
+def tasks_dir(**kw) -> str:
+    """研发任务卡周口径存储根目录（docs/D04-研发过程/D01-任务，严格符合 3 级深度红线）"""
+    path = os.path.join(docs_root(**kw), "D04-研发过程", "D01-任务")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def runtime_config_path(**kw) -> str:
     """宿主运行态工作流配置路径（init step 4 生成）"""
     return os.path.join(user_data_dir(**kw), "workflow.config.yaml")

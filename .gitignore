@@ -18,6 +18,8 @@ user_data/
 kanban/board.json
 kanban/board.json.seq.lock
 docs/*
+!docs/D04-研发过程/
+!docs/D04-研发过程/**
 
 dist/
 logs/

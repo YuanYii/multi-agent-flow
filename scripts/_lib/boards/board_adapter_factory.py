@@ -51,6 +51,12 @@ def get_board_adapter(config_file: str = None) -> Any:
     provider = board_cfg.get("provider", "feishu_base").lower()
 
     if provider == "local":
+        storage_mode = str(board_cfg.get("storage_mode", "single")).lower()
+        if storage_mode == "weekly":
+            from _lib.boards.weekly_board_adapter import WeeklyBoardAdapter
+            tasks_dir = paths.tasks_dir()
+            return WeeklyBoardAdapter(tasks_dir=tasks_dir, field_map=board_cfg.get("fields", {}))
+
         # 离线看板：相对路径锚定 data_root（宿主项目根 / legacy skill 拷贝），不再锚定 skill_root
         raw_board_file = board_cfg.get("board_file", "user_data/board.json")
         if not os.path.isabs(raw_board_file):
