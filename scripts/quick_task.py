@@ -40,6 +40,9 @@ def main():
     p_create.add_argument("--pretask", default=None, help="前置依赖任务编号 (如 T0001)")
     p_create.add_argument("--start-time", default=None, help="开始时间 (格式 YYYY-MM-DD HH:MM:SS)")
     p_create.add_argument("--remarks", default=None, help="任务核心要点描述/备注 (建卡时记录核心设计、输入输出契约或排查要点)")
+    p_create.add_argument("--target", default=None, help="任务核心目标说明")
+    p_create.add_argument("--criteria", action="append", default=None, help="验收标准（支持传多次或用分号/换行分隔）")
+    p_create.add_argument("--week", default=None, help="显式归属周口径 (如 2026-W36)")
     p_create.add_argument("--force", action="store_true", help="强制创建任务（跳过单一职责拦截与重复校验）")
     p_create.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
@@ -88,6 +91,9 @@ def main():
             wbs=args.wbs,
             owner=args.owner,
             remarks=getattr(args, "remarks", None),
+            target=getattr(args, "target", None),
+            criteria=getattr(args, "criteria", None),
+            week=getattr(args, "week", None),
             create_only=True,
             force=args.force,
             no_dup_check=args.no_dup_check,

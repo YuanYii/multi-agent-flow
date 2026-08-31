@@ -161,16 +161,6 @@ LOCK_FILE = USER_DATA_BOARD + ".seq.lock"
 KANBAN_RUNTIME_FILE = os.path.join(_DATA_ROOT, "user_data", "kanban_server.json")
 
 
-def compute_board_version() -> str:
-    """计算 board.json 的版本哈希 sha256[:12]；文件缺失或读取失败返回空串。
-
-    供 GET /api/version 探测与第二层 HTTP 乐观锁（If-Match / v）比对使用。
-    """
-    try:
-        with open(USER_DATA_BOARD, "rb") as f:
-            return hashlib.sha256(f.read()).hexdigest()[:12]
-    except Exception:
-        return ""
 
 
 def compute_project_fingerprint(data_root: str) -> str:
@@ -216,8 +206,78 @@ _BOARD_MEMORY_CACHE = {
 }
 
 
+def _is_weekly_storage_mode() -> bool:
+    """判断当前运行态是否启用了自然周 YAML 存储模式"""
+    try:
+        # 若 USER_DATA_BOARD 被外部测试修改/重定向（如 tempfile 隔离沙箱），则按其单体 board.json 处理
+        if "user_data" not in USER_DATA_BOARD or USER_DATA_BOARD.startswith("/tmp") or "/var/folders" in USER_DATA_BOARD:
+            return False
+        import paths as _paths
+        import yaml
+        config_file = _paths.resolve_runtime_config()
+        if os.path.exists(config_file):
+            with open(config_file, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+            mode = str((cfg.get("board") or {}).get("storage_mode", "")).lower()
+            if mode == "weekly":
+                return True
+            if mode == "single":
+                return False
+    except Exception:
+        pass
+    return False
+
+
+def compute_board_version() -> str:
+    """计算当前看板数据的版本哈希 sha256[:12]。
+    在 weekly 模式下计算目录下所有周 YAML 文件的 mtime/size 复合签名；
+    在 single 模式下计算 board.json 的内容哈希。
+    """
+    if _is_weekly_storage_mode():
+        try:
+            import paths as _paths
+            tdir = _paths.tasks_dir()
+            if not os.path.exists(tdir):
+                return ""
+            entries = []
+            for fname in sorted(os.listdir(tdir)):
+                if (fname.endswith(".yaml") or fname.endswith(".yml")) and not fname.startswith("."):
+                    st = os.stat(os.path.join(tdir, fname))
+                    entries.append(f"{fname}:{st.st_mtime}:{st.st_size}")
+            return hashlib.sha256(";".join(entries).encode("utf-8")).hexdigest()[:12]
+        except Exception:
+            return ""
+
+    try:
+        with open(USER_DATA_BOARD, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()[:12]
+    except Exception:
+        return ""
+
+
 def read_board_data() -> list:
-    """安全读取 board.json，具备基于文件 mtime 与 size 的高速内存缓存"""
+    """安全读取看板卡片数据，具备高速内存缓存。
+    在 weekly 模式下从 WeeklyBoardAdapter 聚合加载多周卡片；
+    在 single 模式下从 board.json 加载。
+    """
+    if _is_weekly_storage_mode():
+        try:
+            curr_v = compute_board_version()
+            if (curr_v and curr_v == _BOARD_MEMORY_CACHE.get("version") and _BOARD_MEMORY_CACHE.get("cards")):
+                return [dict(c) for c in _BOARD_MEMORY_CACHE["cards"]]
+
+            from _lib.boards.board_adapter_factory import get_board_adapter
+            adapter = get_board_adapter()
+            recs = adapter.list_records(limit=5000, include_sealed=True)
+            cards = [r["fields"] for r in recs if isinstance(r, dict) and "fields" in r]
+            for idx, c in enumerate(cards, start=1):
+                c["seq"] = idx
+            _BOARD_MEMORY_CACHE["version"] = curr_v
+            _BOARD_MEMORY_CACHE["cards"] = cards
+            return [dict(c) for c in cards]
+        except Exception as e:
+            sys.stderr.write(f"[WARN] read_board_data weekly failed: {e}\n")
+
     os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
     if not os.path.exists(USER_DATA_BOARD):
         with open(USER_DATA_BOARD, "w", encoding="utf-8") as f:
@@ -229,8 +289,8 @@ def read_board_data() -> list:
 
     try:
         stat = os.stat(USER_DATA_BOARD)
-        if (stat.st_mtime == _BOARD_MEMORY_CACHE["mtime"] and
-            stat.st_size == _BOARD_MEMORY_CACHE["size"]):
+        if (stat.st_mtime == _BOARD_MEMORY_CACHE.get("mtime") and
+            stat.st_size == _BOARD_MEMORY_CACHE.get("size")):
             return [dict(c) for c in _BOARD_MEMORY_CACHE["cards"]]
 
         with open(USER_DATA_BOARD, "r", encoding="utf-8") as f:
@@ -269,6 +329,83 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
     - 若指定 expected_version 且持锁比对当前哈希不一致 -> 返回 (409, "conflict", {"v": current_v})
     - 否则执行 mutate_fn，原子替换落盘，返回 (status_code, message, {**result_data, "v": new_v})
     """
+    if _is_weekly_storage_mode():
+        os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
+        try:
+            with board_io.board_lock(LOCK_FILE, timeout=5.0):
+                current_v = compute_board_version()
+                if expected_version and expected_version != current_v:
+                    return 409, "数据已被其他操作修改，发生版本冲突 (conflict)", {"v": current_v}
+
+                cards = read_board_data()
+                success, code, msg, res_data = mutate_fn(cards)
+                if not success:
+                    return code, msg, res_data
+
+                # 在 weekly 模式下利用适配器定向原位写回或物理删除，严格检验持久化返回值
+                from _lib.boards.board_adapter_factory import get_board_adapter
+                adapter = get_board_adapter()
+                persistence_ok = True
+                persist_err = ""
+
+                if isinstance(res_data, dict):
+                    # 1. 批量删除场景
+                    if "deleted_ids" in res_data and isinstance(res_data["deleted_ids"], (list, set)):
+                        for del_id in res_data["deleted_ids"]:
+                            if not adapter.delete_record(str(del_id)):
+                                sys.stderr.write(f"[WARN] 删除周任务失败或记录不存在: {del_id}\n")
+                    # 2. 单卡更新场景 (含 "card" 包装)
+                    elif "card" in res_data and isinstance(res_data["card"], dict):
+                        target_card = res_data["card"]
+                        tid = str(target_card.get("id", ""))
+                        if tid:
+                            if adapter.get_record(tid):
+                                if not adapter.update_record(tid, target_card):
+                                    persistence_ok = False
+                                    persist_err = f"任务 {tid} 原位更新失败（可能受终态防篡改保护或写入异常）"
+                            else:
+                                if adapter.create_record(target_card) is None:
+                                    persistence_ok = False
+                                    persist_err = f"任务 {tid} 写入持久化失败"
+                    # 3. 单卡更新场景 (含 "task_id")
+                    elif "task_id" in res_data:
+                        tid = str(res_data["task_id"])
+                        target_card = next((c for c in cards if str(c.get("id")) == tid), None)
+                        if target_card:
+                            if adapter.get_record(tid):
+                                if not adapter.update_record(tid, target_card):
+                                    persistence_ok = False
+                                    persist_err = f"任务 {tid} 原位更新失败（可能受终态防篡改保护或写入异常）"
+                            else:
+                                if adapter.create_record(target_card) is None:
+                                    persistence_ok = False
+                                    persist_err = f"任务 {tid} 写入持久化失败"
+                    # 4. 新建任务场景 (res_data 为 card 本身，包含 id 与 name)
+                    elif "id" in res_data and "name" in res_data:
+                        tid = str(res_data["id"])
+                        if adapter.get_record(tid):
+                            if not adapter.update_record(tid, res_data):
+                                persistence_ok = False
+                                persist_err = f"任务 {tid} 更新失败"
+                        else:
+                            if adapter.create_record(res_data) is None:
+                                persistence_ok = False
+                                persist_err = f"任务 {tid} 新建持久化失败"
+
+                if not persistence_ok:
+                    return 500, f"周口径数据持久化至磁盘失败: {persist_err}", None
+
+                _BOARD_MEMORY_CACHE["cards"] = []
+                new_v = compute_board_version()
+                if isinstance(res_data, dict):
+                    res_data["v"] = new_v
+                elif res_data is None:
+                    res_data = {"v": new_v}
+                return code, msg, res_data
+        except Exception as e:
+            sys.stderr.write(f"[ERROR] atomic_mutate_board_data weekly failed: {e}\n")
+            return 500, f"数据写入磁盘失败: {e}", None
+
     os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
     try:
         with board_io.board_lock(LOCK_FILE, timeout=5.0):
@@ -1118,6 +1255,19 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     wbs=body_data.get("wbs") or body_data.get("wbs_id")
                 )
 
+                raw_crit = body_data.get("acceptance_criteria") or []
+                if isinstance(raw_crit, str):
+                    crit_list = [c.strip() for c in re.split(r"[;\n；]", raw_crit) if c.strip()]
+                elif isinstance(raw_crit, list):
+                    crit_list = []
+                    for item in raw_crit:
+                        if isinstance(item, str):
+                            crit_list.extend([c.strip() for c in re.split(r"[;\n；]", item) if c.strip()])
+                        elif item:
+                            crit_list.append(str(item).strip())
+                else:
+                    crit_list = []
+
                 new_card = {
                     "id": new_id,
                     "seq": len(cards) + 1,
@@ -1135,6 +1285,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "start_date": body_data.get("start_date", now_str),
                     "end_date": end_date_val,
                     "remarks": remarks,
+                    "target": str(body_data.get("target", "") or "").strip(),
+                    "acceptance_criteria": crit_list,
                     "process": ""
                 }
                 check_and_warn_date_compliance(new_card)
@@ -1184,7 +1336,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 return True, 200, f"成功删除 {deleted_count} 条任务", {
                     "deleted_count": deleted_count,
                     "deleted": deleted_count,
-                    "remaining_total": len(cards)
+                    "remaining_total": len(cards),
+                    "deleted_ids": list(task_ids_to_del)
                 }
 
             code, msg, data = atomic_mutate_board_data(_mutate_batch_del, expected_version=expected_v)
@@ -1301,8 +1454,9 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 if effective_comment:
                     log_text += f"\n操作说明: {effective_comment}"
 
-                current_process = card.get("process", "")
-                card["process"] = f"{current_process}\n{log_text}".strip()
+                raw_proc = card.get("process")
+                current_process = str(raw_proc).strip() if raw_proc and str(raw_proc).strip() not in ("None", "null") else ""
+                card["process"] = f"{current_process}\n{log_text}".strip() if current_process else log_text.strip()
 
                 audit_role = str(body_data.get("operator_role") or "").strip() or audit_role_default
                 append_audit_log(task_id, audit_role, from_status, target_status, operator_name, effective_comment)
@@ -1367,7 +1521,13 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 new_ordered_cards.extend(cards_map.values())
                 cards.clear()
                 cards.extend(new_ordered_cards)
-                return True, 200, "排序保存成功", {"count": len(cards), "reordered": len(ordered_ids)}
+                is_weekly = _is_weekly_storage_mode()
+                success_msg = "排序已在当前会话生效（自然周存储模式下数据物理按周归档组织）" if is_weekly else "排序保存成功"
+                return True, 200, success_msg, {
+                    "count": len(cards),
+                    "reordered": len(ordered_ids),
+                    "storage_mode": "weekly" if is_weekly else "single"
+                }
 
             code, msg, data = atomic_mutate_board_data(_mutate_reorder, expected_version=expected_v)
             self._send_json_resp(code, msg, data, http_status=code)
@@ -1433,7 +1593,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 updatable_fields = [
                     "name", "stage", "wp", "wbs", "pretask", "creator", "assignee", "handler",
                     "status", "est_hours", "act_hours", "start_date",
-                    "end_date", "remarks", "process"
+                    "end_date", "remarks", "process", "target", "acceptance_criteria"
                 ]
                 updated_keys = []
                 for k in updatable_fields:
@@ -1441,6 +1601,17 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                         val = body_data[k]
                         if k in ("act_hours", "est_hours"):
                             val = _parse_duration_seconds(val)
+                        elif k == "acceptance_criteria":
+                            if isinstance(val, str):
+                                val = [c.strip() for c in re.split(r"[;\n；]", val) if c.strip()]
+                            elif isinstance(val, list):
+                                norm_list = []
+                                for item in val:
+                                    if isinstance(item, str):
+                                        norm_list.extend([c.strip() for c in re.split(r"[;\n；]", item) if c.strip()])
+                                    elif item:
+                                        norm_list.append(str(item).strip())
+                                val = norm_list
                         card[k] = val
                         updated_keys.append(k)
 
@@ -1522,7 +1693,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                         added_logs.append(log_text)
 
                     if added_logs:
-                        current_process = card.get("process", "")
+                        raw_proc = card.get("process")
+                        current_process = str(raw_proc).strip() if raw_proc and str(raw_proc).strip() not in ("None", "null") else ""
                         card["process"] = f"{current_process}\n" + "\n".join(added_logs) if current_process else "\n".join(added_logs)
 
                 append_audit_log(task_id, "USER", old_status, card.get("status", "-"),

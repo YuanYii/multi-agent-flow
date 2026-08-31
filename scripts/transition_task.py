@@ -208,6 +208,9 @@ def transition_task_pipeline(
     create_only: bool = False,
     force: bool = False,
     no_dup_check: bool = False,
+    target: str = None,
+    criteria: Any = None,
+    week: str = None,
 ) -> bool:
     resolved_task_id = task_id or "AUTO"
     extra_log = {"task_id": resolved_task_id}
@@ -351,8 +354,13 @@ def transition_task_pipeline(
                 "pretask": pretask or None,
                 "process": None,
                 "remarks": remarks or None,
+                "target": target or None,
+                "acceptance_criteria": criteria or [],
             }
-            created_id = adapter.create_record(create_fields)
+            if hasattr(adapter, "create_record") and "week" in adapter.create_record.__code__.co_varnames:
+                created_id = adapter.create_record(create_fields, week=week)
+            else:
+                created_id = adapter.create_record(create_fields)
             if not created_id:
                 logger.error("[FAILED]  建单失败（编号冲突或写入失败），硬阻断！", extra=extra_log)
                 record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, "建单失败", delegated_by=delegated_by, delegation_reason=delegation_reason)

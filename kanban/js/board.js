@@ -590,10 +590,16 @@
                 }
             }
 
-            let metaHtml = (hoursHtml || datesHtml || remarksHtml || processHtml) ? `
+            let targetHtml = card.target ? `<div style="margin-top:4px; font-size:12px; color:#1d2129; background:#f2f3f5; padding:3px 6px; border-radius:4px; line-height:1.4; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; word-break:break-word;" title="${esc(card.target)}">${lbl ? '目标: ' : '🎯 '}${esc(card.target)}</div>` : '';
+            let critCount = (card.acceptance_criteria && Array.isArray(card.acceptance_criteria)) ? card.acceptance_criteria.length : 0;
+            let criteriaHtml = critCount > 0 ? `<div style="margin-top:3px; font-size:11px; color:#0057fe;">📋 验收标准: ${critCount} 项</div>` : '';
+
+            let metaHtml = (hoursHtml || datesHtml || targetHtml || criteriaHtml || remarksHtml || processHtml) ? `
                 <div class="card-meta">
                     ${hoursHtml}
                     ${datesHtml}
+                    ${targetHtml}
+                    ${criteriaHtml}
                     ${remarksHtml}
                     ${processHtml}
                 </div>` : '';
@@ -2154,6 +2160,18 @@
                     <div class="detail-item">
                         <span class="detail-label">时间周期</span>
                         <span class="detail-value">${esc(card.start_date || card.start_time || '-')} ~ ${esc(card.end_date || card.end_time || '-')}</span>
+                    </div>
+                    <div class="detail-item" style="grid-column: 1 / -1;">
+                        <span class="detail-label">🎯 任务核心目标 (Target)</span>
+                        <span class="detail-value" style="font-weight:600; color:#1d2129; background:#f7f8fa; padding:8px 12px; border-radius:6px;">${esc(card.target || '暂无明确目标')}</span>
+                    </div>
+                    <div class="detail-item" style="grid-column: 1 / -1;">
+                        <span class="detail-label">📋 验收标准清单 (Acceptance Criteria)</span>
+                        <div class="detail-value" style="margin-top:4px;">
+                            ${(card.acceptance_criteria && Array.isArray(card.acceptance_criteria) && card.acceptance_criteria.length > 0)
+                                ? `<ul style="margin:0; padding-left:20px; color:#272e3b; line-height:1.6;">${card.acceptance_criteria.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`
+                                : '<span style="color:#86909c;">暂无条目化验收标准</span>'}
+                        </div>
                     </div>
                     <div class="detail-item" style="grid-column: 1 / -1;">
                         <span class="detail-label">核心备注</span>
