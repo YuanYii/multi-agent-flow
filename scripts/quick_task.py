@@ -42,6 +42,9 @@ def main():
     p_create.add_argument("--remarks", default=None, help="任务核心要点描述/备注 (建卡时记录核心设计、输入输出契约或排查要点)")
     p_create.add_argument("--target", default=None, help="任务核心目标说明")
     p_create.add_argument("--criteria", action="append", default=None, help="验收标准（支持传多次或用分号/换行分隔）")
+    p_create.add_argument("--creator", default=None, help="创建人姓名 (真实自然人，缺省自动读取 Git/OS 用户名)")
+    p_create.add_argument("--creator-role", default=None, help="建单虚拟专家角色 (缺省取 --role 角色)")
+    p_create.add_argument("--operator", default=None, help="操作人姓名 (真实自然人，缺省自动读取 Git/OS 用户名)")
     p_create.add_argument("--week", default=None, help="显式归属周口径 (如 2026-W36)")
     p_create.add_argument("--force", action="store_true", help="强制创建任务（跳过单一职责拦截与重复校验）")
     p_create.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
@@ -49,12 +52,14 @@ def main():
     p_accept = sub.add_parser("accept", help="人类用户专属验收命令（将已完成推进至已验收）")
     p_accept.add_argument("--config", default=None, help="配置文件路径")
     p_accept.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")
+    p_accept.add_argument("--operator", default=None, help="验收操作人姓名 (真实自然人)")
     p_accept.add_argument("--remarks", default=None, help="验收说明/结论")
     p_accept.add_argument("--comment", default="人类用户核验代码与交付物合规，确认最终验收", help="流程说明")
 
     p_accept_all = sub.add_parser("accept-all", help="批量人类验收（将指定阶段所有已完成任务一键推进至已验收）")
     p_accept_all.add_argument("--config", default=None, help="配置文件路径")
     p_accept_all.add_argument("--stage", default=None, help="指定项目阶段 (如 'Sprint 1'，缺省为全部已完成)")
+    p_accept_all.add_argument("--operator", default=None, help="批量验收操作人姓名 (真实自然人)")
     p_accept_all.add_argument("--remarks", default=None, help="批量验收说明")
 
     p_complete = sub.add_parser("complete", help="推进任务到目标状态")
@@ -64,6 +69,7 @@ def main():
     p_complete.add_argument("--from-status", required=True, help="原状态")
     p_complete.add_argument("--to-status", required=True, help="目标状态")
     p_complete.add_argument("--assignee", required=True, help="同步更新的处理人")
+    p_complete.add_argument("--operator", default=None, help="实际操作人姓名 (真实自然人)")
     p_complete.add_argument("--type", default="A", help="任务类型 (A-G)")
     p_complete.add_argument("--ignore-pretask", action="store_true", help="忽略前置依赖未就绪拦截")
     p_complete.add_argument("--start-time", default=None, help="开始时间 (格式 YYYY-MM-DD HH:MM:SS)")
@@ -90,6 +96,9 @@ def main():
             wp=args.wp,
             wbs=args.wbs,
             owner=args.owner,
+            creator=getattr(args, "creator", None),
+            creator_role=getattr(args, "creator_role", None),
+            operator=getattr(args, "operator", None),
             remarks=getattr(args, "remarks", None),
             target=getattr(args, "target", None),
             criteria=getattr(args, "criteria", None),
@@ -131,6 +140,7 @@ def main():
             to_status="已验收",
             assignee="严经理",
             end_time=end_time,
+            operator=getattr(args, "operator", None),
             remarks=args.remarks,
             comment=args.comment,
             force_verify_operator=True,
@@ -191,6 +201,7 @@ def main():
                 assignee="严经理",
                 task_type=t_type,
                 end_time=now_time,
+                operator=getattr(args, "operator", None),
                 remarks=args.remarks,
                 comment="人类用户批量核验完成最终验收",
                 force_verify_operator=True,
@@ -212,6 +223,7 @@ def main():
             to_status=args.to_status,
             assignee=args.assignee,
             task_type=args.type,
+            operator=getattr(args, "operator", None),
             ignore_pretask=getattr(args, "ignore_pretask", False),
             start_time=getattr(args, "start_time", None),
             end_time=args.end_time,

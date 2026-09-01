@@ -49,6 +49,9 @@ KANBAN_FIELD_MAP = {
     "assignee": "assignee",
     "handler": "handler",
     "creator": "creator",
+    "creator_role": "creator_role",
+    "operator": "operator",
+    "operator_name": "operator",
     "owner": "owner",
     "priority": "priority",
     "estimated_hours": "est_hours",
@@ -71,7 +74,7 @@ KANBAN_FIELD_MAP = {
 
 KANBAN_NATIVE_FIELDS = {
     "id", "name", "stage", "wp", "wbs", "pretask", "assignee", "handler",
-    "creator", "owner", "status", "priority", "est_hours", "act_hours",
+    "creator", "creator_role", "operator", "owner", "status", "priority", "est_hours", "act_hours",
     "start_date", "end_date", "remarks", "process", "attachment",
     "target", "acceptance_criteria", "requirement_id", "artifacts", "handover_context",
     "_source_file"
@@ -381,7 +384,20 @@ class WeeklyBoardAdapter:
                 return None
 
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            creator = trans.get("creator") or trans.get("assignee") or get_current_os_user()
+            creator_raw = trans.get("creator")
+            creator_clean = str(creator_raw).strip() if creator_raw is not None and str(creator_raw).strip() not in ("None", "null", "undefined") else ""
+            creator = creator_clean or get_current_os_user()
+            
+            creator_role_raw = trans.get("creator_role") or trans.get("role") or "PM"
+            creator_role = normalize_role(str(creator_role_raw).strip())
+
+            operator_raw = trans.get("operator") or trans.get("operator_name")
+            operator_clean = str(operator_raw).strip() if operator_raw is not None and str(operator_raw).strip() not in ("None", "null", "undefined") else ""
+            operator = operator_clean or creator
+
+            assignee = normalize_role(str(trans.get("assignee") or trans.get("owner") or "李开发").strip())
+            handler = normalize_role(str(trans.get("handler") or assignee).strip())
+            owner = normalize_role(str(trans.get("owner") or assignee).strip())
             
             raw_crit = trans.get("acceptance_criteria") or []
             if isinstance(raw_crit, str):
@@ -404,10 +420,12 @@ class WeeklyBoardAdapter:
                 "wp": trans.get("wp") or "WP-默认",
                 "wbs": trans.get("wbs") or "",
                 "pretask": trans.get("pretask") or "",
-                "assignee": trans.get("assignee") or "李开发",
-                "handler": trans.get("handler") or trans.get("assignee") or "李开发",
+                "assignee": assignee,
+                "handler": handler,
                 "creator": creator,
-                "owner": trans.get("owner") or creator,
+                "creator_role": creator_role,
+                "operator": operator,
+                "owner": owner,
                 "status": trans.get("status") or "待开始",
                 "priority": trans.get("priority") or "中",
                 "est_hours": float(trans.get("est_hours", 0.0) or 0.0),
@@ -420,7 +438,7 @@ class WeeklyBoardAdapter:
                 "requirement_id": trans.get("requirement_id") or "",
                 "artifacts": trans.get("artifacts") or {},
                 "handover_context": trans.get("handover_context") or {},
-                "process": trans.get("process") or f"[{new_id}-N01]  [{now_str}]  建单并进入【{trans.get('status') or '待开始'}】 | 操作人: {creator}"
+                "process": trans.get("process") or f"[{new_id}-N01]  [{now_str}]  建单并进入【{trans.get('status') or '待开始'}】 | 创建人: {creator} (创建角色: {creator_role}) | 负责角色: {assignee}"
             }
 
             tasks.append(card)
@@ -458,6 +476,8 @@ class WeeklyBoardAdapter:
                 if str(c.get("id")) == str(record_id):
                     card_copy = dict(c)
                     card_copy["_source_file"] = fp
+                    card_copy.setdefault("creator_role", "严经理")
+                    card_copy.setdefault("operator", card_copy.get("creator") or "用户")
                     return {"record_id": c.get("id"), "fields": card_copy}
         return None
 
@@ -548,6 +568,8 @@ class WeeklyBoardAdapter:
             for c in data.get("tasks", []):
                 card_item = dict(c)
                 card_item["_source_file"] = fpath
+                card_item.setdefault("creator_role", "严经理")
+                card_item.setdefault("operator", card_item.get("creator") or "用户")
                 all_cards.append(card_item)
 
         items = [{"record_id": c.get("id"), "fields": c} for c in all_cards]

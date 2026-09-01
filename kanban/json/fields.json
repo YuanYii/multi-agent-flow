@@ -9,6 +9,7 @@
   { "key": "assignee", "th": "负责角色", "label": "负责角色 (Assignee)", "default_width": "110px" },
   { "key": "handler", "th": "处理角色", "label": "处理角色 (Handler)", "default_width": "110px" },
   { "key": "creator", "th": "创建人", "label": "创建人 (Creator)", "default_width": "90px" },
+  { "key": "operator", "th": "操作人", "label": "操作人 (Operator)", "default_width": "90px" },
   { "key": "act_hours", "th": "任务耗时", "label": "任务耗时 (Duration)", "default_width": "140px" },
   { "key": "start_date", "th": "开始时间", "label": "开始时间 (Start Date)", "default_width": "105px" },
   { "key": "end_date", "th": "结束时间", "label": "结束时间 (End Date)", "default_width": "105px" },

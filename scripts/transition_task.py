@@ -200,6 +200,7 @@ def transition_task_pipeline(
     wbs: str = None,
     owner: str = None,
     creator: str = None,
+    creator_role: str = None,
     operator: str = None,
     delegated_by: str = "",
     delegation_reason: str = "",
@@ -335,6 +336,10 @@ def transition_task_pipeline(
                 all_cards = []
             res_stage, res_wp, res_wbs = resolve_default_stage_wp_wbs(all_cards, stage=stage, wp=wp, wbs=wbs)
 
+            effective_creator = creator or get_current_os_user()
+            effective_creator_role = normalize_role_name(creator_role or current_role or "PM")
+            effective_operator = operator or effective_creator
+
             create_fields = {
                 "task_id": task_id,
                 "task_name": task_name,
@@ -345,7 +350,9 @@ def transition_task_pipeline(
                 "stage": res_stage,
                 "workpackage": res_wp,
                 "wbs_id": res_wbs,
-                "creator": creator or None,
+                "creator": effective_creator,
+                "creator_role": effective_creator_role,
+                "operator": effective_operator,
                 "start_date": start_time or None,
                 "type": task_type or "A",
                 "task_type": task_type or "A",
@@ -552,7 +559,8 @@ def transition_task_pipeline(
 
         handler_key = field_mapping.get("handler", "handler")
         owner_key = field_mapping.get("owner") or field_mapping.get("assignee", "assignee")
-        update_fields = {status_key: to_status, handler_key: target_handler}
+        effective_operator = operator or get_current_os_user() or "用户"
+        update_fields = {status_key: to_status, handler_key: target_handler, "operator": effective_operator}
         if "status" not in update_fields:
             update_fields["status"] = to_status
         if owner:
@@ -697,6 +705,7 @@ def main():
     parser.add_argument("--active-dev-count", type=int, default=1, help="当前开发人员'进行中'任务数 (并发上限校验用)")
     parser.add_argument("--dry-run", action="store_true", help="开启预检测试模式而不物理写卡")
     parser.add_argument("--creator", default=None, help="真人创建人/系统用户名 (任务新建时记录)")
+    parser.add_argument("--creator-role", default=None, help="建单虚拟专家角色 (如 PM/严经理/钱架构)")
     parser.add_argument("--operator", default=None, help="真实人类操作人姓名 (缺省自动读取 Git/OS 用户名)")
     parser.add_argument("--delegated-by", default="", help="提权代行来源角色 (如 PM/USER),留痕到 audit,需在白名单内")
     parser.add_argument("--delegation-reason", default="", help="提权代行理由")
@@ -757,6 +766,7 @@ def main():
         wbs=args.wbs,
         owner=args.owner,
         creator=args.creator,
+        creator_role=args.creator_role,
         operator=args.operator,
         delegated_by=args.delegated_by,
         delegation_reason=args.delegation_reason,

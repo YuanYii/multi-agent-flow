@@ -72,6 +72,9 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
     "owner": "assignee",
     "handler": "handler",
     "creator": "creator",
+    "creator_role": "creator_role",
+    "operator": "operator",
+    "operator_name": "operator",
     "priority": None,
     "task_type": "type",
     "type": "type",
@@ -92,7 +95,7 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
 
 # 看板原生字段集合（直接透传的白名单）
 KANBAN_NATIVE_FIELDS = {
-    "id", "name", "wbs", "status", "assignee", "handler", "creator", "est_hours", "act_hours",
+    "id", "name", "wbs", "status", "assignee", "handler", "creator", "creator_role", "operator", "est_hours", "act_hours",
     "start_date", "end_date", "stage", "wp", "process", "remarks", "pretask", "seq", "type",
 }
 
@@ -357,7 +360,16 @@ class OfflineBoardAdapter:
                 translated["act_hours"] = float(translated.get("act_hours", 0.0) or 0.0)
             except (ValueError, TypeError):
                 translated["act_hours"] = 0.0
-            translated.setdefault("creator", merged_fields.get("creator") or get_current_os_user())
+            creator_val = str(merged_fields.get("creator") or "").strip()
+            creator_val = "" if creator_val in ("None", "null", "undefined") else creator_val
+            translated["creator"] = creator_val or get_current_os_user()
+            
+            creator_role_raw = merged_fields.get("creator_role") or merged_fields.get("role") or "PM"
+            translated.setdefault("creator_role", normalize_role(str(creator_role_raw).strip()))
+            
+            op_val = str(merged_fields.get("operator") or merged_fields.get("operator_name") or "").strip()
+            op_val = "" if op_val in ("None", "null", "undefined") else op_val
+            translated["operator"] = op_val or translated["creator"]
             translated.setdefault("process", "")
 
             # pretask 规范化与自依赖拦截
