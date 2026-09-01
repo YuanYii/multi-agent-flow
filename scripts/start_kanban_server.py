@@ -349,13 +349,8 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
                 persist_err = ""
 
                 if isinstance(res_data, dict):
-                    # 1. 批量删除场景
-                    if "deleted_ids" in res_data and isinstance(res_data["deleted_ids"], (list, set)):
-                        for del_id in res_data["deleted_ids"]:
-                            if not adapter.delete_record(str(del_id)):
-                                sys.stderr.write(f"[WARN] 删除周任务失败或记录不存在: {del_id}\n")
-                    # 2. 单卡更新场景 (含 "card" 包装)
-                    elif "card" in res_data and isinstance(res_data["card"], dict):
+                    # 1. 单卡更新场景 (含 "card" 包装)
+                    if "card" in res_data and isinstance(res_data["card"], dict):
                         target_card = res_data["card"]
                         tid = str(target_card.get("id", ""))
                         if tid:
@@ -731,7 +726,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self.send_header("Access-Control-Allow-Origin", "*")
         else:
             self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers",
             "Content-Type, Authorization, If-Match, X-Board-Version, X-Master-Token, X-Device-Name"
@@ -879,6 +874,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             wp_filter = query.get("wp", [None])[0]
             handler_filter = query.get("handler", [None])[0]
             creator_filter = query.get("creator", [None])[0]
+            creator_role_filter = query.get("creator_role", [None])[0]
+            operator_filter = query.get("operator", [None])[0]
             type_filter = query.get("type", [None])[0]
             start_from = query.get("start_from", [None])[0]
             start_to = query.get("start_to", [None])[0]
@@ -906,6 +903,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     filtered = [c for c in filtered if normalize_role_name(c.get("handler") or c.get("assignee")) == normalize_role_name(handler_filter)]
             if creator_filter:
                 filtered = [c for c in filtered if c.get("creator") == creator_filter]
+            if creator_role_filter:
+                filtered = [c for c in filtered if (c.get("creator_role") == creator_role_filter or normalize_role_name(c.get("creator_role")) == normalize_role_name(creator_role_filter))]
+            if operator_filter:
+                filtered = [c for c in filtered if (c.get("operator") == operator_filter or c.get("operator_name") == operator_filter)]
             if start_from:
                 filtered = [c for c in filtered if (str(c.get("start_date") or c.get("start_time") or "").strip()[:10] and str(c.get("start_date") or c.get("start_time") or "").strip()[:10] >= start_from)]
             if start_to:
@@ -923,6 +924,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     or kw in str(c.get("assignee", "")).lower()
                     or kw in str(c.get("handler", "")).lower()
                     or kw in str(c.get("creator", "")).lower()
+                    or kw in str(c.get("creator_role", "")).lower()
+                    or kw in str(c.get("operator", "")).lower()
                     or kw in str(c.get("status", "")).lower()
                     or kw in str(c.get("stage", "")).lower()
                     or kw in str(c.get("wp", "")).lower()
@@ -1227,12 +1230,17 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                         header_op = unquote(header_op)
                     except Exception:
                         pass
-                operator_name = (
-                    normalize_role_name(body_data.get("operator_name") or body_data.get("operator") or body_data.get("creator"))
-                    or header_op
-                    or get_default_operator()
-                )
-                creator_val = normalize_role_name(body_data.get("creator")) or operator_name or get_default_operator()
+                creator_raw = body_data.get("creator")
+                creator_clean = str(creator_raw).strip() if creator_raw is not None and str(creator_raw).strip() not in ("None", "null", "undefined") else ""
+                creator_val = creator_clean or header_op or get_default_operator()
+
+                creator_role_raw = body_data.get("creator_role") or body_data.get("role") or "PM"
+                creator_role_val = normalize_role_name(str(creator_role_raw).strip())
+
+                operator_raw = body_data.get("operator") or body_data.get("operator_name")
+                operator_clean = str(operator_raw).strip() if operator_raw is not None and str(operator_raw).strip() not in ("None", "null", "undefined") else ""
+                operator_val = operator_clean or header_op or creator_val
+
                 pretask_val = str(body_data.get("pretask", "")).strip()
 
                 if status == "审查中":
@@ -1278,6 +1286,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "pretask": pretask_val,
                     "assignee": assignee,
                     "creator": creator_val,
+                    "creator_role": creator_role_val,
+                    "operator": operator_val,
                     "status": status,
                     "handler": handler,
                     "est_hours": parsed_est,
@@ -1294,57 +1304,19 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 device_info = self.resolve_client_device_name()
                 node_id = f"{new_id}-N01"
                 init_process = body_data.get("process") or \
-                    f"[{node_id}]  [{now_str}]  建单并进入【{status}】 | 操作人: {creator_val} | 终端: {device_info}" + \
+                    f"[{node_id}]  [{now_str}]  建单并进入【{status}】 | 创建人: {creator_val} (创建角色: {creator_role_val}) | 负责角色: {assignee} | 终端: {device_info}" + \
                     (f"\n操作说明: {remarks}" if remarks else "")
                 new_card["process"] = init_process
 
                 cards.append(new_card)
-                append_audit_log(new_id, "PM", "无", status, creator_val, f"[{device_info}] 创建任务: {name}")
+                append_audit_log(new_id, creator_role_val, "无", status, creator_val, f"[{device_info}] 创建任务: {name}")
                 return True, 200, f"成功创建任务 {new_id}", new_card
 
             code, msg, data = atomic_mutate_board_data(_mutate_create, expected_version=expected_v)
             self._send_json_resp(code, msg, data, http_status=code)
             return
 
-        # 3. REST API: POST /api/tasks/batch-delete 或 /api/cards/batch-delete (批量删除)
-        if path in ("/api/tasks/batch-delete", "/api/cards/batch-delete"):
-            if not self._is_master_authorized():
-                self._send_json_resp(
-                    403,
-                    "批量删除任务需主控权限，请携带主控 Token 访问",
-                    {"error_type": "FORBIDDEN_MASTER_REQUIRED"},
-                    http_status=403
-                )
-                return
-
-            if not isinstance(body_data, dict) or ("task_ids" not in body_data and "ids" not in body_data):
-                self._send_json_resp(400, "缺少 task_ids 或 ids 列表", None, http_status=400)
-                return
-
-            raw_ids = body_data.get("task_ids") or body_data.get("ids") or []
-            task_ids_to_del = set(raw_ids)
-
-            def _mutate_batch_del(cards):
-                device_info = self.resolve_client_device_name()
-                initial_count = len(cards)
-                remaining = [c for c in cards if c.get("id") not in task_ids_to_del]
-                cards.clear()
-                cards.extend(remaining)
-                deleted_count = initial_count - len(cards)
-                for tid in task_ids_to_del:
-                    append_audit_log(tid, "PM", "-", "已删除", "用户", f"[{device_info}] 批量删除任务: {tid}")
-                return True, 200, f"成功删除 {deleted_count} 条任务", {
-                    "deleted_count": deleted_count,
-                    "deleted": deleted_count,
-                    "remaining_total": len(cards),
-                    "deleted_ids": list(task_ids_to_del)
-                }
-
-            code, msg, data = atomic_mutate_board_data(_mutate_batch_del, expected_version=expected_v)
-            self._send_json_resp(code, msg, data, http_status=code)
-            return
-
-        # 4. REST API: POST /api/tasks/{task_id}/transition 或 /api/cards/{task_id}/transition
+        # 3. REST API: POST /api/tasks/{task_id}/transition 或 /api/cards/{task_id}/transition
         m_trans = re.match(r"^/api/(?:tasks|cards)/([A-Za-z0-9_\-]+)/transition$", path)
         if m_trans:
             task_id = m_trans.group(1)
@@ -1386,11 +1358,9 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     header_op = unquote(header_op)
                 except Exception:
                     pass
-            operator_name = (
-                normalize_role_name(body_data.get("operator_name") or body_data.get("operator"))
-                or header_op
-                or get_default_operator()
-            )
+            op_raw = body_data.get("operator_name") or body_data.get("operator")
+            op_clean = str(op_raw).strip() if op_raw is not None and str(op_raw).strip() not in ("None", "null", "undefined") else ""
+            operator_name = op_clean or header_op or get_default_operator()
             comment = (body_data.get("comment") or body_data.get("note") or "").strip()
             # 安全加固 (2026-08-27): 本端点不经过 CLI 门控管线，上方的主控 Token 强校验即本路径
             # 唯一授权关口。审计角色默认值此前硬编码为 "USER"，导致未持票的普通流转也被记录成
@@ -1423,6 +1393,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 )
 
                 card["status"] = target_status
+                card["operator"] = operator_name
                 new_assignee = normalize_role_name(body_data.get("assignee"))
                 if new_assignee:
                     card["assignee"] = new_assignee
@@ -1533,8 +1504,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             self._send_json_resp(code, msg, data, http_status=code)
             return
 
-        # 2. REST API: PUT /api/board/meta 或 /api/preferences (更新偏好配置与标题)
-        if path in ("/api/board/meta", "/api/preferences"):
+        # 2. REST API: PUT /api/board/preferences 或 /api/preferences 或 /api/board/meta (更新看板配置偏好)
+        if path in ("/api/board/preferences", "/api/preferences", "/api/board/meta"):
             if not self._is_master_authorized():
                 self._send_json_resp(
                     403,
@@ -1569,10 +1540,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 if not card:
                     return False, 404, f"未找到任务 [{task_id}]", None
 
-                # 非主控权限字段级差量防护：仅允许修改 act_hours, remarks, handler
+                # 非主控权限字段级差量防护：仅允许修改 act_hours, remarks, handler, operator
                 if not self._is_master_authorized():
                     protected_fields = [
-                        "name", "stage", "wp", "wbs", "pretask", "creator", "assignee", "status",
+                        "name", "stage", "wp", "wbs", "pretask", "creator", "creator_role", "assignee", "status",
                         "est_hours", "start_date", "end_date"
                     ]
                     for k in protected_fields:
@@ -1591,7 +1562,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 old_handler = card.get("handler", "未分配")
 
                 updatable_fields = [
-                    "name", "stage", "wp", "wbs", "pretask", "creator", "assignee", "handler",
+                    "name", "stage", "wp", "wbs", "pretask", "creator", "creator_role", "operator", "assignee", "handler",
                     "status", "est_hours", "act_hours", "start_date",
                     "end_date", "remarks", "process", "target", "acceptance_criteria"
                 ]
@@ -1713,91 +1684,11 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         self._send_json_resp(404, "Not Found", None, http_status=404)
 
     # -------------------------------------------------------------
-    # DELETE 路由分发
+    # DELETE 路由分发 (全面禁用 405 Method Not Allowed)
     # -------------------------------------------------------------
     def do_DELETE(self):
-        if self._is_untrusted_origin():
-            self._send_json_resp(403, "禁止非本地跨域操作 (CSRF 拦截)", None, http_status=403)
-            return
-
-        if not self._is_master_authorized():
-            self._send_json_resp(
-                403,
-                "删除任务需主控权限，请携带主控 Token 访问",
-                {"error_type": "FORBIDDEN_MASTER_REQUIRED"},
-                http_status=403
-            )
-            return
-
-        parsed = urlparse(self.path)
-        path = parsed.path
-        query = parse_qs(parsed.query)
-
-        body_data = None
-        try:
-            body_data = self._parse_request_json()
-        except Exception:
-            pass
-
-        expected_v = self._extract_expected_version(body_data)
-
-        # 1. REST API: DELETE /api/tasks/{task_id} 或 /api/cards/{task_id}
-        m_task = re.match(r"^/api/(?:tasks|cards)/([A-Za-z0-9_\-]+)$", path)
-        if m_task:
-            task_id = m_task.group(1)
-
-            def _mutate_del_one(cards):
-                device_info = self.resolve_client_device_name()
-                initial_len = len(cards)
-                remaining = [c for c in cards if c.get("id") != task_id]
-                if len(remaining) == initial_len:
-                    return False, 404, f"未找到待删除任务 [{task_id}]", None
-                cards.clear()
-                cards.extend(remaining)
-                append_audit_log(task_id, "PM", "-", "已删除", "用户", f"[{device_info}] 删除任务: {task_id}")
-                return True, 200, f"成功删除任务 {task_id}", {"deleted_id": task_id, "deleted": 1}
-
-            code, msg, data = atomic_mutate_board_data(_mutate_del_one, expected_version=expected_v)
-            self._send_json_resp(code, msg, data, http_status=code)
-            return
-
-        # 2. REST API: DELETE /api/tasks 或 /api/cards (批量删除 ?ids=id1,id2 或 body)
-        if path in ("/api/tasks", "/api/cards"):
-            ids_param = query.get("ids", [None])[0] or query.get("task_ids", [None])[0]
-            ids_list = []
-            if ids_param:
-                ids_list = [x.strip() for x in ids_param.split(",") if x.strip()]
-            elif isinstance(body_data, dict):
-                ids_list = body_data.get("ids") or body_data.get("task_ids") or []
-            elif isinstance(body_data, list):
-                ids_list = body_data
-
-            if not ids_list:
-                self._send_json_resp(400, "缺少待删除任务 ID 列表 (ids)", None, http_status=400)
-                return
-
-            task_ids_to_del = set(ids_list)
-
-            def _mutate_del_multi(cards):
-                device_info = self.resolve_client_device_name()
-                initial_len = len(cards)
-                remaining = [c for c in cards if c.get("id") not in task_ids_to_del]
-                cards.clear()
-                cards.extend(remaining)
-                deleted_count = initial_len - len(cards)
-                for tid in task_ids_to_del:
-                    append_audit_log(tid, "PM", "-", "已删除", "用户", f"[{device_info}] 批量删除任务: {tid}")
-                return True, 200, f"成功删除 {deleted_count} 条任务", {
-                    "deleted": deleted_count,
-                    "deleted_count": deleted_count,
-                    "remaining_total": len(cards)
-                }
-
-            code, msg, data = atomic_mutate_board_data(_mutate_del_multi, expected_version=expected_v)
-            self._send_json_resp(code, msg, data, http_status=code)
-            return
-
-        self._send_json_resp(404, "Not Found", None, http_status=404)
+        """看板任务禁止任何物理删除操作，严格保障全链路审计与状态机流转"""
+        self._send_json_resp(405, "看板已全面禁用物理删除操作，任务仅支持状态流转与归档", None, http_status=405)
 
     def log_message(self, format, *args):
         # 保持控制台日志简洁（端口跟随实际绑定值）

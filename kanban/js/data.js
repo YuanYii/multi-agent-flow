@@ -232,6 +232,8 @@ async function fetchTableTasksFromServer(params = {}) {
     if (params.wp) queryParts.push(`wp=${encodeURIComponent(params.wp)}`);
     if (params.handler) queryParts.push(`handler=${encodeURIComponent(params.handler)}`);
     if (params.creator) queryParts.push(`creator=${encodeURIComponent(params.creator)}`);
+    if (params.creator_role) queryParts.push(`creator_role=${encodeURIComponent(params.creator_role)}`);
+    if (params.operator) queryParts.push(`operator=${encodeURIComponent(params.operator)}`);
     if (params.start_from) queryParts.push(`start_from=${encodeURIComponent(params.start_from)}`);
     if (params.start_to) queryParts.push(`start_to=${encodeURIComponent(params.start_to)}`);
     if (params.end_from) queryParts.push(`end_from=${encodeURIComponent(params.end_from)}`);
@@ -496,69 +498,6 @@ async function apiUpdateTask(taskId, patchData) {
     }
 }
 
-/**
- * 接口 3: 删除任务 (DELETE /api/tasks/{id})
- */
-async function apiDeleteTask(taskId) {
-    isWriteInFlight = true;
-    try {
-        const headers = getAuthHeaders(currentBoardVersion ? { 'If-Match': currentBoardVersion } : {});
-
-        const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
-            method: 'DELETE',
-            headers: headers
-        });
-        const resp = await res.json();
-        if (res.status === 409) {
-            handle409Conflict(resp.data);
-            return { ok: false, code: 409, message: resp.message, error: resp.message };
-        }
-        if (res.ok && resp) {
-            if (resp.data && resp.data.v) currentBoardVersion = resp.data.v;
-            return { ok: true, code: 200, message: resp.message, data: resp.data };
-        }
-        return { ok: false, code: res.status, message: resp.message, error: resp.message || `HTTP ${res.status}` };
-    } catch (e) {
-        console.warn(`[API] DELETE /api/tasks/${taskId} offline`, e);
-        return { ok: false, error: e.message || '网络连接异常' };
-    } finally {
-        isWriteInFlight = false;
-    }
-}
-
-/**
- * 接口 4: 批量删除任务 (POST /api/tasks/batch-delete)
- */
-async function apiBatchDeleteTasks(taskIds) {
-    isWriteInFlight = true;
-    try {
-        const payload = { task_ids: taskIds };
-        if (currentBoardVersion) payload._v = currentBoardVersion;
-
-        const headers = getAuthHeaders(currentBoardVersion ? { 'If-Match': currentBoardVersion } : {});
-
-        const res = await fetch('/api/tasks/batch-delete', {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(payload)
-        });
-        const resp = await res.json();
-        if (res.status === 409) {
-            handle409Conflict(resp.data);
-            return { ok: false, code: 409, message: resp.message, error: resp.message };
-        }
-        if (res.ok && resp) {
-            if (resp.data && resp.data.v) currentBoardVersion = resp.data.v;
-            return { ok: true, code: 200, message: resp.message, data: resp.data };
-        }
-        return { ok: false, code: res.status, message: resp.message, error: resp.message || `HTTP ${res.status}` };
-    } catch (e) {
-        console.warn('[API] POST /api/tasks/batch-delete offline', e);
-        return { ok: false, error: e.message || '网络连接异常' };
-    } finally {
-        isWriteInFlight = false;
-    }
-}
 
 /**
  * 接口 5: 状态流转与审计落盘 (POST /api/tasks/{id}/transition)

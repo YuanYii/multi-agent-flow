@@ -279,15 +279,6 @@ def test_server_weekly_mutate_persistence(temp_weekly_env, monkeypatch):
     assert rec["fields"]["status"] == "进行中"
     assert rec["fields"]["target"] == "更新后的目标"
 
-    # 3. 模拟 POST /api/tasks/batch-delete 批量删除任务
-    def _mutate_del_sim(cards):
-        cards.clear()
-        return True, 200, "删除成功", {"deleted_ids": ["T0099"], "deleted_count": 1}
-
-    code, msg, res = srv.atomic_mutate_board_data(_mutate_del_sim)
-    assert code == 200
-    assert adapter.get_record("T0099") is None
-
 
 def test_server_weekly_mutate_error_bubbling(temp_weekly_env, monkeypatch):
     """场景12：验证底层适配器落盘失败时，atomic_mutate_board_data 拒绝返回虚假 200，严密向上冒泡 500"""
@@ -386,3 +377,92 @@ def test_none_fields_defense_and_process_purification(temp_weekly_env, monkeypat
 
     rec_updated = adapter.get_record(tid)
     assert rec_updated["fields"]["status"] == "进行中"
+
+
+def test_four_roles_model_defaults_and_explicit(temp_weekly_env):
+    """场景15：四元人机协同身份模型（创建人、创建角色、负责角色、操作人）默认与显式设置"""
+    adapter, _ = temp_weekly_env
+    # 1. 默认建卡：creator 取 OS 用户，creator_role 默认 严经理，assignee 默认 李开发，operator 默认 creator
+    tid1 = adapter.create_record({"name": "默认四元任务"}, week="2026-W36")
+    rec1 = adapter.get_record(tid1)
+    f1 = rec1["fields"]
+    assert f1["creator_role"] == "严经理"
+    assert f1["assignee"] == "李开发"
+    assert f1["creator"] != ""
+    assert f1["operator"] == f1["creator"]
+    assert "创建角色: 严经理" in f1["process"]
+
+    # 2. 显式指定四元：真实自然人“yuanyi”，创建角色“钱架构”，负责角色“马前端”，操作人“张三”
+    tid2 = adapter.create_record({
+        "name": "显式四元任务",
+        "creator": "yuanyi",
+        "creator_role": "钱架构",
+        "assignee": "马前端",
+        "operator": "张三"
+    }, week="2026-W36")
+    rec2 = adapter.get_record(tid2)
+    f2 = rec2["fields"]
+    assert f2["creator"] == "yuanyi"
+    assert f2["creator_role"] == "钱架构"
+    assert f2["assignee"] == "马前端"
+    assert f2["operator"] == "张三"
+    assert "创建人: yuanyi (创建角色: 钱架构) | 负责角色: 马前端" in f2["process"]
+
+
+def test_operator_updates_on_transition(temp_weekly_env):
+    """场景16：多次流转时根属性 operator 实时更新为最新操作人"""
+    adapter, _ = temp_weekly_env
+    tid = adapter.create_record({
+        "name": "流转操作人测试",
+        "creator": "yuanyi",
+        "creator_role": "严经理",
+        "assignee": "李开发"
+    }, week="2026-W36")
+
+    # 初始状态
+    assert adapter.get_record(tid)["fields"]["operator"] == "yuanyi"
+
+    # 第一次流转由“李四”推进至“进行中”
+    ok1 = adapter.update_record(tid, {"status": "进行中", "operator": "李四"})
+    assert ok1 is True
+    assert adapter.get_record(tid)["fields"]["operator"] == "李四"
+
+    # 第二次流转由“王五”推进至“审查中”
+    ok2 = adapter.update_record(tid, {"status": "审查中", "operator": "王五"})
+    assert ok2 is True
+    assert adapter.get_record(tid)["fields"]["operator"] == "王五"
+
+
+def test_legacy_yaml_fallback_creator_role_and_operator(temp_weekly_env):
+    """场景17：存量缺少 creator_role 与 operator 的旧周 YAML 优雅降级兼容"""
+    adapter, td = temp_weekly_env
+    import yaml
+    legacy_file = os.path.join(adapter.tasks_dir, "2026-W30.yaml")
+    legacy_data = {
+        "metadata": {"week_cycle": "2026-W30", "is_sealed": False},
+        "tasks": [
+            {
+                "id": "T0001",
+                "seq": 1,
+                "name": "存量任务卡",
+                "status": "待开始",
+                "creator": "old_user",
+                "assignee": "李开发"
+                # 无 creator_role 与 operator
+            }
+        ]
+    }
+    with open(legacy_file, "w", encoding="utf-8") as f:
+        yaml.dump(legacy_data, f)
+
+    # get_record 读取存量卡
+    rec = adapter.get_record("T0001")
+    assert rec is not None
+    assert rec["fields"]["creator_role"] == "严经理"
+    assert rec["fields"]["operator"] == "old_user"
+
+    # list_records 读取存量卡
+    all_recs = adapter.list_records(include_sealed=True)
+    t1 = next(r for r in all_recs if r["record_id"] == "T0001")
+    assert t1["fields"]["creator_role"] == "严经理"
+    assert t1["fields"]["operator"] == "old_user"
