@@ -2280,9 +2280,14 @@
                     let tagType = '';
                     let tagLabel = '';
 
-                    // 优先模式 A: 匹配明确的流转目标动词 (更新至、更新为、流转至、移交至、变更为、调整为、置为、退回到、回到、-> 等)
-                    const transitionVerbRegex = /(?:更新至|更新为|流转至|流转到|变更为|调整为|推至|置为|移交至|退回到|退回至|重置为|切换至|回到|->|=>|to)\s*[【\\[]?([^】\\]\s]+)[】\\]?/i;
-                    const verbMatch = contentStr.match(transitionVerbRegex);
+                    // 核心防污染保护：提取状态流转主干文本（排除“操作说明: xxx”用户备注内容，避免“提审：已完成xxx”中的“已完成”误判）
+                    let targetParseText = contentStr.split('\n')[0];
+                    if (targetParseText.includes('操作说明:')) targetParseText = targetParseText.split('操作说明:')[0];
+                    if (targetParseText.includes('操作说明：')) targetParseText = targetParseText.split('操作说明：')[0];
+
+                    // 优先模式 A: 匹配明确的流转目标动词 (更新至、更新为、流转至、移交至、变更为、调整为、推至、置为、进入、退回到、回到、-> 等)
+                    const transitionVerbRegex = /(?:更新至|更新为|流转至|流转到|变更为|调整为|推至|置为|移交至|进入|退回到|退回至|重置为|切换至|回到|->|=>|to)\s*[【\\[]?([^】\\]\s]+)[】\\]?/i;
+                    const verbMatch = targetParseText.match(transitionVerbRegex);
                     if (verbMatch) {
                         const rawTarget = verbMatch[1].trim();
                         if (validStatuses.includes(rawTarget)) {
@@ -2300,9 +2305,9 @@
                         }
                     }
 
-                    // 优先模式 B: 从右向左扫描所有括号提取终态实体
+                    // 优先模式 B: 从右向左扫描所有括号提取终态实体 (在主干文本中)
                     if (!tagLabel) {
-                        const allBrackets = Array.from(contentStr.matchAll(/[\\[【]([^\\]】]+)[\\]】]/g)).map(m => m[1].trim());
+                        const allBrackets = Array.from(targetParseText.matchAll(/[\\[【]([^\\]】]+)[\\]】]/g)).map(m => m[1].trim());
                         for (let i = allBrackets.length - 1; i >= 0; i--) {
                             const item = allBrackets[i];
                             if (validStatuses.includes(item)) {
@@ -2334,12 +2339,12 @@
                         }
                     }
 
-                    // 优先模式 C: 全文关键词倒序扫描
+                    // 优先模式 C: 主干文本关键词倒序扫描
                     if (!tagLabel) {
                         let lastIdx = -1;
                         let foundSt = '';
                         validStatuses.forEach(st => {
-                            const idx = contentStr.lastIndexOf(st);
+                            const idx = targetParseText.lastIndexOf(st);
                             if (idx > lastIdx) {
                                 lastIdx = idx;
                                 foundSt = st;
@@ -2354,7 +2359,7 @@
                         let lastIdx = -1;
                         let foundP = '';
                         validPersons.forEach(p => {
-                            const idx = contentStr.lastIndexOf(p);
+                            const idx = targetParseText.lastIndexOf(p);
                             if (idx > lastIdx) {
                                 lastIdx = idx;
                                 foundP = p;
