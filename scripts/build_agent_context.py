@@ -79,10 +79,11 @@ def build_context(role: str, action: str = "general") -> str:
         context_output.append("- 确认并发任务数 ≤3；")
         context_output.append("- 先通过 API/CLI 更新看板为 `进行中` 并设置 Assignee 为自己。")
     elif action == "dispatch":
-        context_output.append("- 执行任务分级三问判定 (L0/L1/L2)：")
+        context_output.append("- 执行任务分级三问判定 (L0/L1/L2) 与单一职责 (SRP) 审查：")
         context_output.append("  1. 会留下文件/仓库变更吗？否 -> L0 即时问答（直接作答不建卡，L0 无卡不违规）；")
         context_output.append("  2. 留下的东西需要事后追溯吗？否 -> L0，是 -> L1 轻量任务（B/C/D/F/G，建卡走短链）；")
         context_output.append("  3. 需要多角色协作或动核心资产吗？是 -> L2 标准任务（A 类，建卡走全链）；")
+        context_output.append("- 单一职责 (SRP) 自检：单角色、单交付物、工时 ≤ 8.0h；三必拆（DB/接口/前端必须独立拆单），严禁复合大卡。")
         context_output.append("- 硬红线：修改文件/仓库必建卡；结论被引用必建卡；用户显式要求建卡必建卡。")
     elif action == "submit":
         context_output.append("- 生成/更新开发任务报告；")
