@@ -353,6 +353,14 @@ class WeeklyBoardAdapter:
                 translated[target_key] = v
             else:
                 translated[k] = v
+        
+        # operator 物理防伪：必须为真实自然人/系统用户名，若传入虚拟角色代号强制回退为当前系统用户
+        virtual_roles = {"严经理", "钱架构", "李开发", "马前端", "周审查", "章测试", "李文通", "吕改特", "pm", "arch", "dev", "frontend", "reviewer", "qa", "docs", "devops"}
+        if "operator" in translated:
+            op_val = str(translated["operator"]).strip()
+            if not op_val or op_val.lower() in virtual_roles or op_val in virtual_roles:
+                translated["operator"] = get_current_os_user() or "用户"
+
         return translated
 
     def create_record(self, fields: Dict[str, Any], week: Optional[str] = None) -> Optional[str]:

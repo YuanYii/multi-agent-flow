@@ -559,7 +559,13 @@ def transition_task_pipeline(
 
         handler_key = field_mapping.get("handler", "handler")
         owner_key = field_mapping.get("owner") or field_mapping.get("assignee", "assignee")
-        effective_operator = operator or get_current_os_user() or "用户"
+        
+        # operator 物理防伪：必须为真实自然人/系统用户名，若传入虚拟角色代号强制回退为当前系统用户
+        virtual_roles = {"严经理", "钱架构", "李开发", "马前端", "周审查", "章测试", "李文通", "吕改特", "pm", "arch", "dev", "frontend", "reviewer", "qa", "docs", "devops"}
+        effective_operator = operator
+        if not effective_operator or str(effective_operator).strip().lower() in virtual_roles or str(effective_operator).strip() in virtual_roles:
+            effective_operator = get_current_os_user() or "用户"
+
         update_fields = {status_key: to_status, handler_key: target_handler, "operator": effective_operator}
         if "status" not in update_fields:
             update_fields["status"] = to_status
