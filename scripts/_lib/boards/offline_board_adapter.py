@@ -72,6 +72,9 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
     "owner": "assignee",
     "handler": "handler",
     "creator": "creator",
+    "creator_role": "creator_role",
+    "operator": "operator",
+    "operator_name": "operator",
     "priority": None,
     "task_type": "type",
     "type": "type",
@@ -84,6 +87,8 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
     "workpackage": "wp",
     "process_desc": "process",
     "remarks": "remarks",
+    "target": "target",
+    "acceptance_criteria": "acceptance_criteria",
     "pretask": "pretask",
     "pre_task": "pretask",
     "depends_on": "pretask",
@@ -92,8 +97,8 @@ KANBAN_FIELD_MAP: Dict[str, Optional[str]] = {
 
 # 看板原生字段集合（直接透传的白名单）
 KANBAN_NATIVE_FIELDS = {
-    "id", "name", "wbs", "status", "assignee", "handler", "creator", "est_hours", "act_hours",
-    "start_date", "end_date", "stage", "wp", "process", "remarks", "pretask", "seq", "type",
+    "id", "name", "wbs", "status", "assignee", "handler", "creator", "creator_role", "operator", "est_hours", "act_hours",
+    "start_date", "end_date", "stage", "wp", "process", "remarks", "pretask", "seq", "type", "target", "acceptance_criteria",
 }
 
 _TASK_ID_RE = re.compile(r"^T(\d+)$")
@@ -357,8 +362,32 @@ class OfflineBoardAdapter:
                 translated["act_hours"] = float(translated.get("act_hours", 0.0) or 0.0)
             except (ValueError, TypeError):
                 translated["act_hours"] = 0.0
-            translated.setdefault("creator", merged_fields.get("creator") or get_current_os_user())
+            creator_val = str(merged_fields.get("creator") or "").strip()
+            creator_val = "" if creator_val in ("None", "null", "undefined") else creator_val
+            translated["creator"] = creator_val or get_current_os_user()
+            
+            creator_role_raw = merged_fields.get("creator_role") or merged_fields.get("role") or "PM"
+            translated.setdefault("creator_role", normalize_role(str(creator_role_raw).strip()))
+            
+            op_val = str(merged_fields.get("operator") or merged_fields.get("operator_name") or "").strip()
+            op_val = "" if op_val in ("None", "null", "undefined") else op_val
+            translated["operator"] = op_val or translated["creator"]
             translated.setdefault("process", "")
+
+            raw_crit = translated.get("acceptance_criteria") or merged_fields.get("acceptance_criteria") or []
+            if isinstance(raw_crit, str):
+                crit_list = [c.strip() for c in re.split(r"[;\n；]", raw_crit) if c.strip()]
+            elif isinstance(raw_crit, list):
+                crit_list = []
+                for item in raw_crit:
+                    if isinstance(item, str):
+                        crit_list.extend([c.strip() for c in re.split(r"[;\n；]", item) if c.strip()])
+                    elif item:
+                        crit_list.append(str(item).strip())
+            else:
+                crit_list = []
+            translated["acceptance_criteria"] = crit_list
+            translated["target"] = str(translated.get("target") or merged_fields.get("target") or "").strip()
 
             # pretask 规范化与自依赖拦截
             raw_pretask = translated.get("pretask") or merged_fields.get("pretask") or merged_fields.get("pre_task") or merged_fields.get("depends_on")

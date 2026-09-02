@@ -200,6 +200,7 @@ def transition_task_pipeline(
     wbs: str = None,
     owner: str = None,
     creator: str = None,
+    creator_role: str = None,
     operator: str = None,
     delegated_by: str = "",
     delegation_reason: str = "",
@@ -208,6 +209,9 @@ def transition_task_pipeline(
     create_only: bool = False,
     force: bool = False,
     no_dup_check: bool = False,
+    target: str = None,
+    criteria: Any = None,
+    week: str = None,
 ) -> bool:
     resolved_task_id = task_id or "AUTO"
     extra_log = {"task_id": resolved_task_id}
@@ -332,6 +336,10 @@ def transition_task_pipeline(
                 all_cards = []
             res_stage, res_wp, res_wbs = resolve_default_stage_wp_wbs(all_cards, stage=stage, wp=wp, wbs=wbs)
 
+            effective_creator = creator or get_current_os_user()
+            effective_creator_role = normalize_role_name(creator_role or current_role or "PM")
+            effective_operator = operator or effective_creator
+
             create_fields = {
                 "task_id": task_id,
                 "task_name": task_name,
@@ -342,7 +350,9 @@ def transition_task_pipeline(
                 "stage": res_stage,
                 "workpackage": res_wp,
                 "wbs_id": res_wbs,
-                "creator": creator or None,
+                "creator": effective_creator,
+                "creator_role": effective_creator_role,
+                "operator": effective_operator,
                 "start_date": start_time or None,
                 "type": task_type or "A",
                 "task_type": task_type or "A",
@@ -351,8 +361,13 @@ def transition_task_pipeline(
                 "pretask": pretask or None,
                 "process": None,
                 "remarks": remarks or None,
+                "target": target or None,
+                "acceptance_criteria": criteria or [],
             }
-            created_id = adapter.create_record(create_fields)
+            if hasattr(adapter, "create_record") and "week" in adapter.create_record.__code__.co_varnames:
+                created_id = adapter.create_record(create_fields, week=week)
+            else:
+                created_id = adapter.create_record(create_fields)
             if not created_id:
                 logger.error("[FAILED]  建单失败（编号冲突或写入失败），硬阻断！", extra=extra_log)
                 record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, "建单失败", delegated_by=delegated_by, delegation_reason=delegation_reason)
@@ -481,6 +496,10 @@ def transition_task_pipeline(
                 all_cards = []
             res_stage, res_wp, res_wbs = resolve_default_stage_wp_wbs(all_cards, stage=stage, wp=wp, wbs=wbs)
 
+            effective_creator = creator or get_current_os_user()
+            effective_creator_role = normalize_role_name(creator_role or current_role or "PM")
+            effective_operator = operator or effective_creator
+
             create_fields = {
                 "task_id": task_id,
                 "task_name": task_name or "工作包任务",
@@ -491,16 +510,24 @@ def transition_task_pipeline(
                 "stage": res_stage,
                 "workpackage": res_wp,
                 "wbs_id": res_wbs,
-                "start_date": None,
+                "creator": effective_creator,
+                "creator_role": effective_creator_role,
+                "operator": effective_operator,
+                "start_date": start_time or None,
                 "type": task_type or "A",
                 "task_type": task_type or "A",
                 "est_hours": est_hours or 0.0,
                 "act_hours": 0.0,
                 "pretask": pretask or None,
-                "process": remarks or None,
-                "remarks": remarks or None,
+                "process": None,
+                "remarks": None,
+                "target": target or None,
+                "acceptance_criteria": criteria or [],
             }
-            created_id = adapter.create_record(create_fields)
+            if hasattr(adapter, "create_record") and "week" in adapter.create_record.__code__.co_varnames:
+                created_id = adapter.create_record(create_fields, week=week)
+            else:
+                created_id = adapter.create_record(create_fields)
             if not created_id:
                 logger.error(f"[FAILED]  任务自动创建失败（编号冲突或写入失败），硬阻断流转！", extra=extra_log)
                 record_audit_event(resolved_task_id, current_role, from_status, to_status, norm_assignee, False, "任务自动创建失败", delegated_by=delegated_by, delegation_reason=delegation_reason)
@@ -544,7 +571,14 @@ def transition_task_pipeline(
 
         handler_key = field_mapping.get("handler", "handler")
         owner_key = field_mapping.get("owner") or field_mapping.get("assignee", "assignee")
-        update_fields = {status_key: to_status, handler_key: target_handler}
+        
+        # operator 物理防伪：必须为真实自然人/系统用户名，若传入虚拟角色代号强制回退为当前系统用户
+        virtual_roles = {"严经理", "钱架构", "李开发", "马前端", "周审查", "章测试", "李文通", "吕改特", "pm", "arch", "dev", "frontend", "reviewer", "qa", "docs", "devops"}
+        effective_operator = operator
+        if not effective_operator or str(effective_operator).strip().lower() in virtual_roles or str(effective_operator).strip() in virtual_roles:
+            effective_operator = get_current_os_user() or "用户"
+
+        update_fields = {status_key: to_status, handler_key: target_handler, "operator": effective_operator}
         if "status" not in update_fields:
             update_fields["status"] = to_status
         if owner:
@@ -669,7 +703,7 @@ def main():
     parser.add_argument("--config", default=None, help="配置文件路径")
     parser.add_argument("--task-id", default="", help="任务编号 (如 T0001)；不传则自动分配最大编号+1 (并发安全)")
     parser.add_argument("--record-id", default=None, help="看板内部记录 ID (离线看板默认等于任务编号，可省略)")
-    parser.add_argument("--task-name", default=None, help="任务名称 (任务不存在自动创建时必填建议项)")
+    parser.add_argument("--task-name", "--name", dest="task_name", default=None, help="任务名称 (任务不存在自动创建时必填建议项)")
     parser.add_argument("--stage", default=None, help="项目阶段 (自动创建时写入)")
     parser.add_argument("--wp", default=None, help="工作包 (自动创建时写入)")
     parser.add_argument("--wbs", default=None, help="WBS 编号 (自动创建时写入)")
@@ -689,6 +723,7 @@ def main():
     parser.add_argument("--active-dev-count", type=int, default=1, help="当前开发人员'进行中'任务数 (并发上限校验用)")
     parser.add_argument("--dry-run", action="store_true", help="开启预检测试模式而不物理写卡")
     parser.add_argument("--creator", default=None, help="真人创建人/系统用户名 (任务新建时记录)")
+    parser.add_argument("--creator-role", default=None, help="建单虚拟专家角色 (如 PM/严经理/钱架构)")
     parser.add_argument("--operator", default=None, help="真实人类操作人姓名 (缺省自动读取 Git/OS 用户名)")
     parser.add_argument("--delegated-by", default="", help="提权代行来源角色 (如 PM/USER),留痕到 audit,需在白名单内")
     parser.add_argument("--delegation-reason", default="", help="提权代行理由")
@@ -697,6 +732,9 @@ def main():
     parser.add_argument("--force-reopen", action="store_true",
                         help="终态纠偏重开模式：允许由 PM (严经理) 或真实人类用户 (USER) 将已验收/已取消工单受控回退至进行中或已完成")
     parser.add_argument("--create", action="store_true", help="显式建单模式：创建任务卡【待开始】并分配处理人，不执行流转")
+    parser.add_argument("--target", default=None, help="任务核心目标说明")
+    parser.add_argument("--criteria", action="append", default=None, help="验收标准（支持传多次或用分号/换行分隔）")
+    parser.add_argument("--week", default=None, help="显式归属周口径 (如 2026-W36)")
     parser.add_argument("--force", action="store_true", help="重复任务校验命中时强制创建（用户已确认重复创建）")
     parser.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
@@ -749,6 +787,7 @@ def main():
         wbs=args.wbs,
         owner=args.owner,
         creator=args.creator,
+        creator_role=args.creator_role,
         operator=args.operator,
         delegated_by=args.delegated_by,
         delegation_reason=args.delegation_reason,
@@ -757,6 +796,9 @@ def main():
         create_only=args.create,
         force=args.force,
         no_dup_check=args.no_dup_check,
+        target=getattr(args, "target", None),
+        criteria=getattr(args, "criteria", None),
+        week=getattr(args, "week", None),
     )
 
     if not ok:

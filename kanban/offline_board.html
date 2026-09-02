@@ -63,9 +63,6 @@
         <button class="btn" onclick="toggleCustomPopover(event, 'filter-popover')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg> 筛选</button>
         <button class="btn" onclick="toggleCustomPopover(event, 'sort-popover')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16"/></svg> 排序</button>
 
-        <!-- Batch Delete Button -->
-        <button class="btn danger-btn sm" id="batch-delete-btn" style="display:none;" onclick="batchDeleteRecords()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 批量删除 (<span id="selected-count">0</span>)</button>
-
         <button class="btn" onclick="resetFilters()" title="重置所有筛选条件与排序"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> 重置</button>
 
         <!-- Pure Static MVP JSON Import / Export -->
@@ -73,6 +70,26 @@
         <button class="btn" id="import-json-btn" onclick="triggerImportJSON()" title="选择并载入本地 board.json 文件"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> 导入 JSON</button>
         <button class="btn" id="export-json-btn" onclick="exportBoardJSON()" title="将当前任务数据导出下载为 board.json 文件"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导出 JSON</button>
         <input type="file" id="import-json-file-input" style="display:none;" accept=".json,application/json" onchange="handleImportJSON(event)">
+
+        <!-- Table Column Visibility Selector (行高左侧) -->
+        <span class="toolbar-divider" id="col-visibility-divider" role="separator" aria-orientation="vertical"></span>
+        <button class="btn" id="col-visibility-btn" onclick="toggleCustomPopover(event, 'col-visibility-popover')" aria-haspopup="listbox" aria-expanded="false" title="自定义数据表格显示列">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/></svg>
+            显示列
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="popover" id="col-visibility-popover" role="dialog" aria-label="表格显示列配置" style="min-width:210px; max-height:380px; overflow-y:auto; padding:10px 12px;" onclick="event.stopPropagation()">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color, #f0f0f0); padding-bottom:6px; margin-bottom:8px;">
+                <span style="font-weight:600; font-size:13px; color:var(--text-main);">表格列显示/隐藏</span>
+                <div style="display:flex; gap:8px;">
+                    <span style="cursor:pointer; color:var(--primary); font-size:12px;" onclick="toggleAllTableColumns(true)">全选</span>
+                    <span style="cursor:pointer; color:var(--text-muted); font-size:12px;" onclick="resetTableColumnVisibility()">重置</span>
+                </div>
+            </div>
+            <div class="checkbox-group" id="table-col-checkbox-list">
+                <!-- JS 动态注入所有列勾选框 -->
+            </div>
+        </div>
 
         <!-- Row Height Adjuster -->
         <span class="toolbar-divider" id="row-height-divider" role="separator" aria-orientation="vertical"></span>
@@ -113,24 +130,14 @@
         <!-- Field Config Popover -->
         <div class="popover" id="field-popover">
             <div class="popover-title">卡片显示字段配置</div>
-            <div class="checkbox-group">
-                <label class="checkbox-label" style="font-weight:600; padding-bottom:6px; margin-bottom:4px; border-bottom:1px dashed var(--border-color); color:var(--primary);">
-                    <input type="checkbox" checked data-field="showLabels" onchange="updateFieldConfig()"> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px; vertical-align:-1px;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>显示字段名称前缀 (Label)
-                </label>
-                <div style="display:flex; gap:8px; padding:2px 0 6px;">
-                    <span style="cursor:pointer; color:var(--primary); font-size:12px;" onclick="setAllCardFields(true)">全选</span>
-                    <span style="cursor:pointer; color:var(--text-muted); font-size:12px;" onclick="setAllCardFields(false)">清空</span>
-                </div>
-                <div id="field-checkbox-list">
-                    <!-- Populated from BOARD_FIELDS registry -->
-                </div>
-                <div id="field-count-hint" style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--border-color); font-size:11px; color:var(--text-muted);"></div>
+            <div class="checkbox-group" id="field-checkbox-list">
+                <!-- Populated by JS -->
             </div>
         </div>
 
         <!-- Filter Popover -->
         <div class="popover" id="filter-popover" style="min-width: 290px;">
-            <div class="popover-title">多维筛选条件</div>
+            <div class="popover-title">多维复合筛选</div>
             <div class="form-item">
                 <label>按状态:</label>
                 <select id="filter-status" onchange="applyFilters()">
@@ -147,9 +154,37 @@
                 </select>
             </div>
             <div class="form-item">
-                <label>按阶段:</label>
+                <label>按任务类型:</label>
+                <select id="filter-type" onchange="applyFilters()">
+                    <option value="">全部类型 (A-G)</option>
+                    <option value="A">Type A (全生命周期)</option>
+                    <option value="B">Type B (免架构快速研发)</option>
+                    <option value="C">Type C (极速热修免审)</option>
+                    <option value="D">Type D (直接测试)</option>
+                    <option value="E">Type E (用户直验)</option>
+                    <option value="F">Type F (文档配置变更)</option>
+                    <option value="G">Type G (DevOps 运维上线)</option>
+                </select>
+            </div>
+            <div class="form-item">
+                <label>按阶段/工作包:</label>
                 <select id="filter-stage" onchange="applyFilters()">
-                    <option value="">全部阶段</option>
+                    <option value="">全部阶段 / 工作包</option>
+                </select>
+            </div>
+            <div class="form-item">
+                <label>按负责角色:</label>
+                <select id="filter-assignee" onchange="applyFilters()">
+                    <option value="">全部负责角色</option>
+                    <option value="严经理">严经理</option>
+                    <option value="钱架构">钱架构</option>
+                    <option value="李开发">李开发</option>
+                    <option value="马前端">马前端</option>
+                    <option value="周审查">周审查</option>
+                    <option value="章测试">章测试</option>
+                    <option value="李文通">李文通</option>
+                    <option value="吕改特">吕改特</option>
+                    <option value="用户">用户</option>
                 </select>
             </div>
             <div class="form-item">
@@ -172,6 +207,12 @@
                 <label>按创建人:</label>
                 <select id="filter-creator" onchange="applyFilters()">
                     <option value="">全部创建人</option>
+                </select>
+            </div>
+            <div class="form-item">
+                <label>按操作人:</label>
+                <select id="filter-operator" onchange="applyFilters()">
+                    <option value="">全部操作人</option>
                 </select>
             </div>
             <div class="form-item date-range-form-item">
@@ -220,23 +261,23 @@
             <table class="data-table" id="main-data-table" role="grid" aria-label="任务数据明细表">
                 <thead>
                     <tr>
-                        <th style="width: 40px; text-align:center;"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></th>
-                        <th style="width: 55px;">序号<div class="resizer"></div></th>
-                        <th style="width: 90px;">任务编号<div class="resizer"></div></th>
-                        <th style="width: 90px;">WBS编号<div class="resizer"></div></th>
-                        <th style="width: 110px;">前置任务<div class="resizer"></div></th>
-                        <th style="width: 170px;">阶段 / 工作包<div class="resizer"></div></th>
-                        <th style="width: 320px;">任务名称<div class="resizer"></div></th>
-                        <th style="width: 110px;">状态<div class="resizer"></div></th>
-                        <th style="width: 110px;">负责角色<div class="resizer"></div></th>
-                        <th style="width: 110px;">处理角色<div class="resizer"></div></th>
-                        <th style="width: 90px;">创建人<div class="resizer"></div></th>
-                        <th style="width: 140px; white-space: nowrap;">任务耗时<div class="resizer"></div></th>
-                        <th style="width: 105px;">开始时间<div class="resizer"></div></th>
-                        <th style="width: 105px;">结束时间<div class="resizer"></div></th>
-                        <th style="width: 260px;">备注<div class="resizer"></div></th>
-                        <th style="width: 320px;">过程描述<div class="resizer"></div></th>
-                        <th style="width: 70px;">操作</th>
+                        <th style="width: 55px;" data-col-key="seq">序号<div class="resizer"></div></th>
+                        <th style="width: 90px;" data-col-key="id">任务编号<div class="resizer"></div></th>
+                        <th style="width: 90px;" data-col-key="wbs">WBS编号<div class="resizer"></div></th>
+                        <th style="width: 110px;" data-col-key="pretask">前置任务<div class="resizer"></div></th>
+                        <th style="width: 170px;" data-col-key="stage">阶段 / 工作包<div class="resizer"></div></th>
+                        <th style="width: 320px;" data-col-key="name">任务名称<div class="resizer"></div></th>
+                        <th style="width: 110px;" data-col-key="status">状态<div class="resizer"></div></th>
+                        <th style="width: 110px;" data-col-key="assignee">负责角色<div class="resizer"></div></th>
+                        <th style="width: 110px;" data-col-key="handler">处理角色<div class="resizer"></div></th>
+                        <th style="width: 90px;" data-col-key="creator">创建人<div class="resizer"></div></th>
+                        <th style="width: 90px;" data-col-key="operator">操作人<div class="resizer"></div></th>
+                        <th style="width: 95px; white-space: nowrap;" data-col-key="act_hours">任务耗时<div class="resizer"></div></th>
+                        <th style="width: 105px;" data-col-key="start_date">开始时间<div class="resizer"></div></th>
+                        <th style="width: 105px;" data-col-key="end_date">结束时间<div class="resizer"></div></th>
+                        <th style="width: 260px;" data-col-key="remarks">备注<div class="resizer"></div></th>
+                        <th style="width: 320px;" data-col-key="process">过程描述<div class="resizer"></div></th>
+                        <th style="width: 70px;" data-col-key="action">操作</th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
@@ -507,7 +548,6 @@
 
             <!-- Modal Footer Actions -->
             <div class="modal-actions">
-                <button class="btn danger-btn sm" id="detail-delete-btn" onclick="deleteCurrentTask()" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 删除任务</button>
                 <div style="margin-left:auto; display:flex; gap:10px;">
                     <button class="btn" onclick="closeDetailModal()">关闭</button>
                     <button class="btn primary-btn" id="detail-save-btn" onclick="saveTaskDetails()" style="display:none;">保存更新</button>

@@ -161,16 +161,6 @@ LOCK_FILE = USER_DATA_BOARD + ".seq.lock"
 KANBAN_RUNTIME_FILE = os.path.join(_DATA_ROOT, "user_data", "kanban_server.json")
 
 
-def compute_board_version() -> str:
-    """计算 board.json 的版本哈希 sha256[:12]；文件缺失或读取失败返回空串。
-
-    供 GET /api/version 探测与第二层 HTTP 乐观锁（If-Match / v）比对使用。
-    """
-    try:
-        with open(USER_DATA_BOARD, "rb") as f:
-            return hashlib.sha256(f.read()).hexdigest()[:12]
-    except Exception:
-        return ""
 
 
 def compute_project_fingerprint(data_root: str) -> str:
@@ -216,8 +206,78 @@ _BOARD_MEMORY_CACHE = {
 }
 
 
+def _is_weekly_storage_mode() -> bool:
+    """判断当前运行态是否启用了自然周 YAML 存储模式"""
+    try:
+        # 若 USER_DATA_BOARD 被外部测试修改/重定向（如 tempfile 隔离沙箱），则按其单体 board.json 处理
+        if "user_data" not in USER_DATA_BOARD or USER_DATA_BOARD.startswith("/tmp") or "/var/folders" in USER_DATA_BOARD:
+            return False
+        import paths as _paths
+        import yaml
+        config_file = _paths.resolve_runtime_config()
+        if os.path.exists(config_file):
+            with open(config_file, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+            mode = str((cfg.get("board") or {}).get("storage_mode", "")).lower()
+            if mode == "weekly":
+                return True
+            if mode == "single":
+                return False
+    except Exception:
+        pass
+    return False
+
+
+def compute_board_version() -> str:
+    """计算当前看板数据的版本哈希 sha256[:12]。
+    在 weekly 模式下计算目录下所有周 YAML 文件的 mtime/size 复合签名；
+    在 single 模式下计算 board.json 的内容哈希。
+    """
+    if _is_weekly_storage_mode():
+        try:
+            import paths as _paths
+            tdir = _paths.tasks_dir()
+            if not os.path.exists(tdir):
+                return ""
+            entries = []
+            for fname in sorted(os.listdir(tdir)):
+                if (fname.endswith(".yaml") or fname.endswith(".yml")) and not fname.startswith("."):
+                    st = os.stat(os.path.join(tdir, fname))
+                    entries.append(f"{fname}:{st.st_mtime}:{st.st_size}")
+            return hashlib.sha256(";".join(entries).encode("utf-8")).hexdigest()[:12]
+        except Exception:
+            return ""
+
+    try:
+        with open(USER_DATA_BOARD, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()[:12]
+    except Exception:
+        return ""
+
+
 def read_board_data() -> list:
-    """安全读取 board.json，具备基于文件 mtime 与 size 的高速内存缓存"""
+    """安全读取看板卡片数据，具备高速内存缓存。
+    在 weekly 模式下从 WeeklyBoardAdapter 聚合加载多周卡片；
+    在 single 模式下从 board.json 加载。
+    """
+    if _is_weekly_storage_mode():
+        try:
+            curr_v = compute_board_version()
+            if (curr_v and curr_v == _BOARD_MEMORY_CACHE.get("version") and _BOARD_MEMORY_CACHE.get("cards")):
+                return [dict(c) for c in _BOARD_MEMORY_CACHE["cards"]]
+
+            from _lib.boards.board_adapter_factory import get_board_adapter
+            adapter = get_board_adapter()
+            recs = adapter.list_records(limit=5000, include_sealed=True)
+            cards = [r["fields"] for r in recs if isinstance(r, dict) and "fields" in r]
+            for idx, c in enumerate(cards, start=1):
+                c["seq"] = idx
+            _BOARD_MEMORY_CACHE["version"] = curr_v
+            _BOARD_MEMORY_CACHE["cards"] = cards
+            return [dict(c) for c in cards]
+        except Exception as e:
+            sys.stderr.write(f"[WARN] read_board_data weekly failed: {e}\n")
+
     os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
     if not os.path.exists(USER_DATA_BOARD):
         with open(USER_DATA_BOARD, "w", encoding="utf-8") as f:
@@ -229,8 +289,8 @@ def read_board_data() -> list:
 
     try:
         stat = os.stat(USER_DATA_BOARD)
-        if (stat.st_mtime == _BOARD_MEMORY_CACHE["mtime"] and
-            stat.st_size == _BOARD_MEMORY_CACHE["size"]):
+        if (stat.st_mtime == _BOARD_MEMORY_CACHE.get("mtime") and
+            stat.st_size == _BOARD_MEMORY_CACHE.get("size")):
             return [dict(c) for c in _BOARD_MEMORY_CACHE["cards"]]
 
         with open(USER_DATA_BOARD, "r", encoding="utf-8") as f:
@@ -269,6 +329,78 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
     - 若指定 expected_version 且持锁比对当前哈希不一致 -> 返回 (409, "conflict", {"v": current_v})
     - 否则执行 mutate_fn，原子替换落盘，返回 (status_code, message, {**result_data, "v": new_v})
     """
+    if _is_weekly_storage_mode():
+        os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
+        try:
+            with board_io.board_lock(LOCK_FILE, timeout=5.0):
+                current_v = compute_board_version()
+                if expected_version and expected_version != current_v:
+                    return 409, "数据已被其他操作修改，发生版本冲突 (conflict)", {"v": current_v}
+
+                cards = read_board_data()
+                success, code, msg, res_data = mutate_fn(cards)
+                if not success:
+                    return code, msg, res_data
+
+                # 在 weekly 模式下利用适配器定向原位写回或物理删除，严格检验持久化返回值
+                from _lib.boards.board_adapter_factory import get_board_adapter
+                adapter = get_board_adapter()
+                persistence_ok = True
+                persist_err = ""
+
+                if isinstance(res_data, dict):
+                    # 1. 单卡更新场景 (含 "card" 包装)
+                    if "card" in res_data and isinstance(res_data["card"], dict):
+                        target_card = res_data["card"]
+                        tid = str(target_card.get("id", ""))
+                        if tid:
+                            if adapter.get_record(tid):
+                                if not adapter.update_record(tid, target_card):
+                                    persistence_ok = False
+                                    persist_err = f"任务 {tid} 原位更新失败（可能受终态防篡改保护或写入异常）"
+                            else:
+                                if adapter.create_record(target_card) is None:
+                                    persistence_ok = False
+                                    persist_err = f"任务 {tid} 写入持久化失败"
+                    # 3. 单卡更新场景 (含 "task_id")
+                    elif "task_id" in res_data:
+                        tid = str(res_data["task_id"])
+                        target_card = next((c for c in cards if str(c.get("id")) == tid), None)
+                        if target_card:
+                            if adapter.get_record(tid):
+                                if not adapter.update_record(tid, target_card):
+                                    persistence_ok = False
+                                    persist_err = f"任务 {tid} 原位更新失败（可能受终态防篡改保护或写入异常）"
+                            else:
+                                if adapter.create_record(target_card) is None:
+                                    persistence_ok = False
+                                    persist_err = f"任务 {tid} 写入持久化失败"
+                    # 4. 新建任务场景 (res_data 为 card 本身，包含 id 与 name)
+                    elif "id" in res_data and "name" in res_data:
+                        tid = str(res_data["id"])
+                        if adapter.get_record(tid):
+                            if not adapter.update_record(tid, res_data):
+                                persistence_ok = False
+                                persist_err = f"任务 {tid} 更新失败"
+                        else:
+                            if adapter.create_record(res_data) is None:
+                                persistence_ok = False
+                                persist_err = f"任务 {tid} 新建持久化失败"
+
+                if not persistence_ok:
+                    return 500, f"周口径数据持久化至磁盘失败: {persist_err}", None
+
+                _BOARD_MEMORY_CACHE["cards"] = []
+                new_v = compute_board_version()
+                if isinstance(res_data, dict):
+                    res_data["v"] = new_v
+                elif res_data is None:
+                    res_data = {"v": new_v}
+                return code, msg, res_data
+        except Exception as e:
+            sys.stderr.write(f"[ERROR] atomic_mutate_board_data weekly failed: {e}\n")
+            return 500, f"数据写入磁盘失败: {e}", None
+
     os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
     try:
         with board_io.board_lock(LOCK_FILE, timeout=5.0):
@@ -594,7 +726,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self.send_header("Access-Control-Allow-Origin", "*")
         else:
             self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers",
             "Content-Type, Authorization, If-Match, X-Board-Version, X-Master-Token, X-Device-Name"
@@ -742,6 +874,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             wp_filter = query.get("wp", [None])[0]
             handler_filter = query.get("handler", [None])[0]
             creator_filter = query.get("creator", [None])[0]
+            creator_role_filter = query.get("creator_role", [None])[0]
+            operator_filter = query.get("operator", [None])[0]
             type_filter = query.get("type", [None])[0]
             start_from = query.get("start_from", [None])[0]
             start_to = query.get("start_to", [None])[0]
@@ -769,6 +903,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     filtered = [c for c in filtered if normalize_role_name(c.get("handler") or c.get("assignee")) == normalize_role_name(handler_filter)]
             if creator_filter:
                 filtered = [c for c in filtered if c.get("creator") == creator_filter]
+            if creator_role_filter:
+                filtered = [c for c in filtered if (c.get("creator_role") == creator_role_filter or normalize_role_name(c.get("creator_role")) == normalize_role_name(creator_role_filter))]
+            if operator_filter:
+                filtered = [c for c in filtered if (c.get("operator") == operator_filter or c.get("operator_name") == operator_filter)]
             if start_from:
                 filtered = [c for c in filtered if (str(c.get("start_date") or c.get("start_time") or "").strip()[:10] and str(c.get("start_date") or c.get("start_time") or "").strip()[:10] >= start_from)]
             if start_to:
@@ -786,6 +924,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     or kw in str(c.get("assignee", "")).lower()
                     or kw in str(c.get("handler", "")).lower()
                     or kw in str(c.get("creator", "")).lower()
+                    or kw in str(c.get("creator_role", "")).lower()
+                    or kw in str(c.get("operator", "")).lower()
                     or kw in str(c.get("status", "")).lower()
                     or kw in str(c.get("stage", "")).lower()
                     or kw in str(c.get("wp", "")).lower()
@@ -1090,12 +1230,17 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                         header_op = unquote(header_op)
                     except Exception:
                         pass
-                operator_name = (
-                    normalize_role_name(body_data.get("operator_name") or body_data.get("operator") or body_data.get("creator"))
-                    or header_op
-                    or get_default_operator()
-                )
-                creator_val = normalize_role_name(body_data.get("creator")) or operator_name or get_default_operator()
+                creator_raw = body_data.get("creator")
+                creator_clean = str(creator_raw).strip() if creator_raw is not None and str(creator_raw).strip() not in ("None", "null", "undefined") else ""
+                creator_val = creator_clean or header_op or get_default_operator()
+
+                creator_role_raw = body_data.get("creator_role") or body_data.get("role") or "PM"
+                creator_role_val = normalize_role_name(str(creator_role_raw).strip())
+
+                operator_raw = body_data.get("operator") or body_data.get("operator_name")
+                operator_clean = str(operator_raw).strip() if operator_raw is not None and str(operator_raw).strip() not in ("None", "null", "undefined") else ""
+                operator_val = operator_clean or header_op or creator_val
+
                 pretask_val = str(body_data.get("pretask", "")).strip()
 
                 if status == "审查中":
@@ -1118,6 +1263,19 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     wbs=body_data.get("wbs") or body_data.get("wbs_id")
                 )
 
+                raw_crit = body_data.get("acceptance_criteria") or []
+                if isinstance(raw_crit, str):
+                    crit_list = [c.strip() for c in re.split(r"[;\n；]", raw_crit) if c.strip()]
+                elif isinstance(raw_crit, list):
+                    crit_list = []
+                    for item in raw_crit:
+                        if isinstance(item, str):
+                            crit_list.extend([c.strip() for c in re.split(r"[;\n；]", item) if c.strip()])
+                        elif item:
+                            crit_list.append(str(item).strip())
+                else:
+                    crit_list = []
+
                 new_card = {
                     "id": new_id,
                     "seq": len(cards) + 1,
@@ -1128,6 +1286,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "pretask": pretask_val,
                     "assignee": assignee,
                     "creator": creator_val,
+                    "creator_role": creator_role_val,
+                    "operator": operator_val,
                     "status": status,
                     "handler": handler,
                     "est_hours": parsed_est,
@@ -1135,6 +1295,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "start_date": body_data.get("start_date", now_str),
                     "end_date": end_date_val,
                     "remarks": remarks,
+                    "target": str(body_data.get("target", "") or "").strip(),
+                    "acceptance_criteria": crit_list,
                     "process": ""
                 }
                 check_and_warn_date_compliance(new_card)
@@ -1142,56 +1304,19 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 device_info = self.resolve_client_device_name()
                 node_id = f"{new_id}-N01"
                 init_process = body_data.get("process") or \
-                    f"[{node_id}]  [{now_str}]  建单并进入【{status}】 | 操作人: {creator_val} | 终端: {device_info}" + \
+                    f"[{node_id}]  [{now_str}]  建单并进入【{status}】 | 创建人: {creator_val} (创建角色: {creator_role_val}) | 负责角色: {assignee} | 终端: {device_info}" + \
                     (f"\n操作说明: {remarks}" if remarks else "")
                 new_card["process"] = init_process
 
                 cards.append(new_card)
-                append_audit_log(new_id, "PM", "无", status, creator_val, f"[{device_info}] 创建任务: {name}")
+                append_audit_log(new_id, creator_role_val, "无", status, creator_val, f"[{device_info}] 创建任务: {name}")
                 return True, 200, f"成功创建任务 {new_id}", new_card
 
             code, msg, data = atomic_mutate_board_data(_mutate_create, expected_version=expected_v)
             self._send_json_resp(code, msg, data, http_status=code)
             return
 
-        # 3. REST API: POST /api/tasks/batch-delete 或 /api/cards/batch-delete (批量删除)
-        if path in ("/api/tasks/batch-delete", "/api/cards/batch-delete"):
-            if not self._is_master_authorized():
-                self._send_json_resp(
-                    403,
-                    "批量删除任务需主控权限，请携带主控 Token 访问",
-                    {"error_type": "FORBIDDEN_MASTER_REQUIRED"},
-                    http_status=403
-                )
-                return
-
-            if not isinstance(body_data, dict) or ("task_ids" not in body_data and "ids" not in body_data):
-                self._send_json_resp(400, "缺少 task_ids 或 ids 列表", None, http_status=400)
-                return
-
-            raw_ids = body_data.get("task_ids") or body_data.get("ids") or []
-            task_ids_to_del = set(raw_ids)
-
-            def _mutate_batch_del(cards):
-                device_info = self.resolve_client_device_name()
-                initial_count = len(cards)
-                remaining = [c for c in cards if c.get("id") not in task_ids_to_del]
-                cards.clear()
-                cards.extend(remaining)
-                deleted_count = initial_count - len(cards)
-                for tid in task_ids_to_del:
-                    append_audit_log(tid, "PM", "-", "已删除", "用户", f"[{device_info}] 批量删除任务: {tid}")
-                return True, 200, f"成功删除 {deleted_count} 条任务", {
-                    "deleted_count": deleted_count,
-                    "deleted": deleted_count,
-                    "remaining_total": len(cards)
-                }
-
-            code, msg, data = atomic_mutate_board_data(_mutate_batch_del, expected_version=expected_v)
-            self._send_json_resp(code, msg, data, http_status=code)
-            return
-
-        # 4. REST API: POST /api/tasks/{task_id}/transition 或 /api/cards/{task_id}/transition
+        # 3. REST API: POST /api/tasks/{task_id}/transition 或 /api/cards/{task_id}/transition
         m_trans = re.match(r"^/api/(?:tasks|cards)/([A-Za-z0-9_\-]+)/transition$", path)
         if m_trans:
             task_id = m_trans.group(1)
@@ -1233,11 +1358,9 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     header_op = unquote(header_op)
                 except Exception:
                     pass
-            operator_name = (
-                normalize_role_name(body_data.get("operator_name") or body_data.get("operator"))
-                or header_op
-                or get_default_operator()
-            )
+            op_raw = body_data.get("operator_name") or body_data.get("operator")
+            op_clean = str(op_raw).strip() if op_raw is not None and str(op_raw).strip() not in ("None", "null", "undefined") else ""
+            operator_name = op_clean or header_op or get_default_operator()
             comment = (body_data.get("comment") or body_data.get("note") or "").strip()
             # 安全加固 (2026-08-27): 本端点不经过 CLI 门控管线，上方的主控 Token 强校验即本路径
             # 唯一授权关口。审计角色默认值此前硬编码为 "USER"，导致未持票的普通流转也被记录成
@@ -1270,6 +1393,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 )
 
                 card["status"] = target_status
+                card["operator"] = operator_name
                 new_assignee = normalize_role_name(body_data.get("assignee"))
                 if new_assignee:
                     card["assignee"] = new_assignee
@@ -1301,8 +1425,9 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 if effective_comment:
                     log_text += f"\n操作说明: {effective_comment}"
 
-                current_process = card.get("process", "")
-                card["process"] = f"{current_process}\n{log_text}".strip()
+                raw_proc = card.get("process")
+                current_process = str(raw_proc).strip() if raw_proc and str(raw_proc).strip() not in ("None", "null") else ""
+                card["process"] = f"{current_process}\n{log_text}".strip() if current_process else log_text.strip()
 
                 audit_role = str(body_data.get("operator_role") or "").strip() or audit_role_default
                 append_audit_log(task_id, audit_role, from_status, target_status, operator_name, effective_comment)
@@ -1367,14 +1492,20 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 new_ordered_cards.extend(cards_map.values())
                 cards.clear()
                 cards.extend(new_ordered_cards)
-                return True, 200, "排序保存成功", {"count": len(cards), "reordered": len(ordered_ids)}
+                is_weekly = _is_weekly_storage_mode()
+                success_msg = "排序已在当前会话生效（自然周存储模式下数据物理按周归档组织）" if is_weekly else "排序保存成功"
+                return True, 200, success_msg, {
+                    "count": len(cards),
+                    "reordered": len(ordered_ids),
+                    "storage_mode": "weekly" if is_weekly else "single"
+                }
 
             code, msg, data = atomic_mutate_board_data(_mutate_reorder, expected_version=expected_v)
             self._send_json_resp(code, msg, data, http_status=code)
             return
 
-        # 2. REST API: PUT /api/board/meta 或 /api/preferences (更新偏好配置与标题)
-        if path in ("/api/board/meta", "/api/preferences"):
+        # 2. REST API: PUT /api/board/preferences 或 /api/preferences 或 /api/board/meta (更新看板配置偏好)
+        if path in ("/api/board/preferences", "/api/preferences", "/api/board/meta"):
             if not self._is_master_authorized():
                 self._send_json_resp(
                     403,
@@ -1409,10 +1540,10 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 if not card:
                     return False, 404, f"未找到任务 [{task_id}]", None
 
-                # 非主控权限字段级差量防护：仅允许修改 act_hours, remarks, handler
+                # 非主控权限字段级差量防护：仅允许修改 act_hours, remarks, handler, operator
                 if not self._is_master_authorized():
                     protected_fields = [
-                        "name", "stage", "wp", "wbs", "pretask", "creator", "assignee", "status",
+                        "name", "stage", "wp", "wbs", "pretask", "creator", "creator_role", "assignee", "status",
                         "est_hours", "start_date", "end_date"
                     ]
                     for k in protected_fields:
@@ -1431,9 +1562,9 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 old_handler = card.get("handler", "未分配")
 
                 updatable_fields = [
-                    "name", "stage", "wp", "wbs", "pretask", "creator", "assignee", "handler",
+                    "name", "stage", "wp", "wbs", "pretask", "creator", "creator_role", "operator", "assignee", "handler",
                     "status", "est_hours", "act_hours", "start_date",
-                    "end_date", "remarks", "process"
+                    "end_date", "remarks", "process", "target", "acceptance_criteria"
                 ]
                 updated_keys = []
                 for k in updatable_fields:
@@ -1441,6 +1572,17 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                         val = body_data[k]
                         if k in ("act_hours", "est_hours"):
                             val = _parse_duration_seconds(val)
+                        elif k == "acceptance_criteria":
+                            if isinstance(val, str):
+                                val = [c.strip() for c in re.split(r"[;\n；]", val) if c.strip()]
+                            elif isinstance(val, list):
+                                norm_list = []
+                                for item in val:
+                                    if isinstance(item, str):
+                                        norm_list.extend([c.strip() for c in re.split(r"[;\n；]", item) if c.strip()])
+                                    elif item:
+                                        norm_list.append(str(item).strip())
+                                val = norm_list
                         card[k] = val
                         updated_keys.append(k)
 
@@ -1522,7 +1664,8 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                         added_logs.append(log_text)
 
                     if added_logs:
-                        current_process = card.get("process", "")
+                        raw_proc = card.get("process")
+                        current_process = str(raw_proc).strip() if raw_proc and str(raw_proc).strip() not in ("None", "null") else ""
                         card["process"] = f"{current_process}\n" + "\n".join(added_logs) if current_process else "\n".join(added_logs)
 
                 append_audit_log(task_id, "USER", old_status, card.get("status", "-"),
@@ -1541,91 +1684,11 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         self._send_json_resp(404, "Not Found", None, http_status=404)
 
     # -------------------------------------------------------------
-    # DELETE 路由分发
+    # DELETE 路由分发 (全面禁用 405 Method Not Allowed)
     # -------------------------------------------------------------
     def do_DELETE(self):
-        if self._is_untrusted_origin():
-            self._send_json_resp(403, "禁止非本地跨域操作 (CSRF 拦截)", None, http_status=403)
-            return
-
-        if not self._is_master_authorized():
-            self._send_json_resp(
-                403,
-                "删除任务需主控权限，请携带主控 Token 访问",
-                {"error_type": "FORBIDDEN_MASTER_REQUIRED"},
-                http_status=403
-            )
-            return
-
-        parsed = urlparse(self.path)
-        path = parsed.path
-        query = parse_qs(parsed.query)
-
-        body_data = None
-        try:
-            body_data = self._parse_request_json()
-        except Exception:
-            pass
-
-        expected_v = self._extract_expected_version(body_data)
-
-        # 1. REST API: DELETE /api/tasks/{task_id} 或 /api/cards/{task_id}
-        m_task = re.match(r"^/api/(?:tasks|cards)/([A-Za-z0-9_\-]+)$", path)
-        if m_task:
-            task_id = m_task.group(1)
-
-            def _mutate_del_one(cards):
-                device_info = self.resolve_client_device_name()
-                initial_len = len(cards)
-                remaining = [c for c in cards if c.get("id") != task_id]
-                if len(remaining) == initial_len:
-                    return False, 404, f"未找到待删除任务 [{task_id}]", None
-                cards.clear()
-                cards.extend(remaining)
-                append_audit_log(task_id, "PM", "-", "已删除", "用户", f"[{device_info}] 删除任务: {task_id}")
-                return True, 200, f"成功删除任务 {task_id}", {"deleted_id": task_id, "deleted": 1}
-
-            code, msg, data = atomic_mutate_board_data(_mutate_del_one, expected_version=expected_v)
-            self._send_json_resp(code, msg, data, http_status=code)
-            return
-
-        # 2. REST API: DELETE /api/tasks 或 /api/cards (批量删除 ?ids=id1,id2 或 body)
-        if path in ("/api/tasks", "/api/cards"):
-            ids_param = query.get("ids", [None])[0] or query.get("task_ids", [None])[0]
-            ids_list = []
-            if ids_param:
-                ids_list = [x.strip() for x in ids_param.split(",") if x.strip()]
-            elif isinstance(body_data, dict):
-                ids_list = body_data.get("ids") or body_data.get("task_ids") or []
-            elif isinstance(body_data, list):
-                ids_list = body_data
-
-            if not ids_list:
-                self._send_json_resp(400, "缺少待删除任务 ID 列表 (ids)", None, http_status=400)
-                return
-
-            task_ids_to_del = set(ids_list)
-
-            def _mutate_del_multi(cards):
-                device_info = self.resolve_client_device_name()
-                initial_len = len(cards)
-                remaining = [c for c in cards if c.get("id") not in task_ids_to_del]
-                cards.clear()
-                cards.extend(remaining)
-                deleted_count = initial_len - len(cards)
-                for tid in task_ids_to_del:
-                    append_audit_log(tid, "PM", "-", "已删除", "用户", f"[{device_info}] 批量删除任务: {tid}")
-                return True, 200, f"成功删除 {deleted_count} 条任务", {
-                    "deleted": deleted_count,
-                    "deleted_count": deleted_count,
-                    "remaining_total": len(cards)
-                }
-
-            code, msg, data = atomic_mutate_board_data(_mutate_del_multi, expected_version=expected_v)
-            self._send_json_resp(code, msg, data, http_status=code)
-            return
-
-        self._send_json_resp(404, "Not Found", None, http_status=404)
+        """看板任务禁止任何物理删除操作，严格保障全链路审计与状态机流转"""
+        self._send_json_resp(405, "看板已全面禁用物理删除操作，任务仅支持状态流转与归档", None, http_status=405)
 
     def log_message(self, format, *args):
         # 保持控制台日志简洁（端口跟随实际绑定值）

@@ -17,9 +17,10 @@
       "type": "object",
       "properties": {
         "provider": { "type": "string", "enum": ["feishu_base", "jira", "github_projects", "local"] },
+        "storage_mode": { "type": "string", "enum": ["single", "weekly"], "description": "看板任务物理存储模式：weekly(周口径YAML) 或 single(单体board.json)" },
         "base_token": { "type": "string" },
         "table_id": { "type": "string" },
-    "board_file": { "type": "string", "description": "离线看板 JSON 文件路径 (provider=local 时使用)" },
+        "board_file": { "type": "string", "description": "离线看板 JSON 文件路径 (provider=local 且 storage_mode=single 时使用)" },
         "fields": {
           "type": "object",
           "properties": {
@@ -27,8 +28,13 @@
             "status": { "type": "string" },
             "assignee": { "type": "string" },
             "owner": { "type": "string" },
+            "creator": { "type": "string" },
+            "creator_role": { "type": "string" },
+            "operator": { "type": "string" },
             "process_desc": { "type": "string" },
-            "remarks": { "type": "string" }
+            "remarks": { "type": "string" },
+            "target": { "type": "string" },
+            "acceptance_criteria": { "type": "string" }
           },
           "required": ["task_id", "status", "assignee", "owner"]
         }

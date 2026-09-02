@@ -100,6 +100,9 @@ mkdir -p "${DOCS_ROOT}/D01-项目管理/D01-需求" \
 
 python3 "${SCRIPT_DIR}/migrate_legacy_docs.py"
 
+echo "[MIGRATE]  [Step 5.5/7] 检测存量看板工单并执行自然周无损平滑迁移 (migrate_legacy_board.py)..."
+python3 "${SCRIPT_DIR}/migrate_legacy_board.py"
+
 echo "[SYNC]  [Step 6/7] 专家团队技术栈同步（导出时合并至各平台 Subagent）..."
 python3 "${SCRIPT_DIR}/update_agent_tech_stacks.py"
 

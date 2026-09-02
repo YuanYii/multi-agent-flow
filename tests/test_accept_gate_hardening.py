@@ -143,9 +143,10 @@ class TestN4HealthTokenRedacted:
             # 等待服务就绪
             deadline = time.time() + 15
             health = None
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             while time.time() < deadline:
                 try:
-                    with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=1) as resp:
+                    with opener.open(f"http://127.0.0.1:{port}/api/health", timeout=1) as resp:
                         health = json.loads(resp.read().decode("utf-8"))
                     break
                 except Exception:

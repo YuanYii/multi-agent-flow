@@ -55,7 +55,6 @@
         }
 
         let currentCardsData = [];
-        let selectedTaskIds = new Set();
         const rowHeights = {};
 
         /* 2. Field Registry — SINGLE SOURCE OF TRUTH
@@ -590,10 +589,16 @@
                 }
             }
 
-            let metaHtml = (hoursHtml || datesHtml || remarksHtml || processHtml) ? `
+            let targetHtml = card.target ? `<div style="margin-top:4px; font-size:12px; color:#1d2129; background:#f2f3f5; padding:3px 6px; border-radius:4px; line-height:1.4; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; word-break:break-word;" title="${esc(card.target)}">${lbl ? '目标: ' : '🎯 '}${esc(card.target)}</div>` : '';
+            let critCount = (card.acceptance_criteria && Array.isArray(card.acceptance_criteria)) ? card.acceptance_criteria.length : 0;
+            let criteriaHtml = critCount > 0 ? `<div style="margin-top:3px; font-size:11px; color:#0057fe;">📋 验收标准: ${critCount} 项</div>` : '';
+
+            let metaHtml = (hoursHtml || datesHtml || targetHtml || criteriaHtml || remarksHtml || processHtml) ? `
                 <div class="card-meta">
                     ${hoursHtml}
                     ${datesHtml}
+                    ${targetHtml}
+                    ${criteriaHtml}
                     ${remarksHtml}
                     ${processHtml}
                 </div>` : '';
@@ -856,6 +861,7 @@
                 const stageFilter = document.getElementById('filter-stage')?.value || '';
                 const handlerFilter = document.getElementById('filter-handler')?.value || '';
                 const creatorFilter = document.getElementById('filter-creator')?.value || '';
+                const operatorFilter = document.getElementById('filter-operator')?.value || '';
                 const startFrom = document.getElementById('filter-start-from')?.value || '';
                 const startTo = document.getElementById('filter-start-to')?.value || '';
                 const endFrom = document.getElementById('filter-end-from')?.value || '';
@@ -880,6 +886,7 @@
                     stage: stageFilter,
                     assignee: assigneeParam || handlerFilter,
                     creator: creatorFilter,
+                    operator: operatorFilter,
                     start_from: startFrom,
                     start_to: startTo,
                     end_from: endFrom,
@@ -928,42 +935,40 @@
             tbody.innerHTML = '';
 
             pageCards.forEach((card, idx) => {
-                const isSelected = selectedTaskIds.has(card.id);
                 const savedH = rowHeights[card.id];
                 const trStyle = savedH ? rowHeightVars(savedH) : '';
                 const displaySeq = startIndex + idx + 1;
 
                 const tr = `
                     <tr data-id="${esc(card.id)}" style="${trStyle}; cursor:pointer;" class="clickable-row" onclick="onTableRowClick(event, '${esc(card.id)}')">
-                        <td style="text-align:center;"><input type="checkbox" class="row-cb" value="${esc(card.id)}" ${isSelected ? 'checked' : ''} onchange="toggleSelectRow('${esc(card.id)}', this.checked)"></td>
-                        <td style="font-weight:600; color:var(--text-muted); position:relative;">${displaySeq}<div class="row-resizer" title="拖拽调节行高"></div></td>
-                        <td><strong style="color:var(--primary);">${esc(card.id)}</strong></td>
-                        <td>${esc(card.wbs) || '-'}</td>
-                        <td><small style="color:var(--text-muted);">${esc(card.pretask) || '-'}</small></td>
-                        <td><div class="cell-content">${esc(card.stage)}<br><small style="color:var(--text-muted)">${esc(card.wp)}</small></div></td>
-                        <td><div class="cell-content" style="font-weight:600;">${esc(card.name)}</div></td>
-                        <td>
+                        <td style="font-weight:600; color:var(--text-muted); position:relative;" data-col-key="seq">${displaySeq}<div class="row-resizer" title="拖拽调节行高"></div></td>
+                        <td data-col-key="id"><strong style="color:var(--primary);">${esc(card.id)}</strong></td>
+                        <td data-col-key="wbs">${esc(card.wbs) || '-'}</td>
+                        <td data-col-key="pretask"><small style="color:var(--text-muted);">${esc(card.pretask) || '-'}</small></td>
+                        <td data-col-key="stage"><div class="cell-content">${esc(card.stage)}<br><small style="color:var(--text-muted)">${esc(card.wp)}</small></div></td>
+                        <td data-col-key="name"><div class="cell-content" style="font-weight:600;">${esc(card.name)}</div></td>
+                        <td data-col-key="status">
                             ${tagSelectTriggerHTML('status', card.status || '待开始', `data-card-id="${esc(card.id)}"`)}
                         </td>
-                        <td>
+                        <td data-col-key="assignee">
                             ${tagSelectTriggerHTML('person', card.assignee || '未分配', `data-card-id="${esc(card.id)}" data-field="assignee"`)}
                         </td>
-                        <td>
+                        <td data-col-key="handler">
                             ${tagSelectTriggerHTML('person', card.handler || card.assignee || '未分配', `data-card-id="${esc(card.id)}" data-field="handler"`)}
                         </td>
-                        <td><small style="color:var(--text-muted); font-family:inherit;">${esc(card.creator || '-')}</small></td>
-                        <td>${formatTaskDuration(card)}</td>
-                        <td><small style="color:#4e5969;">${esc(card.start_date) || '-'}</small></td>
-                        <td><small style="color:#4e5969;">${esc(card.end_date) || '-'}</small></td>
-                        <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${linkify(card.remarks) || '-'}</div></td>
-                        <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${linkify(card.process) || '-'}</div></td>
-                        <td><button class="btn sm" onclick="openTaskDetail('${esc(card.id)}')">详情</button></td>
+                        <td data-col-key="creator"><small style="color:var(--text-muted); font-family:inherit;">${esc(card.creator || '-')}</small></td>
+                        <td data-col-key="operator"><small style="color:var(--text-muted); font-family:inherit;">${esc(card.operator || card.operator_name || card.creator || '-')}</small></td>
+                        <td data-col-key="act_hours">${formatTaskDuration(card)}</td>
+                        <td data-col-key="start_date"><small style="color:#4e5969;">${esc(card.start_date) || '-'}</small></td>
+                        <td data-col-key="end_date"><small style="color:#4e5969;">${esc(card.end_date) || '-'}</small></td>
+                        <td data-col-key="remarks"><div class="cell-content" style="font-size:12px; color:#4e5969;">${linkify(card.remarks) || '-'}</div></td>
+                        <td data-col-key="process"><div class="cell-content" style="font-size:12px; color:#4e5969;">${linkify(card.process) || '-'}</div></td>
+                        <td data-col-key="action"><button class="btn sm" onclick="openTaskDetail('${esc(card.id)}')">详情</button></td>
                     </tr>
                 `;
                 tbody.insertAdjacentHTML('beforeend', tr);
             });
 
-            updateBatchDeleteBtn();
             makeRowsResizable();
         }
 
@@ -1082,8 +1087,32 @@
             }
         }
 
+        function renderOperatorFilterOptions() {
+            const selectEl = document.getElementById('filter-operator');
+            if (!selectEl) return;
+
+            const currentVal = selectEl.value;
+            const operatorSet = new Set();
+            rawCardsData.forEach(c => {
+                const op = (c.operator || c.operator_name || c.creator || '').trim();
+                if (op && op !== '-') operatorSet.add(op);
+            });
+            const sorted = Array.from(operatorSet).sort();
+            let html = '<option value="">全部操作人</option>';
+            sorted.forEach(name => {
+                html += `<option value="${esc(name)}">${esc(name)}</option>`;
+            });
+            selectEl.innerHTML = html;
+            if (sorted.includes(currentVal)) {
+                selectEl.value = currentVal;
+            }
+            if (typeof refreshUiSelects === 'function') {
+                refreshUiSelects();
+            }
+        }
+
         const DEFAULT_SAVED_FILTERS = {
-            query: '', status: '', stage: '', handler: '', creator: '',
+            query: '', status: '', stage: '', handler: '', creator: '', operator: '',
             selected_persons: [], start_from: '', start_to: '', end_from: '', end_to: ''
         };
         const DEFAULT_SAVED_SORT = { field: 'seq', order: 'asc' };
@@ -1106,6 +1135,7 @@
                 stage: document.getElementById('filter-stage')?.value || '',
                 handler: document.getElementById('filter-handler')?.value || '',
                 creator: document.getElementById('filter-creator')?.value || '',
+                operator: document.getElementById('filter-operator')?.value || '',
                 selected_persons: Array.from(selectedPersons),
                 start_from: document.getElementById('filter-start-from')?.value || '',
                 start_to: document.getElementById('filter-start-to')?.value || '',
@@ -1149,6 +1179,7 @@
                 if (document.getElementById('filter-stage') && f.stage) document.getElementById('filter-stage').value = f.stage;
                 if (document.getElementById('filter-handler')) document.getElementById('filter-handler').value = f.handler || '';
                 if (document.getElementById('filter-creator') && f.creator) document.getElementById('filter-creator').value = f.creator;
+                if (document.getElementById('filter-operator') && f.operator) document.getElementById('filter-operator').value = f.operator;
                 if (document.getElementById('filter-start-from')) document.getElementById('filter-start-from').value = f.start_from || '';
                 if (document.getElementById('filter-start-to')) document.getElementById('filter-start-to').value = f.start_to || '';
                 if (document.getElementById('filter-end-from')) document.getElementById('filter-end-from').value = f.end_from || '';
@@ -1164,7 +1195,7 @@
                 if (document.getElementById('sort-field')) document.getElementById('sort-field').value = s.field || 'seq';
                 if (document.getElementById('sort-order')) document.getElementById('sort-order').value = s.order || 'asc';
 
-                updateActiveFilterHint(f.query, f.status, f.stage, f.handler, f.creator, f.start_from, f.start_to, f.end_from, f.end_to);
+                updateActiveFilterHint(f.query, f.status, f.stage, f.handler, f.creator, f.operator, f.start_from, f.start_to, f.end_from, f.end_to);
 
                 if (typeof refreshUiSelects === 'function') refreshUiSelects();
             } finally {
@@ -1180,6 +1211,7 @@
             const stageFilter = document.getElementById('filter-stage') ? document.getElementById('filter-stage').value : '';
             const handlerFilter = document.getElementById('filter-handler') ? document.getElementById('filter-handler').value : '';
             const creatorFilter = document.getElementById('filter-creator') ? document.getElementById('filter-creator').value : '';
+            const operatorFilter = document.getElementById('filter-operator') ? document.getElementById('filter-operator').value : '';
             const startFrom = document.getElementById('filter-start-from') ? document.getElementById('filter-start-from').value : '';
             const startTo = document.getElementById('filter-start-to') ? document.getElementById('filter-start-to').value : '';
             const endFrom = document.getElementById('filter-end-from') ? document.getElementById('filter-end-from').value : '';
@@ -1193,6 +1225,8 @@
                     (c.assignee && c.assignee.toLowerCase().includes(query)) ||
                     (c.handler && c.handler.toLowerCase().includes(query)) ||
                     (c.creator && c.creator.toLowerCase().includes(query)) ||
+                    (c.creator_role && c.creator_role.toLowerCase().includes(query)) ||
+                    (c.operator && c.operator.toLowerCase().includes(query)) ||
                     (c.status && c.status.toLowerCase().includes(query)) ||
                     (c.stage && c.stage.toLowerCase().includes(query)) ||
                     (c.wbs && c.wbs.toLowerCase().includes(query)) ||
@@ -1213,6 +1247,7 @@
                 }
 
                 const matchCreator = !creatorFilter || (c.creator && c.creator === creatorFilter);
+                const matchOperator = !operatorFilter || (c.operator && c.operator === operatorFilter) || (c.operator_name && c.operator_name === operatorFilter) || (c.creator && c.creator === operatorFilter);
                 const matchMultiPerson = !personFocusActive || selectedPersons.has(c.assignee) || selectedPersons.has(normalizeRoleName(c.assignee));
 
                 const cStartDate = (c.start_date || c.start_time || '').slice(0, 10);
@@ -1223,7 +1258,7 @@
                 const matchEndFrom = !endFrom || (cEndDate && cEndDate >= endFrom);
                 const matchEndTo = !endTo || (cEndDate && cEndDate <= endTo);
 
-                return matchQuery && matchStatus && matchStage && matchHandler && matchCreator &&
+                return matchQuery && matchStatus && matchStage && matchHandler && matchCreator && matchOperator &&
                        matchMultiPerson && matchStartFrom && matchStartTo && matchEndFrom && matchEndTo;
             });
         }
@@ -1256,17 +1291,21 @@
             renderPersonCheckboxList();
             renderStageFilterOptions();
             renderCreatorFilterOptions();
+            renderOperatorFilterOptions();
             restoreFilterAndSortState();
             refreshModalTagSelectors();
 
-            // 2. Render both Table and Kanban initial views
+            // 2. Column Visibility
+            initTableColumnVisibility();
+
+            // 3. Render both Table and Kanban initial views
             renderTable();
             renderKanbanViews();
 
-            // 3. Apply Master Control UI permissions & badges
+            // 4. Apply Master Control UI permissions & badges
             applyMasterUIPermissions();
 
-            // 4. Initialize Header User Name
+            // 5. Initialize Header User Name
             initHeaderUserName();
         }
 
@@ -1285,12 +1324,13 @@
             const stageFilter = document.getElementById('filter-stage') ? document.getElementById('filter-stage').value : '';
             const handlerFilter = document.getElementById('filter-handler') ? document.getElementById('filter-handler').value : '';
             const creatorFilter = document.getElementById('filter-creator') ? document.getElementById('filter-creator').value : '';
+            const operatorFilter = document.getElementById('filter-operator') ? document.getElementById('filter-operator').value : '';
             const startFrom = document.getElementById('filter-start-from') ? document.getElementById('filter-start-from').value : '';
             const startTo = document.getElementById('filter-start-to') ? document.getElementById('filter-start-to').value : '';
             const endFrom = document.getElementById('filter-end-from') ? document.getElementById('filter-end-from').value : '';
             const endTo = document.getElementById('filter-end-to') ? document.getElementById('filter-end-to').value : '';
 
-            updateActiveFilterHint(query, statusFilter, stageFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo);
+            updateActiveFilterHint(query, statusFilter, stageFilter, handlerFilter, creatorFilter, operatorFilter, startFrom, startTo, endFrom, endTo);
             if (!isRestoringFilterState) {
                 debouncedPersistFilterAndSort();
             }
@@ -1314,7 +1354,7 @@
 
         // Surface which filters are currently narrowing the result set, so an empty
         // result never looks like "the data vanished".
-        function updateActiveFilterHint(query, statusFilter, stageFilter, handlerFilter, creatorFilter, startFrom, startTo, endFrom, endTo) {
+        function updateActiveFilterHint(query, statusFilter, stageFilter, handlerFilter, creatorFilter, operatorFilter, startFrom, startTo, endFrom, endTo) {
             const el = document.getElementById('active-filter-hint');
             if (!el) return;
 
@@ -1324,6 +1364,7 @@
             if (stageFilter) parts.push(`阶段=${stageFilter}`);
             if (handlerFilter) parts.push(`处理角色=${handlerFilter}`);
             if (creatorFilter) parts.push(`创建人=${creatorFilter}`);
+            if (operatorFilter) parts.push(`操作人=${operatorFilter}`);
             if (isPersonFocusActive()) parts.push(`聚焦人员=${Array.from(selectedPersons).join('/')}`);
             if (startFrom || startTo) parts.push(`开始时间=${startFrom || '...'}~${startTo || '...'}`);
             if (endFrom || endTo) parts.push(`结束时间=${endFrom || '...'}~${endTo || '...'}`);
@@ -1346,6 +1387,7 @@
             const stg = document.getElementById('filter-stage'); if (stg) stg.value = '';
             const hd = document.getElementById('filter-handler'); if (hd) hd.value = '';
             const cr = document.getElementById('filter-creator'); if (cr) cr.value = '';
+            const op = document.getElementById('filter-operator'); if (op) op.value = '';
             const sf = document.getElementById('filter-start-from'); if (sf) sf.value = '';
             const st_to = document.getElementById('filter-start-to'); if (st_to) st_to.value = '';
             const ef = document.getElementById('filter-end-from'); if (ef) ef.value = '';
@@ -1356,6 +1398,7 @@
             renderPersonCheckboxList();
             renderStageFilterOptions();
             renderCreatorFilterOptions();
+            renderOperatorFilterOptions();
             refreshUiSelects();
             if (typeof tablePaginationState !== 'undefined') {
                 tablePaginationState.page = 1;
@@ -1465,31 +1508,6 @@
             }
         }
 
-        // Selection Checkboxes Handlers
-        function toggleSelectAll(checked) {
-            selectedTaskIds.clear();
-            if (checked) {
-                currentCardsData.forEach(c => selectedTaskIds.add(c.id));
-            }
-            renderTable();
-        }
-
-        function toggleSelectRow(cardId, checked) {
-            if (checked) {
-                selectedTaskIds.add(cardId);
-            } else {
-                selectedTaskIds.delete(cardId);
-            }
-            updateBatchDeleteBtn();
-            makeRowsResizable();
-        }
-
-        function updateBatchDeleteBtn() {
-            const count = selectedTaskIds.size;
-            document.getElementById('selected-count').innerText = count;
-            document.getElementById('batch-delete-btn').style.display = count > 0 ? 'inline-flex' : 'none';
-        }
-
         let pendingConfirmAction = null;
 
         function openCustomConfirm(title, message, onConfirm) {
@@ -1519,17 +1537,6 @@
         function closeConfirmModal() {
             pendingConfirmAction = null;
             document.getElementById('confirm-modal').classList.remove('show');
-        }
-
-        function batchDeleteRecords() {
-            if (selectedTaskIds.size === 0) return;
-            openCustomConfirm('批量删除确认', `确定要批量删除选中的 ${selectedTaskIds.size} 条任务记录吗？删除后无法恢复。`, () => {
-                rawCardsData = rawCardsData.filter(c => !selectedTaskIds.has(c.id));
-                selectedTaskIds.clear();
-                saveStorageData();
-                applyFilters();
-                showToast('已完成批量删除操作！');
-            });
         }
 
         // Field Config Listener
@@ -2007,20 +2014,17 @@
             const editBox = document.getElementById('detail-edit-container');
             const toggleBtn = document.getElementById('toggle-detail-edit-btn');
             const saveBtn = document.getElementById('detail-save-btn');
-            const deleteBtn = document.getElementById('detail-delete-btn');
 
             if (isTaskEditMode) {
                 if (readBox) readBox.style.display = 'none';
                 if (editBox) editBox.style.display = 'flex';
                 if (toggleBtn) toggleBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px; vertical-align:-1px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>切换为查看详情';
                 if (saveBtn) saveBtn.style.display = 'inline-flex';
-                if (deleteBtn) deleteBtn.style.display = 'inline-flex';
             } else {
                 if (readBox) readBox.style.display = 'flex';
                 if (editBox) editBox.style.display = 'none';
                 if (toggleBtn) toggleBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px; vertical-align:-1px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>切换为编辑模式';
                 if (saveBtn) saveBtn.style.display = 'none';
-                if (deleteBtn) deleteBtn.style.display = 'none';
             }
         }
 
@@ -2141,7 +2145,11 @@
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">创建人 (Creator)</span>
-                        <span class="detail-value" style="color:var(--primary); font-weight:600;">${esc(card.creator || '-')}</span>
+                        <span class="detail-value" style="color:var(--primary); font-weight:600;">${esc(card.creator || '-')} <small style="color:var(--text-muted); font-weight:normal;">(${esc(card.creator_role || '严经理')})</small></span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">操作人 (Operator)</span>
+                        <span class="detail-value" style="color:var(--text-main); font-weight:600;">${esc(card.operator || card.operator_name || card.creator || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">前置任务依赖</span>
@@ -2154,6 +2162,18 @@
                     <div class="detail-item">
                         <span class="detail-label">时间周期</span>
                         <span class="detail-value">${esc(card.start_date || card.start_time || '-')} ~ ${esc(card.end_date || card.end_time || '-')}</span>
+                    </div>
+                    <div class="detail-item" style="grid-column: 1 / -1;">
+                        <span class="detail-label">🎯 任务核心目标 (Target)</span>
+                        <span class="detail-value" style="font-weight:600; color:#1d2129; background:#f7f8fa; padding:8px 12px; border-radius:6px;">${esc(card.target || '暂无明确目标')}</span>
+                    </div>
+                    <div class="detail-item" style="grid-column: 1 / -1;">
+                        <span class="detail-label">📋 验收标准清单 (Acceptance Criteria)</span>
+                        <div class="detail-value" style="margin-top:4px;">
+                            ${(card.acceptance_criteria && Array.isArray(card.acceptance_criteria) && card.acceptance_criteria.length > 0)
+                                ? `<ul style="margin:0; padding-left:20px; color:#272e3b; line-height:1.6;">${card.acceptance_criteria.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`
+                                : '<span style="color:#86909c;">暂无条目化验收标准</span>'}
+                        </div>
                     </div>
                     <div class="detail-item" style="grid-column: 1 / -1;">
                         <span class="detail-label">核心备注</span>
@@ -2260,9 +2280,14 @@
                     let tagType = '';
                     let tagLabel = '';
 
-                    // 优先模式 A: 匹配明确的流转目标动词 (更新至、更新为、流转至、移交至、变更为、调整为、置为、退回到、回到、-> 等)
-                    const transitionVerbRegex = /(?:更新至|更新为|流转至|流转到|变更为|调整为|推至|置为|移交至|退回到|退回至|重置为|切换至|回到|->|=>|to)\s*[【\\[]?([^】\\]\s]+)[】\\]?/i;
-                    const verbMatch = contentStr.match(transitionVerbRegex);
+                    // 核心防污染保护：提取状态流转主干文本（排除“操作说明: xxx”用户备注内容，避免“提审：已完成xxx”中的“已完成”误判）
+                    let targetParseText = contentStr.split('\n')[0];
+                    if (targetParseText.includes('操作说明:')) targetParseText = targetParseText.split('操作说明:')[0];
+                    if (targetParseText.includes('操作说明：')) targetParseText = targetParseText.split('操作说明：')[0];
+
+                    // 优先模式 A: 匹配明确的流转目标动词 (更新至、更新为、流转至、移交至、变更为、调整为、推至、置为、进入、退回到、回到、-> 等)
+                    const transitionVerbRegex = /(?:更新至|更新为|流转至|流转到|变更为|调整为|推至|置为|移交至|进入|退回到|退回至|重置为|切换至|回到|->|=>|to)\s*[【\\[]?([^】\\]\s]+)[】\\]?/i;
+                    const verbMatch = targetParseText.match(transitionVerbRegex);
                     if (verbMatch) {
                         const rawTarget = verbMatch[1].trim();
                         if (validStatuses.includes(rawTarget)) {
@@ -2280,9 +2305,9 @@
                         }
                     }
 
-                    // 优先模式 B: 从右向左扫描所有括号提取终态实体
+                    // 优先模式 B: 从右向左扫描所有括号提取终态实体 (在主干文本中)
                     if (!tagLabel) {
-                        const allBrackets = Array.from(contentStr.matchAll(/[\\[【]([^\\]】]+)[\\]】]/g)).map(m => m[1].trim());
+                        const allBrackets = Array.from(targetParseText.matchAll(/[\\[【]([^\\]】]+)[\\]】]/g)).map(m => m[1].trim());
                         for (let i = allBrackets.length - 1; i >= 0; i--) {
                             const item = allBrackets[i];
                             if (validStatuses.includes(item)) {
@@ -2314,12 +2339,12 @@
                         }
                     }
 
-                    // 优先模式 C: 全文关键词倒序扫描
+                    // 优先模式 C: 主干文本关键词倒序扫描
                     if (!tagLabel) {
                         let lastIdx = -1;
                         let foundSt = '';
                         validStatuses.forEach(st => {
-                            const idx = contentStr.lastIndexOf(st);
+                            const idx = targetParseText.lastIndexOf(st);
                             if (idx > lastIdx) {
                                 lastIdx = idx;
                                 foundSt = st;
@@ -2334,7 +2359,7 @@
                         let lastIdx = -1;
                         let foundP = '';
                         validPersons.forEach(p => {
-                            const idx = contentStr.lastIndexOf(p);
+                            const idx = targetParseText.lastIndexOf(p);
                             if (idx > lastIdx) {
                                 lastIdx = idx;
                                 foundP = p;
@@ -2468,28 +2493,145 @@
             }
         }
 
-        function deleteCurrentTask() {
-            const cardId = document.getElementById('edit-original-id').value;
-            closeDetailModal();
-            openCustomConfirm('删除任务确认', `确认要永久删除任务 [${cardId}] 吗？删除后无法恢复。`, () => {
-                rawCardsData = rawCardsData.filter(c => c.id !== cardId);
-                saveStorageData();
-                applyFilters();
-                showToast(`已删除任务 ${cardId}`);
+        // =============================================================
+        // 数据表格自定义显示列与动态 CSS 规则注入引擎
+        // =============================================================
+        const TABLE_COLUMNS = [
+            { key: 'seq', label: '序号', locked: true },
+            { key: 'id', label: '任务编号' },
+            { key: 'wbs', label: 'WBS编号' },
+            { key: 'pretask', label: '前置任务' },
+            { key: 'stage', label: '阶段 / 工作包' },
+            { key: 'name', label: '任务名称' },
+            { key: 'status', label: '状态' },
+            { key: 'assignee', label: '负责角色' },
+            { key: 'handler', label: '处理角色' },
+            { key: 'creator', label: '创建人' },
+            { key: 'operator', label: '操作人' },
+            { key: 'act_hours', label: '任务耗时' },
+            { key: 'start_date', label: '开始时间' },
+            { key: 'end_date', label: '结束时间' },
+            { key: 'remarks', label: '备注' },
+            { key: 'process', label: '过程描述' },
+            { key: 'action', label: '操作', locked: true }
+        ];
+
+        const COL_KEY_DEFAULT_WIDTHS = {
+            seq: 55,
+            id: 90,
+            wbs: 90,
+            pretask: 110,
+            stage: 170,
+            name: 320,
+            status: 110,
+            assignee: 110,
+            handler: 110,
+            creator: 90,
+            operator: 90,
+            act_hours: 95,
+            start_date: 105,
+            end_date: 105,
+            remarks: 260,
+            process: 320,
+            action: 70
+        };
+
+        function getHiddenTableColumns() {
+            try {
+                const raw = localStorage.getItem('kanban_hidden_table_cols');
+                if (raw) {
+                    const arr = JSON.parse(raw);
+                    if (Array.isArray(arr)) return arr;
+                }
+            } catch(e) {}
+            return [];
+        }
+
+        function saveHiddenTableColumns(hiddenList) {
+            try {
+                localStorage.setItem('kanban_hidden_table_cols', JSON.stringify(hiddenList));
+            } catch(e) {}
+        }
+
+        function applyTableColumnVisibility() {
+            let styleEl = document.getElementById('table-col-vis-style');
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = 'table-col-vis-style';
+                document.head.appendChild(styleEl);
+            }
+            const hidden = getHiddenTableColumns();
+            if (!hidden || hidden.length === 0) {
+                styleEl.textContent = '';
+                return;
+            }
+            const rules = hidden.map(k => `#main-data-table [data-col-key="${k}"] { display: none !important; }`).join('\n');
+            styleEl.textContent = rules;
+        }
+
+        function initTableColumnVisibility() {
+            const listEl = document.getElementById('table-col-checkbox-list');
+            if (!listEl) return;
+
+            const hidden = new Set(getHiddenTableColumns());
+            let html = '';
+            TABLE_COLUMNS.forEach(col => {
+                const isChecked = !hidden.has(col.key);
+                const isLocked = !!col.locked;
+                html += `
+                    <label class="checkbox-label" style="display:flex; align-items:center; gap:6px; padding:4px 0; font-size:12px; cursor:${isLocked ? 'not-allowed' : 'pointer'};">
+                        <input type="checkbox" data-col="${col.key}" ${isChecked ? 'checked' : ''} ${isLocked ? 'disabled' : ''} onchange="toggleTableColumn('${col.key}', this.checked)">
+                        <span style="${isLocked ? 'color:var(--text-muted);' : 'color:var(--text-main);'}">${esc(col.label)} ${isLocked ? '(必选)' : ''}</span>
+                    </label>
+                `;
             });
+            listEl.innerHTML = html;
+            applyTableColumnVisibility();
+        }
+
+        function toggleTableColumn(colKey, visible) {
+            const col = TABLE_COLUMNS.find(c => c.key === colKey);
+            if (col && col.locked) return;
+
+            let hidden = getHiddenTableColumns();
+            if (visible) {
+                hidden = hidden.filter(k => k !== colKey);
+            } else {
+                if (!hidden.includes(colKey)) hidden.push(colKey);
+            }
+            saveHiddenTableColumns(hidden);
+            applyTableColumnVisibility();
+        }
+
+        function toggleAllTableColumns(visible) {
+            let hidden = [];
+            if (!visible) {
+                hidden = TABLE_COLUMNS.filter(c => !c.locked).map(c => c.key);
+            }
+            saveHiddenTableColumns(hidden);
+            initTableColumnVisibility();
+        }
+
+        function resetTableColumnVisibility() {
+            saveHiddenTableColumns([]);
+            initTableColumnVisibility();
+            showToast('已重置所有数据列为显示状态');
         }
 
         // Column & Row Resizable Drag Event Handlers
-        const DEFAULT_COL_WIDTHS = [40, 55, 90, 90, 110, 170, 320, 110, 110, 110, 90, 95, 105, 105, 260, 320, 70];
+        const DEFAULT_COL_WIDTHS = [55, 90, 90, 110, 170, 320, 110, 110, 110, 90, 90, 95, 105, 105, 260, 320, 70];
 
         function applyColumnWidths(table, widths) {
             if (!table) return;
             const ths = table.querySelectorAll('thead th');
             let totalW = 0;
             ths.forEach((th, idx) => {
-                const w = widths[idx] || DEFAULT_COL_WIDTHS[idx] || 90;
+                const k = th.getAttribute('data-col-key');
+                const w = widths[idx] || (k && COL_KEY_DEFAULT_WIDTHS[k]) || DEFAULT_COL_WIDTHS[idx] || 90;
                 th.style.width = w + 'px';
-                totalW += w;
+                if (th.style.display !== 'none') {
+                    totalW += w;
+                }
             });
             table.style.width = totalW + 'px';
             table.style.minWidth = totalW + 'px';
@@ -2499,11 +2641,20 @@
             const table = document.getElementById('main-data-table');
             if (!table) return;
             
-            // Load saved widths or apply standard defaults
+            // Load saved widths or apply standard defaults with 18->17 auto self-heal
             let savedWidths = null;
             try {
                 const raw = localStorage.getItem('kanban_col_widths');
-                if (raw) savedWidths = JSON.parse(raw);
+                if (raw) {
+                    savedWidths = JSON.parse(raw);
+                    if (Array.isArray(savedWidths) && savedWidths.length === 18) {
+                        savedWidths = savedWidths.slice(1);
+                        try { localStorage.setItem('kanban_col_widths', JSON.stringify(savedWidths)); } catch(e) {}
+                    } else if (Array.isArray(savedWidths) && savedWidths.length === 17 && savedWidths[0] === 40) {
+                        savedWidths = DEFAULT_COL_WIDTHS.slice();
+                        try { localStorage.setItem('kanban_col_widths', JSON.stringify(savedWidths)); } catch(e) {}
+                    }
+                }
             } catch (e) {}
 
             applyColumnWidths(table, Array.isArray(savedWidths) && savedWidths.length === DEFAULT_COL_WIDTHS.length ? savedWidths : DEFAULT_COL_WIDTHS);
@@ -2514,18 +2665,21 @@
                 const resizer = th.querySelector('.resizer');
                 if (!resizer) return;
 
-                // Double-click resizer to restore default standard width
+                // Double-click resizer to restore default standard width (key-based lookup)
                 resizer.addEventListener('dblclick', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    const defW = DEFAULT_COL_WIDTHS[idx] || 90;
+                    const colKey = th.getAttribute('data-col-key') || '';
+                    const defW = COL_KEY_DEFAULT_WIDTHS[colKey] || DEFAULT_COL_WIDTHS[idx] || 90;
                     th.style.width = defW + 'px';
                     let currentWidths = [];
                     let totalW = 0;
-                    table.querySelectorAll('thead th').forEach(t => {
-                        const w = t.offsetWidth;
+                    table.querySelectorAll('thead th').forEach((t, i) => {
+                        const k = t.getAttribute('data-col-key');
+                        const isHidden = t.style.display === 'none' || t.offsetWidth === 0;
+                        const w = isHidden ? (COL_KEY_DEFAULT_WIDTHS[k] || DEFAULT_COL_WIDTHS[i] || 90) : t.offsetWidth;
                         currentWidths.push(w);
-                        totalW += w;
+                        if (!isHidden) totalW += w;
                     });
                     table.style.width = totalW + 'px';
                     table.style.minWidth = totalW + 'px';
@@ -2548,7 +2702,9 @@
                         // Recalculate total table width
                         let totalW = 0;
                         table.querySelectorAll('thead th').forEach(t => {
-                            totalW += t.offsetWidth;
+                            if (t.style.display !== 'none') {
+                                totalW += t.offsetWidth;
+                            }
                         });
                         table.style.width = totalW + 'px';
                         table.style.minWidth = totalW + 'px';
@@ -2559,10 +2715,19 @@
                         document.removeEventListener('mousemove', onMouseMove);
                         document.removeEventListener('mouseup', onMouseUp);
 
-                        // Persist customized widths
+                        // Persist customized widths with 0px protection for hidden columns
+                        let saved = null;
+                        try { saved = JSON.parse(localStorage.getItem('kanban_col_widths') || 'null'); } catch(e) {}
                         let currentWidths = [];
-                        table.querySelectorAll('thead th').forEach(t => {
-                            currentWidths.push(t.offsetWidth);
+                        table.querySelectorAll('thead th').forEach((t, i) => {
+                            const k = t.getAttribute('data-col-key');
+                            const isHidden = t.style.display === 'none' || t.offsetWidth === 0;
+                            if (isHidden) {
+                                const fallbackW = (Array.isArray(saved) && saved[i] && saved[i] > 0) ? saved[i] : (COL_KEY_DEFAULT_WIDTHS[k] || DEFAULT_COL_WIDTHS[i] || 90);
+                                currentWidths.push(fallbackW);
+                            } else {
+                                currentWidths.push(t.offsetWidth);
+                            }
                         });
                         try { localStorage.setItem('kanban_col_widths', JSON.stringify(currentWidths)); } catch (err) {}
                     }
@@ -2663,17 +2828,6 @@
                 }
             }
 
-            const batchDelBtn = document.getElementById('batch-delete-btn');
-            if (batchDelBtn) {
-                if (!isMaster) {
-                    batchDelBtn.disabled = true;
-                    batchDelBtn.title = "仅主控模式可执行批量删除";
-                } else {
-                    batchDelBtn.disabled = false;
-                    batchDelBtn.title = "";
-                }
-            }
-
             // 3. 看板标题可编辑性控制
             const titleEl = document.getElementById('board-title');
             if (titleEl) {
@@ -2705,7 +2859,6 @@
             const editWbs = document.getElementById('edit-wbs');
             const editAssignee = document.getElementById('edit-assignee');
             const editStatus = document.getElementById('edit-status');
-            const deleteBtn = document.getElementById('modal-delete-task-btn');
 
             if (editName) editName.readOnly = !isMaster;
             if (editWp) editWp.readOnly = !isMaster;
@@ -2723,10 +2876,6 @@
                         }
                     }
                 });
-            }
-
-            if (deleteBtn) {
-                deleteBtn.style.display = isMaster ? 'inline-flex' : 'none';
             }
         }
 

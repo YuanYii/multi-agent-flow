@@ -20,6 +20,7 @@ import socket
 import threading
 import importlib.util
 from http.server import HTTPServer
+from urllib.parse import quote
 
 import pytest
 
@@ -464,19 +465,16 @@ class TestApiMutation:
         _, get_r = _api(server, "GET", "/api/tasks")
         assert get_r["data"]["items"][0]["name"] == "外部并发修改"
 
-    def test_26_delete_single_and_batch(self, server):
-        """用例 26: DELETE 单删与批量删除"""
-        _seed_cards(server, [_mk_card("T0001"), _mk_card("T0002"), _mk_card("T0003")])
-        # 单删
-        s, r = _api(server, "DELETE", "/api/tasks/T0001")
-        assert s == 200
-        assert r["data"]["deleted_id"] == "T0001"
+    def test_26_delete_disabled_405(self, server):
+        """用例 26: 看板全面禁用 DELETE 接口，所有 DELETE 请求均返回 405"""
+        _seed_cards(server, [_mk_card("T0001"), _mk_card("T0002")])
+        s1, r1 = _api(server, "DELETE", "/api/tasks/T0001")
+        assert s1 == 405
+        assert "禁用" in r1["message"]
 
-        # 批量删除
-        s, r = _api(server, "DELETE", "/api/tasks?ids=T0002,T0003")
-        assert s == 200
-        assert r["data"]["deleted"] == 2
-        assert r["data"]["remaining_total"] == 0
+        s2, r2 = _api(server, "DELETE", "/api/tasks?ids=T0001,T0002")
+        assert s2 == 405
+        assert "禁用" in r2["message"]
 
 
 # ===============================================================
@@ -591,13 +589,10 @@ class TestAdvancedEndpoints:
         assert s == 200
         assert r["data"]["count"] == 2
 
-    def test_34_batch_delete_route(self, server):
-        """用例 34: POST /api/tasks/batch-delete 批量删除"""
-        _seed_cards(server, [_mk_card("T0001"), _mk_card("T0002"), _mk_card("T0003")])
-        s, r = _api(server, "POST", "/api/tasks/batch-delete", {"task_ids": ["T0001", "T0003"]})
-        assert s == 200
-        assert r["data"]["deleted_count"] == 2
-        assert r["data"]["remaining_total"] == 1
+    def test_34_batch_delete_route_disabled(self, server):
+        """用例 34: POST /api/tasks/batch-delete 路由已下线 (404)"""
+        s, r = _api(server, "POST", "/api/tasks/batch-delete", {"task_ids": ["T0001"]})
+        assert s == 404
 
     def test_35_alias_routes_cards(self, server):
         """用例 35: /api/cards 路由别名与 /api/tasks 完全对齐"""
@@ -655,11 +650,12 @@ class TestMatrixAndEdgeCases:
         s, r = _api(server, "PUT", "/api/tasks/T9999", {"name": "ghost"})
         assert s == 404
 
-    def test_41_nonexistent_task_delete_404(self, server):
-        """用例 41: DELETE 不存在的任务 ID → 404"""
+    def test_41_delete_disabled_405(self, server):
+        """用例 41: DELETE /api/tasks/T9999 全面返回 405"""
         _seed_cards(server, [])
         s, r = _api(server, "DELETE", "/api/tasks/T9999")
-        assert s == 404
+        assert s == 405
+        assert "禁用" in r["message"]
 
     def test_42_nonexistent_task_transition_404(self, server):
         """用例 42: POST transition 不存在的任务 ID → 404"""
@@ -719,18 +715,17 @@ class TestMatrixAndEdgeCases:
         s, r = _api(server, "PUT", "/api/tasks/reorder", {})
         assert s == 400
 
-    def test_48_batch_delete_empty_payload_400(self, server):
-        """用例 48: POST batch-delete 缺少 task_ids → 400"""
+    def test_48_batch_delete_route_404(self, server):
+        """用例 48: POST batch-delete 路由下线返回 404"""
         s, r = _api(server, "POST", "/api/tasks/batch-delete", {})
-        assert s == 400
+        assert s == 404
 
-    def test_49_delete_via_query_ids(self, server):
-        """用例 49: DELETE /api/tasks?ids=T0001,T0002 批量删除"""
-        _seed_cards(server, [_mk_card("T0001"), _mk_card("T0002"), _mk_card("T0003")])
+    def test_49_delete_via_query_ids_405(self, server):
+        """用例 49: DELETE /api/tasks?ids=T0001,T0002 禁用返回 405"""
+        _seed_cards(server, [_mk_card("T0001"), _mk_card("T0002")])
         s, r = _api(server, "DELETE", "/api/tasks?ids=T0001,T0002")
-        assert s == 200
-        assert r["data"]["deleted"] == 2
-        assert r["data"]["remaining_total"] == 1
+        assert s == 405
+        assert "禁用" in r["message"]
 
     def test_50_static_html_and_version_probe(self, server):
         """用例 50: 根路径重定向与 /api/version 版本端点协同"""
@@ -803,19 +798,18 @@ class TestMasterTokenAndSecurity:
         assert r["code"] == 403
         assert "主控权限" in r["message"]
 
-    def test_54_unauthenticated_delete_task_returns_403(self, server):
-        """无 Token 发起 DELETE /api/tasks/T0001 必须被 403 拦截"""
+    def test_54_delete_task_returns_405_regardless_of_auth(self, server):
+        """无 Token 发起 DELETE /api/tasks/T0001 依然统一返回 405"""
         _seed_cards(server, [_mk_card("T0001")])
         s, r = _api(server, "DELETE", "/api/tasks/T0001", auth=False)
-        assert s == 403
-        assert r["code"] == 403
+        assert s == 405
+        assert r["code"] == 405
 
-    def test_55_unauthenticated_batch_delete_returns_403(self, server):
-        """无 Token 发起 POST /api/tasks/batch-delete 必须被 403 拦截"""
+    def test_55_batch_delete_route_404_regardless_of_auth(self, server):
+        """无 Token 发起 POST /api/tasks/batch-delete 返回 404"""
         _seed_cards(server, [_mk_card("T0001")])
         s, r = _api(server, "POST", "/api/tasks/batch-delete", {"task_ids": ["T0001"]}, auth=False)
-        assert s == 403
-        assert r["code"] == 403
+        assert s == 404
 
     def test_56_unauthenticated_reorder_returns_403(self, server):
         """无 Token 发起 PUT /api/tasks/reorder 必须被 403 拦截"""
@@ -917,8 +911,6 @@ class TestKanbanNewFeaturesV33:
     def test_64_x_operator_name_header_decoding(self, server):
         """用例 64: POST / PUT 接口支持 X-Operator-Name 正常字符串与 URL 编码格式并注入流转日志"""
         _seed_cards(server, [])
-        from urllib.parse import quote
-
         # 1. POST 新建任务，携带 URL 编码的操作人 Header
         raw_op = "马前端"
         encoded_op = quote(raw_op)
@@ -927,7 +919,9 @@ class TestKanbanNewFeaturesV33:
         }, headers={"X-Operator-Name": encoded_op}, auth=True)
         assert s == 200
         card = r["data"]
-        assert f"操作人: {raw_op}" in card.get("process", "")
+        assert card.get("creator") == raw_op
+        assert card.get("operator") == raw_op
+        assert f"创建人: {raw_op}" in card.get("process", "")
 
         # 2. PUT 更新状态，携带 ASCII 操作人 Header
         tid = card["id"]
@@ -949,10 +943,11 @@ class TestKanbanNewFeaturesV33:
         assert "操作人: 周审查" in trans_card.get("process", "")
 
     def test_65_non_master_pretask_and_creator_rbac_403(self, server):
-        """用例 65: 协作者模式 (无 Token) 尝试修改受控字段 pretask / creator 严格返回 403"""
+        """用例 65: 协作者模式 (无 Token) 尝试修改受控字段 pretask / creator / creator_role 严格返回 403"""
         card = _mk_card("T0001", name="原始任务", assignee="李开发")
         card["pretask"] = "T0000"
         card["creator"] = "钱架构"
+        card["creator_role"] = "严经理"
         _seed_cards(server, [card])
 
         # 尝试篡改 pretask
@@ -965,17 +960,23 @@ class TestKanbanNewFeaturesV33:
         assert s2 == 403
         assert "无权修改核心字段 [creator]" in r2["message"]
 
-        # 修改非受控字段（remarks 与 handler）允许通过
-        s3, r3 = _api(server, "PUT", "/api/tasks/T0001", {"remarks": "协作者安全备注", "handler": "李开发"}, auth=False)
+        # 尝试篡改 creator_role
+        s_cr, r_cr = _api(server, "PUT", "/api/tasks/T0001", {"creator_role": "钱架构"}, auth=False)
+        assert s_cr == 403
+        assert "无权修改核心字段 [creator_role]" in r_cr["message"]
+
+        # 修改非受控字段（remarks, handler, operator）允许通过
+        s3, r3 = _api(server, "PUT", "/api/tasks/T0001", {"remarks": "协作者安全备注", "handler": "李开发", "operator": "协作者张三"}, auth=False)
         assert s3 == 200
 
     def test_66_create_task_with_pretask_and_creator_persistence(self, server):
-        """用例 66: POST /api/tasks 完整落盘 pretask, creator 与规范化默认字段"""
+        """用例 66: POST /api/tasks 完整落盘 pretask, creator, creator_role, operator 与规范化默认字段"""
         _seed_cards(server, [])
         s, r = _api(server, "POST", "/api/tasks", {
             "name": "依赖与创建人测试任务",
             "pretask": "T0001,T0002",
             "creator": "钱架构",
+            "creator_role": "钱架构",
             "assignee": "马前端",
             "stage": "S1 需求分析",
             "wp": "WP-1.1",
@@ -985,8 +986,10 @@ class TestKanbanNewFeaturesV33:
         card = r["data"]
         assert card["pretask"] == "T0001,T0002"
         assert card["creator"] == "钱架构"
+        assert card["creator_role"] == "钱架构"
         assert card["assignee"] == "马前端"
-        assert "操作人: 钱架构" in card.get("process", "")
+        assert card["operator"] == "钱架构"
+        assert "创建人: 钱架构 (创建角色: 钱架构) | 负责角色: 马前端" in card.get("process", "")
 
     def test_67_assignee_and_handler_updated_wording_in_process(self, server):
         """用例 67: PUT /api/tasks 更新负责角色/处理角色时自动追加新文案流转审计节点"""
@@ -1022,8 +1025,8 @@ class TestKanbanNewFeaturesV33:
         assert card2["status"] == "已退回"
         assert card2["end_date"] == ""
 
-    def test_69_creator_keyword_search_and_batch_delete(self, server):
-        """用例 69: GET /api/tasks 支持按 creator 关键字模糊搜索，并支持 POST /api/tasks/batch-delete 批量删除"""
+    def test_69_creator_keyword_search(self, server):
+        """用例 69: GET /api/tasks 支持按 creator 关键字模糊搜索"""
         c1 = _mk_card("T0001", name="模块A设计")
         c1["creator"] = "钱架构"
         c2 = _mk_card("T0002", name="模块B实现")
@@ -1038,14 +1041,35 @@ class TestKanbanNewFeaturesV33:
         assert r["data"]["total"] == 1
         assert r["data"]["items"][0]["id"] == "T0001"
 
-        # 2. 批量删除 T0001 与 T0003
-        s_del, r_del = _api(server, "POST", "/api/tasks/batch-delete", {"ids": ["T0001", "T0003"]}, auth=True)
-        assert s_del == 200
-        assert r_del["data"]["deleted_count"] == 2
+    def test_70_operator_and_creator_role_api_filter(self, server):
+        """用例 70: GET /api/tasks 支持按 operator 与 creator_role 过滤与搜索"""
+        c1 = _mk_card("T0001", name="任务1")
+        c1["creator"] = "张三"
+        c1["creator_role"] = "严经理"
+        c1["operator"] = "李四"
 
-        # 3. 校验剩余仅剩 T0002
-        s_rem, r_rem = _api(server, "GET", "/api/tasks")
-        assert s_rem == 200
-        assert r_rem["data"]["total"] == 1
-        assert r_rem["data"]["items"][0]["id"] == "T0002"
+        c2 = _mk_card("T0002", name="任务2")
+        c2["creator"] = "张三"
+        c2["creator_role"] = "钱架构"
+        c2["operator"] = "王五"
+
+        _seed_cards(server, [c1, c2])
+
+        # 按 operator 过滤
+        s1, r1 = _api(server, "GET", f"/api/tasks?operator={quote('李四')}")
+        assert s1 == 200
+        assert r1["data"]["total"] == 1
+        assert r1["data"]["items"][0]["id"] == "T0001"
+
+        # 按 creator_role 过滤
+        s2, r2 = _api(server, "GET", f"/api/tasks?creator_role={quote('钱架构')}")
+        assert s2 == 200
+        assert r2["data"]["total"] == 1
+        assert r2["data"]["items"][0]["id"] == "T0002"
+
+        # 全局关键字搜索 operator
+        s3, r3 = _api(server, "GET", f"/api/tasks?keyword={quote('王五')}")
+        assert s3 == 200
+        assert r3["data"]["total"] == 1
+        assert r3["data"]["items"][0]["id"] == "T0002"
 
