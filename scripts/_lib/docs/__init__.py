@@ -1,4 +1,17 @@
 """
-Multi-Agent Flow · 文档治理与学术排版子包 (_lib/docs)
-包含原项目历史文档隔离迁移、学术论文排版渲染与报告生成。
+_lib/docs 向前兼容重定向垫片 (防存量单测断裂)
+核心实现已归口至 _lib.discovery.legacy_migrator
 """
+from _lib.discovery.legacy_migrator import (
+    EXCLUDE_DIRS,
+    CATEGORY_KEYWORDS,
+    classify_document,
+    scan_and_migrate_legacy_docs,
+)
+
+__all__ = [
+    "EXCLUDE_DIRS",
+    "CATEGORY_KEYWORDS",
+    "classify_document",
+    "scan_and_migrate_legacy_docs",
+]

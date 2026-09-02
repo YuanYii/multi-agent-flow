@@ -101,6 +101,10 @@ def resolve_data_root(explicit=None, env=None, cwd=None) -> str:
     return os.path.abspath(cwd)
 
 
+# 便捷别名导出
+data_root = resolve_data_root
+
+
 def user_data_dir(**kw) -> str:
     return os.path.join(resolve_data_root(**kw), "user_data")
 

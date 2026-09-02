@@ -454,6 +454,15 @@ def transition_task_pipeline(
 
         logger.info("[SUCCESS]  防错规则核验成功", extra=extra_log)
 
+        # [CCP 连续性门禁扩展插槽 - 默认受环境变量保护，Fail-Safe]
+        if os.environ.get("YY_FLOW_ENABLE_CCP_GATE") == "1":
+            try:
+                from _lib.ccp.validators.pipeline import check_continuity_gate
+                ccp_report = check_continuity_gate(task_id or resolved_record_id or "UNKNOWN", to_status)
+                logger.info(f"[CCP_GATE] 连续性门禁预检状态: {ccp_report.status}", extra=extra_log)
+            except Exception as _e:
+                logger.warning(f"[CCP_GATE_SKIP] 连续性门禁预检跳过: {_e}", extra=extra_log)
+
         # 6. 动态读取 Key 映射
         status_key = field_mapping.get("status", "status")
         assignee_key = field_mapping.get("assignee", "assignee")

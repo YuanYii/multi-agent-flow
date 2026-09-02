@@ -9,10 +9,16 @@ import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from _lib.docs.legacy_migrator import (
+from _lib.discovery.legacy_migrator import (
     classify_document,
     scan_and_migrate_legacy_docs,
 )
+
+__all__ = [
+    "classify_document",
+    "scan_and_migrate_legacy_docs",
+    "main",
+]
 
 
 def main():
