@@ -496,6 +496,10 @@ def transition_task_pipeline(
                 all_cards = []
             res_stage, res_wp, res_wbs = resolve_default_stage_wp_wbs(all_cards, stage=stage, wp=wp, wbs=wbs)
 
+            effective_creator = creator or get_current_os_user()
+            effective_creator_role = normalize_role_name(creator_role or current_role or "PM")
+            effective_operator = operator or effective_creator
+
             create_fields = {
                 "task_id": task_id,
                 "task_name": task_name or "工作包任务",
@@ -506,16 +510,24 @@ def transition_task_pipeline(
                 "stage": res_stage,
                 "workpackage": res_wp,
                 "wbs_id": res_wbs,
-                "start_date": None,
+                "creator": effective_creator,
+                "creator_role": effective_creator_role,
+                "operator": effective_operator,
+                "start_date": start_time or None,
                 "type": task_type or "A",
                 "task_type": task_type or "A",
                 "est_hours": est_hours or 0.0,
                 "act_hours": 0.0,
                 "pretask": pretask or None,
-                "process": remarks or None,
-                "remarks": remarks or None,
+                "process": None,
+                "remarks": None,
+                "target": target or None,
+                "acceptance_criteria": criteria or [],
             }
-            created_id = adapter.create_record(create_fields)
+            if hasattr(adapter, "create_record") and "week" in adapter.create_record.__code__.co_varnames:
+                created_id = adapter.create_record(create_fields, week=week)
+            else:
+                created_id = adapter.create_record(create_fields)
             if not created_id:
                 logger.error(f"[FAILED]  任务自动创建失败（编号冲突或写入失败），硬阻断流转！", extra=extra_log)
                 record_audit_event(resolved_task_id, current_role, from_status, to_status, norm_assignee, False, "任务自动创建失败", delegated_by=delegated_by, delegation_reason=delegation_reason)
@@ -691,7 +703,7 @@ def main():
     parser.add_argument("--config", default=None, help="配置文件路径")
     parser.add_argument("--task-id", default="", help="任务编号 (如 T0001)；不传则自动分配最大编号+1 (并发安全)")
     parser.add_argument("--record-id", default=None, help="看板内部记录 ID (离线看板默认等于任务编号，可省略)")
-    parser.add_argument("--task-name", default=None, help="任务名称 (任务不存在自动创建时必填建议项)")
+    parser.add_argument("--task-name", "--name", dest="task_name", default=None, help="任务名称 (任务不存在自动创建时必填建议项)")
     parser.add_argument("--stage", default=None, help="项目阶段 (自动创建时写入)")
     parser.add_argument("--wp", default=None, help="工作包 (自动创建时写入)")
     parser.add_argument("--wbs", default=None, help="WBS 编号 (自动创建时写入)")
@@ -720,6 +732,9 @@ def main():
     parser.add_argument("--force-reopen", action="store_true",
                         help="终态纠偏重开模式：允许由 PM (严经理) 或真实人类用户 (USER) 将已验收/已取消工单受控回退至进行中或已完成")
     parser.add_argument("--create", action="store_true", help="显式建单模式：创建任务卡【待开始】并分配处理人，不执行流转")
+    parser.add_argument("--target", default=None, help="任务核心目标说明")
+    parser.add_argument("--criteria", action="append", default=None, help="验收标准（支持传多次或用分号/换行分隔）")
+    parser.add_argument("--week", default=None, help="显式归属周口径 (如 2026-W36)")
     parser.add_argument("--force", action="store_true", help="重复任务校验命中时强制创建（用户已确认重复创建）")
     parser.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
 
@@ -781,6 +796,9 @@ def main():
         create_only=args.create,
         force=args.force,
         no_dup_check=args.no_dup_check,
+        target=getattr(args, "target", None),
+        criteria=getattr(args, "criteria", None),
+        week=getattr(args, "week", None),
     )
 
     if not ok:

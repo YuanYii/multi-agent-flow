@@ -103,7 +103,7 @@ version: 1.0.0
    - **历史文档隔离归档**：运行 `python3 scripts/migrate_legacy_docs.py` 自动扫描原项目中散落的历史文档，在对应的分类目录下创建 **`原项目文档/`** 专用文件夹进行拷贝分类隔离。
    - 在目标项目 `.gitignore` 中确保排除 `草稿箱/` 隔离区。
 6. **物理派发架构全景鉴定工单与专家技术栈同步**：
-   - 运行 `python3 scripts/quick_task.py create --name "项目技术架构全景鉴定与选型定版" --role PM --assignee 钱架构 --type B` 物理建卡【待开始】（AUTO 自动编号防冲突）。
+   - 运行 `python3 scripts/quick_task.py create --name "项目技术架构全景鉴定与选型定版" --role PM --assignee 钱架构 --type B --target "扫描项目依赖与源码入口，定版技术栈选型" --criteria "1. 完成架构全景文档; 2. 导出专家能力配置" --remarks "初始化架构扫描与能力拓展"` 物理建卡【待开始】（AUTO 自动编号防冲突）。
    - 初始导出 8 大专家子代理至 `.agents/agents/`。
 7. **架构师深度鉴定、能力拓展与 PM 终态验收**：
    - PM 严经理通过 `invoke_subagent` 派发任务至 **钱架构 (`@flow-architect`)**；
