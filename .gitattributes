@@ -1,0 +1,14 @@
+# ==============================================================================
+# Git 归档导出规则 (GitHub Tarball / Zip / Degit 发布黑名单)
+# 确保用户通过 degit / tarball 安装时获得极致纯净的运行包，自动剔除开发与测试资产
+# ==============================================================================
+
+tests/                    export-ignore
+tests/**                  export-ignore
+e2e/                      export-ignore
+e2e/**                    export-ignore
+.github/                  export-ignore
+.github/**                export-ignore
+requirements-dev.txt      export-ignore
+index.html                export-ignore
+.gitattributes            export-ignore
