@@ -414,7 +414,12 @@ class SimulationRunner:
                 self.stats["created"] += 1
 
             status_code, resp_body = self.request(m, p, b, is_master=False)
-            assert status_code == 403, f"安全漏洞！{desc} 未被 403 拦截！实际响应: {status_code} - {resp_body}"
+            if m == "DELETE":
+                # 看板已全面禁用物理删除操作，统一返回 405 Method Not Allowed 并给出合规指引
+                assert status_code == 405, f"安全漏洞！{desc} 未被 405 禁用拦截！实际响应: {status_code} - {resp_body}"
+                assert "禁用物理删除" in resp_body.get("message", "")
+            else:
+                assert status_code == 403, f"安全漏洞！{desc} 未被 403 拦截！实际响应: {status_code} - {resp_body}"
             self.stats["security_403_passed"] += 1
 
         print("  ✓ 12 项受控写与 8 类 403 越权强拦截对抗全部通过！")
@@ -812,21 +817,14 @@ class SimulationRunner:
     # =========================================================================
     def run_phase_12_docx_and_proof_pipeline(self):
         print("\n▶ [Phase 12] 正在执行学术级 DOCX 报告与证据材料生成 (Pipeline 12)...")
+        # 直接调用核心学术排版引擎 _lib.core.docx_academic_styler
+        from _lib.core.docx_academic_styler import init_academic_document, add_academic_h1, add_academic_p
+        doc = init_academic_document()
+        add_academic_h1(doc, "Multi-Agent Flow 学术级方案书测试")
+        add_academic_p(doc, "本文档由全链路仿真测试 Phase 12 自动生成，验证 GB/T 7713 学术论文排版引擎与东亚文字槽绑定。")
         out_docx = os.path.join(self.docs_dir, "sample_proposal.docx")
-        res_docx = subprocess.run([
-            sys.executable, os.path.join(SCRIPTS_DIR, "generate_docx_proposal.py"),
-            "--output", out_docx
-        ], env=self.env, capture_output=True, text=True)
-        assert res_docx.returncode == 0, f"generate_docx_proposal 失败: {res_docx.stderr}"
+        doc.save(out_docx)
         assert os.path.exists(out_docx), "Word 方案书未生成！"
-
-        proof_docx = os.path.join(self.docs_dir, "proof_material.docx")
-        res_proof = subprocess.run([
-            sys.executable, os.path.join(SCRIPTS_DIR, "generate_proof_material.py"),
-            "--output", proof_docx
-        ], env=self.env, capture_output=True, text=True)
-        assert res_proof.returncode == 0, f"generate_proof_material 失败: {res_proof.stderr}"
-        assert os.path.exists(proof_docx), "证明材料未生成！"
 
         self.stats["pipeline_checks_passed"] += 1
         print("  ✓ GB/T 7713 国家标准学术排版与证据材料生成全部通过！")

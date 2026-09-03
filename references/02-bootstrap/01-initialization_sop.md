@@ -21,8 +21,8 @@
    - 运行 `python3 scripts/quick_task.py create ...` 物理建卡【待开始】。
 7. **架构师深度鉴定、能力拓展与 PM 终态验收**：
    - PM 严经理通过 `invoke_subagent` 派发任务至 **钱架构 (`@flow-architect`)**；
-   - 钱架构编写架构设计方案并调用 `save_project_architecture.py` 安全落盘；
-   - PM 严经理验收置为【已验收】。
+   - 钱架构编写架构设计方案并调用 `save_project_architecture.py` 安全落盘，将任务推为【已完成】；
+   - 提请人类用户 (USER) 终态验收置为【已验收】。
 8. **显式输出 8 大专家子 Agent 列表与完整写权限矩阵**。
 
 ---
