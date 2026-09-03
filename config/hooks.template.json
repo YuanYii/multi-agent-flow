@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "description": "YY-Flow 平台生命周期钩子配置：主 Agent 业务源码写权限物理拦截",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "name": "gate_pm_code_edit",
+        "description": "拦截主会话直接篡改业务源码，强制执行代码化 dispatch_task 派单",
+        "matcher": {
+          "tool_names": [
+            "write_to_file",
+            "replace_file_content"
+          ]
+        },
+        "handler": {
+          "type": "command",
+          "command": "python3 scripts/_lib/gates/gate_pm_code_edit.py"
+        }
+      }
+    ]
+  }
+}

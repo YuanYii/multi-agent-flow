@@ -290,6 +290,16 @@ def export_platform_assets(platforms_config, active_platforms, global_mode=False
             else:
                 print(f"[WARN]  [{p_name}] Skill 挂载跳过 (目标已存在实体路径或无法创建软链) -> {rel_target}")
 
+            # 自动挂载 Antigravity PreToolUse Hook 配置
+            if p_key == "antigravity" and not global_mode:
+                hook_src = os.path.join(PROJECT_ROOT, "config", "hooks.template.json")
+                if os.path.exists(hook_src):
+                    hook_dest = os.path.join(TARGET_PROJECT_DIR, ".agents", "hooks.json")
+                    os.makedirs(os.path.dirname(hook_dest), exist_ok=True)
+                    import shutil
+                    shutil.copy2(hook_src, hook_dest)
+                    print(f"[SUCCESS]  [{p_name}] 成功挂载 PreToolUse 物理阻断钩子 -> .agents/hooks.json")
+
         # 2. 执行 Cursor MDC 规则挂载（仅项目级模式有意义）
         if not global_mode and spec.get("mount_type") == "cursor_mdc" and "rule_target" in spec:
             rel_rule = spec["rule_target"].format(skill_name=skill_name)
