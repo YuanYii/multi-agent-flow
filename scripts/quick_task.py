@@ -82,6 +82,18 @@ def main():
     args = parser.parse_args()
 
     if args.command == "create":
+        # 阶段准入门禁校验 (Stage Start Entry Gate)
+        if getattr(args, "stage", None) and not getattr(args, "force", False):
+            try:
+                from _lib.gates.stage_gate_checker import run_stage_gate_check
+                stage_report = run_stage_gate_check(stage_name=args.stage, action="start")
+                if not stage_report.passed:
+                    failed_details = "; ".join(f"{c.title}: {c.detail}" for c in stage_report.failed_checks)
+                    print(f"[REJECT 阶段准入拦截] 无法在阶段【{args.stage}】创建任务！前序阶段未达标:\n  - {failed_details}\n如确需强制开工建单，请显式传入 --force 参数。")
+                    sys.exit(1)
+            except Exception:
+                pass
+
         assignee = normalize_role_name(args.assignee or args.role)
         ok = transition_task_pipeline(
             config_path=args.config,
