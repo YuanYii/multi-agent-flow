@@ -460,6 +460,10 @@ def transition_task_pipeline(
                 from _lib.ccp.validators.pipeline import check_continuity_gate
                 ccp_report = check_continuity_gate(task_id or resolved_record_id or "UNKNOWN", to_status)
                 logger.info(f"[CCP_GATE] 连续性门禁预检状态: {ccp_report.status}", extra=extra_log)
+                if ccp_report.status in ["FAILED", "CONFLICTED"] and getattr(ccp_report, "blocking_unknowns", None):
+                    logger.error(f"[CCP_GATE_BLOCK] 连续性门禁拦截: {ccp_report.blocking_unknowns}", extra=extra_log)
+                    record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"CCP连续性门禁拦截: {ccp_report.blocking_unknowns}", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                    return False
             except Exception as _e:
                 logger.warning(f"[CCP_GATE_SKIP] 连续性门禁预检跳过: {_e}", extra=extra_log)
 
@@ -574,9 +578,29 @@ def transition_task_pipeline(
         if to_status in ["已完成", "已验收", "已取消"] and (not target_handler or target_handler == normalize_role_name(current_role)):
             target_handler = "严经理"
         elif to_status == "已退回":
-            orig_owner = exist_fields.get("assignee") or exist_fields.get("owner")
+            orig_owner = exist_fields.get("owner") or norm_assignee or exist_fields.get("assignee")
             if orig_owner:
                 target_handler = normalize_role_name(orig_owner)
+
+            # [优化项 3: 连续打回熔断与架构仲裁机制]
+            process_history = exist_fields.get("process") or []
+            if isinstance(process_history, str):
+                rework_count = process_history.count("已退回")
+            elif isinstance(process_history, list):
+                rework_count = sum(1 for node in process_history if "已退回" in str(node))
+            else:
+                rework_count = 0
+
+            if rework_count >= 2 and not force:
+                logger.warning(
+                    f"[CIRCUIT_BREAKER] 任务 {task_id} 累计打回已达 {rework_count + 1} 次，触发多次打回熔断！"
+                    f"自动升级流转至【已阻塞】并移交架构专家仲裁。",
+                    extra=extra_log
+                )
+                to_status = "已阻塞"
+                target_handler = "钱架构"
+                circuit_remark = f"【打回熔断仲裁】累计打回达 {rework_count + 1} 次，触发自动熔断，挂起并移交架构师/PM仲裁。"
+                remarks = f"{remarks} | {circuit_remark}" if remarks else circuit_remark
 
         handler_key = field_mapping.get("handler", "handler")
         owner_key = field_mapping.get("owner") or field_mapping.get("assignee", "assignee")
