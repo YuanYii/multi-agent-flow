@@ -86,8 +86,11 @@ def main():
             stdin_data = sys.stdin.read().strip()
             if stdin_data:
                 hook_input = json.loads(stdin_data)
-                tool_name = tool_name or hook_input.get("tool_name")
-                tool_input = hook_input.get("tool_input", {})
+                tool_call = hook_input.get("toolCall") or {}
+                tool_call_args = tool_call.get("args") or {}
+
+                tool_name = tool_name or hook_input.get("tool_name") or tool_call.get("name")
+                tool_input = hook_input.get("tool_input") or tool_call_args
                 target_file = target_file or tool_input.get("TargetFile") or tool_input.get("target_file")
                 caller_role = hook_input.get("session_context", {}).get("role", "")
                 if caller_role and caller_role.lower() != "pm":

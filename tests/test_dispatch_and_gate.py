@@ -8,7 +8,7 @@ SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS_DIR = os.path.join(SCRIPT_DIR, "scripts")
 sys.path.insert(0, SCRIPTS_DIR)
 
-from _lib.gates.gate_pm_code_edit import check_tool_permission
+from hooks.gate_pm_code_edit import check_tool_permission
 from _lib.boards.weekly_board_adapter import WeeklyBoardAdapter
 from dispatch_task import dispatch_task, ROLE_SUBAGENT_MAP
 

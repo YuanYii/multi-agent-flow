@@ -14,7 +14,7 @@
         },
         "handler": {
           "type": "command",
-          "command": "python3 scripts/_lib/gates/gate_pm_code_edit.py"
+          "command": "python3 scripts/hooks/gate_pm_code_edit.py"
         }
       }
     ]

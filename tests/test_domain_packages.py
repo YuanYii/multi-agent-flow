@@ -16,7 +16,7 @@ from _lib.gates.stage_gate_checker import (
 )
 from _lib.gates.git_gate_verifier import verify_git_gate
 from _lib.gates.secrets_checker import SECRET_PATTERNS, scan_file, run_secrets_scan
-from _lib.gates.hooks_installer import install_hooks
+from hooks.hooks_installer import install_hooks
 
 # 2. 效能度量域 (_lib/metrics)
 from _lib.metrics.metrics_calculator import parse_datetime, MetricsCalculator, TerminalRenderer

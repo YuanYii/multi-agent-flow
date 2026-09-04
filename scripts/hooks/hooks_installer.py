@@ -8,6 +8,16 @@ from typing import Optional
 
 import paths as _paths
 
+# 标准 Git 钩子文件名白名单（防止将 Python 脚本或配置文件误拷入 .git/hooks）
+GIT_HOOK_WHITELIST = {
+    "applypatch-msg", "pre-applypatch", "post-applypatch", "pre-commit",
+    "pre-merge-commit", "prepare-commit-msg", "commit-msg", "post-commit",
+    "pre-rebase", "post-checkout", "post-merge", "pre-push",
+    "pre-receive", "update", "proc-receive", "post-receive",
+    "post-update", "reference-transaction", "push-to-checkout",
+    "pre-auto-gc", "post-rewrite", "sendemail-validate", "fsmonitor-watchman"
+}
+
 
 def install_hooks(project_root: Optional[str] = None) -> bool:
     """将 Git 预提交安全与门禁校验钩子安装至目标仓库的 .git/hooks 目录。"""
@@ -30,7 +40,7 @@ def install_hooks(project_root: Optional[str] = None) -> bool:
 
     for item in os.listdir(hooks_src_dir):
         src_path = os.path.join(hooks_src_dir, item)
-        if os.path.isfile(src_path) and not item.startswith("."):
+        if os.path.isfile(src_path) and not item.startswith(".") and item in GIT_HOOK_WHITELIST:
             dst_path = os.path.join(git_hooks_dir, item)
             shutil.copyfile(src_path, dst_path)
             st = os.stat(dst_path)

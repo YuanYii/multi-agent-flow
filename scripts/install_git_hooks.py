@@ -9,7 +9,7 @@ import argparse
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from _lib.gates.hooks_installer import install_hooks
+from hooks.hooks_installer import install_hooks
 import paths as _paths
 
 
