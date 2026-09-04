@@ -179,41 +179,41 @@ def normalize_stage_name(stage_str: Optional[str]) -> Optional[str]:
 
 
 def transition_task_pipeline(
-    config_path: str,
-    task_id: str = "",
-    record_id: str = None,
-    current_role: str = "",
-    from_status: str = "",
-    to_status: str = "",
-    assignee: str = "",
-    task_type: str = "A",
-    est_hours: float = 0.0,
-    pretask: str = None,
-    ignore_pretask: bool = False,
-    start_time: str = None,
-    end_time: str = None,
-    remarks: str = None,
-    comment: str = None,
-    dry_run: bool = False,
-    active_dev_count: int = 1,
-    task_name: str = None,
-    stage: str = None,
-    wp: str = None,
-    wbs: str = None,
-    owner: str = None,
-    creator: str = None,
-    creator_role: str = None,
-    operator: str = None,
-    delegated_by: str = "",
-    delegation_reason: str = "",
-    force_verify_operator: bool = False,
-    force_reopen: bool = False,
-    create_only: bool = False,
-    force: bool = False,
-    no_dup_check: bool = False,
-    target: str = None,
-    criteria: Any = None,
-    week: str = None,
+    config_path: str,                    # 配置文件路径
+    task_id: str = "",                   # 任务编号（如 T0001，建卡留空自动递增分配）
+    record_id: str = None,               # 存储介质物理记录ID（如飞书 recId，缺省同 task_id）
+    current_role: str = "",              # 当前操作角色代号（如 PM/DEV/QA/REVIEWER）
+    from_status: str = "",               # 流转前原状态（如 待开始/进行中/审查中）
+    to_status: str = "",                 # 流转后目标状态（如 进行中/已完成/已验收）
+    assignee: str = "",                  # 任务处理人姓名（如 李开发/周审查）
+    task_type: str = "A",                # 任务类型（A=标准全链，B-G=轻量短链）
+    est_hours: float = 0.0,              # 预估工时（单位：小时）
+    pretask: str = None,                 # 前置依赖任务编号（如 T0001，支持逗号分隔多任务）
+    ignore_pretask: bool = False,        # 是否跳过前置任务未完成校验
+    start_time: str = None,              # 实际开工时间（格式 YYYY-MM-DD HH:MM:SS）
+    end_time: str = None,                # 实际完工时间（终态校验必填）
+    remarks: str = None,                 # 缺陷描述/打回原因/技术说明（追加至备注字段）
+    comment: str = None,                 # 流程跟踪总结（写入流程节点追踪信息）
+    dry_run: bool = False,               # 演练预检模式开关（仅门控校验，不写盘）
+    active_dev_count: int = 1,           # 当前角色在手任务数（WIP并发上限校验）
+    task_name: str = None,               # 任务名称/标题（建卡必填）
+    stage: str = None,                   # 项目阶段（如 Sprint 1，缺省自动推导）
+    wp: str = None,                      # 工作包名称（缺省自动推导）
+    wbs: str = None,                     # WBS 树状编号（如 1.1.1，缺省自动推导）
+    owner: str = None,                   # 任务责任主体（生命周期保持稳定）
+    creator: str = None,                 # 建单真实自然人姓名（缺省自动读取系统用户）
+    creator_role: str = None,            # 建单虚拟专家角色（缺省通常为 PM）
+    operator: str = None,                # 本次操作真实自然人姓名（记入审计日志）
+    delegated_by: str = "",              # 提权代行来源角色（如 PM/USER，需在白名单）
+    delegation_reason: str = "",         # 提权代行原因说明（留痕到审计流）
+    force_verify_operator: bool = False, # 真人终端验收凭据标记（配合 TTY 与确认）
+    force_reopen: bool = False,          # 终态纠偏开关（允许重新激活已验收/已取消工单）
+    create_only: bool = False,           # 显式建卡模式开关（只建待开始卡，不执行流转）
+    force: bool = False,                 # 强制执行开关（跳过单一职责警告与重名限制）
+    no_dup_check: bool = False,          # 跳过工单文本相似度查重开关
+    target: str = None,                  # 任务核心交付目标说明（用于派单与上下文传递）
+    criteria: Any = None,                # 条目化验收标准列表（Acceptance Criteria）
+    week: str = None,                    # 所属周维度标签（如 2026-W36，周看板路由）
 ) -> bool:
     """
     执行任务状态流转全生命周期核心责任链管线。
