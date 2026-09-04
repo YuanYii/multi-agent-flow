@@ -28,6 +28,10 @@ from _lib.audit.audit_logger import query_events
 
 
 def main():
+    """
+    审计事件查询与分析 CLI 主入口。
+    支持按任务编号、操作者角色与时间窗口过滤检索审计日志记录。
+    """
     parser = argparse.ArgumentParser(description="审计日志查询 CLI (含归档)")
     parser.add_argument("--task-id", help="按任务编号过滤 (忽略大小写)")
     parser.add_argument("--role", help="按角色过滤 (PM/DEV/REVIEWER/QA/...)")

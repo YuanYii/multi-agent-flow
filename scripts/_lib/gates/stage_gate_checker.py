@@ -46,12 +46,14 @@ class StageGateReport:
 # =============================================================================
 
 class StageContext:
+    """阶段核验上下文实体类，封装目标阶段、工单列表及清洁度数据。"""
     def __init__(
         self,
         stage_input: str,
         project_dir: Optional[str] = None,
         config_override: Optional[Dict[str, Any]] = None,
     ):
+        """初始化阶段上下文实例。"""
         self.stage_input = (stage_input or "").strip()
         self.data_root = paths.resolve_data_root(explicit=project_dir)
         self.project_root = paths.project_root(explicit=project_dir)
@@ -93,6 +95,7 @@ class StageContext:
         return OfflineBoardAdapter(board_file=board_file)
 
     def _norm_record(self, rec: Dict[str, Any]) -> Dict[str, Any]:
+        """将松散字典或实体统一归一化为阶段核验器所需的数据结构。"""
         if "fields" in rec and isinstance(rec["fields"], dict):
             out = dict(rec["fields"])
             if "record_id" not in out and "record_id" in rec:

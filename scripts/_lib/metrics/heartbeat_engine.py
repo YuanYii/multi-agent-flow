@@ -75,6 +75,15 @@ def _get_status_entry_time(t: Dict[str, Any], status: str) -> Optional[datetime]
 
 
 def _parse_dt(s: Any) -> Optional[datetime]:
+    """
+    安全解析多种格式的时间字符串为标准 datetime 对象，解析失败返回 None。
+
+    参数:
+        dt_str (str): 待解析时间字符串。
+
+    返回:
+        datetime | None: 解析结果。
+    """
     if not s:
         return None
     s_clean = str(s).strip()
@@ -93,6 +102,12 @@ def _parse_dt(s: Any) -> Optional[datetime]:
 
 
 def _now() -> datetime:
+    """
+    获取当前系统本地时间对象。
+
+    返回:
+        datetime: 当前时间对象。
+    """
     return datetime.now()
 
 
@@ -146,6 +161,15 @@ def run_heartbeat(
         ]
         card_names = [str(t.get("name") or t.get("task_name") or "") for t in tasks]
         def _norm(s):
+            """
+            归一化任务实体数据，安全提取阶段、角色与工时信息。
+
+            参数:
+                rec (dict): 原始任务记录。
+
+            返回:
+                dict: 清洗后的任务实体。
+            """
             return _re.sub(r"[\s\u3000，,。.;；:：()（）\[\]【】\-\_/\\|]", "", str(s)).lower()
         norms = [_norm(n) for n in card_names if _norm(n)]
         orphan_hours = float(thresholds.get("orphan_output_hours", 48))
@@ -409,6 +433,16 @@ def run_heartbeat(
 
 
 def format_progress_bar(pct: float, width: int = 15) -> str:
+    """
+    渲染紧凑的文本进度条，展示任务完成百分比与完成度。
+
+    参数:
+        ratio (float): 完成率比值 (0.0 - 1.0)。
+        length (int): 进度条字符总长度。
+
+    返回:
+        str: 格式化进度条字符串。
+    """
     filled = int(round(width * (pct / 100.0)))
     filled = max(0, min(width, filled))
     return f"[{'█' * filled}{'░' * (width - filled)}] {pct:.1f}%"

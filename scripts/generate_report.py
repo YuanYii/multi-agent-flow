@@ -47,6 +47,16 @@ META_PLACEHOLDERS = {
 }
 
 def generate_report(report_type: str, task_id: str, task_name: str, assignee: str, output_path: str, summary_content: str = ""):
+    """
+    依据任务卡数据与测试执行结果，自动生成符合规范的开发/测试/验收 Markdown 报告。
+
+    参数:
+        task_id (str): 任务编号。
+        role (str): 编写报告的专家角色。
+
+    返回:
+        str: 生成的报告相对或绝对文件路径。
+    """
     report_type = TYPE_ALIASES.get(report_type.lower(), report_type.lower())
     template_file = REPORT_TEMPLATE_MAP.get(report_type.lower())
     if not template_file:
@@ -129,6 +139,10 @@ def resolve_report_dir(report_type: str) -> str:
 
 
 def main(args: list = None):
+    """
+    交付报告生成工具 CLI 主入口。
+    接收参数并自动化组装开发或测试结项交付物。
+    """
     parser = argparse.ArgumentParser(description="自动化任务报告生成器")
     parser.add_argument("--type", required=True, help="报告类型 (pm|arch|dev|frontend|reviewer|qa|docs|devops，兼容别名 review)")
     parser.add_argument("--task-id", required=True, help="任务编号 (如 T0001)")

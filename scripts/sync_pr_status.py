@@ -392,6 +392,10 @@ def format_terminal_summary(report: Dict[str, Any]) -> str:
 
 
 def main():
+    """
+    GitHub PR 状态同步与自动解阻 CLI 主入口。
+    调用 GitHub API 监听关联 PR 的 Merged/Closed 状态并推进工单生命周期。
+    """
     parser = argparse.ArgumentParser(description="YY-Flow GitHub PR 状态感知与自动解阻引擎")
     parser.add_argument("--config", default=None, help="看板配置文件路径")
     parser.add_argument("--project-root", default=None, help="项目根目录路径")

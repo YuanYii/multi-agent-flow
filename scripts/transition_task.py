@@ -30,7 +30,9 @@ import paths
 
 # 容错型日志格式化类，防 traceback 泄漏
 class SafeTaskFormatter(logging.Formatter):
+    """自定义安全任务格式化器，防止任务描述与字段中的特殊字符破坏日志与消息结构。"""
     def format(self, record):
+        """格式化任务字符串，对异常字符进行安全转义与处理。"""
         if not hasattr(record, "task_id"):
             record.task_id = "SYSTEM"
         return super().format(record)
@@ -213,6 +215,21 @@ def transition_task_pipeline(
     criteria: Any = None,
     week: str = None,
 ) -> bool:
+    """
+    执行任务状态流转全生命周期核心责任链管线。
+    依次执行入参归一化、文件加锁、五层门控核验、前置依赖检查、打回熔断判定、存储写入与审计追加。
+
+    参数:
+        task_id (str): 任务编号。
+        from_status (str): 当前状态。
+        to_status (str): 目标状态。
+        role (str): 当前操作专家角色代号。
+        operator (str, optional): 实际操作人。
+        remarks (str, optional): 流转附注/打回原因。
+
+    返回:
+        dict: 包含流转成功标志与更新后任务属性的字典。
+    """
     resolved_task_id = task_id or "AUTO"
     extra_log = {"task_id": resolved_task_id}
     stage = normalize_stage_name(stage)
@@ -732,6 +749,10 @@ def transition_task_pipeline(
 
 
 def main():
+    """
+    任务状态流转命令行 CLI 主入口。
+    解析命令行参数并触发状态转移责任链管线。
+    """
     parser = argparse.ArgumentParser(description="一键门控任务流转管道工具")
     parser.add_argument("--config", default=None, help="配置文件路径")
     parser.add_argument("--task-id", default="", help="任务编号 (如 T0001)；不传则自动分配最大编号+1 (并发安全)")

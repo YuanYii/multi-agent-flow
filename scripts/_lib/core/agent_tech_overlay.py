@@ -46,12 +46,14 @@ def _clean_str(s: str) -> str:
 
 
 def _lang_str(arch_data):
+    """将扫描推断出的编程语言列表转换为规范的 Prompt 注入字符串。"""
     tech = arch_data.get("tech_stack", {}) or {}
     langs = [l.get("name") if isinstance(l, dict) else str(l) for l in tech.get("languages", [])]
     return "/".join([_clean_str(l) for l in langs if l]) if langs else "Python"
 
 
 def _backend_fw_str(arch_data):
+    """将推断出的后端框架列表转换为提示词能力增强描述。"""
     tech = arch_data.get("tech_stack", {}) or {}
     if "backend_frameworks" in tech and isinstance(tech["backend_frameworks"], list):
         fws = [str(f) for f in tech["backend_frameworks"] if f]
@@ -67,6 +69,7 @@ def _backend_fw_str(arch_data):
 
 
 def _frontend_fw_str(arch_data):
+    """将推断出的前端技术栈转换为马前端专属提示词描述。"""
     tech = arch_data.get("tech_stack", {}) or {}
     if "frontend_frameworks" in tech and isinstance(tech["frontend_frameworks"], list):
         fws = [str(f) for f in tech["frontend_frameworks"] if f]
@@ -82,6 +85,7 @@ def _frontend_fw_str(arch_data):
 
 
 def _test_framework(arch_data):
+    """推断当前项目对应的单元与集成测试框架（如 pytest, jest, junit）。"""
     raw = (arch_data.get("tech_stack", {}).get("testing", {}) or {}).get("framework", "pytest")
     return _clean_str(raw) or "pytest"
 

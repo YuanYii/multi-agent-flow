@@ -708,9 +708,11 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     }
 
     def __init__(self, *args, **kwargs):
+        """初始化看板 HTTP 请求处理器实例。"""
         super().__init__(*args, directory=KANBAN_DIR, **kwargs)
 
     def end_headers(self):
+        """发送通用响应标头（跨域 CORS 与安全配置）。"""
         # 统一追加跨域与防强缓存响应头（放行本地回环、同源 Host 或无 Origin 场景）
         origin = self.headers.get("Origin", "")
         host = self.headers.get("Host", "")
@@ -798,6 +800,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         return f"{device_tag} ({client_ip} / {desc})"
 
     def do_OPTIONS(self):
+        """响应 HTTP OPTIONS 预检请求。"""
         self.send_response(200)
         self.end_headers()
 
@@ -844,6 +847,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     # GET 路由分发
     # -------------------------------------------------------------
     def do_GET(self):
+        """处理 HTTP GET 请求：返回静态看板 HTML 页面或 RESTful 查询 API。"""
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
@@ -1125,6 +1129,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     # POST 路由分发
     # -------------------------------------------------------------
     def do_POST(self):
+        """处理 HTTP POST 请求：执行任务建卡、批量修改、状态转移等变更 API。"""
         if self._is_untrusted_origin():
             self._send_json_resp(403, "禁止非本地跨域操作 (CSRF 拦截)", None, http_status=403)
             return
@@ -1156,6 +1161,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 return
 
             def _mutate_bulk(cards):
+                """处理批量任务状态修改或归档 API。"""
                 cards.clear()
                 cards.extend(body_data)
                 return True, 200, "保存成功", {"count": len(cards)}
@@ -1211,6 +1217,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     return
 
             def _mutate_create(cards):
+                """处理创建单个任务卡片 API。"""
                 req_id = str(body_data.get("id", "")).strip()
                 if req_id:
                     if any(c.get("id") == req_id for c in cards):
@@ -1373,6 +1380,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 audit_role_default = "WEB"
 
             def _mutate_trans(cards):
+                """处理任务状态转移 API，触发五层门控管线。"""
                 card = next((c for c in cards if c.get("id") == task_id), None)
                 if not card:
                     return False, 404, f"未找到任务 [{task_id}]", None
@@ -1451,6 +1459,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     # PUT 路由分发
     # -------------------------------------------------------------
     def do_PUT(self):
+        """处理 HTTP PUT 请求：全量覆写任务字段或更新卡片排布。"""
         if self._is_untrusted_origin():
             self._send_json_resp(403, "禁止非本地跨域操作 (CSRF 拦截)", None, http_status=403)
             return
@@ -1484,6 +1493,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
             ordered_ids = body_data.get("ordered_task_ids") or body_data.get("ordered_ids") or []
 
             def _mutate_reorder(cards):
+                """处理看板卡片拖拽重排与顺序持久化 API。"""
                 cards_map = {c.get("id"): c for c in cards}
                 new_ordered_cards = []
                 for tid in ordered_ids:
@@ -1536,6 +1546,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 return
 
             def _mutate_put(cards):
+                """处理卡片属性全量更新 API。"""
                 card = next((c for c in cards if c.get("id") == task_id), None)
                 if not card:
                     return False, 404, f"未找到任务 [{task_id}]", None
@@ -1691,6 +1702,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         self._send_json_resp(405, "看板已全面禁用物理删除操作，任务仅支持状态流转与归档", None, http_status=405)
 
     def log_message(self, format, *args):
+        """拦截并静默标准控制台请求日志，保持界面整洁。"""
         # 保持控制台日志简洁（端口跟随实际绑定值）
         try:
             port = self.server.server_address[1]
@@ -1700,11 +1712,13 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
 
 class ReusableHTTPServer(HTTPServer):
+    """支持端口快速释放与复用的增强 HTTPServer 类。"""
     # Windows 上 SO_REUSEADDR 允许两个活跃进程同时绑定同一端口（等效于 SO_REUSEPORT 的危害），
     # 必须禁用；Unix 上仅允许复用 TIME_WAIT 端口，保留
     allow_reuse_address = (sys.platform != "win32")
 
     def server_bind(self):
+        """绑定服务器端口并设置 SO_REUSEADDR 标志，防止端口占用假死。"""
         if self.allow_reuse_address:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # 注意：绝不设置 SO_REUSEPORT —— 它允许多实例同时绑定同一端口，
@@ -1752,6 +1766,7 @@ class ProbeResult:
     """端口探测结果：action ∈ {"bind", "reuse"}；bind 时携带已绑定的 server，reuse 时携带既有实例 health"""
 
     def __init__(self, action: str, port: int, health: dict | None = None, httpd=None):
+        """初始化端口探测结果对象。"""
         self.action = action
         self.port = port
         self.health = health
@@ -1832,6 +1847,7 @@ def _write_runtime_file(port: int, fingerprint: str):
 
 
 def _remove_runtime_file():
+    """服务终止时安全清理看板运行时元数据文件。"""
     try:
         if os.path.exists(KANBAN_RUNTIME_FILE):
             os.remove(KANBAN_RUNTIME_FILE)
@@ -1918,6 +1934,13 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool =
 
 
 def print_kanban_urls(port: int, local_ip: str, master_token: str = ""):
+    """
+    控制台格式化打印本地直达链接、局域网协作链接与 Master Token。
+
+    参数:
+        port (int): 绑定端口。
+        token (str): 动态高熵令牌。
+    """
     token = master_token or ACTIVE_MASTER_TOKEN
     print("\n" + "=" * 70)
     print(f"[START] ✅ Multi-Agent Flow 看板 Web 服务已就绪 (端口: {port})")
@@ -1938,6 +1961,7 @@ def print_kanban_urls(port: int, local_ip: str, master_token: str = ""):
 
 
 def main():
+    """看板 Web 服务启动主入口，处理端口探测、冲突复用与守护进程运行。"""
     parser = argparse.ArgumentParser(description="Multi-Agent Flow 看板简易 HTTP 服务")
     parser.add_argument("--port", type=int, default=None,
                         help=f"固定服务端口 (默认: 环境变量 KANBAN_PORT 或 {DEFAULT_PORT}+自动探测)")

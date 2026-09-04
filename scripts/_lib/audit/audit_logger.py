@@ -27,9 +27,21 @@ def get_logs_dir() -> str:
     return _paths.audit_logs_dir()
 
 def get_audit_log_file() -> str:
+    """
+    获取当前活跃的审计日志文件绝对路径。
+
+    返回:
+        str: 审计日志文件路径。
+    """
     return os.path.join(get_logs_dir(), "audit_trail.log")
 
 def get_archive_dir() -> str:
+    """
+    获取审计日志历史归档目录绝对路径。
+
+    返回:
+        str: 归档存储目录路径。
+    """
     return os.path.join(get_logs_dir(), "archive")
 
 
@@ -44,6 +56,17 @@ def record_audit_event(
     delegated_by: str = "",
     delegation_reason: str = ""
 ):
+    """
+    在并发互斥锁保障下追加单条审计日志事件，记录操作者、目标卡号、前后状态与时间戳。
+
+    参数:
+        task_id (str): 目标工单编号。
+        from_status (str): 原始状态。
+        to_status (str): 目标状态。
+        role (str): 操作角色。
+        operator (str): 实际操作人。
+        remarks (str, optional): 变更附注说明。
+    """
     current_logs_dir = get_logs_dir()
     current_audit_file = get_audit_log_file()
     os.makedirs(current_logs_dir, exist_ok=True)
@@ -149,6 +172,15 @@ def query_events(
     返回: 匹配的事件列表 (按 timestamp 升序)
     """
     def _match(ev: Dict[str, Any]) -> bool:
+        """
+        判断单条审计日志记录是否符合指定的过滤条件（卡号、角色、时间范围等）。
+
+        参数:
+            entry (dict): 审计日志条目。
+
+        返回:
+            bool: 符合匹配规则返回 True。
+        """
         if task_id and str(ev.get("task_id", "")).upper() != str(task_id).upper():
             return False
         if role and str(ev.get("role", "")).upper() != str(role).upper():
@@ -174,6 +206,12 @@ def query_events(
 
 
 def _today_str() -> str:
+    """
+    获取当前日期的格式化字符串 (YYYY-MM-DD)。
+
+    返回:
+        str: 日期字符串。
+    """
     return date.today().strftime("%Y%m%d")
 
 

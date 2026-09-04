@@ -20,6 +20,10 @@ from _lib.metrics.metrics_calculator import (
 
 
 def main():
+    """
+    研发效能度量与统计分析 CLI 主入口。
+    计算交付时长 Lead Time、吞吐量分布，并输出 ASCII 大盘与 Markdown 复盘报告。
+    """
     parser = argparse.ArgumentParser(description="看板效能度量与流转诊断工具")
     parser.add_argument("--config", default=None, help="看板配置文件")
     parser.add_argument("--format", choices=["table", "json", "markdown"], default="table", help="输出格式")

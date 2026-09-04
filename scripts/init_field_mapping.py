@@ -14,6 +14,10 @@ from _lib.discovery.field_mapper import discover_feishu_fields
 
 
 def main():
+    """
+    第三方敏捷看板字段映射初始化 CLI 主入口。
+    生成飞书 Base、Jira 或 GitHub Projects 的数据字段字典映射。
+    """
     parser = argparse.ArgumentParser(description="Skill 配置初始化与字段自动映射脚本")
     parser.add_argument("--base-token", help="飞书 Base Token")
     parser.add_argument("--table-id", help="飞书 Table ID")

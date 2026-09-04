@@ -10,6 +10,7 @@ import paths as _paths
 
 
 def install_hooks(project_root: Optional[str] = None) -> bool:
+    """将 Git 预提交安全与门禁校验钩子安装至目标仓库的 .git/hooks 目录。"""
     if project_root is None:
         project_root = _paths.project_root()
     skill_root = _paths.skill_root()

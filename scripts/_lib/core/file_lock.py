@@ -31,6 +31,7 @@ def _ensure_nonempty(f):
 
 
 def _lock_nonblocking(f):
+    """尝试以非阻塞模式获取底层跨进程独占文件锁。若已被占用立即抛出异常。"""
     if sys.platform == "win32":
         import msvcrt
         msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
@@ -40,6 +41,7 @@ def _lock_nonblocking(f):
 
 
 def _lock_blocking(f):
+    """在指定超时时间内轮询尝试获取底层文件锁，超时则抛出异常。"""
     if sys.platform == "win32":
         import msvcrt
         msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
@@ -49,6 +51,7 @@ def _lock_blocking(f):
 
 
 def _unlock(f):
+    """安全释放文件锁句柄并清理锁引用。"""
     try:
         if sys.platform == "win32":
             import msvcrt
@@ -79,13 +82,22 @@ class LockHandle:
     __slots__ = ("path", "file")
 
     def __init__(self, path, f):
+        """
+        初始化原子文件锁上下文管理器实例。
+
+        参数:
+            lock_file (str): 锁文件存储路径。
+            timeout (float): 加锁等待超时秒数。
+        """
         self.path = path
         self.file = f
 
     def __enter__(self):
+        """进入加锁上下文，获取互斥文件锁。"""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """退出上下文管理器，确保安全释放互斥文件锁。"""
         release_lock(self)
 
 

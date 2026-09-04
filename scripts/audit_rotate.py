@@ -25,6 +25,10 @@ from _lib.audit.audit_logger import rotate_if_needed, get_audit_log_file
 
 
 def main():
+    """
+    审计日志归档与轮转 CLI 主入口。
+    按设定的体积阈值与自然周将历史审计日志分块冷封归档。
+    """
     parser = argparse.ArgumentParser(description="审计日志轮转 CLI (日切分 + 大小切分)")
     parser.add_argument("--max-size-mb", type=int, default=50, help="单文件最大体积 (MB, 默认 50)")
     parser.add_argument("--dry-run", action="store_true", help="只预判,不动盘")

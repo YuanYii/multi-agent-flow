@@ -51,6 +51,12 @@ _spec.loader.exec_module(kanban_srv)
 
 
 def free_port() -> int:
+    """
+    探测并在系统上动态申请一个空闲本地 TCP 端口。
+
+    返回:
+        int: 可用端口号。
+    """
     s = socket.socket()
     s.bind(("127.0.0.1", 0))
     port = s.getsockname()[1]
@@ -59,7 +65,9 @@ def free_port() -> int:
 
 
 class SimulationRunner:
+    """108 任务全链路端到端并发演练执行器。"""
     def __init__(self):
+        """初始化压测演练套件运行环境与隔离数据目录。"""
         self.tmp_root = tempfile.mkdtemp(prefix="kanban_full_sim_")
         self.user_data_dir = os.path.join(self.tmp_root, "user_data")
         self.board_path = os.path.join(self.user_data_dir, "board.json")
@@ -106,6 +114,7 @@ class SimulationRunner:
         }
 
     def teardown(self):
+        """演练结束清理临时服务器与测试工作区。"""
         try:
             self.httpd.shutdown()
             self.httpd.server_close()
@@ -113,6 +122,17 @@ class SimulationRunner:
             pass
 
     def request(self, method: str, path: str, body=None, is_master: bool = True, extra_headers=None) -> tuple:
+        """
+        封装 HTTP 请求客户端，附带 Master Token 与重试机制。
+
+        参数:
+            method (str): HTTP 动词。
+            path (str): 请求路径。
+            payload (dict, optional): 请求体。
+
+        返回:
+            dict: 响应 JSON 字典。
+        """
         encoded_path = quote(path, safe="/?=&%")
         url = f"http://127.0.0.1:{self.port}{encoded_path}"
         data = json.dumps(body).encode("utf-8") if body is not None else None
@@ -143,6 +163,7 @@ class SimulationRunner:
     # 矩阵一：72 任务全笛卡尔积正交铺满 (8 阶段 × 9 状态) [链路 5, 6, 13]
     # =========================================================================
     def run_matrix_1_grid_72(self):
+        """矩阵 1：执行 72 个标准矩阵任务状态全流转。"""
         print("\n▶ [Matrix 1] 正在执行 8 阶段 × 9 状态全笛卡尔积正交流转 (T0001 ~ T0072)...")
         stages = [
             ("S1 需求分析", "WP-需求拆解", "严经理"),
@@ -225,6 +246,7 @@ class SimulationRunner:
     # 矩阵二：多专家 8 角色复杂交叉返工与多跳协同链路 (T0073 ~ T0088) [链路 6, 8, 13]
     # =========================================================================
     def run_matrix_2_complex_roles_16(self):
+        """矩阵 2：执行 16 个复杂多角色交叉流转任务。"""
         print("\n▶ [Matrix 2] 正在执行 16 条多专家多跳返工与深度协同任务 (T0073 ~ T0088)...")
         # 1. 3 轮连续打回返工长链 (T0073)
         self.request("POST", "/api/tasks", {
@@ -308,6 +330,7 @@ class SimulationRunner:
     # 矩阵三：8 条工时极端值与边界防御任务 (T0089 ~ T0096) [链路 13]
     # =========================================================================
     def run_matrix_3_edge_cases_8(self):
+        """矩阵 3：测试 8 种异常状态非法跳转与门禁拦截。"""
         print("\n▶ [Matrix 3] 正在执行 8 条极端工时、特殊字符与长文本边界任务 (T0089 ~ T0096)...")
         edge_cases = [
             ("T0089", "0工时极速热修复任务", 0.0, 0.0, "2026-08-15 10:00:00", "2026-08-15 10:00:00", "0秒瞬间完成修复"),
@@ -338,6 +361,7 @@ class SimulationRunner:
     # 矩阵四：12 项局域网并发与 8 项 403 越权强拦截 (T0097 ~ T0108) [链路 13]
     # =========================================================================
     def run_matrix_4_security_rbac_12(self):
+        """矩阵 4：测试 12 种鉴权越权与高熵令牌验证场景。"""
         print("\n▶ [Matrix 4] 正在执行 12 项局域网协作端受控写、并发锁竞争与 8 类 403 强拦截对抗 (T0097 ~ T0108)...")
         # 1. 协作者受控写：仅允许追加 process 节点与修改 remarks (T0097 ~ T0098)
         for i in range(2):
@@ -375,6 +399,7 @@ class SimulationRunner:
 
         concurrency_errors = []
         def concurrent_writer(thread_id):
+            """多线程高并发写卡工人函数。"""
             try:
                 s, r = self.request("PUT", "/api/tasks/T0100", {
                     "remarks": f"并发线程-{thread_id} 抢占写入成功"
@@ -428,6 +453,7 @@ class SimulationRunner:
     # 矩阵五：CLI 直驱与自动化批处理流水线 (T0109 ~ T0120) [链路 5, 6, 7]
     # =========================================================================
     def run_matrix_5_cli_automation_12(self):
+        """矩阵 5：测试 12 种 CLI 统一门面与自动流水线场景。"""
         print("\n▶ [Matrix 5] 正在执行 CLI 直驱与自动化批处理跑批 (T0109 ~ T0120)...")
         # 1. quick_task.py 建卡与推导 (T0109, T0110, T0111)
         res1 = subprocess.run([
@@ -603,6 +629,7 @@ class SimulationRunner:
     # 阶段六：跨专家上下文组装与交接管道 (Pipeline 9)
     # =========================================================================
     def run_phase_6_agent_context_pipeline(self):
+        """阶段 6：专家子代理上下文生成管线验证。"""
         print("\n▶ [Phase 6] 正在执行跨专家上下文组装与交接管道检验 (Pipeline 9)...")
         # 1. dispatch: 派单上下文注入
         res1 = subprocess.run([
@@ -635,6 +662,7 @@ class SimulationRunner:
     # 阶段七：阶段双向硬门禁流水线沙箱核验 (Pipeline 10)
     # =========================================================================
     def run_phase_7_stage_gate_pipeline(self):
+        """阶段 7：阶段准入门禁与清洁度核验。"""
         print("\n▶ [Phase 7] 正在执行阶段双向硬门禁流水线核验 (Pipeline 10)...")
         # 准备沙箱阶段交付物
         wbs_dir = os.path.join(self.docs_dir, "D04-研发过程", "D01-任务")
@@ -678,6 +706,7 @@ class SimulationRunner:
     # 阶段八：Git 提交人类验收硬拦截验证 (Pipeline 11)
     # =========================================================================
     def run_phase_8_git_gate_verifier_pipeline(self):
+        """阶段 8：Git 提交门禁物理拦截验证。"""
         print("\n▶ [Phase 8] 正在执行真实 Git Pre-Commit 人类验收硬拦截集成验证 (Pipeline 11)...")
         # 0. 准备沙箱运行配置（使 CLI 管线可解析并读取沙箱看板）
         shutil.copyfile(
@@ -738,6 +767,7 @@ class SimulationRunner:
     # 阶段九：架构自动嗅探、落盘与 Subagent 导出断言 (Pipeline 2)
     # =========================================================================
     def run_phase_9_stack_discovery_and_export_pipeline(self):
+        """阶段 9：技术栈自适应探测与 Agent 物化验证。"""
         print("\n▶ [Phase 9] 正在执行架构嗅探、落盘与 Subagent 导出断言 (Pipeline 2)...")
         # 沙箱生成技术栈特征文件
         with open(os.path.join(self.tmp_root, "pyproject.toml"), "w", encoding="utf-8") as f:
@@ -774,6 +804,7 @@ class SimulationRunner:
     # 阶段十：历史散落文档只读隔离迁移 (Pipeline 3)
     # =========================================================================
     def run_phase_10_legacy_docs_migration_pipeline(self):
+        """阶段 10：历史文档自动迁移归类验证。"""
         print("\n▶ [Phase 10] 正在执行历史散落文档只读隔离归档 (Pipeline 3)...")
         legacy_file = os.path.join(self.tmp_root, "my_legacy_architecture_design.md")
         with open(legacy_file, "w", encoding="utf-8") as f:
@@ -793,6 +824,7 @@ class SimulationRunner:
     # 阶段十一：效能度量与大盘巡检直驱 (Pipeline 1)
     # =========================================================================
     def run_phase_11_metrics_and_heartbeat_pipeline(self):
+        """阶段 11：效能度量与心跳监控验证。"""
         print("\n▶ [Phase 11] 正在执行大盘巡检与效能指标度量 (Pipeline 1)...")
         # 1. heartbeat.py
         res_hb = subprocess.run([
@@ -816,6 +848,7 @@ class SimulationRunner:
     # 阶段十二：学术级 DOCX 报告与证据材料生成 (Pipeline 12)
     # =========================================================================
     def run_phase_12_docx_and_proof_pipeline(self):
+        """阶段 12：国标排版与凭据闭环验证。"""
         print("\n▶ [Phase 12] 正在执行学术级 DOCX 报告与证据材料生成 (Pipeline 12)...")
         # 直接调用核心学术排版引擎 _lib.core.docx_academic_styler
         from _lib.core.docx_academic_styler import init_academic_document, add_academic_h1, add_academic_p
@@ -833,6 +866,7 @@ class SimulationRunner:
     # 阶段十三：审计日志检索与轮转归档 (Pipeline 14)
     # =========================================================================
     def run_phase_13_audit_query_and_rotation_pipeline(self):
+        """阶段 13：审计查询与归档轮转验证。"""
         print("\n▶ [Phase 13] 正在执行审计日志跨归档检索与轮转切割 (Pipeline 14)...")
         # 1. audit_query.py
         res_query = subprocess.run([
@@ -859,6 +893,7 @@ class SimulationRunner:
     # 阶段十四：大数据分页与多维组合筛选压力测试
     # =========================================================================
     def run_phase_14_query_and_pagination(self):
+        """阶段 14：分页检索与复杂过滤验证。"""
         print("\n▶ [Phase 14] 正在执行 120 任务大数据分页与多维组合筛选压力测试...")
         # 1. 验证分页切片
         for page, size in [(1, 10), (1, 20), (1, 50), (1, 100), (1, "all"), (6, 20), (99, 20)]:
@@ -887,6 +922,7 @@ class SimulationRunner:
     # 阶段十五：10 大维度数据质量与全链路一致性深度审计
     # =========================================================================
     def run_phase_15_quality_audit(self):
+        """阶段 15：质量闭环逆向拓扑审计验证。"""
         print("\n" + "="*70)
         print("▶ [Phase 15] 正在执行 10 大维度数据质量与全链路一致性深度审计断言...")
         print("="*70)
@@ -1014,6 +1050,7 @@ class SimulationRunner:
 
 
 def main():
+    """108 任务模拟压测 CLI 主入口。"""
     t0 = time.perf_counter()
     runner = SimulationRunner()
     try:

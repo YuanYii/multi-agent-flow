@@ -14,6 +14,10 @@ import paths as _paths
 
 
 def main():
+    """
+    Git Pre-commit 钩子安装 CLI 主入口。
+    自动将提交门禁验证脚本挂载至项目的 .git/hooks/pre-commit。
+    """
     parser = argparse.ArgumentParser(description="Git Hooks 自动安装脚本")
     parser.add_argument("--project-root", default=None,
                         help="目标项目根目录 (默认按 paths.project_root() 解析：YY_FLOW_PROJECT_ROOT / .yy-flow / legacy / CWD)")

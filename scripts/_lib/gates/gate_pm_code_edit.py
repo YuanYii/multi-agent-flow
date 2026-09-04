@@ -69,6 +69,7 @@ def check_tool_permission(tool_name: str, target_file: str, is_subagent: bool = 
 
 
 def main():
+    """PreToolUse 物理门禁拦截 CLI 入口。检测并阻断主 Agent (PM) 自行编写业务代码。"""
     parser = argparse.ArgumentParser(description="PreToolUse Hook: PM 业务代码写拦截门禁")
     parser.add_argument("--tool-name", default=None, help="调用的工具名")
     parser.add_argument("--target-file", default=None, help="目标文件路径")

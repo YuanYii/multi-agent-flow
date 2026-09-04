@@ -180,6 +180,19 @@ def validate_delegation_authority(current_role: str, delegated_by: str) -> bool:
 
 
 def validate(role: str, from_status: str, to_status: str, assignee: str, end_time: str, active_dev_count: int, task_type: str = "A", task_name: str = "", max_parallel: int = 3, remarks: str = "", special_types: List[str] = None, delegated_by: str = "", delegation_reason: str = "", pretask: str = "", adapter: Any = None, ignore_pretask: bool = False, force_verify_operator: bool = False, force_reopen: bool = False) -> bool:
+    """
+    五层立体防错门控核心校验入口。
+    对状态越迁合法性、角色权限区间、连续打回次数熔断、终态人类验收专有权及前置交付物进行系统性断言。
+
+    参数:
+        record (dict): 任务实体数据。
+        from_status (str): 当前状态。
+        to_status (str): 目标状态。
+        role (str): 操作角色。
+
+    返回:
+        tuple[bool, str]: (是否通过, 阻断原因描述)。
+    """
     # 0. 提权代行白名单硬校验 (Fail-Closed)
     if not validate_delegation_authority(role, delegated_by):
         return False
@@ -340,6 +353,7 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
 
 
 def main():
+    """状态转移门禁独立核验 CLI 入口。支持对单次状态流转进行 dry-run 模拟测试。"""
     parser = argparse.ArgumentParser(description="看板状态流转预检脚本")
     parser.add_argument("--role", required=True, help="操作人角色代码 (如 DEV, REVIEWER, PM)")
     parser.add_argument("--from-status", required=True, help="原状态")

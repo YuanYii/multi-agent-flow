@@ -113,6 +113,13 @@ class WeeklyBoardAdapter:
 
     def __init__(self, tasks_dir: Optional[str] = None, field_map: Optional[Dict[str, str]] = None,
                  index_file: Optional[str] = None, locks_dir: Optional[str] = None):
+        """
+        初始化按周分片看板存储适配器。
+
+        参数:
+            data_dir (str, optional): 存储根目录路径。
+            config_path (str, optional): 配置文件路径。
+        """
         self.tasks_dir = os.path.abspath(tasks_dir or paths.tasks_dir())
         os.makedirs(self.tasks_dir, exist_ok=True)
         self.locks_dir = os.path.abspath(locks_dir or paths.locks_dir())
@@ -165,6 +172,7 @@ class WeeklyBoardAdapter:
         return {"metadata": {}, "tasks": []}
 
     def _week_lock_file(self, week_cycle: str) -> str:
+        """获取指定自然周分片 YAML 文件的并发互斥锁路径。"""
         return os.path.join(self.locks_dir, f".lock_{week_cycle}.lock")
 
     # ------------------------------------------------------------------
@@ -260,6 +268,7 @@ class WeeklyBoardAdapter:
     # WBS-07: 本地派生索引与周冷封
     # ------------------------------------------------------------------
     def _load_index(self) -> Dict[str, Any]:
+        """从磁盘加载任务编号与自然周分片的倒排索引字典。"""
         if not os.path.exists(self.index_file):
             return self._rebuild_index()
         try:
@@ -272,6 +281,7 @@ class WeeklyBoardAdapter:
         return self._rebuild_index()
 
     def _save_index(self, index: Dict[str, Any]):
+        """原子写入保存倒排索引映射文件，保证索引检索与分片文件强一致性。"""
         try:
             target_dir = os.path.dirname(os.path.abspath(self.index_file))
             os.makedirs(target_dir, exist_ok=True)
@@ -329,6 +339,7 @@ class WeeklyBoardAdapter:
         return index
 
     def _get_current_week_cycle(self) -> Tuple[str, str, str]:
+        """获取当前系统时间对应的自然周归档周期标记 (YYYY-Www)。"""
         now = datetime.now()
         year, week_num, _ = now.isocalendar()
         week_cycle = f"{year}-W{week_num:02d}"
@@ -340,6 +351,7 @@ class WeeklyBoardAdapter:
     # WBS-08: 标准 CRUD 接口与原位就地更新
     # ------------------------------------------------------------------
     def _translate(self, fields: Dict[str, Any]) -> Dict[str, Any]:
+        """将底层存储的原始字典数据转换为 TaskRecord 强类型实体对象。"""
         translated = {}
         for k, v in fields.items():
             if k in KANBAN_FIELD_MAP:
@@ -465,6 +477,7 @@ class WeeklyBoardAdapter:
             return new_id
 
     def get_record(self, record_id: str) -> Optional[Dict[str, Any]]:
+        """根据任务 ID 从对应自然周分片中精准查询单条任务记录。"""
         target_file = None
         index = self._load_index()
         task_meta = index.get("tasks", {}).get(str(record_id))
@@ -490,6 +503,7 @@ class WeeklyBoardAdapter:
         return None
 
     def update_record(self, record_id: str, fields: Dict[str, Any], force_reopen: bool = False) -> bool:
+        """在并发互斥锁保护下，执行单条任务记录的就地更新与追加。"""
         rec = self.get_record(record_id)
         if not rec:
             sys.stderr.write(f"[ERROR] 找不到待更新的任务卡: {record_id}\n")
@@ -557,6 +571,7 @@ class WeeklyBoardAdapter:
 
     def list_records(self, filter_json: Optional[Dict[str, Any]] = None,
                      limit: int = 100, offset: int = 0, include_sealed: bool = False) -> List[Dict[str, Any]]:
+        """跨自然周分片联合检索任务列表，支持按阶段、角色与状态进行条件过滤。"""
         index = self._load_index()
         all_cards: List[Dict[str, Any]] = []
 

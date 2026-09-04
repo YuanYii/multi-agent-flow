@@ -107,6 +107,7 @@ _NODE_ID_RE = re.compile(r"\b(T\d+)-N?(\d+)\b")
 
 
 class OfflineBoardAdapter:
+    """离线单文件 (board.json) 看板存储适配器，支持历史存量项目的向下兼容流转。"""
     def __init__(self, board_file: str, field_map: Optional[Dict[str, Any]] = None):
         """
         :param board_file: 离线看板 JSON 文件路径 (如 kanban/board.json)
@@ -290,6 +291,7 @@ class OfflineBoardAdapter:
         """计算开始与结束时间之间的分钟差值（支持 ISO 8601 时区串与多种时间格式）"""
         from datetime import datetime
         def parse_dt(s: Any) -> Optional[datetime]:
+            """安全解析多种格式的 ISO 时间戳字符串为标准 datetime 对象。"""
             if not s:
                 return None
             s_clean = str(s).strip()

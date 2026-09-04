@@ -81,6 +81,15 @@ HELP_MANUAL = {
 
 
 def format_text_output() -> str:
+    """
+    将系统全景帮助字典格式化为对终端友好的文本展示内容，涵盖 8 大专家职责矩阵、典型研发场景与核心指令速查表。
+
+    参数:
+        help_data (dict): 包含命令、角色与场景定义的帮助元数据字典。
+
+    返回:
+        str: 格式化后的排版纯文本。
+    """
     lines = []
     lines.append("=" * 80)
     lines.append("🚀 Multi-Agent Team Workflow (YY-Flow) · 全景指令帮助手册")
@@ -120,6 +129,10 @@ def format_text_output() -> str:
 
 
 def main():
+    """
+    全景指令帮助手册 CLI 主入口。
+    解析输出格式选项（支持纯文本、Markdown 与 JSON），输出标准化帮助信息。
+    """
     parser = argparse.ArgumentParser(description="Multi-Agent Flow 全景帮助手册")
     parser.add_argument("--json", action="store_true", help="以 JSON 格式输出全量元数据")
     args = parser.parse_args()

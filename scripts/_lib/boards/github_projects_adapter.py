@@ -10,13 +10,19 @@ from typing import Dict, Any, List, Optional
 
 
 class GitHubProjectsAdapter:
+    """
+    GitHub Projects (v2) GraphQL 看板适配器实现类。
+    通过 GraphQL API 支撑多端分布式任务协同。
+    """
     def __init__(self, owner: str, project_number: int, github_token: str = None):
+        """初始化 GitHub Projects 适配器实例。"""
         self.owner = owner
         self.project_number = project_number
         self.github_token = github_token or os.environ.get("GITHUB_TOKEN", "")
         self._status_option_cache: Dict[str, Dict[str, Dict[str, str]]] = {}
 
     def _headers(self) -> Dict[str, str]:
+        """构建携带 GitHub Personal Access Token 的 HTTP 请求标头。"""
         return {
             "Authorization": f"Bearer {self.github_token}",
             "Content-Type": "application/json",
@@ -24,6 +30,7 @@ class GitHubProjectsAdapter:
         }
 
     def _graphql_query(self, query: str, variables: Dict[str, Any] = None) -> Dict[str, Any]:
+        """执行 GraphQL 统一查询请求，处理速率限制与响应解析。"""
         if not self.github_token:
             print("[GitHubProjectsAdapter Error] 缺少 GITHUB_TOKEN 凭证，拒绝对 GitHub 执行物理 GraphQL 操作。")
             return {}
@@ -79,6 +86,7 @@ class GitHubProjectsAdapter:
         return mapping
 
     def list_records(self, filter_json: Optional[Dict[str, Any]] = None, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """通过 GraphQL 批量拉取 GitHub Projects 项目下的所有任务卡片。"""
         query = """
         query($owner: String!, $number: Int!, $limit: Int!) {
           organization(login: $owner) {
@@ -106,6 +114,7 @@ class GitHubProjectsAdapter:
             return []
 
     def get_record(self, record_id: str) -> Optional[Dict[str, Any]]:
+        """获取单个 Item ID 对应的 GitHub Issue/Draft 任务详情。"""
         items = self.list_records(limit=100)
         for item in items:
             if item.get("id") == record_id:
@@ -113,6 +122,7 @@ class GitHubProjectsAdapter:
         return None
 
     def create_record(self, fields: Dict[str, Any]) -> Optional[str]:
+        """向 GitHub Projects 列表中创建新任务节点并设定字段值。"""
         content_id = fields.get("content_id")
         project_id = fields.get("project_id")
         if not content_id or not project_id:

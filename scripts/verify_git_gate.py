@@ -16,6 +16,10 @@ from _lib.gates.git_gate_verifier import verify_git_gate
 
 
 def main():
+    """
+    Git 提交前门禁校验 CLI 主入口。
+    核验当前工作区是否存在未验收代码或脱单提交，触发无工单不 Git 拦截。
+    """
     parser = argparse.ArgumentParser(description="Git 提交与阶段结项强校验门禁脚本")
     parser.add_argument("--config", default=None, help="配置文件路径")
     parser.add_argument("--stage", default=None, help="指定校验的项目阶段")

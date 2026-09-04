@@ -60,6 +60,12 @@ def resolve_week_cycle(card: Dict[str, Any], fallback_week: str) -> str:
 
 
 def get_current_week_info() -> Tuple[str, str, str]:
+    """
+    获取当前系统时间对应的自然周年份与自然周序号（ISO-8601 规范，形如 2026-W36），用于周分片存储命名与定位。
+
+    返回:
+        tuple[int, int, str]: 返回 (年份, 周数, YYYY-Www 标识)。
+    """
     now = datetime.now()
     y, w, _ = now.isocalendar()
     curr_week = f"{y}-W{w:02d}"

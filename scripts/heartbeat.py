@@ -38,6 +38,10 @@ from _lib.metrics.heartbeat_engine import (
 
 
 def main():
+    """
+    心跳巡检与大盘监控 CLI 主入口。
+    调用 heartbeat_engine 扫描当前所有阻塞卡片、WIP 超限情况与阶段进展并格式化输出。
+    """
     parser = argparse.ArgumentParser(description="看板全局大盘与健康巡检 (Status & Health Check)")
     parser.add_argument("--config", default=None, help="看板配置文件路径")
     parser.add_argument("--json", action="store_true", help="以 JSON 格式输出")

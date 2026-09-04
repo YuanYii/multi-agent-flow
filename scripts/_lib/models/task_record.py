@@ -19,6 +19,10 @@ LEGAL_ROLES = {
 
 @dataclass
 class TaskRecord:
+    """
+    强类型任务实体数据模型 (TaskRecord Dataclass)。
+    封装任务核心属性、状态机字段、工时估算及生命周期断言方法。
+    """
     id: str
     name: str
     status: str = "待开始"
@@ -44,6 +48,7 @@ class TaskRecord:
     remarks: Optional[str] = None
 
     def __post_init__(self):
+        """数据类后置初始化校验方法。对任务状态枚举、必填字段等执行数据完整性核验。"""
         # 数值与列表归一化
         try:
             self.est_hours = float(self.est_hours or 0.0)
@@ -71,14 +76,17 @@ class TaskRecord:
 
     @property
     def is_terminal(self) -> bool:
+        """判断当前任务是否已处于已验收或已归档等终结状态。"""
         return self.status in ["已验收", "已取消"]
 
     @property
     def is_active(self) -> bool:
+        """判断当前任务是否处于进行中、审查中或测试中等活跃流转状态。"""
         return self.status in ["进行中", "审查中", "测试中"]
 
     @property
     def is_blocked(self) -> bool:
+        """判断当前任务是否存在未满足的前置依赖或处于阻塞状态。"""
         return self.status in ["已退回", "已阻塞"]
 
     def validate(self) -> List[str]:

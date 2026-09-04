@@ -8,7 +8,12 @@ from typing import Dict, Any, List, Optional
 
 
 class FeishuBaseAdapter:
+    """
+    飞书多维表格 (Feishu Base) 看板适配器实现类。
+    封装与飞书 Open API 的数据交互、鉴权与字段映射。
+    """
     def __init__(self, base_token: str, table_id: str):
+        """初始化飞书看板适配器，解析 base_token 与 table_id 配置并加载凭据。"""
         self.base_token = base_token
         self.table_id = table_id
 

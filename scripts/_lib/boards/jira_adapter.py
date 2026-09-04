@@ -10,13 +10,19 @@ from typing import Dict, Any, List, Optional
 
 
 class JiraAdapter:
+    """
+    Atlassian Jira REST API 看板适配器实现类。
+    对接企业级 Jira 敏捷大盘，实现工单双向同步。
+    """
     def __init__(self, domain: str, project_key: str, user_email: str = None, api_token: str = None):
+        """初始化 Jira 适配器，配置服务 Base URL 与 Basic 认证信息。"""
         self.domain = domain.rstrip('/')
         self.project_key = project_key
         self.user_email = user_email or os.environ.get("JIRA_USER_EMAIL", "")
         self.api_token = api_token or os.environ.get("JIRA_API_TOKEN", "")
 
     def _headers(self) -> Dict[str, str]:
+        """构建带有 Base64 凭据认证的 HTTP 请求标头。"""
         import base64
         auth_str = f"{self.user_email}:{self.api_token}"
         encoded_auth = base64.b64encode(auth_str.encode('utf-8')).decode('utf-8')
@@ -27,6 +33,7 @@ class JiraAdapter:
         }
 
     def list_records(self, filter_json: Optional[Dict[str, Any]] = None, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """基于 JQL 表达式检索指定 Project 下的问题列表并映射为任务卡。"""
         jql = f"project = '{self.project_key}'"
         if filter_json and "jql" in filter_json:
             jql += f" AND ({filter_json['jql']})"
@@ -43,6 +50,7 @@ class JiraAdapter:
             return []
 
     def get_record(self, record_id: str) -> Optional[Dict[str, Any]]:
+        """查询指定 Issue Key (如 PROJ-123) 的详情记录。"""
         url = f"{self.domain}/rest/api/3/issue/{record_id}"
         req = urllib.request.Request(url, headers=self._headers(), method="GET")
         try:
@@ -53,6 +61,7 @@ class JiraAdapter:
             return None
 
     def create_record(self, fields: Dict[str, Any]) -> Optional[str]:
+        """调用 Jira REST API 创建新的 Issue 工单。"""
         url = f"{self.domain}/rest/api/3/issue"
         payload = {
             "fields": {
@@ -79,6 +88,7 @@ class JiraAdapter:
             return None
 
     def update_record(self, record_id: str, fields: Dict[str, Any]) -> bool:
+        """更新指定 Issue 的状态、经办人与自定义字段。"""
         url = f"{self.domain}/rest/api/3/issue/{record_id}"
         payload = {"fields": {}}
         if "task_name" in fields:

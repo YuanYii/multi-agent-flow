@@ -23,6 +23,10 @@ from transition_task import transition_task_pipeline, ROLE_NAME_MAP, normalize_r
 
 
 def main():
+    """
+    解析并执行极简任务管理命令行 (Quick Task CLI)。
+    支持 create（建卡）、complete（推进状态）、accept（人类终态验收）、accept-all（批量验收）与 status（大盘进度查询）等核心操作。
+    """
     parser = argparse.ArgumentParser(description="极简任务包装命令 (Quick Task CLI)")
     sub = parser.add_subparsers(dest="command", required=True)
 

@@ -14,6 +14,10 @@ from _lib.gates.secrets_checker import SECRET_PATTERNS, scan_file, run_secrets_s
 
 
 def main():
+    """
+    敏感信息与秘钥扫描 CLI 主入口。
+    扫描技能包与工程代码中可能存在的硬编码 Token、私钥与敏感配置。
+    """
     print("========================================================================")
     print("        [GUARD]   Multi-Agent Workflow · 敏感凭证与硬编码密钥安全扫描")
     print("========================================================================")

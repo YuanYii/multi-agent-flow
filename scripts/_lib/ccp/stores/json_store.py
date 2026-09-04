@@ -21,17 +21,42 @@ def sanitize_task_id(task_id: str) -> str:
 
 
 class JsonFileContextStore(IContextStateStore):
+    """基于本地 JSON 文件的上下文连续性协议存储实现，支持 CAS 原子比较与快照生成。"""
     def __init__(self):
+        """
+        初始化 JSON 文件上下文存储实例。
+
+        参数:
+            base_dir (str, optional): 存储基准目录路径。
+        """
         self.data_root = paths.data_root()
         self.context_dir = os.path.join(self.data_root, "user_data", "context")
         self.snapshot_dir = os.path.join(self.context_dir, "snapshots")
         os.makedirs(self.snapshot_dir, exist_ok=True)
 
     def _get_file_path(self, task_id: str) -> str:
+        """
+        根据任务 ID 计算存储绝对路径。
+
+        参数:
+            task_id (str): 任务编号。
+
+        返回:
+            str: 文件绝对路径。
+        """
         safe_id = sanitize_task_id(task_id)
         return os.path.join(self.context_dir, f"state_{safe_id}.json")
 
     def load(self, task_id: str) -> Optional[ContextState]:
+        """
+        从磁盘读取指定任务的上下文实体。
+
+        参数:
+            task_id (str): 任务编号。
+
+        返回:
+            ContextState | None: 上下文实体。
+        """
         file_path = self._get_file_path(task_id)
         if not os.path.isfile(file_path):
             return None
@@ -43,6 +68,17 @@ class JsonFileContextStore(IContextStateStore):
             return None
 
     def save_with_cas(self, task_id: str, state: ContextState, expected_version: int) -> bool:
+        """
+        带 CAS (Compare-And-Swap) 版本号比对的原子写入方法。
+
+        参数:
+            task_id (str): 任务编号。
+            state (ContextState): 待保存状态实体。
+            expected_version (int): 预期版本号。
+
+        返回:
+            bool: CAS 成功返回 True。
+        """
         safe_id = sanitize_task_id(task_id)
         file_path = self._get_file_path(task_id)
         locks_dir = paths.locks_dir()
@@ -69,6 +105,16 @@ class JsonFileContextStore(IContextStateStore):
             release_lock(lock_handle)
 
     def create_snapshot(self, task_id: str) -> str:
+        """
+        为当前任务创建历史版本不可篡改快照。
+
+        参数:
+            task_id (str): 任务编号。
+            stage_name (str): 阶段名称。
+
+        返回:
+            str: 快照存储绝对路径。
+        """
         safe_id = sanitize_task_id(task_id)
         state = self.load(task_id)
         if not state:

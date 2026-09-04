@@ -19,6 +19,10 @@ from _lib.discovery.stack_scanner import scan_project_stack
 
 
 def main():
+    """
+    技术栈自动扫描 CLI 主入口。
+    嗅探目标项目根目录的项目构建文件与依赖声明，推断语言、框架与技术能力。
+    """
     parser = argparse.ArgumentParser(description="项目架构技术栈与 README 自动物理预扫描工具")
     parser.add_argument("target_dir", nargs="?", default=None,
                         help="目标项目目录（默认：当前工作目录）")

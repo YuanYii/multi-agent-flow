@@ -12,6 +12,15 @@ WORKFLOW_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 AGENTS_DIR = os.path.join(WORKFLOW_ROOT, "agents")
 
 def load_role_yaml(role: str) -> Dict[str, Any]:
+    """
+    根据专家角色英文简称（如 PM, DEV, QA），从 agents/ 目录加载其对应的 YAML 角色定义与能力配置。
+
+    参数:
+        role_name (str): 专家角色大写英文代号。
+
+    返回:
+        dict: 解析后的角色 YAML 配置字典。
+    """
     role_map = {
         "PM": "01-pm.yaml",
         "ARCHITECT": "02-architect.yaml",
@@ -33,6 +42,16 @@ def load_role_yaml(role: str) -> Dict[str, Any]:
 
 
 def build_context(role: str, action: str = "general") -> str:
+    """
+    动态组装专家子代理执行任务所需的上下文 Payload，整合项目架构技术栈、前置产物、目标工单及退出契约。
+
+    参数:
+        role_name (str): 目标专家角色代号。
+        task_id (str, optional): 关联的任务编号。
+
+    返回:
+        dict: 组装就绪的上下文上下文契约数据。
+    """
     role_upper = role.upper()
     role_data = load_role_yaml(role_upper)
 
@@ -100,6 +119,10 @@ def build_context(role: str, action: str = "general") -> str:
     return "\n".join(context_output)
 
 def main():
+    """
+    专家子代理上下文组装工具 CLI 主入口。
+    支持指定角色与任务 ID，生成上下文文本或 JSON 供调度引擎消费。
+    """
     parser = argparse.ArgumentParser(description="动态角色 Prompt 上下文裁剪合成器")
     parser.add_argument("--role", required=True, help="角色代码 (PM|ARCHITECT|DEV|FRONTEND|REVIEWER|QA|DOCS|DEVOPS)")
     parser.add_argument("--action", default="general", help="当前动作 (claim|submit|review|test|approve|dispatch|general)")

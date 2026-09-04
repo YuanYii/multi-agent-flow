@@ -12,6 +12,15 @@ from enums import normalize_role
 
 
 def parse_datetime(val: Any) -> Optional[datetime]:
+    """
+    解析多格式时间字符串为带时区的 datetime 对象。
+
+    参数:
+        s (str): 时间字符串。
+
+    返回:
+        datetime | None: 解析结果。
+    """
     if not val:
         return None
     s = str(val).strip()
@@ -32,11 +41,18 @@ class MetricsCalculator:
     """看板效能指标计算引擎 (DEV 核心产出)"""
 
     def __init__(self, records: List[Dict[str, Any]], now: Optional[datetime] = None):
+        """
+        初始化研发效能指标计算器实例。
+
+        参数:
+            records (list[dict]): 历史工单流水记录列表。
+        """
         self.raw_records = records
         self.now = now or datetime.now()
         self.tasks = [self._normalize(r) for r in records]
 
     def _normalize(self, rec: Dict[str, Any]) -> Dict[str, Any]:
+        """清洗与格式化任务生命周期记录列表，补齐时序时间戳。"""
         if "fields" in rec and isinstance(rec["fields"], dict):
             out = dict(rec["fields"])
             if "record_id" not in out and "record_id" in rec:
@@ -63,6 +79,12 @@ class MetricsCalculator:
         return parse_datetime(start_date)
 
     def compute_summary(self) -> Dict[str, Any]:
+        """
+        计算统计指标汇总：Lead Time 均值/中位数、WIP 在制品峰值、一次通过率。
+
+        返回:
+            dict: 核心度量指标汇总字典。
+        """
         total = len(self.tasks)
         status_counts = defaultdict(int)
         completed_count = 0
@@ -159,12 +181,28 @@ class TerminalRenderer:
 
     @staticmethod
     def render_ascii_bar(percent: float, length: int = 20) -> str:
+        """
+        渲染 ASCII 文本柱状图，直观展现多阶段任务分布。
+
+        参数:
+            val (float): 当前数值。
+            max_val (float): 最大基准值。
+
+        返回:
+            str: 柱状图字符。
+        """
         filled = int(round(length * percent / 100))
         bar = "█" * filled + "░" * (length - filled)
         return f"[{bar}] {percent:.1f}%"
 
     @classmethod
     def render_terminal_dashboard(cls, summary: Dict[str, Any], workload: Dict[str, Dict[str, int]], bottlenecks: List[Dict[str, Any]]) -> str:
+        """
+        将效能指标格式化输出为终端控制台大盘字符画。
+
+        返回:
+            str: 终端仪表盘文本。
+        """
         lines = []
         lines.append("=" * 72)
         lines.append("  【看板效能度量与流转诊断仪表盘】")
@@ -188,6 +226,12 @@ class TerminalRenderer:
 
     @classmethod
     def render_markdown_report(cls, summary: Dict[str, Any], workload: Dict[str, Dict[str, int]], bottlenecks: List[Dict[str, Any]]) -> str:
+        """
+        将度量结果导出为标准的 Markdown 敏捷复盘报告。
+
+        返回:
+            str: Markdown 报告正文。
+        """
         md = []
         md.append("#  看板效能度量与诊断报告\n")
         md.append("## 1. 核心效能概览\n")

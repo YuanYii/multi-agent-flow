@@ -45,6 +45,15 @@ CATEGORY_KEYWORDS: Dict[str, Dict[str, List[str]]] = {
 
 
 def classify_document(filepath: str) -> str:
+    """
+    根据文件路径和正文关键词，自动推断并归类历史文档的目标标准目录。
+
+    参数:
+        path (str): 文档相对路径。
+
+    返回:
+        str: 目标分类目录标识。
+    """
     fname = os.path.basename(filepath).lower()
     parent_dir = os.path.basename(os.path.dirname(filepath)).lower()
     content = ""
@@ -71,6 +80,12 @@ def classify_document(filepath: str) -> str:
 
 
 def scan_and_migrate_legacy_docs(project_root: str) -> List[Tuple[str, str]]:
+    """
+    扫描项目目录下的遗留文档，执行单向安全备份并迁移至 docs/ 骨架。
+
+    返回:
+        int: 成功迁移的文件总数。
+    """
     migrated: List[Tuple[str, str]] = []
     target_docs_root = _paths.docs_root()
 

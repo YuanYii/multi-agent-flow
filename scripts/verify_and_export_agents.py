@@ -363,6 +363,10 @@ def export_platform_assets(platforms_config, active_platforms, global_mode=False
     return missing_agents, verify_failures, total_exported
 
 def main():
+    """
+    跨宿主环境 Agent 适配器导出 CLI 主入口。
+    自动探测 Antigravity、Claude Code、Cursor、Codex 等宿主环境并物化子代理配置。
+    """
     import argparse
     parser = argparse.ArgumentParser(description="跨平台 Skill 挂载与 Subagent 导出引擎")
     parser.add_argument("--global", dest="global_mode", action="store_true",

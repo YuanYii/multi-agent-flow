@@ -106,10 +106,22 @@ data_root = resolve_data_root
 
 
 def user_data_dir(**kw) -> str:
+    """
+    获取用户运行态数据目录绝对路径 (.yy-flow/user_data)。
+
+    返回:
+        str: 运行态数据存储绝对路径。
+    """
     return os.path.join(resolve_data_root(**kw), "user_data")
 
 
 def locks_dir(**kw) -> str:
+    """
+    获取并发文件锁存储目录绝对路径 (.yy-flow/user_data/locks)。
+
+    返回:
+        str: 文件锁目录绝对路径。
+    """
     return os.path.join(user_data_dir(**kw), "locks")
 
 
@@ -146,6 +158,12 @@ def audit_logs_dir(env=None, **kw) -> str:
 
 
 def kanban_runtime_file(**kw) -> str:
+    """
+    获取看板运行时元数据文件绝对路径 (kanban_runtime.json)。
+
+    返回:
+        str: 运行时元数据文件绝对路径。
+    """
     return os.path.join(user_data_dir(**kw), "kanban_server.json")
 
 

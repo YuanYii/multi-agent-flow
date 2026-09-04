@@ -23,6 +23,12 @@ class TaskStatus(str, Enum):
 
     @classmethod
     def all_values(cls) -> List[str]:
+        """
+        获取所有已定义的任务状态中文枚举值列表。
+
+        返回:
+            list[str]: 状态枚举值列表。
+        """
         return [item.value for item in cls]
 
     @classmethod
@@ -37,6 +43,15 @@ class TaskStatus(str, Enum):
 
     @classmethod
     def is_valid(cls, val: str) -> bool:
+        """
+        校验给定的状态名称是否为合法的任务状态枚举值。
+
+        参数:
+            val (str): 待校验状态名。
+
+        返回:
+            bool: 合法返回 True。
+        """
         return val in cls.all_values()
 
 
@@ -52,6 +67,12 @@ class TaskType(str, Enum):
 
     @classmethod
     def all_values(cls) -> List[str]:
+        """
+        获取所有已定义的任务类型英文代号列表 (A-G)。
+
+        返回:
+            list[str]: 任务类型代号列表。
+        """
         return [item.value for item in cls]
 
     @classmethod
@@ -61,6 +82,15 @@ class TaskType(str, Enum):
 
     @classmethod
     def is_valid(cls, val: str) -> bool:
+        """
+        校验给定的任务类型代号是否在合法枚举范围内。
+
+        参数:
+            val (str): 待校验类型代号。
+
+        返回:
+            bool: 合法返回 True。
+        """
         return val.upper() in cls.all_values()
 
 
@@ -78,6 +108,12 @@ class RoleEnum(str, Enum):
 
     @classmethod
     def all_values(cls) -> List[str]:
+        """
+        获取所有已定义的 8 大专家角色英文简称列表。
+
+        返回:
+            list[str]: 专家角色代号列表。
+        """
         return [item.value for item in cls]
 
     @classmethod

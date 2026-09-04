@@ -9,7 +9,14 @@ from ..interfaces import IDeltaExtractor
 
 
 class GitWorkspaceDeltaExtractor(IDeltaExtractor):
+    """Git 工作区物理代码变更差量提取器。"""
     def extract_physical(self, workspace_path: str) -> Dict[str, Any]:
+        """
+        调用 Git Diff 提取当前阶段产生的变更文件、增删行数及修改范围。
+
+        返回:
+            list[dict]: 物理变更文件列表。
+        """
         empty_res = {"files_modified": [], "lines_added": 0, "lines_deleted": 0}
         if not workspace_path or not os.path.isdir(workspace_path):
             return empty_res

@@ -33,6 +33,16 @@ def scan_project_stack(target_dir: Optional[str] = None) -> Dict[str, Any]:
         info["project_name"] = default_name
 
     def find_files(fname):
+        """
+        递归扫描指定目录中匹配特定后缀或文件名的所有路径列表。
+
+        参数:
+            root (str): 扫描根目录。
+            targets (list[str]): 目标文件名或扩展名列表。
+
+        返回:
+            list[str]: 匹配的文件相对路径列表。
+        """
         found = []
         p = os.path.join(target_dir, fname)
         if os.path.exists(p):

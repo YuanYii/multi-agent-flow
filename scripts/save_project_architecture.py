@@ -25,6 +25,10 @@ from _lib.discovery.arch_persister import (
 
 
 def main():
+    """
+    项目技术架构持久化 CLI 主入口。
+    将扫描获得的项目技术栈配置写入 config/project_architecture.config.yaml。
+    """
     parser = argparse.ArgumentParser(description="项目技术架构与专家技术栈安全定版工具")
     parser.add_argument("--json-input", help="全量架构 JSON 字符串")
     parser.add_argument("--yaml-file", help="已填充的架构 YAML 配置文件路径")

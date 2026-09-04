@@ -101,6 +101,17 @@ def dispatch_task(
     dry_run: bool = False,
     max_parallel: int = 3
 ) -> Dict[str, Any]:
+    """
+    执行任务代码化派发核心逻辑。
+    校验前置依赖任务完成情况与目标专家角色 WIP 并发限制，将任务推至【进行中】状态，并生成符合平台规范的 Subagent 派单 Payload 与退出契约。
+
+    参数:
+        task_id (str): 待派发任务编号。
+        config_path (str, optional): 配置文件路径。
+
+    返回:
+        dict: 包含状态转移结果与 Subagent 启动参数的字典。
+    """
     # 1. 加载看板适配器并检索任务卡
     adapter = board_adapter_factory.get_board_adapter(config_path)
     if hasattr(adapter, "get_record"):
@@ -255,6 +266,10 @@ def dispatch_task(
 
 
 def main():
+    """
+    代码化任务派发 CLI 主入口。
+    接收 --task-id 与可选派单配置，执行派单流水线并格式化输出 Subagent 启动指令。
+    """
     parser = argparse.ArgumentParser(
         prog="dispatch_task",
         description="Multi-Agent Flow 代码化任务派单引擎"

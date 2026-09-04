@@ -52,6 +52,15 @@ MAIN_ROLE_BY_TYPE = {
 
 # A 类链: 每段转换的 (执行角色, 处理人)，支持 DEV / FRONTEND
 def full_chain_roles(main_role: str) -> List[tuple]:
+    """
+    根据任务类型（A-G）派生全流程协同的标准角色流转链条（如需求 -> 架构 -> 编码 -> 审查 -> 测试 -> 提请验收）。
+
+    参数:
+        task_type (str): 任务类型代号 (A-G)。
+
+    返回:
+        list[str]: 专家角色名称顺序列表。
+    """
     role = "FRONTEND" if str(main_role).upper() in ["FRONTEND", "马前端"] else "DEV"
     assignee = ROLE_NAME_MAP.get(role, "李开发" if role == "DEV" else "马前端")
     return [
@@ -65,6 +74,15 @@ CHAIN_ROLES_A = full_chain_roles("DEV")
 
 # 短链 (B/C/D/G/F): 主执行角色完成到已完成，PM 验收
 def short_chain_roles(main_role: str) -> List[tuple]:
+    """
+    根据任务类型（A-G）派生轻量短链任务的极简角色链条（如单专家负责编码并直接提请人类验收）。
+
+    参数:
+        task_type (str): 任务类型代号 (A-G)。
+
+    返回:
+        list[str]: 极简专家角色名称列表。
+    """
     main_assignee = ROLE_NAME_MAP.get(main_role, main_role)
     return [
         ("待开始", "进行中", main_role, main_assignee),
@@ -147,6 +165,10 @@ def check_block_resolved(fields: Dict) -> bool:
 
 
 def main():
+    """
+    自动化任务全生命周期流转 CLI 主入口。
+    接收意图输入，自动编排执行多专家协同研发直至【已完成】状态。
+    """
     parser = argparse.ArgumentParser(description="自动任务编排引擎 (auto_task)")
     parser.add_argument("--config", default=None, help="配置文件路径")
     parser.add_argument("--task-id", default="", help="任务编号；缺省且提供 --task-name 时自动建卡")

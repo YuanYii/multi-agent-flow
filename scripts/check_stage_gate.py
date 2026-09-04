@@ -31,6 +31,10 @@ from _lib.gates.stage_gate_checker import (
 
 
 def main():
+    """
+    阶段准入门禁校验 CLI 主入口。
+    检查当前阶段开工前提条件、前置交付物合规性与工作区清洁度。
+    """
     parser = argparse.ArgumentParser(description="YY-Flow 阶段门禁核验器 (Stage Gate Checker)")
     parser.add_argument("--action", "-a", choices=["close", "start"], default="close", help="门禁类型: close (阶段结项准出) 或 start (阶段开工准入)")
     parser.add_argument("--stage", "-s", type=str, default="", help="目标核验阶段名称或代号 (如 S1, 'S1 需求分析')")

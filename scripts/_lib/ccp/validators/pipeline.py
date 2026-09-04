@@ -7,7 +7,17 @@ from ..models import HandoffContext, ValidationReport
 
 
 class ContinuityValidationPipeline(IContinuityValidator):
+    """上下文连续性验证责任链管道，执行 Schema 校验与语义门禁。"""
     def validate(self, handoff: HandoffContext) -> ValidationReport:
+        """
+        执行阶段间 Handoff 连续性门禁核验，检查必填字段与阻断未知项。
+
+        参数:
+            handoff (HandoffContext): 交接上下文载荷。
+
+        返回:
+            ValidationReport: 校验结果报告。
+        """
         missing = []
         blocking = []
         conflicts = []

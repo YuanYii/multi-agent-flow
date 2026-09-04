@@ -19,6 +19,7 @@ SECRET_PATTERNS = [
 
 
 def scan_file(file_path: str) -> List[Tuple[int, str, str]]:
+    """依据内置安全正则规则字典，对单个文本文件进行敏感信息深度扫描。"""
     findings = []
     # 跳过对检查器脚本自身的匹配
     fn = os.path.basename(file_path)
@@ -45,6 +46,7 @@ def scan_file(file_path: str) -> List[Tuple[int, str, str]]:
 
 
 def run_secrets_scan(workflow_root: str, data_root: str) -> int:
+    """批量执行整个目录树的敏感信息扫描并汇总违规项输出报告。"""
     total_issues = 0
     scan_dirs = [
         os.path.join(workflow_root, d) for d in ["config", "scripts", "agents", "docs", "kanban"]

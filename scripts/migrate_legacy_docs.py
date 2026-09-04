@@ -22,6 +22,10 @@ __all__ = [
 
 
 def main():
+    """
+    历史文档迁移整理 CLI 主入口。
+    扫描目标项目散落文档并自动归档至 docs/ 目录的标准文档骨架树中。
+    """
     target_dir = sys.argv[1] if len(sys.argv) > 1 else None
     scan_and_migrate_legacy_docs(target_dir)
 

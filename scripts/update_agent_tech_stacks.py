@@ -17,6 +17,10 @@ from _lib.core.agent_tech_overlay import load_arch_data
 
 
 def main():
+    """
+    专家团队技术栈自适应同步 CLI 主入口。
+    将扫描推断出的语言与框架能力注入到 8 位专家的 YAML 定义中。
+    """
     arch = load_arch_data()
     if arch is None:
         print("[NOTE]  架构配置未初始化（user_data/project_architecture.config.yaml 缺失或为占位）。")
