@@ -5,14 +5,15 @@
   <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/github/stars/YuanYii/multi-agent-flow?style=for-the-badge&logo=github&color=38BDF8" alt="GitHub Stars"></a>
   <a href="https://github.com/YuanYii/multi-agent-flow/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge" alt="License"></a>
   <a href="https://yuanyii.github.io/multi-agent-flow/"><img src="https://img.shields.io/badge/Theme-Dark%20%2F%20Light-F59E0B?style=for-the-badge" alt="Theme Support"></a>
-  <a href="https://github.com/YuanYii/multi-agent-flow/actions/workflows/tests.yml"><img src="https://github.com/YuanYii/multi-agent-flow/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow/actions/workflows/tests.yml"><img src="https://img.shields.io/badge/Tests-396%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/badge/Version-v2.2.0-8B5CF6?style=for-the-badge" alt="Version"></a>
 </p>
 
 <p align="center">
   <b><a href="https://yuanyii.github.io/multi-agent-flow/">👉 点击访问官方互动主页 &amp; 在线看板全景演示 (GitHub Pages) 👈</a></b>
 </p>
 
-> **“不要让 CV 工程师变成 YES 工程师”** —— 契约驱动的 AI 多角色协同研发工作流技能包。以十大 Agent 协同红线与五层防错门控实现 8 位 AI 专家的严密交叉制衡；同时提供局域网多端看板、主控鉴权与独立视图，赋能人类团队高效协作。
+> **“不要让 CV 工程师变成 YES 工程师”** —— 契约驱动的 AI 多角色协同研发微内核技能包。以十大 Agent 协同红线与五层防错门控实现 8 位 AI 专家的严密交叉制衡；同时提供局域网多端看板、主控鉴权与独立视图，赋能人类团队高效协作。
 
 ---
 
@@ -20,10 +21,24 @@
 
 - 👥 **8 位专属 AI 专家矩阵**：严经理 (PM)、钱架构 (架构师)、李开发 (后端)、马前端 (前端)、周审查 (审查员)、章测试 (测试)、李文通 (文档)、吕改特 (运维)，开箱自动扫描项目技术栈并自适应注入。
 - 🛡️ **十大协同红线与五层防错门禁**：代码级 Fail-Closed 拦截越权操作；阶段开工核验清洁度，阶段结项强制输出架构技术总结（ADR）与敏捷复盘总结；工作区存在未验收代码时物理阻断 `git commit`。
-- 🎯 **统一入口网关与 L0–L2 智能分流**：控制台指令直通底层运维，业务需求经分级三问网关前置判定（L0即时问答直出、L1短链交付、L2全流程制衡）；全自动流水线支持 A–G 全类型链断点续跑。
-- 🔌 **项目级强关联与多 Agent 终端适配**：数据完全私有落盘于 `.yy-flow/` 目录随 Git 流转，原生兼容 Google Antigravity、Claude Code、Cursor、OpenAI Codex、OpenCode、ZCode 等主流终端与 IDE。
+- 🎯 **统一入口网关与 L0–L2 智能分流**：控制台指令直通底层运维，业务需求经分级三问网关前置判定（L0即时问答直出、L1短链交付、L2全流程制衡）；强制执行单一职责（SRP）审查（工时 ≤ 8.0h）。
+- 🔌 **项目级强关联与多 Agent 终端适配**：数据私有落盘于 `.yy-flow/` 目录随 Git 流转，原生兼容 Google Antigravity、Claude Code、Cursor、OpenAI Codex、OpenCode、ZCode 等主流终端与 IDE。
+- ⚡ **396 项自动化测试全绿保障**：微内核调度、状态转移、多周分片存储、高熵令牌鉴权与并发锁具备严密的自动化测试覆盖（396 项测试用例经查验符合预期）。
 
 👉 **完整特性演示与交互体验请访问**：[https://yuanyii.github.io/multi-agent-flow/](https://yuanyii.github.io/multi-agent-flow/)
+
+---
+
+## 🏛️ 全景架构与执行链路全息图鉴
+
+本项目现已提供开箱即用的离线原生可视化全景图鉴：
+
+- **图鉴文件**：[`docs/0-系统架构/multi-agent-flow-全景架构与执行链路图鉴.html`](../docs/0-系统架构/multi-agent-flow-全景架构与执行链路图鉴.html)
+- **技术亮点**：
+  - **八层微内核架构拓扑**：网关入口、调度编排、状态机内核、存储适配、安全门禁、上下文连续性协议 (CCP)、Web 看板与度量巡检 8 大业务域；
+  - **端到端 10 阶段研发时序**：从自然语言需求、PM 分级建卡、专家派发、物理隔离编码到单测提审、打回熔断、终态验收与 Git 结项；
+  - **代码物理行号 Hover 浮窗**：鼠标悬停在任意架构节点或执行步骤上，即时展示其对应的物理源文件、行号区间（`Lxx-Lxx`）与核心类/函数符号，支持点击锁定检查；
+  - **现代扁平化矢量设计**：内嵌 28 个纯矢量 SVG 图标（0 拟物/0 Emoji），默认优雅高对比度亮色背景，支持深浅主题持久化切换，0 外部网络与 CDN 依赖。
 
 ---
 
@@ -99,7 +114,21 @@ mkdir -p .yy-flow/skill && curl -L https://github.com/YuanYii/multi-agent-flow/a
 
 ---
 
-## ⚡ 快捷指令与自然语言口令
+## ⚡ 统一 CLI 门面与快捷指令
+
+系统已收敛至统一 CLI 门面（`python3 scripts/cli.py`），对齐统一参数命名与调用体验：
+
+| 业务场景 | 统一 CLI 门面 (`cli.py`) | 底层专用脚本 | 核心作用与参数 |
+| :--- | :--- | :--- | :--- |
+| **创建任务卡** | `python3 scripts/cli.py task create ...` | `scripts/quick_task.py create` | `--name "..." --assignee "..." --stage "..." --type "A" --target "..." --criteria "..."` |
+| **代码化派单** | `python3 scripts/cli.py dispatch --task-id T00xx` | `scripts/dispatch_task.py` | 校验依赖与并发，推至【进行中】，输出 Subagent 载荷 |
+| **推进任务流转** | `python3 scripts/cli.py task start/finish ...` | `scripts/transition_task.py` | 结合角色与五层门控执行推进，支持 `--remarks` 打回记录 |
+| **人类终态验收** | `python3 scripts/cli.py task accept ...` | `scripts/quick_task.py accept` | `--task-id T00xx`（**人类用户专属**，严禁 Agent 越权自签） |
+| **启动看板** | `python3 scripts/cli.py kanban` | `scripts/start_kanban_server.py` | 默认启动于 `http://127.0.0.1:32886/`，打印安全 Token |
+| **健康度巡检** | `python3 scripts/cli.py status` | `scripts/heartbeat.py` | 输出大盘健康度、阻塞卡片与效能统计指标 |
+| **连续性校验** | `python3 scripts/cli.py ccp ...` | `scripts/cli.py ccp` | 校验 Agent 上下文交接完整性与前置依赖产物 |
+
+### 快捷指令映射总览
 
 | 快捷指令 | 自然语言口令示例 | 核心功能 |
 | :--- | :--- | :--- |
@@ -108,7 +137,7 @@ mkdir -p .yy-flow/skill && curl -L https://github.com/YuanYii/multi-agent-flow/a
 | **`/yy-flow status`** | “看下项目进度与巡检大盘” | 一键输出项目总体进度、Lead Time 交付周期与风险告警 |
 | **`/yy-flow kanban`** | “使用yy-flow，启动看板” 或 “启动看板” | 启动本地/局域网可视化看板（默认 32886 端口），输出主控与协作链接 |
 | **`/yy-flow sync-pr`** | “检查 PR 状态解阻任务” | 监听 GitHub PR Merged 状态，自动推进至【已完成】并提请验收 |
-| **`/yy-flow auto`** | “使用yy-flow 帮我开始做这个需求并拆解任务” | 全自动执行完整生命周期至【已完成】并提请人类核验验收 |
+| **`/yy-flow auto`** | “使用yy-flow 帮我开始做这个需求并拆解任务” | 自动执行完整生命周期至【已完成】并提请人类核验验收 |
 
 > 💡 **日常协同全走自然语言**：需求拆解、阶段结项、认领、提审、测试打回等均可直接自然语言沟通，专家在后台自主调度底层脚本。
 
@@ -140,29 +169,41 @@ python3 scripts/start_kanban_server.py
 
 ```text
 .yy-flow/skill/              # 技能代码（只读资产）
-├── SKILL.md                 # 技能主入口（快捷指令与编排协议）
-├── README.md                # 产品说明文档
+├── SKILL.md                 # 技能主入口（统一网关、快捷指令与编排协议）
+├── README.md                # 产品说明与架构全景文档
 ├── rules/                   # 协同红线与防错规约
 ├── agents/                  # 8 大专家角色 YAML 定义
 ├── kanban/                  # 离线与 Web 可视化看板（HTML/JS/CSS）
-├── references/              # 6 大核心规范（路由/流转/防错/Git/文档/交接）
-├── tests/                   # 349 项自动化测试套件
+├── references/              # 模块化规约体系
+│   ├── 01-gateway/          # 网关分流与单一职责审查规约
+│   ├── 02-bootstrap/        # 冷启动与环境初始化 SOP
+│   ├── 03-engine/           # 状态转移机、防错门禁与熔断仲裁
+│   ├── 04-ccp/              # 上下文连续性协议 (CCP) 规范
+│   ├── 05-kanban/           # 看板服务运维与 PR 监听规范
+│   └── 06-governance/       # Git 提交阻断门禁与审计度量
+├── tests/                   # 396 项自动化测试套件 (实测全量通过)
 └── scripts/                 # 流转/门禁/巡检/看板服务 CLI 引擎
 
 # 初始化后在目标项目生成：
-.yy-flow/user_data/          # 运行态数据（board.json / 审计日志 / 并发锁）
-docs/                        # D01-项目管理 ~ D06-文档模板 交付文档骨架
+.yy-flow/user_data/          # 运行态数据（board.json / weekly 分片 / 审计日志 / 并发锁）
+docs/                        # 交付文档骨架
+└── 0-系统架构/
+    └── multi-agent-flow-全景架构与执行链路图鉴.html # 离线全息架构与链路图鉴
 ```
 
 ---
 
-## 📖 参考规约索引
+## 📖 模块化规约索引
 
 - [官方交互主页 & 在线演示](https://yuanyii.github.io/multi-agent-flow/)
-- [技能主入口 SKILL.md](SKILL.md) — 指令契约、初始化 SOP 与动态流转
-- [AI 团队协同索引](references/01-AI-Team-Workflow-Index.md) — 8 大角色职责矩阵与流转总表
-- [状态流转与打回规范](references/02-State-Flow-Rules.md) — 8 状态定义与 A–G 任务类型链
-- [五层防错门控机制](references/03-Anti-Error-Mechanism.md) — 越权拦截与代行授权协议
+- [全景架构与执行链路图鉴 (本地打开)](../docs/0-系统架构/multi-agent-flow-全景架构与执行链路图鉴.html)
+- [技能主入口 SKILL.md](SKILL.md) — 统一网关、分级三问、指令契约与角色矩阵
+- [网关分级规约](references/01-gateway/01-task_classification.md) — 业务需求 L0–L2 判决与单一职责审查
+- [初始化 SOP 规约](references/02-bootstrap/01-initialization_sop.md) — 冷启动自检与架构自适应
+- [状态流转与门控规约](references/03-engine/01-state_flow_rules.md) — 8 状态转移、五层立体防错与连续 3 次打回熔断
+- [上下文连续性协议规约](references/04-ccp/01-ccp_protocol_spec.md) — 跨 Agent 无损 Handoff 契约
+- [看板与 PR 同步规约](references/05-kanban/01-kanban_and_pr_sync.md) — 多端协同与 PR 监听解阻
+- [Git 门禁与审计度量规约](references/06-governance/01-git_and_audit_spec.md) — 无工单不 Git 拦截与交付度量
 
 ---
 
