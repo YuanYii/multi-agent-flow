@@ -1,0 +1,89 @@
+# ==============================================================================
+# 防御性任务工单契约标准模板 (Task Contract Template)
+# 对应规范: docs/1-方案设计/08-Context_Continuity_Protocol_上下文连续性协议架构设计方案.md
+# 归档宿主: docs/D04-研发过程/D01-任务/tasks_XXXX_YYYY.yaml (固定 50 任务容量分卷)
+# ==============================================================================
+
+id: "TXXXX"
+wbs: "X.X.X"
+name: "任务名称简述"
+priority: "P1"               # P0 (紧急阻断) | P1 (核心功能) | P2 (普通增强) | P3 (低优先级)
+stage: "Sprint 1"
+owner: "李开发"              # 任务主创开发者 (全生命周期稳定)
+assignee: "李开发"           # 当前流转节点经办人
+status: "待开始"
+est_hours: 4.0
+act_hours: 0.0
+start_date: "2026-09-04"
+end_date: null
+
+# 1. 基础看板属性 (大盘与概览视图呈现)
+target: "核心交付目标 (一句话清晰界定交付终态)"
+acceptance_criteria:
+  - "验收标准条目 1: 正常业务路径预期与断言"
+  - "验收标准条目 2: 核心边界分支与异常处理预期"
+  - "验收标准条目 3: 自动化测试覆盖与全量回归通过"
+
+# 2. 防御性执行契约 (Defensive Execution Contract - 派单时精准注入下游 Agent)
+contract:
+  # 2.1 执行前置事实断言 (Preconditions: 执行前必须为真，任一不成立 → 停止上报)
+  preconditions:
+    - "数据库/模型层已存在相关字段 (避免盲目脑补 DDL)"
+    - "依赖的底层组件/服务已就绪，直接复用，不新建轮子"
+
+  # 2.2 接口与数据强契约 (包含成功响应、幂等行为与错误码矩阵)
+  interface_contract:
+    method: "POST"
+    path: "/api/v1/resource/endpoint"
+    request_body:
+      id: "string (必填, 业务唯一键)"
+      action: "string (必填, 取值枚举: [RUN, STOP])"
+    response_success:
+      status: 200
+      body:
+        code: 200
+        data: { updated_at: "ISO-8601" }
+    idempotency: "重复请求必须幂等处理，返回相同结果或明确告知已处理"
+    response_error:
+      - { status: 401, code: "UNAUTHORIZED", when: "未携带合法认证凭据" }
+      - { status: 400, code: "INVALID_PARAM", when: "入参字段不合规" }
+      - { status: 404, code: "NOT_FOUND", when: "目标实体不存在" }
+
+  # 2.3 范围与语义边界 (Semantic Boundaries: 防扩散战壕，文件内部也不得越界)
+  scope:
+    in_scope:
+      - "app/api/v1/target_endpoint.py"
+      - "app/services/target_service.py"
+    out_of_scope:
+      - "app/models/ (严禁修改既有数据表映射)"
+      - "app/core/ (严禁改动核心全局公共底座)"
+  semantic_boundaries:
+    - "目标业务文件仅新增当前功能代码，禁止改动既有无关函数"
+    - "Diff 最小化原则：禁止顺手重构、重新排版或格式化无关代码"
+
+  # 2.4 新建文件白名单管制 (New Files Policy)
+  new_files_policy:
+    - "允许新建 tests/ 目录下的对应单元测试文件；其余任何新建文件一律先上报批准"
+
+  # 2.5 冲突与二义性策略 (Fail-Fast Policy)
+  ambiguity_policy:
+    - "契约与工作区现实代码产生矛盾 → 立即停止动笔并上报，严禁自行脑补扩大 scope"
+    - "契约未明确之细节遵循权威架构规范，所有工程权衡与自行决定点必须据实写入回执"
+
+# 3. 产物与回执契约 (Return Contract: 完工提审查时必须在交付报告中提交)
+return_contract:
+  required_items:
+    - "变更文件清单 + 关键 diff 摘要"
+    - "测试结果：对齐验收标准 (AC) 逐条映射 / 新增用例数 / 通过数 / 全量回归结论"
+    - "与契约的偏离点及原因说明"
+    - "遗留问题与需 orchestrator 决策项"
+  report_path: "docs/D04-研发过程/D02-报告/dev/DEV_{task_id}_Report.md"
+
+# 4. 全生命周期流转追踪 (Process Timeline)
+process:
+  - node: "{task_id}-N1"
+    stage: "创建"
+    operator: "严经理"
+    role: "PM"
+    timestamp: "2026-09-04T00:00:00"
+    remarks: "依据架构规划完成防御性任务契约拆解与建卡"
