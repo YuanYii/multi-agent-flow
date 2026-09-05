@@ -1884,11 +1884,81 @@ def resolve_running_kanban(data_root: str = _DATA_ROOT) -> dict | None:
     return None
 
 
+_WEEK_FILENAME_RE = re.compile(r"^\d{4}-W\d{2}\.(?:yaml|yml)$")
+
+
+def _check_and_auto_migrate_to_chunked(data_root: str = _DATA_ROOT) -> bool:
+    """启动看板服务前探测存量数据，必要时自动触发向 50 任务分卷的无损平滑迁移。"""
+    try:
+        import paths as _paths
+        config_file = _paths.resolve_runtime_config()
+        if not os.path.exists(config_file):
+            return True
+
+        import yaml
+        with open(config_file, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+
+        board_cfg = cfg.get("board", {})
+        provider = str(board_cfg.get("provider", "local")).lower()
+
+        # 仅 local 本地看板模式才执行分卷自愈检查；远程看板（feishu/jira 等）跳过
+        if provider != "local":
+            return True
+
+        storage_mode = str(board_cfg.get("storage_mode", "")).lower()
+        if storage_mode == "chunked":
+            # 内存秒级短路跳过，耗时 < 0.1ms
+            return True
+
+        user_data_dir = os.path.join(data_root, "user_data")
+        board_json = os.path.join(user_data_dir, "board.json")
+        tasks_dir = _paths.tasks_dir()
+
+        has_legacy_board = False
+        if os.path.exists(board_json) and os.path.getsize(board_json) > 10:
+            try:
+                with open(board_json, "r", encoding="utf-8") as bf:
+                    bj_data = json.load(bf)
+                if isinstance(bj_data, list) and len(bj_data) > 0:
+                    has_legacy_board = True
+            except Exception:
+                pass
+
+        has_legacy_weekly = False
+        if os.path.exists(tasks_dir):
+            for fn in os.listdir(tasks_dir):
+                if _WEEK_FILENAME_RE.match(fn):
+                    has_legacy_weekly = True
+                    break
+
+        if has_legacy_board or has_legacy_weekly:
+            print("\n" + "=" * 70)
+            print("[MIGRATE] 🔍 启动检查：检测到存量看板数据尚未升级为 50 任务分卷模式")
+            print("[MIGRATE] 📦 正在执行全自动平滑迁移与物理备份...")
+            from migrate_to_chunked_storage import migrate_to_chunked_storage
+            ok = migrate_to_chunked_storage(project_root=_paths.project_root())
+            if ok:
+                print("[MIGRATE] ✅ 存量数据已成功迁移至 tasks_XXXX_YYYY.yaml，配置已升级为 chunked")
+                print("=" * 70 + "\n")
+                return True
+            else:
+                print("[MIGRATE] ⚠️ 存量数据自动迁移未完全成功，将继续以兼容模式启动看板\n")
+                print("=" * 70 + "\n")
+                return False
+    except Exception as e:
+        sys.stderr.write(f"[WARN] 启动前存量数据检查异常: {e}\n")
+    return True
+
+
 def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool = False):
     """启动简易 HTTP 看板服务（含端口探测与同项目复用）"""
     if not os.path.exists(KANBAN_DIR):
         print(f"[FAILED]  [ERROR] 无法找到看板目录: {KANBAN_DIR}")
         sys.exit(1)
+
+    # 启动前执行存量看板数据自愈与分卷升级检查
+    _check_and_auto_migrate_to_chunked(_DATA_ROOT)
 
     fingerprint = compute_project_fingerprint(_DATA_ROOT)
     result = probe_port(port, fingerprint, pinned=pinned)

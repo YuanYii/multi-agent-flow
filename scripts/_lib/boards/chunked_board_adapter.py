@@ -535,14 +535,20 @@ class ChunkedBoardAdapter:
             return []
 
         chunk_files = sorted(
-            [f for f in os.listdir(self.tasks_dir) if (f.endswith(".yaml") or f.endswith(".yml")) and not f.startswith(".")],
+            [f for f in os.listdir(self.tasks_dir) if _CHUNK_FILENAME_RE.match(f)],
             reverse=True
         )
 
+        seen_ids = set()
         for fname in chunk_files:
             fpath = os.path.join(self.tasks_dir, fname)
             data = self._read_yaml_file(fpath)
             for c in data.get("tasks", []):
+                tid = str(c.get("id", ""))
+                if tid and tid in seen_ids:
+                    continue
+                if tid:
+                    seen_ids.add(tid)
                 card_item = dict(c)
                 card_item["_source_file"] = fpath
                 card_item.setdefault("creator_role", "严经理")

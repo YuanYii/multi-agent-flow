@@ -4,6 +4,7 @@
 严格贯彻 Fail-Closed 原则：当配置文件不存在时拒绝隐式 fallback，物理抛出 FileNotFoundError！
 """
 import os
+import sys
 import json
 import yaml
 from typing import Any
@@ -58,9 +59,13 @@ def get_board_adapter(config_file: str = None) -> Any:
             return ChunkedBoardAdapter(tasks_dir=tasks_dir, field_map=board_cfg.get("fields", {}))
 
         if storage_mode == "weekly":
+            sys.stderr.write("[WARN] [YY-Flow] 当前配置运行在存量周口径存储模式 (weekly)。建议升级至 50 任务分卷模式 (chunked)。\n")
             from _lib.boards.weekly_board_adapter import WeeklyBoardAdapter
             tasks_dir = paths.tasks_dir()
             return WeeklyBoardAdapter(tasks_dir=tasks_dir, field_map=board_cfg.get("fields", {}))
+
+        if storage_mode == "single":
+            sys.stderr.write("[WARN] [YY-Flow] 当前配置运行在存量单体存储模式 (single)。建议升级至 50 任务分卷模式 (chunked)。\n")
 
         # 离线看板：相对路径锚定 data_root（宿主项目根 / legacy skill 拷贝），不再锚定 skill_root
         raw_board_file = board_cfg.get("board_file", "user_data/board.json")

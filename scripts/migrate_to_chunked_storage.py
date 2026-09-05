@@ -150,6 +150,7 @@ def migrate_to_chunked_storage(project_root: Optional[str] = None, dry_run: bool
 
     all_raw_tasks: List[Dict[str, Any]] = []
     seen_ids = set()
+    seen_weekly_files: List[str] = []
 
     # 1. 扫描存量 user_data/board.json
     board_json = os.path.join(user_data_dir, "board.json")
@@ -172,6 +173,7 @@ def migrate_to_chunked_storage(project_root: Optional[str] = None, dry_run: bool
         for fname in sorted(os.listdir(tasks_dir)):
             if _WEEK_FILENAME_RE.match(fname):
                 fpath = os.path.join(tasks_dir, fname)
+                seen_weekly_files.append(fpath)
                 try:
                     with open(fpath, "r", encoding="utf-8") as f:
                         w_data = yaml.safe_load(f)
@@ -253,21 +255,37 @@ def migrate_to_chunked_storage(project_root: Optional[str] = None, dry_run: bool
                     sys.stderr.write(f"[CCP Migration FAILED] 写入分卷 {chunk_filename} 失败！\n")
                     return False
 
-        # 备份历史 board.json
+        # 归档历史周 YAML 文件，防止在 tasks_dir 中并存导致重复加载
+        if not dry_run and seen_weekly_files:
+            archive_dir = os.path.join(tasks_dir, "archive_weekly")
+            os.makedirs(archive_dir, exist_ok=True)
+            for wf in seen_weekly_files:
+                if os.path.exists(wf):
+                    dest_wf = os.path.join(archive_dir, os.path.basename(wf))
+                    try:
+                        shutil.move(wf, dest_wf)
+                        print(f"[CCP Migration] 历史周文件 {os.path.basename(wf)} 已归档至: {dest_wf}")
+                    except Exception as e:
+                        sys.stderr.write(f"[WARN] 归档周文件 {wf} 失败: {e}\n")
+
+        # 备份并安全移走历史 board.json（重命名防止双写裂脑）
         if not dry_run and os.path.exists(board_json):
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             bak_path = f"{board_json}.bak.{ts}"
             try:
-                shutil.copy2(board_json, bak_path)
-                print(f"[CCP Migration] 历史 board.json 已备份为: {bak_path}")
+                shutil.move(board_json, bak_path)
+                print(f"[CCP Migration] 历史 board.json 已备份并安全移走至: {bak_path}")
             except Exception as e:
-                sys.stderr.write(f"[WARN] 备份 board.json 失败: {e}\n")
+                sys.stderr.write(f"[WARN] 备份/移走 board.json 失败: {e}\n")
 
-    # 3. 升级 workflow.config.yaml 的 storage_mode 为 chunked
-    cfg_paths = [
-        os.path.join(user_data_dir, "workflow.config.yaml"),
-    ]
-    for cp in cfg_paths:
+    # 3. 动态解析并升级真实生效的 workflow.config.yaml 的 storage_mode 为 chunked
+    active_cfg = paths.resolve_runtime_config(explicit=project_root) if project_root else paths.resolve_runtime_config()
+    cfg_targets = [active_cfg]
+    user_cfg = os.path.join(user_data_dir, "workflow.config.yaml")
+    if user_cfg not in cfg_targets and os.path.exists(user_cfg):
+        cfg_targets.append(user_cfg)
+
+    for cp in cfg_targets:
         if os.path.exists(cp):
             try:
                 with open(cp, "r", encoding="utf-8") as f:
