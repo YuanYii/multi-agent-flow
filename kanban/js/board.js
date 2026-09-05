@@ -2128,6 +2128,7 @@
                         <span class="tag" style="background:${getBadgeStyle('person', card.assignee).bg}; color:${getBadgeStyle('person', card.assignee).text}; border:1px solid rgba(0,0,0,0.06);">负责角色: ${esc(card.assignee || '未分配')}</span>
                         ${card.handler ? `<span class="tag" style="background:${getBadgeStyle('person', card.handler).bg}; color:${getBadgeStyle('person', card.handler).text}; border:1px solid rgba(0,0,0,0.06);">处理角色: ${esc(card.handler)}</span>` : ''}
                         ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${esc(card.wbs)}</span>` : ''}
+                        ${card.tier ? `<span class="tag" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:600;">🛡️ ${esc(card.tier)}</span>` : ''}
                     </div>
                 `;
             }
@@ -2175,6 +2176,46 @@
                                 : '<span style="color:#86909c;">暂无条目化验收标准</span>'}
                         </div>
                     </div>
+                    ${card.contract ? `
+                    <div class="detail-item" style="grid-column: 1 / -1; border-top: 1px dashed var(--border-color, #e2e8f0); padding-top: 10px; margin-top: 6px;">
+                        <span class="detail-label" style="font-weight:700; color:#0284c7; display:flex; align-items:center; gap:6px;">
+                            📜 CCP 任务上下文契约 (Task Contract) ${card.tier ? `<span style="font-size:11px; padding:1px 6px; border-radius:4px; background:#e0f2fe; color:#0369a1;">${esc(card.tier)}</span>` : ''}
+                        </span>
+                        <div style="background:var(--bg-subtle, #f8fafc); border:1px solid var(--border-color, #e2e8f0); border-radius:6px; padding:10px; margin-top:6px; font-size:12px;">
+                            <div style="margin-bottom:6px;"><strong>🎯 契约目标:</strong> ${esc(card.contract.target || card.target || '-')}</div>
+                            ${card.contract.scope ? `
+                                <div style="margin-bottom:6px;">
+                                    <strong>🔍 范围界定 (Scope):</strong>
+                                    ${card.contract.scope.in_scope ? `<div style="color:#059669; padding-left:8px;">✅ 允许改动: <code>${esc(JSON.stringify(card.contract.scope.in_scope))}</code></div>` : ''}
+                                    ${card.contract.scope.out_of_scope ? `<div style="color:#dc2626; padding-left:8px;">❌ 严禁越界: <code>${esc(JSON.stringify(card.contract.scope.out_of_scope))}</code></div>` : ''}
+                                    ${card.contract.scope.new_files_policy ? `<div style="color:#4b5563; padding-left:8px;">📁 新增策略: <code>${esc(card.contract.scope.new_files_policy)}</code></div>` : ''}
+                                </div>
+                            ` : ''}
+                            ${card.contract.preconditions ? `
+                                <div>
+                                    <strong>📋 前置凭据 (Preconditions):</strong>
+                                    ${card.contract.preconditions.files_required ? `<div style="padding-left:8px;">📄 依赖文件: <code>${esc(JSON.stringify(card.contract.preconditions.files_required))}</code></div>` : ''}
+                                    ${card.contract.preconditions.fields_required ? `<div style="padding-left:8px;">🔑 依赖字段: <code>${esc(JSON.stringify(card.contract.preconditions.fields_required))}</code></div>` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>` : ''}
+                    ${card.return_contract ? `
+                    <div class="detail-item" style="grid-column: 1 / -1; margin-top: 4px;">
+                        <span class="detail-label" style="font-weight:700; color:#16a34a; display:flex; align-items:center; gap:6px;">
+                            📦 CCP 交付核销回执 (Return Contract)
+                        </span>
+                        <div style="background:var(--bg-subtle, #f8fafc); border:1px solid var(--border-color, #e2e8f0); border-radius:6px; padding:10px; margin-top:6px; font-size:12px;">
+                            <div style="margin-bottom:4px;"><strong>📄 交付报告:</strong> <code>${esc(card.return_contract.report_path || '-')}</code></div>
+                            <div style="margin-bottom:4px;"><strong>🧪 测试凭据:</strong> 状态 <code>${esc(card.return_contract.test_status || '-')}</code> | 通过: <span style="color:#16a34a; font-weight:bold;">${esc(card.return_contract.tests_passed != null ? card.return_contract.tests_passed : '-')}</span> | 失败: <span style="color:#dc2626; font-weight:bold;">${esc(card.return_contract.tests_failed != null ? card.return_contract.tests_failed : 0)}</span></div>
+                            ${card.return_contract.ac_verification_map ? `
+                                <div style="margin-bottom:4px;"><strong>✅ AC 逐条核验:</strong> <code>${esc(JSON.stringify(card.return_contract.ac_verification_map))}</code></div>
+                            ` : ''}
+                            ${card.return_contract.diff_summary ? `
+                                <div><strong>📝 代码变更:</strong> <code>${esc(JSON.stringify(card.return_contract.diff_summary))}</code></div>
+                            ` : ''}
+                        </div>
+                    </div>` : ''}
                     <div class="detail-item" style="grid-column: 1 / -1;">
                         <span class="detail-label">核心备注</span>
                         <span class="detail-value" style="font-weight:400; white-space: pre-wrap; word-break: break-word;">${linkify(uniqueRemarks)}</span>
