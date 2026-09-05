@@ -219,7 +219,7 @@ def _is_weekly_storage_mode() -> bool:
             with open(config_file, "r", encoding="utf-8") as f:
                 cfg = yaml.safe_load(f) or {}
             mode = str((cfg.get("board") or {}).get("storage_mode", "")).lower()
-            if mode == "weekly":
+            if mode in ("weekly", "chunked"):
                 return True
             if mode == "single":
                 return False

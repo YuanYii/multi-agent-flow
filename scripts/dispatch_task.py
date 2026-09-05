@@ -177,6 +177,16 @@ def dispatch_task(
             f"当前已有 {in_progress_count} 项任务处于【进行中】（上限: {max_parallel}），禁止继续派单！"
         )
 
+    # 3.5 门禁三：CCP V2.0 派单准入门禁 (Pre-Dispatch Gate)
+    from _lib.ccp.validators.pipeline import validate_pre_dispatch
+    proj_root = paths.project_root()
+    gate_ok, gate_errors = validate_pre_dispatch(task, proj_root)
+    if not gate_ok:
+        raise RuntimeError(
+            f"[REJECT 派单准入门禁拦截] 任务卡 {task_id} 无法派单，原因如下:\n" +
+            "\n".join([f"  ❌ {e}" for e in gate_errors])
+        )
+
     # 4. 状态流转推进：待开始 -> 进行中
     if current_status == "待开始" and not dry_run:
         ok = transition_task_pipeline(
@@ -191,8 +201,7 @@ def dispatch_task(
         if not ok:
             raise RuntimeError(f"[REJECT 流转失败] 自动推进任务 {task_id} 从【待开始】到【进行中】未通过门禁！")
 
-    # 5. 上下文与 Payload 装配
-    proj_root = paths.project_root()
+    # 5. 上下文与 Payload 装配 (CCP V2.0 契约注入)
     related_docs = find_related_docs(task, proj_root)
 
     next_status = subagent_info["next_status"]
@@ -205,14 +214,62 @@ def dispatch_task(
 
     criteria_str = "\n".join([f"  - {c}" for c in criteria]) if criteria else "  - 按设计契约与单测用例准出"
 
+    contract = task.get("contract") or {}
+    return_contract = task.get("return_contract") or {}
+
+    contract_sections = []
+    if contract.get("preconditions"):
+        pre_str = "\n".join([f"  - {p}" for p in contract["preconditions"]])
+        contract_sections.append(f"【前置断言 (Preconditions - 执行前必须成立)】:\n{pre_str}")
+
+    if contract.get("interface_contract"):
+        import yaml as _yaml
+        if_yaml = _yaml.safe_dump(contract["interface_contract"], allow_unicode=True, indent=2).strip()
+        contract_sections.append(f"【接口与数据契约 (Interface Contract)】:\n{if_yaml}")
+
+    if contract.get("scope"):
+        scope_data = contract["scope"]
+        in_s = "\n".join([f"  - {f}" for f in scope_data.get("in_scope", [])]) or "  - (未显式限制)"
+        out_s = "\n".join([f"  - {f}" for f in scope_data.get("out_of_scope", [])]) or "  - 无"
+        scope_text = f"  * 允许修改范围 (in_scope):\n{in_s}\n  * 禁止修改范围 (out_of_scope):\n{out_s}"
+        contract_sections.append(f"【范围白名单与防越界边界 (Scope Boundaries)】:\n{scope_text}")
+
+    if contract.get("semantic_boundaries"):
+        sem_str = "\n".join([f"  - {s}" for s in contract["semantic_boundaries"]])
+        contract_sections.append(f"【语义边界与不变式】:\n{sem_str}")
+
+    if contract.get("new_files_policy"):
+        nfp_str = "\n".join([f"  - {n}" for n in contract["new_files_policy"]])
+        contract_sections.append(f"【新建文件白名单管控】:\n{nfp_str}")
+
+    if contract.get("ambiguity_policy"):
+        amb_str = "\n".join([f"  - {a}" for a in contract["ambiguity_policy"]])
+        contract_sections.append(f"【冲突与二义性处置策略】:\n{amb_str}")
+
+    if return_contract:
+        ret_items = return_contract.get("required_items") or []
+        ret_str = "\n".join([f"  - {item}" for item in ret_items]) or "  - 结构化结案回执四件套"
+        rep_p = return_contract.get("report_path", "未指定")
+        contract_sections.append(
+            f"【结案回执契约 (Return Contract)】:\n"
+            f"  * 交付报告路径: `{rep_p}`\n"
+            f"  * 必备回执四件套:\n{ret_str}\n"
+            f"  * P5-1 提审自省: 必须亲跑测试记录真实用例数与退出码 0 凭据，并在报告中逐条映射验收标准 (AC)！"
+        )
+
+    contract_prompt_block = "\n\n" + "\n\n".join(contract_sections) if contract_sections else ""
+
     payload_json = {
         "protocol_version": "2.0",
         "task_id": task_id,
         "task_name": task_name,
+        "tier": task.get("tier", "Tier-1"),
         "role": role_code,
         "subagent": subagent_info["type_name"],
         "target": target,
         "acceptance_criteria": criteria,
+        "contract": contract,
+        "return_contract": return_contract,
         "context_files": related_docs,
         "exit_contract": {
             "target_status": next_status,
@@ -224,21 +281,24 @@ def dispatch_task(
 
 你已被指派承接研发工单: [{task_id}] {task_name}
 你的专家角色: {subagent_info['role_desc']} (Type: {subagent_info['type_name']})
+任务合规等级: {task.get('tier', 'Tier-1')}
 
 【核心交付目标 (Target)】:
 {target}
 
 【条目化验收标准 (Acceptance Criteria)】:
 {criteria_str}
+{contract_prompt_block}
 
 【参考设计文档与上下文】:
 {chr(10).join(['- ' + d for d in related_docs]) if related_docs else '- 遵循工作区既有架构与规范'}
 
 【硬性退出契约与防错铁律】:
 1. 必须在独立会话中编写实体源码并执行针对性单元测试（保持单测全部通过）；
-2. 完工前必须物理执行以下 CLI 推进状态至【{next_status}】:
+2. 提审前自省 (P5-1): 是否亲见测试通过？每项验收标准是否有代码与日志凭据？
+3. 完工前必须物理执行以下 CLI 推进状态至【{next_status}】:
    `{exit_cli}`
-3. 严禁在会话中仅进行口头承诺而不调用流转命令；流转成功后输出结构化成果汇报。
+4. 严禁在会话中仅进行口头承诺而不调用流转命令；流转成功后输出结构化成果汇报。
 """
 
     dispatch_result = {

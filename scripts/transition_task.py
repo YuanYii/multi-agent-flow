@@ -214,6 +214,9 @@ def transition_task_pipeline(
     target: str = None,                  # 任务核心交付目标说明（用于派单与上下文传递）
     criteria: Any = None,                # 条目化验收标准列表（Acceptance Criteria）
     week: str = None,                    # 所属周维度标签（如 2026-W36，周看板路由）
+    contract: Optional[Dict[str, Any]] = None,        # CCP V2.0 防御性执行契约 (Preconditions/Scope/Boundaries)
+    return_contract: Optional[Dict[str, Any]] = None, # CCP V2.0 结案回执四件套契约
+    tier: str = None,                                 # CCP 任务合规分级 (Tier-1/Tier-2/Tier-3)
 ) -> bool:
     """
     执行任务状态流转全生命周期核心责任链管线。
@@ -471,6 +474,24 @@ def transition_task_pipeline(
 
         logger.info("[SUCCESS]  防错规则核验成功", extra=extra_log)
 
+        # 5.5 CCP V2.0 提审查准出门禁 (Pre-Review Gate):
+        # 当下游开发者提请审查 (to_status == "审查中") 且卡片配置了 CCP 契约载荷时触发本地确定性门禁
+        if to_status == "审查中" and existing:
+            card_fields = existing.get("fields", existing) if isinstance(existing, dict) else existing
+            has_ccp = bool(card_fields.get("contract") or card_fields.get("return_contract"))
+            if has_ccp:
+                from _lib.ccp.validators.pipeline import validate_pre_review
+                rev_ok, rev_errors = validate_pre_review(card_fields, proj_root=paths.project_root())
+                if not rev_ok:
+                    if not force:
+                        logger.error(f"[FAILED]  [CCP 提审门禁拦截] 任务 {task_id} 提请审查未通过校验！", extra=extra_log)
+                        for err in rev_errors:
+                            logger.error(f"  ❌ {err}", extra=extra_log)
+                        record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"CCP提审门禁拦截: {'; '.join(rev_errors)}", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                        return False
+                    else:
+                        logger.warning(f"[WARN]  [CCP 提审门禁强制覆盖] 用户使用 --force 覆盖 {len(rev_errors)} 条门禁错误", extra=extra_log)
+
         # [CCP 连续性门禁扩展插槽 - 默认受环境变量保护，Fail-Safe]
         if os.environ.get("YY_FLOW_ENABLE_CCP_GATE") == "1":
             try:
@@ -553,6 +574,9 @@ def transition_task_pipeline(
                 "remarks": None,
                 "target": target or None,
                 "acceptance_criteria": criteria or [],
+                "contract": contract or None,
+                "return_contract": return_contract or None,
+                "tier": tier or None,
             }
             if hasattr(adapter, "create_record") and "week" in adapter.create_record.__code__.co_varnames:
                 created_id = adapter.create_record(create_fields, week=week)
@@ -791,6 +815,8 @@ def main():
     parser.add_argument("--week", default=None, help="显式归属周口径 (如 2026-W36)")
     parser.add_argument("--force", action="store_true", help="重复任务校验命中时强制创建（用户已确认重复创建）")
     parser.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
+    parser.add_argument("--contract-file", default=None, help="CCP 防御性契约配置文件路径 (YAML 格式)")
+    parser.add_argument("--tier", default=None, choices=["Tier-1", "Tier-2", "Tier-3"], help="CCP 任务合规分级")
 
     args = parser.parse_args()
 
@@ -816,6 +842,25 @@ def main():
         if confirm != "y":
             print("[CANCEL]  已取消操作，任务状态未变更。")
             sys.exit(1)
+
+    contract_payload = None
+    return_contract_payload = None
+    tier_val = getattr(args, "tier", None)
+    contract_file = getattr(args, "contract_file", None)
+    if contract_file and os.path.exists(contract_file):
+        try:
+            with open(contract_file, "r", encoding="utf-8") as cf:
+                c_data = yaml.safe_load(cf)
+            if isinstance(c_data, dict):
+                contract_payload = c_data.get("contract")
+                return_contract_payload = c_data.get("return_contract")
+                tier_val = tier_val or c_data.get("tier")
+                if not args.target and c_data.get("target"):
+                    args.target = c_data.get("target")
+                if not args.criteria and c_data.get("acceptance_criteria"):
+                    args.criteria = c_data.get("acceptance_criteria")
+        except Exception as _ce:
+            logger.warning(f"[WARN] 解析契约文件 {contract_file} 失败: {_ce}")
 
     ok = transition_task_pipeline(
         config_path=args.config,
@@ -850,9 +895,12 @@ def main():
         create_only=args.create,
         force=args.force,
         no_dup_check=args.no_dup_check,
-        target=getattr(args, "target", None),
-        criteria=getattr(args, "criteria", None),
-        week=getattr(args, "week", None),
+        target=args.target,
+        criteria=args.criteria,
+        week=args.week,
+        contract=contract_payload,
+        return_contract=return_contract_payload,
+        tier=tier_val,
     )
 
     if not ok:

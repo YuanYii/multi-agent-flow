@@ -52,6 +52,8 @@ def main():
     p_create.add_argument("--week", default=None, help="显式归属周口径 (如 2026-W36)")
     p_create.add_argument("--force", action="store_true", help="强制创建任务（跳过单一职责拦截与重复校验）")
     p_create.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
+    p_create.add_argument("--contract-file", default=None, help="CCP 防御性契约配置文件路径 (YAML 格式)")
+    p_create.add_argument("--tier", default=None, choices=["Tier-1", "Tier-2", "Tier-3"], help="CCP 任务合规分级")
 
     p_accept = sub.add_parser("accept", help="人类用户专属验收命令（将已完成推进至已验收）")
     p_accept.add_argument("--config", default=None, help="配置文件路径")
@@ -98,6 +100,29 @@ def main():
             except Exception:
                 pass
 
+        contract_payload = None
+        return_contract_payload = None
+        tier_val = getattr(args, "tier", None)
+        target_val = getattr(args, "target", None)
+        crit_val = getattr(args, "criteria", None)
+
+        contract_file = getattr(args, "contract_file", None)
+        if contract_file and os.path.exists(contract_file):
+            import yaml
+            try:
+                with open(contract_file, "r", encoding="utf-8") as cf:
+                    c_data = yaml.safe_load(cf)
+                if isinstance(c_data, dict):
+                    contract_payload = c_data.get("contract")
+                    return_contract_payload = c_data.get("return_contract")
+                    tier_val = tier_val or c_data.get("tier")
+                    if not target_val and c_data.get("target"):
+                        target_val = c_data.get("target")
+                    if not crit_val and c_data.get("acceptance_criteria"):
+                        crit_val = c_data.get("acceptance_criteria")
+            except Exception as _ce:
+                print(f"[WARN] 解析契约文件 {contract_file} 失败: {_ce}")
+
         assignee = normalize_role_name(args.assignee or args.role)
         ok = transition_task_pipeline(
             config_path=args.config,
@@ -116,12 +141,15 @@ def main():
             creator_role=getattr(args, "creator_role", None),
             operator=getattr(args, "operator", None),
             remarks=getattr(args, "remarks", None),
-            target=getattr(args, "target", None),
-            criteria=getattr(args, "criteria", None),
+            target=target_val,
+            criteria=crit_val,
             week=getattr(args, "week", None),
             create_only=True,
             force=args.force,
             no_dup_check=args.no_dup_check,
+            contract=contract_payload,
+            return_contract=return_contract_payload,
+            tier=tier_val,
         )
     elif args.command == "accept":
         import datetime
