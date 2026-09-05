@@ -21,9 +21,10 @@ project:
 #       owner: "owner"
 #       end_time: "end_time"
 #       remarks: "remarks"
-# 看板配置 (默认: local 离线看板；支持配置为 feishu_base, jira, github_projects)
+# 看板配置 (默认: local 离线分卷看板；支持配置为 feishu_base, jira, github_projects)
 board:
   provider: "local"
+  # storage_mode: "chunked"               # 物理存储模式：chunked (固定50任务分卷 YAML 工业级推荐) | weekly (周口径) | single (board.json 兼容，默认)
   board_file: "user_data/board.json"   # 离线看板 JSON 文件路径
   
   # ⚠️ 字段映射说明：

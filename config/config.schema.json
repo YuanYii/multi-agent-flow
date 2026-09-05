@@ -17,7 +17,7 @@
       "type": "object",
       "properties": {
         "provider": { "type": "string", "enum": ["feishu_base", "jira", "github_projects", "local"] },
-        "storage_mode": { "type": "string", "enum": ["single", "weekly"], "description": "看板任务物理存储模式：weekly(周口径YAML) 或 single(单体board.json)" },
+        "storage_mode": { "type": "string", "enum": ["chunked", "single", "weekly"], "description": "看板任务物理存储模式：chunked(固定50任务YAML分卷 - CCP V2.0推荐)、weekly(周口径YAML) 或 single(单体board.json)" },
         "base_token": { "type": "string" },
         "table_id": { "type": "string" },
         "board_file": { "type": "string", "description": "离线看板 JSON 文件路径 (provider=local 且 storage_mode=single 时使用)" },

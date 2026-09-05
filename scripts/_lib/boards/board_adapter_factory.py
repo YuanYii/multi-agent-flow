@@ -52,6 +52,11 @@ def get_board_adapter(config_file: str = None) -> Any:
 
     if provider == "local":
         storage_mode = str(board_cfg.get("storage_mode", "single")).lower()
+        if storage_mode == "chunked":
+            from _lib.boards.chunked_board_adapter import ChunkedBoardAdapter
+            tasks_dir = paths.tasks_dir()
+            return ChunkedBoardAdapter(tasks_dir=tasks_dir, field_map=board_cfg.get("fields", {}))
+
         if storage_mode == "weekly":
             from _lib.boards.weekly_board_adapter import WeeklyBoardAdapter
             tasks_dir = paths.tasks_dir()
