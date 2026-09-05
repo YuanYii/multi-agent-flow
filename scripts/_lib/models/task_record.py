@@ -17,11 +17,21 @@ LEGAL_ROLES = {
 }
 
 
+from enum import Enum
+
+
+class TierEnum(str, Enum):
+    """CCP 任务合规三级分级枚举"""
+    TIER_1 = "Tier-1"  # 核心研发
+    TIER_2 = "Tier-2"  # 局部优化
+    TIER_3 = "Tier-3"  # 轻量维护
+
+
 @dataclass
 class TaskRecord:
     """
     强类型任务实体数据模型 (TaskRecord Dataclass)。
-    封装任务核心属性、状态机字段、工时估算及生命周期断言方法。
+    封装任务核心属性、状态机字段、防御性契约、交付回执、工时估算及生命周期断言方法。
     """
     id: str
     name: str
@@ -46,6 +56,8 @@ class TaskRecord:
     acceptance_criteria: List[str] = field(default_factory=list)
     process: List[str] = field(default_factory=list)
     remarks: Optional[str] = None
+    contract: Optional[Dict[str, Any]] = None
+    return_contract: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
         """数据类后置初始化校验方法。对任务状态枚举、必填字段等执行数据完整性核验。"""
@@ -146,5 +158,7 @@ class TaskRecord:
             target=src.get("target"),
             acceptance_criteria=src.get("acceptance_criteria") or src.get("criteria") or [],
             process=src.get("process") or [],
-            remarks=src.get("remarks")
+            remarks=src.get("remarks"),
+            contract=src.get("contract"),
+            return_contract=src.get("return_contract")
         )

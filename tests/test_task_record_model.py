@@ -36,7 +36,8 @@ def test_task_record_from_dict_and_to_dict():
     d = record.to_dict()
     assert d["id"] == "T0001"
     assert d["est_hours"] == 3.5
-    assert len(d.keys()) == 23
+    assert len(d.keys()) == 25
+    assert "contract" in d and "return_contract" in d
 
 
 def test_task_record_from_wrapped_fields():
