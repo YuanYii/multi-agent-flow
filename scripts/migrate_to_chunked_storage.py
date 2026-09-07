@@ -62,6 +62,40 @@ def atomic_write_yaml(target_yaml: str, payload_data: dict) -> bool:
         return False
 
 
+def _safe_parse_hours(val: Any) -> float:
+    """安全解析工时字段，支持 '1 min', '0.5h', '30m', '2.5' 等字符串或浮点数"""
+    if val is None:
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    s = str(val).strip().lower()
+    if not s or s in ("none", "null", ""):
+        return 0.0
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    m_min = re.search(r"^([\d\.]+)\s*(?:min|mins|分|分钟)$", s)
+    if m_min:
+        try:
+            return round(float(m_min.group(1)) / 60.0, 2)
+        except Exception:
+            return 0.0
+    m_hr = re.search(r"^([\d\.]+)\s*(?:h|hr|hrs|hour|hours|小时)$", s)
+    if m_hr:
+        try:
+            return float(m_hr.group(1))
+        except Exception:
+            return 0.0
+    m_num = re.search(r"[\d\.]+", s)
+    if m_num:
+        try:
+            return float(m_num.group(0))
+        except Exception:
+            return 0.0
+    return 0.0
+
+
 def normalize_task_for_ccp(raw_card: Dict[str, Any], default_seq: int) -> Dict[str, Any]:
     """将历史任务数据结构规范化为 CCP V2.0 标准卡片"""
     task_id = str(raw_card.get("id") or raw_card.get("task_id") or "").strip()
@@ -116,8 +150,8 @@ def normalize_task_for_ccp(raw_card: Dict[str, Any], default_seq: int) -> Dict[s
         "owner": raw_card.get("owner") or raw_card.get("assignee") or "李开发",
         "status": raw_card.get("status") or "待开始",
         "priority": raw_card.get("priority") or "中",
-        "est_hours": float(raw_card.get("est_hours") or raw_card.get("estimated_hours") or 0.0),
-        "act_hours": float(raw_card.get("act_hours") or raw_card.get("actual_hours") or 0.0),
+        "est_hours": _safe_parse_hours(raw_card.get("est_hours") or raw_card.get("estimated_hours")),
+        "act_hours": _safe_parse_hours(raw_card.get("act_hours") or raw_card.get("actual_hours")),
         "start_date": raw_card.get("start_date") or raw_card.get("start_time") or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "end_date": raw_card.get("end_date") or raw_card.get("end_time") or "",
         "remarks": raw_card.get("remarks") or "",
