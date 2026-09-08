@@ -1924,16 +1924,7 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </div>
         <h3 data-i18n="f3_h">Agent 强类型交接契约与「无工单不 Git」</h3>
-        <p data-i18n="f3_p">8 位 AI 专家间流转通过强类型 JSON Payload 结构化交接（含改动文件、覆盖率、缺陷历史）；外部 Commit 必须绑定真实工单，确保工程溯源。</p>
-      </div>
-
-      <!-- F4: 敏感凭据安全扫描与全量审计追溯 -->
-      <div class="feat-card">
-        <div class="feat-icon" style="background:rgba(239, 68, 68, 0.12); border-color:rgba(239, 68, 68, 0.25);">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
-        </div>
-        <h3 data-i18n="f4_h">敏感凭据安全扫描与全量审计追溯</h3>
-        <p data-i18n="f4_p">初始化首步运行 check_secrets.py 扫描 Token/密钥泄露风险；全量流转操作落盘结构化审计日志（audit_query.py），支持按 Task ID 全程回溯。</p>
+        <p data-i18n="f3_p">8 位 AI 专家间流转通过上下文连续性协议（CCP）与强类型任务契约结构化交接（含改动文件、覆盖率、缺陷历史与前置凭据）；外部 Commit 必须绑定真实工单，确保工程溯源。</p>
       </div>
 
       <!-- F5: 缺陷打回不拆单与原卡闭环追溯 -->
@@ -1963,13 +1954,22 @@
         <p data-i18n="f7_p">通过 /yy-flow auto 全自动执行完整生命周期至已验收，结合实际任务名称动态生成阶段交付实质总结，全生命周期注入【Agent Loop】备注并支持断点续跑。</p>
       </div>
 
-      <!-- F8: 心跳健康巡检与 14+ 效能雷达 -->
+      <!-- F9: CCP 两阶段确定性门禁管道 (2026-09 新增) -->
+      <div class="feat-card">
+        <div class="feat-icon" style="background:rgba(124, 108, 240, 0.12); border-color:rgba(124, 108, 240, 0.25);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 11.5 11.5 14 15.5 9.5"/></svg>
+        </div>
+        <h3 data-i18n="f9_h">CCP 两阶段确定性门禁管道</h3>
+        <p data-i18n="f9_p">派单准入与提审准出双闸门：派单时确定性校验任务契约（契约目标、允许改动白名单、严禁越界清单与前置凭据），提审时核验交付物与契约一致；配合 Tier 合规分级实现代码级 Fail-Closed 防越界。</p>
+      </div>
+
+      <!-- F10: 固定 50 任务分卷存储与启动自愈迁移 (2026-09 新增) -->
       <div class="feat-card">
         <div class="feat-icon" style="background:rgba(16, 185, 129, 0.12); border-color:rgba(16, 185, 129, 0.25);">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
         </div>
-        <h3 data-i18n="f8_h">心跳健康巡检与 14+ 效能雷达</h3>
-        <p data-i18n="f8_p">内置 heartbeat.py 自动化巡检引擎，支持工时纯秒级存储与 &lt;60s / &lt;3600s / ≥3600s 3 档自适应呈现，实时探测任务死锁、WIP 超限与瞬时冲卡（TIME_SKEW_INSTANT）。</p>
+        <h3 data-i18n="f10_h">固定 50 任务分卷存储与启动自愈迁移</h3>
+        <p data-i18n="f10_p">看板工单按 tasks_XXXX_YYYY.yaml 固定 50 任务容量物理分卷，原子并发控制杜绝脏写；启动看板时自动探测存量数据并无损平滑迁移（含物理备份），chunked / weekly / single 多模式平滑兼容。</p>
       </div>
     </div>
   </div>
@@ -1985,22 +1985,13 @@
     </div>
 
     <div class="features-grid">
-      <!-- C1: 动态 Master RBAC 与终态防篡改 -->
-      <div class="feat-card">
-        <div class="feat-icon" style="background:rgba(239, 68, 68, 0.12); border-color:rgba(239, 68, 68, 0.25);">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="3"/><line x1="14.5" y1="13.5" x2="17" y2="16"/></svg>
-        </div>
-        <h3 data-i18n="c1_h">动态 Master RBAC 与终态防篡改</h3>
-        <p data-i18n="c1_p">启动时生成 16 字节随机 Master Token 区分主控与协作者；协作者拖拽【已完成/已验收】卡片物理弹回拦截，高危按钮（删除工单、清空日志、阶段结项）受控锁定，捍卫基线不可逆流。</p>
-      </div>
-
       <!-- C2: 双层文件排他锁与全链路操作人审计 -->
       <div class="feat-card">
         <div class="feat-icon" style="background:rgba(124, 108, 240, 0.12); border-color:rgba(124, 108, 240, 0.25);">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
         </div>
         <h3 data-i18n="c2_h">双层文件排他锁与全链路操作人审计</h3>
-        <p data-i18n="c2_p">跨平台文件排他锁保障原子落盘，结合 If-Match 版本哈希比对与 HTTP 409 冲突控制防止脏写；自动解析 X-Operator-Name 与设备标识并追加记录 audit_trail.log，操作责任到人、设备可溯。</p>
+        <p data-i18n="c2_p">跨平台文件排他锁保障原子落盘，结合 If-Match 版本哈希比对与 HTTP 409 冲突控制防止脏写；自动解析 X-Operator-Name 与设备标识并追加记录 audit_trail.log，操作责任到人、设备可溯；工单数据以固定 50 任务分卷 YAML 物理落盘，多模式平滑兼容。</p>
       </div>
 
       <!-- C3: 0 中间件极简自启与一键脱敏分享 -->
@@ -2019,6 +2010,15 @@
         </div>
         <h3 data-i18n="c4_h">客户端偏好本地隔离与零云端开销</h3>
         <p data-i18n="c4_p">团队成员多设备并行查看看板，检索词、过滤项与泳道/表格/阶段 Tab 偏好在本地 LocalStorage 隔离存储互不干扰；全部数据私有驻留项目工作区随 Git 流转，0 SaaS 依赖、0 额外 Token 消耗。</p>
+      </div>
+
+      <!-- C5: 任务契约与 Tier 分级可视化 (2026-09 新增) -->
+      <div class="feat-card">
+        <div class="feat-icon" style="background:rgba(245, 158, 11, 0.12); border-color:rgba(245, 158, 11, 0.25);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <h3 data-i18n="c5_h">任务契约与 Tier 分级可视化</h3>
+        <p data-i18n="c5_p">看板卡片与详情弹窗实时渲染 Tier 合规分级徽标、CCP 任务上下文契约（契约目标、允许改动白名单、严禁越界清单、前置凭据）与交付回执，越权与超界风险一眼可辨。</p>
       </div>
     </div>
 
@@ -2418,16 +2418,16 @@ const I18N = {
     feat_sub: '以强类型交接契约、角色越权硬拦截、双向 Git 门禁与真实时序审计，杜绝自编自审黑盒与虚假完成。',
     f1_h: '阶段双向 Git 门禁与 5 项硬核验', f1_p: '阶段开工准入前序闭环与 Git 清洁度；结项执行看板全终态、WBS 对账、工作区 Clean、PR 合流与发布 Tag 5 项硬核验，防止脏代码入库。',
     f2_h: '十大 Agent 协同红线与角色越权拦截', f2_p: '代码级 Fail-Closed 拦截 Agent 越权操作，打破自编自审黑盒；阶段结项强制输出 D01–D06 规范下的架构技术总结（ADR）与敏捷复盘总结。',
-    f3_h: 'Agent 强类型交接契约与「无工单不 Git」', f3_p: '8 位 AI 专家间流转通过强类型 JSON Payload 结构化交接（含改动文件、覆盖率、缺陷历史）；外部 Commit 必须绑定真实工单，确保工程溯源。',
-    f4_h: '敏感凭据安全扫描与全量审计追溯', f4_p: '初始化首步运行 check_secrets.py 扫描 Token/密钥泄露风险；全量流转操作落盘结构化审计日志（audit_query.py），支持按 Task ID 全程回溯。',
+    f3_h: 'Agent 强类型交接契约与「无工单不 Git」', f3_p: '8 位 AI 专家间流转通过上下文连续性协议（CCP）与强类型任务契约结构化交接（含改动文件、覆盖率、缺陷历史与前置凭据）；外部 Commit 必须绑定真实工单，确保工程溯源。',
+    f9_h: 'CCP 两阶段确定性门禁管道', f9_p: '派单准入与提审准出双闸门：派单时确定性校验任务契约（契约目标、允许改动白名单、严禁越界清单与前置凭据），提审时核验交付物与契约一致；配合 Tier 合规分级实现代码级 Fail-Closed 防越界。',
+    f10_h: '固定 50 任务分卷存储与启动自愈迁移', f10_p: '看板工单按 tasks_XXXX_YYYY.yaml 固定 50 任务容量物理分卷，原子并发控制杜绝脏写；启动看板时自动探测存量数据并无损平滑迁移（含物理备份），chunked / weekly / single 多模式平滑兼容。',
     f5_h: '缺陷打回不拆单与原卡闭环追溯', f5_p: '测试与审查不通过时原卡打回（【已退回】）并自动挂载 DEF-TXXX-N 缺陷单，保留初始开工时间与返工痕迹，杜绝新建孤儿卡刷完工率。',
     f6_h: '统一入口网关与 L0–L2 智能分流', f6_p: '控制台指令直通运维底层；业务需求强制经分级三问网关判定（L0无卡直答、L1短链交付、L2全链制衡）；复合需求自动按 Mock-First 建立前后端级联。',
     f7_h: '全自动单任务流转与断点续跑', f7_p: '通过 /yy-flow auto 全自动执行完整生命周期至【已完成】并提请人类核验验收，结合实际任务名称动态生成阶段交付实质总结并支持断点续跑。',
-    f8_h: '心跳健康巡检与 14+ 效能雷达', f8_p: '内置 heartbeat.py 自动化巡检引擎，支持工时纯秒级存储与 <60s / <3600s / ≥3600s 3 档自适应呈现，实时探测任务死锁、WIP 超限与瞬时冲卡（TIME_SKEW_INSTANT）。',
     collab_tag: 'TEAM COLLABORATION & LAN WORKFLOW', collab_hd: '团队局域网多端协同',
     collab_sub: '专为研发团队局域网协作打造：Master RBAC 权限分立、终态防篡改、双层文件排他锁与多终端独立视口。',
-    c1_h: '动态 Master RBAC 与终态防篡改', c1_p: '启动时生成 16 字节随机 Master Token 区分主控与协作者；协作者拖拽【已完成/已验收】卡片物理弹回拦截，高危按钮（删除工单、清空日志、阶段结项）受控锁定，捍卫基线不可逆流。',
-    c2_h: '双层文件排他锁与全链路操作人审计', c2_p: '跨平台文件排他锁保障原子落盘，结合 If-Match 版本哈希比对与 HTTP 409 冲突控制防止脏写；自动解析 X-Operator-Name 与设备标识并追加记录 audit_trail.log，操作责任到人、设备可溯。',
+    c2_h: '双层文件排他锁与全链路操作人审计', c2_p: '跨平台文件排他锁保障原子落盘，结合 If-Match 版本哈希比对与 HTTP 409 冲突控制防止脏写；自动解析 X-Operator-Name 与设备标识并追加记录 audit_trail.log，操作责任到人、设备可溯；工单数据以固定 50 任务分卷 YAML 物理落盘，多模式平滑兼容。',
+    c5_h: '任务契约与 Tier 分级可视化', c5_p: '看板卡片与详情弹窗实时渲染 Tier 合规分级徽标、CCP 任务上下文契约（契约目标、允许改动白名单、严禁越界清单、前置凭据）与交付回执，越权与超界风险一眼可辨。',
     c3_h: '0 中间件极简自启与一键脱敏分享', c3_p: '基于 Python 标准库原生 HTTP 引擎（32886–32905 自动探测与复用），免装 Node/Redis/Nginx；引擎自适应嗅探物理局域网 IP，主控端一键复制剥离 Token 的纯净协作链接，团队秒级受控接入。',
     c4_h: '客户端偏好本地隔离与零云端开销', c4_p: '团队成员多设备并行查看看板，检索词、过滤项与泳道/表格/阶段 Tab 偏好在本地 LocalStorage 隔离存储互不干扰；全部数据私有驻留项目工作区随 Git 流转，0 SaaS 依赖、0 额外 Token 消耗。',
     collab_callout: '💡 <b>主控端与协作者端无缝协同</b>：技术主管或任务负责人持有 Master Token 统筹任务生命周期与终态流转；团队成员可使用任意设备免配环境接入看板，专注于各自任务的进度更新与明细查阅。',
@@ -2535,16 +2535,16 @@ const I18N = {
     feat_sub: 'Strongly-typed handover contracts, role authorization checks, bidirectional Git gates, and authentic time audit eliminate blackbox authoring and instant rushing.',
     f1_h: 'Bidirectional Stage Git Gates & 5 Hard Checks', f1_p: 'Stage entry verifies prior stage closure and Git hygiene; stage exit enforces kanban terminal state, WBS reconciliation, clean workspace, PR merging, and release tagging.',
     f2_h: '10 Agent Collaboration Redlines & Role Interception', f2_p: 'Fail-closed code checks block agent role violations to eliminate blackbox self-authoring; stage closure enforces Diátaxis-standard Architecture ADRs and PM Agile retrospectives.',
-    f3_h: 'Agent Typed Handover Contract & No-Task-No-Git', f3_p: '8 AI subagents transition tasks via strongly-typed JSON payloads (changed files, test coverage, defect history); external commits must strictly bind to genuine tasks.',
-    f4_h: 'Credential Security Scan & Audit Trail', f4_p: 'Initial setup runs check_secrets.py to detect token/key leaks; full workflow transitions are logged to audit files (audit_query.py) with task-level traceability.',
+    f3_h: 'Agent Typed Handover Contract & No-Task-No-Git', f3_p: '8 AI subagents transition tasks via the Context Continuity Protocol (CCP) and strongly-typed task contracts (changed files, coverage, defect history, and preconditions); external commits must strictly bind to genuine tasks.',
+    f9_h: 'CCP Two-Phase Deterministic Gate Pipeline', f9_p: 'Dual gates at dispatch admission and submission exit: dispatch deterministically validates the task contract (goal, allowed-change whitelist, out-of-scope list, preconditions), while submission verifies deliverables against the contract; paired with Tier compliance grading for fail-closed boundary defense.',
+    f10_h: 'Fixed 50-Task Chunked Storage & Auto-Healing Migration', f10_p: 'Board tasks are physically chunked into tasks_XXXX_YYYY.yaml volumes with a fixed 50-task capacity and atomic concurrency control; on kanban startup, legacy data is auto-detected and migrated losslessly (with physical backup), staying compatible across chunked / weekly / single modes.',
     f5_h: 'In-Place Defect Binding (DEF-TXXX-N)', f5_p: 'Rejections return to the original card with DEF structured defect tasks, retaining initial start timestamps and authentic rework lead times without orphan cards.',
     f6_h: 'Unified Gateway & L0–L2 Smart Tiering', f6_p: 'Control commands bypass directly to O&M tools; business intents pass through the 3-question gateway (L0 instant answer, L1 agile flow, L2 full governance); fullstack tasks cascade via Mock-First.',
     f7_h: 'Full Auto Task Flow & Dynamic Logs', f7_p: 'Run /yy-flow auto to fully automate lifecycle to Done and request human acceptance, dynamically generating substantive step summaries with 【Agent Loop】 tags and breakpoint resume.',
-    f8_h: 'Heartbeat Health Radar & 14+ Metrics', f8_p: 'Built-in heartbeat.py engine with pure-second duration storage and 3-tier adaptive formatting (<60s/min/h), detecting deadlocks, WIP limits, and instant rushing (TIME_SKEW_INSTANT).',
     collab_tag: 'TEAM COLLABORATION & LAN WORKFLOW', collab_hd: 'LAN Multi-Device Team Collaboration',
     collab_sub: 'Tailored for engineering teams: Master Token RBAC, terminal immutability, dual-layer file locks, and isolated client viewports.',
-    c1_h: 'Dynamic Master RBAC & Terminal Immutability', c1_p: 'Generates a 16-byte ephemeral Master Token on startup to isolate Master Admin rights; collaborator drags on Done/Accepted cards trigger physical bounce-back while locking high-risk buttons to protect delivery baselines.',
-    c2_h: 'Dual-Layer File Locks & Full Operator Audit Trail', c2_p: 'Cross-platform file locks guarantee atomic writes, paired with If-Match version hash and HTTP 409 conflict checks; auto-parses X-Operator-Name and device metadata to log into audit_trail.log with exact traceability.',
+    c2_h: 'Dual-Layer File Locks & Full Operator Audit Trail', c2_p: 'Cross-platform file locks guarantee atomic writes, paired with If-Match version hash and HTTP 409 conflict checks; auto-parses X-Operator-Name and device metadata to log into audit_trail.log with exact traceability; task data persists in fixed 50-task chunked YAML volumes with multi-mode compatibility.',
+    c5_h: 'Task Contract & Tier Grading Visualization', c5_p: 'Kanban cards and detail modals render Tier compliance badges, CCP task context contracts (goal, allowed-change whitelist, out-of-scope list, preconditions), and delivery receipts — making overreach and boundary violations visible at a glance.',
     c3_h: 'Zero-Dep Launch & One-Click Clean LAN Sharing', c3_p: 'Built-in Python HTTP engine auto-detects free ports in 32886–32905 without Node/Redis/Nginx; sniffs physical LAN IP and provides a one-click clean link copy feature (stripping token) for instant team onboarding.',
     c4_h: 'Isolated Client Preferences & Zero SaaS Cost', c4_p: 'Multi-device concurrent viewing across laptops and tablets with isolated filters and tab states in LocalStorage; all assets reside locally in the project repository under Git tracking with 0 extra token costs.',
     collab_callout: '💡 <b>Seamless Master & Collaborator Workflows</b>: Leads holding the Master Token govern stage exits and terminal transitions; team members access the board zero-config from any device to track progress.',
