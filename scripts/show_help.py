@@ -61,6 +61,14 @@ HELP_MANUAL = {
             "script": "scripts/auto_task.py --task \"<需求>\"",
             "typical_usage": "/yy-flow auto \"实现用户登录与鉴权接口\""
         },
+        {
+            "command": "/yy-flow trace",
+            "aliases": ["/yy-flow timeline", "/yy-flow trace-html"],
+            "title": "链路全景图鉴生成",
+            "description": "离线解析当前或指定会话 transcript.jsonl，秒级生成扁平化矢量链路全景 HTML（0 LLM Token 消耗）。",
+            "script": "scripts/generate_trace_html.py",
+            "typical_usage": "/yy-flow trace"
+        },
     ],
     "experts": [
         {"role": "PM", "name": "严经理", "title": "项目经理", "duties": "WBS 维护、任务分级（L0/L1/L2）、并发控制、阶段结项与终态验收"},

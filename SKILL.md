@@ -1,6 +1,6 @@
 ---
 name: yy-flow
-description: 适用于 AI 多 Agent 与人类团队协同研发的多角色状态流转、质量审计、防错闭环与看板自动化工作流技能包。可通过 /yy-flow help、/yy-flow start、/yy-flow status、/yy-flow kanban 快捷指令或自然语言唤醒。
+description: 适用于 AI 多 Agent 与人类团队协同研发的多角色状态流转、质量审计、防错闭环与看板自动化工作流技能包。可通过 /yy-flow help、/yy-flow start、/yy-flow status、/yy-flow kanban、/yy-flow trace 快捷指令或自然语言唤醒。
 version: 2.2.0
 ---
 
@@ -18,7 +18,7 @@ version: 2.2.0
 
 | 分支类型 | 触发特征与指令 | 处理机制与响应契约 | 典型场景 |
 | :--- | :--- | :--- | :--- |
-| **分支 A：系统控制台操作** | `/yy-flow help`<br>`/yy-flow start`<br>`/yy-flow status`<br>`/yy-flow kanban`<br>`/yy-flow sync-pr` | **直通底层运维引擎**（0 前置分级），直接执行对应脚本并输出系统状态。 | 查看帮助手册、初始化 SOP、启动看板、大盘巡检、PR 解阻 |
+| **分支 A：系统控制台操作** | `/yy-flow help`<br>`/yy-flow start`<br>`/yy-flow status`<br>`/yy-flow kanban`<br>`/yy-flow sync-pr`<br>`/yy-flow trace` | **直通底层运维引擎**（0 前置分级），直接执行对应脚本并输出系统状态。 | 查看帮助手册、初始化 SOP、启动看板、大盘巡检、PR 解阻、离线链路图鉴 |
 | **分支 B：业务研发与交互意图** | 自然语言需求、代码修改、特性开发、缺陷修复、排查排障、`/yy-flow auto` | **强制前置执行【分级三问与单一职责拆分】**，并在回复首行显式输出双标头标识：<br>`【任务分级: L0 即时问答 / L1 短链任务 / L2 标准研发】 | 【单一职责: 合规单卡 / 复合需求需拆解为 N 个原子任务】` | “写个登录接口”、“优化下正则”、“解释函数逻辑” |
 
 ### 2. 业务需求【分级三问】决策流
@@ -52,6 +52,7 @@ version: 2.2.0
 | **启动看板** | `python3 scripts/cli.py kanban` | `python3 scripts/start_kanban_server.py` | 默认启动于 `http://127.0.0.1:32886/` |
 | **健康度巡检** | `python3 scripts/cli.py status` | `python3 scripts/heartbeat.py` | 输出大盘健康度、阻塞卡片与效能指标 |
 | **连续性校验** | `python3 scripts/cli.py ccp ...` | `python3 scripts/cli.py ccp ...` | `--task-id T00xx --stage 审查中` 校验上下文连续性 |
+| **链路全景图鉴** | `python3 scripts/cli.py trace` | `python3 scripts/generate_trace_html.py` | 离线解析会话轨迹，秒级生成全景链路图鉴 HTML (0 Token) |
 
 ---
 

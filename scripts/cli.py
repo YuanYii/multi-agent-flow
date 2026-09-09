@@ -17,10 +17,10 @@ def print_usage():
     """
     打印 yy-flow 统一命令行工具的全景使用说明与典型示例。
     
-    展示所支持的 6 大核心子命令（task, dispatch, kanban, status, help, ccp）
+    展示所支持的 7 大核心子命令（task, dispatch, kanban, status, help, ccp, trace）
     以及常见研发场景下的标准调用示例。
     """
-    print("""usage: yy-flow [-h] {task,dispatch,kanban,status,help,ccp} ...
+    print("""usage: yy-flow [-h] {task,dispatch,kanban,status,help,ccp,trace} ...
 
 Multi-Agent Team Workflow (YY-Flow) 统一命令行工具
 
@@ -31,6 +31,7 @@ subcommands:
   status    大盘全局健康度巡检 (透明转发至 heartbeat)
   help      输出全景指令帮助手册 (透明转发至 show_help)
   ccp       上下文连续性协议门禁操作
+  trace     链路全景图鉴生成 (透明转发至 generate_trace_html，0 Token 消耗)
 
 示例:
   yy-flow task create --name "实现新接口" --type A --assignee 李开发
@@ -39,6 +40,7 @@ subcommands:
   yy-flow kanban --port 32886
   yy-flow status --json
   yy-flow ccp --task-id T0001 --stage 审查中
+  yy-flow trace
 """)
 
 
@@ -163,6 +165,19 @@ def cmd_ccp(extra_args):
         print(f"[!] 存在阻断未知项: {report.blocking_unknowns}")
 
 
+def cmd_trace(extra_args):
+    """
+    处理 trace 子命令：离线解析会话轨迹并秒级生成矢量链路全景图鉴 HTML（0 LLM Token 消耗）。
+    
+    参数:
+        extra_args (list[str]): 透传给 generate_trace_html 的参数列表。
+    """
+    from generate_trace_html import main as trace_main
+
+    sys.argv = [sys.argv[0]] + extra_args
+    trace_main()
+
+
 def main():
     """
     CLI 统一门面主调度入口函数。
@@ -191,6 +206,7 @@ def main():
         "status": cmd_status,
         "help": cmd_help,
         "ccp": cmd_ccp,
+        "trace": cmd_trace,
     }
 
     # 根据子命令命中情况分发调用；若遇到未知子命令，提示错误并按 Unix 规范返回退出码 2
