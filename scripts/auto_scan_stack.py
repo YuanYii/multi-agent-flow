@@ -28,9 +28,21 @@ def main():
                         help="目标项目目录（默认：当前工作目录）")
     parser.add_argument("--json", action="store_true",
                         help="以 JSON 格式输出供管道消费")
+    parser.add_argument("--merge", action="store_true",
+                        help="策略 B: 自动将探测到的新技术栈静默增量合并至架构配置")
     args = parser.parse_args()
 
     info = scan_project_stack(args.target_dir)
+
+    # 策略 B: 静默合并增量技术栈
+    if args.merge:
+        from update_project_profile import load_or_init_arch_config, merge_detected_tech_stack
+        from _lib.discovery.arch_persister import save_architecture_config
+        arch_data = load_or_init_arch_config()
+        added = merge_detected_tech_stack(arch_data, info, silent=args.json)
+        save_architecture_config(arch_data, skip_export=True)
+        if not args.json and added:
+            print(f"[AUTO-MERGE] 策略 B 自动静默合并新发现技术栈: {', '.join(added)}")
 
     # 管道消费模式：仅输出纯 JSON，避免 Banner 文本污染 stdout 导致 jq / json.loads 解析失败
     if args.json:

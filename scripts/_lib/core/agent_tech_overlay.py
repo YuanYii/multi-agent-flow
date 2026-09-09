@@ -10,6 +10,7 @@
 
 import os
 import sys
+import re
 
 import paths as _paths
 
@@ -90,9 +91,34 @@ def _test_framework(arch_data):
     return _clean_str(raw) or "pytest"
 
 
+def interpolate_custom_paths(data, docs_name: str):
+    """
+    当项目配置了非默认文档目录（非 'docs'）时，
+    将角色数据中的 'docs/' 路径引用动态替换为 '{docs_name}/'。
+    """
+    if not docs_name or docs_name == "docs":
+        return data
+
+    if isinstance(data, str):
+        return re.sub(r'(?<![a-zA-Z0-9_])docs/', f'{docs_name}/', data)
+    elif isinstance(data, list):
+        return [interpolate_custom_paths(item, docs_name) for item in data]
+    elif isinstance(data, dict):
+        return {k: interpolate_custom_paths(v, docs_name) for k, v in data.items()}
+    return data
+
+
 def apply_tech_stack_to_role(role_data: dict, arch_data: dict, role_key: str) -> dict:
-    """把项目技术栈与 3~5 项专属技术能力合并进角色定义（内存中；不落盘）。无 arch_data 时原样返回。"""
-    if not arch_data or not isinstance(role_data, dict):
+    """把项目技术栈与 3~5 项专属技术能力合并进角色定义（内存中；不落盘），并动态替换自定义路径。"""
+    if not isinstance(role_data, dict):
+        return role_data
+
+    # 1. 动态覆盖项目文档与工程路径
+    docs_name = _paths.custom_docs_name()
+    if docs_name and docs_name != "docs":
+        role_data = interpolate_custom_paths(role_data, docs_name)
+
+    if not arch_data:
         return role_data
 
     lang_str = _lang_str(arch_data)

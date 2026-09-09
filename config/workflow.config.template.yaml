@@ -8,6 +8,10 @@ project:
   version: "1.0.0"
   root_dir: "./"
 
+# 项目路径定制 (可选，默认 docs 为 ./docs；支持修改为任意相对或绝对路径，如 documentation / wiki)
+paths:
+  docs_root: "docs"
+
 # 看板配置 (支持 feishu_base, jira, github_projects, local)
 # 离线模式示例 (无需任何凭证/网络, 数据存本地 user_data/board.json):
 #   board:

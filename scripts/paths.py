@@ -125,9 +125,50 @@ def locks_dir(**kw) -> str:
     return os.path.join(user_data_dir(**kw), "locks")
 
 
+def load_runtime_workflow_config(**kw) -> dict:
+    """加载当前激活的 workflow.config.yaml 字典，文件不存在或解析失败返回空字典。"""
+    import yaml
+    pr_kw = {k: v for k, v in kw.items() if k in ("explicit", "env", "cwd")}
+    cfg_path = resolve_runtime_config(
+        explicit=pr_kw.get("explicit"),
+        env=pr_kw.get("env"),
+        cwd=pr_kw.get("cwd")
+    )
+    if os.path.isfile(cfg_path):
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}
+        except Exception:
+            return {}
+    return {}
+
+
 def docs_root(**kw) -> str:
-    """项目交付文档根：恒定项目根下（交付物不进工具私有目录）。"""
-    return os.path.join(project_root(**kw), "docs")
+    """项目交付文档根：优先从 workflow.config.yaml 读取 paths.docs_root / paths.docs_dir / docs_dir，默认回退至 project_root/docs。"""
+    pr_kw = {k: v for k, v in kw.items() if k in ("explicit", "env", "cwd")}
+    custom_dir = kw.get("docs_dir") or kw.get("docs_root")
+    if not custom_dir:
+        cfg = load_runtime_workflow_config(**kw)
+        paths_cfg = cfg.get("paths", {}) or {}
+        custom_dir = paths_cfg.get("docs_root") or paths_cfg.get("docs_dir") or cfg.get("docs_dir")
+
+    if custom_dir:
+        if os.path.isabs(custom_dir):
+            return os.path.abspath(custom_dir)
+        return os.path.abspath(os.path.join(project_root(**pr_kw), custom_dir))
+    return os.path.join(project_root(**pr_kw), "docs")
+
+
+def custom_docs_name(**kw) -> str:
+    """获取文档目录相对于 project_root 的相对目录名（默认为 'docs'）。"""
+    pr_kw = {k: v for k, v in kw.items() if k in ("explicit", "env", "cwd")}
+    root = project_root(**pr_kw)
+    d_root = docs_root(**kw)
+    try:
+        rel = os.path.relpath(d_root, root)
+        return rel if rel and not rel.startswith("..") else os.path.basename(d_root)
+    except Exception:
+        return os.path.basename(d_root)
 
 
 def tasks_dir(**kw) -> str:
