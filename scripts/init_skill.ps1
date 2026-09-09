@@ -75,9 +75,10 @@ python "$ScriptDir\auto_scan_stack.py"
 
 Write-Host "[CONFIG]  [Step 4/7] 初始化宿主数据资产目录 user_data/ 并生成工作流与架构配置..." -ForegroundColor Yellow
 $UserDataDir = "$DataRoot\user_data"
+$UserDataTasks = "$DataRoot\user_data\tasks"
 $UserDataLogs = "$DataRoot\user_data\logs"
 $UserDataLocks = "$DataRoot\user_data\locks"
-foreach ($d in @($UserDataDir, $UserDataLogs, $UserDataLocks)) {
+foreach ($d in @($UserDataDir, $UserDataTasks, $UserDataLogs, $UserDataLocks)) {
     if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d | Out-Null }
 }
 
@@ -130,22 +131,27 @@ $DocsRoot = & $pyCmd "$ScriptDir\paths.py" --docs-root 2>$null
 if (-not $DocsRoot -or $LASTEXITCODE -ne 0) {
     $DocsRoot = Join-Path $ProjRoot "docs"
 }
-$DocsDirs = @(
-    "$DocsRoot\D01-项目管理\D01-需求",
-    "$DocsRoot\D01-项目管理\D02-状态报告",
-    "$DocsRoot\D02-架构设计",
-    "$DocsRoot\D03-业务模块",
-    "$DocsRoot\D04-研发过程\D01-任务",
-    "$DocsRoot\D04-研发过程\D02-报告",
-    "$DocsRoot\D04-研发过程\D03-操作手册",
-    "$DocsRoot\D05-规范标准",
-    "$DocsRoot\D06-文档模板",
-    "$DocsRoot\草稿箱"
-)
-foreach ($dir in $DocsDirs) {
-    if (-not (Test-Path $dir)) {
-        New-Item -ItemType Directory -Path $dir | Out-Null
+
+# 仅当宿主项目完全无任何既有文档目录规范时，才建立推荐的标准文档骨架；若已有文档目录，则坚决尊重既有结构，不强行注入 D01~D06
+if (-not $ExistingDocsDir) {
+    $DocsDirs = @(
+        "$DocsRoot\D01-项目管理\D01-需求",
+        "$DocsRoot\D01-项目管理\D02-状态报告",
+        "$DocsRoot\D02-架构设计",
+        "$DocsRoot\D03-业务模块",
+        "$DocsRoot\D04-研发过程\D02-报告",
+        "$DocsRoot\D04-研发过程\D03-操作手册",
+        "$DocsRoot\D05-规范标准",
+        "$DocsRoot\D06-文档模板",
+        "$DocsRoot\草稿箱"
+    )
+    foreach ($dir in $DocsDirs) {
+        if (-not (Test-Path $dir)) {
+            New-Item -ItemType Directory -Path $dir | Out-Null
+        }
     }
+} else {
+    Write-Host "  - 检测到宿主已存在文档目录规范 ($ExistingDocsDir)，尊重宿主既有目录，跳过 D01~D06 骨架注入。" -ForegroundColor Gray
 }
 
 python "$ScriptDir\migrate_legacy_docs.py"

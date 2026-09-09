@@ -147,6 +147,39 @@ class TestDerivedDirs:
         got = paths.audit_logs_dir(env={"YY_FLOW_PROJECT_ROOT": str(tmp_path)})
         assert got == str(tmp_path / "user_data" / "logs")
 
+    def test_tasks_dir_default_under_user_data(self, tmp_path, monkeypatch):
+        """新版默认：tasks_dir 收敛至 user_data/tasks/"""
+        fake_skill = tmp_path / "fakeskill"
+        (fake_skill / "scripts").mkdir(parents=True)
+        monkeypatch.setattr(paths, "_SCRIPT_DIR", str(fake_skill / "scripts"))
+        env = {"YY_FLOW_PROJECT_ROOT": str(tmp_path / ".yy-flow")}
+        got = paths.tasks_dir(env=env)
+        assert got == str(tmp_path / ".yy-flow" / "user_data" / "tasks")
+
+    def test_tasks_dir_legacy_fallback(self, tmp_path, monkeypatch):
+        """存量老项目兼容：若 docs/D04-研发过程/D01-任务 存在且含任务文件，沿用旧路径"""
+        fake_skill = tmp_path / "fakeskill"
+        (fake_skill / "scripts").mkdir(parents=True)
+        monkeypatch.setattr(paths, "_SCRIPT_DIR", str(fake_skill / "scripts"))
+        legacy = tmp_path / "docs" / "D04-研发过程" / "D01-任务"
+        legacy.mkdir(parents=True)
+        (legacy / "tasks_0001_0050.yaml").write_text("tasks: []", encoding="utf-8")
+        env = {"YY_FLOW_PROJECT_ROOT": str(tmp_path / ".yy-flow")}
+        got = paths.tasks_dir(env=env)
+        assert got == str(legacy)
+
+    def test_tasks_dir_custom_config_override(self, tmp_path, monkeypatch):
+        """显式配置覆盖：优先遵循 workflow.config.yaml 中的 paths.task_breakdown_dir"""
+        fake_skill = tmp_path / "fakeskill"
+        (fake_skill / "scripts").mkdir(parents=True)
+        monkeypatch.setattr(paths, "_SCRIPT_DIR", str(fake_skill / "scripts"))
+        user_data = tmp_path / ".yy-flow" / "user_data"
+        user_data.mkdir(parents=True)
+        (user_data / "workflow.config.yaml").write_text("paths:\n  task_breakdown_dir: 'custom/tasks/'\n", encoding="utf-8")
+        env = {"YY_FLOW_PROJECT_ROOT": str(tmp_path / ".yy-flow")}
+        got = paths.tasks_dir(env=env)
+        assert got == str(tmp_path / "custom" / "tasks")
+
 
 class TestYyFlowLayout:
     """新布局: skill 位于 <X>/.yy-flow/skill → 数据根 <X>/.yy-flow，docs 留 <X>"""

@@ -78,7 +78,7 @@ echo "[SCAN]  [Step 3/7] 自动代码物理扫描工程基础设施、依赖文�
 python3 "${SCRIPT_DIR}/auto_scan_stack.py"
 
 echo "[CONFIG]  [Step 4/7] 初始化宿主数据资产目录 user_data/ 并生成工作流与架构配置..."
-mkdir -p "${DATA_ROOT}/user_data" "${DATA_ROOT}/user_data/logs" "${DATA_ROOT}/user_data/locks"
+mkdir -p "${DATA_ROOT}/user_data" "${DATA_ROOT}/user_data/tasks" "${DATA_ROOT}/user_data/logs" "${DATA_ROOT}/user_data/locks"
 
 if [ ! -f "${DATA_ROOT}/user_data/workflow.config.yaml" ]; then
     cp "${SKILL_ROOT}/config/workflow.config.template.yaml" "${DATA_ROOT}/user_data/workflow.config.yaml"
@@ -125,16 +125,21 @@ DOCS_ROOT="$(python3 "${SCRIPT_DIR}/paths.py" --docs-root 2>/dev/null || echo ""
 if [ -z "${DOCS_ROOT}" ]; then
     DOCS_ROOT="${PROJ_ROOT}/docs"
 fi
-mkdir -p "${DOCS_ROOT}/D01-项目管理/D01-需求" \
-         "${DOCS_ROOT}/D01-项目管理/D02-状态报告" \
-         "${DOCS_ROOT}/D02-架构设计" \
-         "${DOCS_ROOT}/D03-业务模块" \
-         "${DOCS_ROOT}/D04-研发过程/D01-任务" \
-         "${DOCS_ROOT}/D04-研发过程/D02-报告" \
-         "${DOCS_ROOT}/D04-研发过程/D03-操作手册" \
-         "${DOCS_ROOT}/D05-规范标准" \
-         "${DOCS_ROOT}/D06-文档模板" \
-         "${DOCS_ROOT}/草稿箱"
+
+# 仅当宿主项目完全无任何既有文档目录规范时，才建立推荐的标准文档骨架；若已有文档目录，则坚决尊重既有结构，不强行注入 D01~D06
+if [ -z "${EXISTING_DOCS_DIR}" ]; then
+    mkdir -p "${DOCS_ROOT}/D01-项目管理/D01-需求" \
+             "${DOCS_ROOT}/D01-项目管理/D02-状态报告" \
+             "${DOCS_ROOT}/D02-架构设计" \
+             "${DOCS_ROOT}/D03-业务模块" \
+             "${DOCS_ROOT}/D04-研发过程/D02-报告" \
+             "${DOCS_ROOT}/D04-研发过程/D03-操作手册" \
+             "${DOCS_ROOT}/D05-规范标准" \
+             "${DOCS_ROOT}/D06-文档模板" \
+             "${DOCS_ROOT}/草稿箱"
+else
+    echo "  - 检测到宿主已存在文档目录规范 (${EXISTING_DOCS_DIR})，尊重宿主既有目录，跳过 D01~D06 骨架注入。"
+fi
 
 python3 "${SCRIPT_DIR}/migrate_legacy_docs.py"
 

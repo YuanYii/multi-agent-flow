@@ -131,11 +131,19 @@ def locks_dir(**kw) -> str:
 def load_runtime_workflow_config(**kw) -> dict:
     """加载当前激活的 workflow.config.yaml 字典，文件不存在或解析失败返回空字典。"""
     import yaml
-    pr_kw = {k: v for k, v in kw.items() if k in ("explicit", "env", "cwd")}
+    explicit_val = kw.get("explicit")
+    explicit_cfg = None
+    cwd_val = kw.get("cwd")
+    if explicit_val:
+        if os.path.isfile(explicit_val):
+            explicit_cfg = explicit_val
+        elif os.path.isdir(explicit_val) and not cwd_val:
+            cwd_val = explicit_val
+
     cfg_path = resolve_runtime_config(
-        explicit=pr_kw.get("explicit"),
-        env=pr_kw.get("env"),
-        cwd=pr_kw.get("cwd")
+        explicit=explicit_cfg,
+        env=kw.get("env"),
+        cwd=cwd_val
     )
     if os.path.isfile(cfg_path):
         try:
@@ -186,8 +194,38 @@ def custom_docs_name(**kw) -> str:
 
 
 def tasks_dir(**kw) -> str:
-    """研发任务卡周口径存储根目录（docs/D04-研发过程/D01-任务，严格符合 3 级深度红线）"""
-    path = os.path.join(docs_root(**kw), "D04-研发过程", "D01-任务")
+    """研发任务卡存储目录解析链：
+    1. 显式配置：workflow.config.yaml 中的 paths.task_breakdown_dir；
+    2. 存量兼容：若旧路径 <docs_root>/D04-研发过程/D01-任务 物理存在且包含任务文件（tasks_*.yaml 或 *-W*.yaml），沿用旧路径；
+    3. 新版默认：统一收敛至 <data_root>/user_data/tasks/（零侵入宿主业务文档）。
+    """
+    pr_kw = {k: v for k, v in kw.items() if k in ("explicit", "env", "cwd")}
+    cfg = load_runtime_workflow_config(**kw)
+    paths_cfg = cfg.get("paths", {}) or {}
+    custom_dir = paths_cfg.get("task_breakdown_dir")
+
+    # 1. 显式配置覆盖
+    if custom_dir:
+        if os.path.isabs(custom_dir):
+            path = os.path.abspath(custom_dir)
+        else:
+            path = os.path.abspath(os.path.join(project_root(**pr_kw), custom_dir))
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    # 2. 存量老项目兼容：若旧版文档路径存在且含任务文件，保持兼容读取
+    legacy_dir = os.path.join(docs_root(**kw), "D04-研发过程", "D01-任务")
+    if os.path.isdir(legacy_dir):
+        try:
+            for fname in os.listdir(legacy_dir):
+                if (fname.startswith("tasks_") and fname.endswith((".yaml", ".yml"))) or \
+                   ("-W" in fname and fname.endswith((".yaml", ".yml"))):
+                    return legacy_dir
+        except Exception:
+            pass
+
+    # 3. 新版默认收敛至 user_data/tasks/ (即 <data_root>/user_data/tasks)
+    path = os.path.join(user_data_dir(**kw), "tasks")
     os.makedirs(path, exist_ok=True)
     return path
 

@@ -100,7 +100,7 @@ roles:
 # 文档与产出目录映射（5 级体系）
 paths:
   docs_root: "docs/"
-  task_breakdown_dir: "docs/D04-研发过程/D01-任务/"
+  task_breakdown_dir: ".yy-flow/user_data/tasks/"  # 任务卡存储目录（缺省收敛至 user_data/tasks/，零侵入业务文档）
   dev_reports_dir: "docs/D04-研发过程/D02-报告/dev/"
   review_reports_dir: "docs/D04-研发过程/D02-报告/review/"
   qa_reports_dir: "docs/D04-研发过程/D02-报告/qa/"

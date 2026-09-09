@@ -20,14 +20,17 @@ def sandbox_env():
     tmp_dir = tempfile.mkdtemp(prefix="kanban_test_")
     user_data_dir = os.path.join(tmp_dir, "user_data")
     os.makedirs(user_data_dir, exist_ok=True)
-    tasks_dir = os.path.join(tmp_dir, "docs", "D04-研发过程", "D01-任务")
+    tasks_dir = os.path.join(user_data_dir, "tasks")
     os.makedirs(tasks_dir, exist_ok=True)
+    legacy_tasks_dir = os.path.join(tmp_dir, "docs", "D04-研发过程", "D01-任务")
+    os.makedirs(legacy_tasks_dir, exist_ok=True)
     cfg_path = os.path.join(user_data_dir, "workflow.config.yaml")
 
     yield {
         "root": tmp_dir,
         "user_data": user_data_dir,
         "tasks_dir": tasks_dir,
+        "legacy_tasks_dir": legacy_tasks_dir,
         "config_path": cfg_path,
     }
 

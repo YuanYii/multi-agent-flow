@@ -101,7 +101,73 @@ def test_init_skill_sh_execution(tmp_path):
     assert (proj / ".yy-flow" / "user_data" / "workflow.config.yaml").is_file()
     assert (proj / ".yy-flow" / "user_data" / "stray.txt").is_file()
 
-    # 4. 验证骨架生成在 项目文档/ 而不是新建 docs/
+    # 4. 验证任务分卷收敛至 .yy-flow/user_data/tasks，且由于宿主已有文档目录规范，未强行注入 D01~D06
     assert not (proj / "docs").exists()
-    assert (proj / "项目文档" / "D01-项目管理" / "D01-需求").is_dir()
-    assert (proj / "项目文档" / "D04-研发过程" / "D01-任务").is_dir()
+    assert (proj / ".yy-flow" / "user_data" / "tasks").is_dir()
+    assert (proj / ".yy-flow" / "user_data" / "tasks" / "tasks_0001_0050.yaml").is_file()
+    assert not (proj / "项目文档" / "D01-项目管理").exists()
+    assert not (proj / "项目文档" / "D04-研发过程").exists()
+
+
+def test_init_skill_sh_on_fresh_project_creates_docs_skeleton(tmp_path):
+    """测试在完全无既有文档的空白项目中，init_skill.sh 建立默认推荐文档骨架"""
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    init_script = os.path.join(repo_root, "scripts", "init_skill.sh")
+
+    proj = tmp_path / "fresh_proj"
+    proj.mkdir()
+    (proj / ".git").mkdir()
+
+    clean_env = {k: v for k, v in os.environ.items() if k != "YY_FLOW_PROJECT_ROOT"}
+    res = subprocess.run(
+        ["bash", init_script],
+        cwd=str(proj),
+        capture_output=True,
+        text=True,
+        env=clean_env
+    )
+    assert res.returncode == 0
+
+    # 空白项目建立 docs/ 默认推荐骨架
+    assert (proj / "docs" / "D01-项目管理" / "D01-需求").is_dir()
+    # 任务分卷依然干净落入 .yy-flow/user_data/tasks
+    assert (proj / ".yy-flow" / "user_data" / "tasks" / "tasks_0001_0050.yaml").is_file()
+
+
+def test_migration_from_legacy_docs_tasks_to_user_data_tasks(tmp_path, monkeypatch):
+    """验证从旧路径 docs/D04-研发过程/D01-任务 存量分卷自动平滑迁移至 user_data/tasks/"""
+    from migrate_to_chunked_storage import migrate_to_chunked_storage
+    proj = tmp_path / "legacy_proj"
+    proj.mkdir()
+
+    # 模拟旧版存量文档路径与任务分卷
+    old_tasks_dir = proj / "docs" / "D04-研发过程" / "D01-任务"
+    old_tasks_dir.mkdir(parents=True)
+    legacy_chunk = {
+        "metadata": {"chunk_id": "tasks_0001_0050", "start_seq": 1, "end_seq": 50},
+        "tasks": [
+            {"id": "T0001", "name": "历史任务1", "status": "已完成", "seq": 1},
+            {"id": "T0002", "name": "历史任务2", "status": "待开始", "seq": 2}
+        ]
+    }
+    import yaml
+    with open(old_tasks_dir / "tasks_0001_0050.yaml", "w", encoding="utf-8") as f:
+        yaml.safe_dump(legacy_chunk, f)
+
+    fake_skill = tmp_path / "fakeskill"
+    (fake_skill / "scripts").mkdir(parents=True)
+    monkeypatch.setattr(paths, "_SCRIPT_DIR", str(fake_skill / "scripts"))
+    monkeypatch.setenv("YY_FLOW_PROJECT_ROOT", str(proj / ".yy-flow"))
+    monkeypatch.chdir(proj)
+
+    ok = migrate_to_chunked_storage(project_root=str(proj))
+    assert ok
+
+    # 验证任务已合并归集至新版 .yy-flow/user_data/tasks/
+    new_chunk = proj / ".yy-flow" / "user_data" / "tasks" / "tasks_0001_0050.yaml"
+    assert new_chunk.is_file()
+    with open(new_chunk, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    tids = [t["id"] for t in data.get("tasks", [])]
+    assert "T0001" in tids
+    assert "T0002" in tids

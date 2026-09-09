@@ -52,7 +52,6 @@ def update_docs_directory(new_docs_dir: str, silent: bool = False) -> bool:
     # 确保目标实体物理目录就绪
     target_full_path = _paths.docs_root(docs_dir=new_docs_dir)
     os.makedirs(target_full_path, exist_ok=True)
-    os.makedirs(os.path.join(target_full_path, "D04-研发过程", "D01-任务"), exist_ok=True)
 
     if not silent:
         print(f"[SUCCESS] 项目文档目录已更新为: {new_docs_dir} (物理路径: {target_full_path})")

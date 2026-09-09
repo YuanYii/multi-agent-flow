@@ -1925,14 +1925,26 @@ def _check_and_auto_migrate_to_chunked(data_root: str = _DATA_ROOT) -> bool:
             except Exception:
                 pass
 
-        has_legacy_weekly = False
-        if os.path.exists(tasks_dir):
-            for fn in os.listdir(tasks_dir):
-                if _WEEK_FILENAME_RE.match(fn):
-                    has_legacy_weekly = True
-                    break
+        legacy_doc_dir = os.path.join(_paths.docs_root(), "D04-研发过程", "D01-任务")
+        check_dirs = [tasks_dir]
+        if os.path.abspath(legacy_doc_dir) != os.path.abspath(tasks_dir) and os.path.isdir(legacy_doc_dir):
+            check_dirs.append(legacy_doc_dir)
 
-        if has_legacy_board or has_legacy_weekly:
+        has_legacy_weekly = False
+        has_legacy_docs_tasks = False
+        for cdir in check_dirs:
+            if os.path.exists(cdir):
+                for fn in os.listdir(cdir):
+                    if _WEEK_FILENAME_RE.match(fn):
+                        has_legacy_weekly = True
+                        break
+                    if cdir == legacy_doc_dir and fn.startswith("tasks_") and fn.endswith((".yaml", ".yml")):
+                        has_legacy_docs_tasks = True
+                        break
+            if has_legacy_weekly or has_legacy_docs_tasks:
+                break
+
+        if has_legacy_board or has_legacy_weekly or has_legacy_docs_tasks:
             print("\n" + "=" * 70)
             print("[MIGRATE] 启动检查：检测到存量看板数据尚未升级为 50 任务分卷模式")
             print("[MIGRATE] 正在执行全自动平滑迁移与物理备份...")

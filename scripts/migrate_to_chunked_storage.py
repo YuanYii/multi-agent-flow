@@ -173,18 +173,47 @@ def normalize_task_for_ccp(raw_card: Dict[str, Any], default_seq: int) -> Dict[s
 
 def migrate_to_chunked_storage(project_root: Optional[str] = None, dry_run: bool = False) -> bool:
     """执行存量数据向固定 50 任务分卷的平滑迁移"""
-    data_root = paths.resolve_data_root(explicit=project_root) if project_root else paths.resolve_data_root()
-    tasks_dir = paths.tasks_dir()
-    os.makedirs(tasks_dir, exist_ok=True)
+    if project_root:
+        pr_abs = os.path.abspath(project_root)
+        if os.path.basename(pr_abs) == ".yy-flow":
+            data_root = pr_abs
+            host_proj = os.path.dirname(pr_abs)
+        elif os.path.isdir(os.path.join(pr_abs, ".yy-flow")):
+            data_root = os.path.join(pr_abs, ".yy-flow")
+            host_proj = pr_abs
+        else:
+            data_root = paths.resolve_data_root(cwd=pr_abs)
+            host_proj = pr_abs
+    else:
+        data_root = paths.resolve_data_root()
+        host_proj = paths.project_root()
+
     user_data_dir = os.path.join(data_root, "user_data")
     os.makedirs(user_data_dir, exist_ok=True)
 
+    # 确定目标分卷目录：若配置中显式指定了 paths.task_breakdown_dir，则遵循配置；否则目标统一收敛至 user_data/tasks
+    p_kw = {"explicit": data_root, "cwd": host_proj}
+    target_tasks_dir = os.path.join(user_data_dir, "tasks")
+    try:
+        cfg = paths.load_runtime_workflow_config(**p_kw)
+        p_cfg = (cfg.get("paths") or {}).get("task_breakdown_dir")
+        if p_cfg:
+            if os.path.isabs(p_cfg):
+                target_tasks_dir = os.path.abspath(p_cfg)
+            else:
+                target_tasks_dir = os.path.abspath(os.path.join(host_proj, p_cfg))
+    except Exception:
+        pass
+
+    os.makedirs(target_tasks_dir, exist_ok=True)
+
     print(f"[CCP Migration] 开始执行存量任务数据迁移至固定 50 任务分卷...")
-    print(f"[CCP Migration] 目标分卷目录: {tasks_dir}")
+    print(f"[CCP Migration] 目标分卷目录: {target_tasks_dir}")
 
     all_raw_tasks: List[Dict[str, Any]] = []
     seen_ids = set()
     seen_weekly_files: List[str] = []
+    seen_legacy_files: List[str] = []
 
     # 1. 扫描存量 user_data/board.json
     board_json = os.path.join(user_data_dir, "board.json")
@@ -202,11 +231,11 @@ def migrate_to_chunked_storage(project_root: Optional[str] = None, dry_run: bool
         except Exception as e:
             sys.stderr.write(f"[WARN] 读取 {board_json} 失败: {e}\n")
 
-    # 2. 扫描存量自然周 YYYY-Www.yaml
-    if os.path.exists(tasks_dir):
-        for fname in sorted(os.listdir(tasks_dir)):
+    # 2. 扫描目标目录 target_tasks_dir 中的存量周文件 YYYY-Www.yaml 或已有 chunk
+    if os.path.exists(target_tasks_dir):
+        for fname in sorted(os.listdir(target_tasks_dir)):
+            fpath = os.path.join(target_tasks_dir, fname)
             if _WEEK_FILENAME_RE.match(fname):
-                fpath = os.path.join(tasks_dir, fname)
                 seen_weekly_files.append(fpath)
                 try:
                     with open(fpath, "r", encoding="utf-8") as f:
@@ -221,6 +250,40 @@ def migrate_to_chunked_storage(project_root: Optional[str] = None, dry_run: bool
                                 seen_ids.add(tid)
                 except Exception as e:
                     sys.stderr.write(f"[WARN] 读取周文件 {fpath} 失败: {e}\n")
+            elif _CHUNK_FILENAME_RE.match(fname):
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        c_data = yaml.safe_load(f)
+                    if isinstance(c_data, dict) and isinstance(c_data.get("tasks"), list):
+                        for item in c_data.get("tasks", []):
+                            tid = item.get("id") or item.get("task_id")
+                            if tid and tid not in seen_ids:
+                                all_raw_tasks.append(item)
+                                seen_ids.add(tid)
+                except Exception as e:
+                    sys.stderr.write(f"[WARN] 读取目标已有分卷 {fpath} 失败: {e}\n")
+
+    # 2.5 扫描旧版文档路径 <docs_root>/D04-研发过程/D01-任务 中的存量分卷或周文件（若与目标目录不同）
+    docs_dir = paths.docs_root(**p_kw)
+    legacy_doc_tasks_dir = os.path.join(docs_dir, "D04-研发过程", "D01-任务")
+    if os.path.abspath(legacy_doc_tasks_dir) != os.path.abspath(target_tasks_dir) and os.path.exists(legacy_doc_tasks_dir):
+        for fname in sorted(os.listdir(legacy_doc_tasks_dir)):
+            if _CHUNK_FILENAME_RE.match(fname) or _WEEK_FILENAME_RE.match(fname):
+                fpath = os.path.join(legacy_doc_tasks_dir, fname)
+                seen_legacy_files.append(fpath)
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        c_data = yaml.safe_load(f)
+                    if isinstance(c_data, dict) and isinstance(c_data.get("tasks"), list):
+                        c_tasks = c_data.get("tasks", [])
+                        print(f"[CCP Migration] 从旧版文档目录 {fname} 发现 {len(c_tasks)} 条历史任务")
+                        for item in c_tasks:
+                            tid = item.get("id") or item.get("task_id")
+                            if tid and tid not in seen_ids:
+                                all_raw_tasks.append(item)
+                                seen_ids.add(tid)
+                except Exception as e:
+                    sys.stderr.write(f"[WARN] 读取旧版文档任务文件 {fpath} 失败: {e}\n")
 
     if not all_raw_tasks:
         print("[CCP Migration] 未发现待迁移的历史任务数据，工作区已处于干净状态。")
@@ -247,7 +310,7 @@ def migrate_to_chunked_storage(project_root: Optional[str] = None, dry_run: bool
         # 写入各分卷
         for (s_id, e_id), tasks_in_chunk in sorted(chunks_map.items()):
             chunk_filename = f"tasks_{s_id:04d}_{e_id:04d}.yaml"
-            target_path = os.path.join(tasks_dir, chunk_filename)
+            target_path = os.path.join(target_tasks_dir, chunk_filename)
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
             # 若目标分卷已存在，执行增量合并（依 ID 去重）
@@ -289,9 +352,9 @@ def migrate_to_chunked_storage(project_root: Optional[str] = None, dry_run: bool
                     sys.stderr.write(f"[CCP Migration FAILED] 写入分卷 {chunk_filename} 失败！\n")
                     return False
 
-        # 归档历史周 YAML 文件，防止在 tasks_dir 中并存导致重复加载
+        # 归档历史周 YAML 文件，防止在 target_tasks_dir 中并存导致重复加载
         if not dry_run and seen_weekly_files:
-            archive_dir = os.path.join(tasks_dir, "archive_weekly")
+            archive_dir = os.path.join(target_tasks_dir, "archive_weekly")
             os.makedirs(archive_dir, exist_ok=True)
             for wf in seen_weekly_files:
                 if os.path.exists(wf):
@@ -301,6 +364,19 @@ def migrate_to_chunked_storage(project_root: Optional[str] = None, dry_run: bool
                         print(f"[CCP Migration] 历史周文件 {os.path.basename(wf)} 已归档至: {dest_wf}")
                     except Exception as e:
                         sys.stderr.write(f"[WARN] 归档周文件 {wf} 失败: {e}\n")
+
+        # 归档旧版文档目录下的任务文件，防止 paths.tasks_dir() 优先误读旧目录
+        if not dry_run and seen_legacy_files:
+            legacy_archive = os.path.join(legacy_doc_tasks_dir, "archive_migrated")
+            os.makedirs(legacy_archive, exist_ok=True)
+            for lf in seen_legacy_files:
+                if os.path.exists(lf):
+                    dest_lf = os.path.join(legacy_archive, os.path.basename(lf))
+                    try:
+                        shutil.move(lf, dest_lf)
+                        print(f"[CCP Migration] 旧版文档任务文件 {os.path.basename(lf)} 已归档至: {dest_lf}")
+                    except Exception as e:
+                        sys.stderr.write(f"[WARN] 归档旧版任务文件 {lf} 失败: {e}\n")
 
         # 备份并安全移走历史 board.json（重命名防止双写裂脑）
         if not dry_run and os.path.exists(board_json):
@@ -313,10 +389,12 @@ def migrate_to_chunked_storage(project_root: Optional[str] = None, dry_run: bool
                 sys.stderr.write(f"[WARN] 备份/移走 board.json 失败: {e}\n")
 
     # 3. 动态解析并升级真实生效的 workflow.config.yaml 的 storage_mode 为 chunked
-    active_cfg = paths.resolve_runtime_config(explicit=project_root) if project_root else paths.resolve_runtime_config()
-    cfg_targets = [active_cfg]
+    active_cfg = paths.resolve_runtime_config(cwd=project_root) if project_root else paths.resolve_runtime_config()
+    cfg_targets = []
+    if os.path.isfile(active_cfg):
+        cfg_targets.append(active_cfg)
     user_cfg = os.path.join(user_data_dir, "workflow.config.yaml")
-    if user_cfg not in cfg_targets and os.path.exists(user_cfg):
+    if user_cfg not in cfg_targets and os.path.isfile(user_cfg):
         cfg_targets.append(user_cfg)
 
     for cp in cfg_targets:
