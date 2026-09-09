@@ -336,17 +336,17 @@ def format_pm_notification_card(notifications: List[Dict[str, Any]]) -> str:
 
     lines = []
     lines.append("=" * 64)
-    lines.append("📢 【GitHub PR 合流自动解阻与 PM 验收通知】")
+    lines.append("【GitHub PR 合流自动解阻与 PM 验收通知】")
     lines.append("=" * 64)
 
     for idx, n in enumerate(notifications, 1):
         lines.append(f"{idx}. 任务卡: [{n['task_id']}] {n['task_name']}")
         lines.append(f"   • PR 详情: #{n['pr_number']} ({n['pr_title'] or n['pr_url']})")
         lines.append(f"   • 目标分支: {n['base_ref']} (Merge SHA: {n['merge_sha']})")
-        lines.append(f"   • 状态变更: 【已阻塞】 ➔ 【已完成】 (经办人已收敛至 严经理)")
+        lines.append(f"   • 状态变更: 【已阻塞】 -> 【已完成】 (经办人已收敛至 严经理)")
 
     lines.append("-" * 64)
-    lines.append("🚀 请 PM 严经理 (@flow-pm) 审阅合流凭证与测试结果，执行终态【已验收】签署：")
+    lines.append("请 PM 严经理 (@flow-pm) 审阅合流凭证与测试结果，执行终态【已验收】签署：")
     for n in notifications:
         lines.append(f"   python3 scripts/transition_task.py --role PM --task-id {n['task_id']} --from-status 已完成 --to-status 已验收 --assignee 严经理 --end-time \"$(date '+%Y-%m-%d %H:%M:%S')\"")
     lines.append("=" * 64)
@@ -366,14 +366,14 @@ def format_terminal_summary(report: Dict[str, Any]) -> str:
 
     if report.get("unblocked_tasks"):
         lines.append("-" * 64)
-        lines.append("✅ 成功解阻推进至【已完成】的任务:")
+        lines.append("[SUCCESS] 成功解阻推进至【已完成】的任务:")
         for t in report["unblocked_tasks"]:
             sim_str = " (模拟)" if t.get("simulated") else ""
             lines.append(f"   - [{t['id']}] {t['name']} (PR #{t['pr_ref']} -> {t['base_ref']}, SHA: {t['merge_sha']}){sim_str}")
 
     if report.get("rejected_tasks"):
         lines.append("-" * 64)
-        lines.append("⚠️  检测到已关闭未合并的异常 PR:")
+        lines.append("[WARN] 检测到已关闭未合并的异常 PR:")
         for t in report["rejected_tasks"]:
             lines.append(f"   - [{t['id']}] {t['name']} (PR #{t['pr_ref']}, 状态: {t['status']})")
 

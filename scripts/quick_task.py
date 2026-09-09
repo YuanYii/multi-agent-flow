@@ -190,7 +190,7 @@ def main():
             force_verify_operator=True,
         )
         if ok:
-            print(f"[SUCCESS]  🎉 任务 {args.task_id} 已成功完成人类最终验收（已验收）！")
+            print(f"[SUCCESS] 任务 {args.task_id} 已成功完成人类最终验收（已验收）！")
     elif args.command == "accept-all":
         import datetime
         import sys as _sys
@@ -211,7 +211,7 @@ def main():
                 candidates.append(tid)
         if not candidates:
             stage_hint = f"（阶段: {args.stage}）" if args.stage else ""
-            print(f"[INFO]  💡 提示：当前未检索到处于【已完成】待人类验收的任务{stage_hint}。")
+            print(f"[INFO] 提示：当前未检索到处于【已完成】待人类验收的任务{stage_hint}。")
             return
         # 安全加固 (2026-08-27): 批量人类验收物理拦截自动化静默调用
         is_interactive = _sys.stdin.isatty()
@@ -254,9 +254,9 @@ def main():
                 accepted_count += 1
                 print(f"  [ACCEPTED] {tid} -> 已验收")
         if accepted_count > 0:
-            print(f"[SUCCESS]  🎉 批量验收完成：共完成 {accepted_count} 个任务的最终验收！")
+            print(f"[SUCCESS] 批量验收完成：共完成 {accepted_count} 个任务的最终验收！")
         else:
-            print(f"[INFO]  💡 提示：候选任务均已处理完毕，无新增验收。")
+            print(f"[INFO] 提示：候选任务均已处理完毕，无新增验收。")
         ok = True
     else:
         ok = transition_task_pipeline(

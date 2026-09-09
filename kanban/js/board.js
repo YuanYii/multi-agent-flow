@@ -589,9 +589,9 @@
                 }
             }
 
-            let targetHtml = card.target ? `<div style="margin-top:4px; font-size:12px; color:#1d2129; background:#f2f3f5; padding:3px 6px; border-radius:4px; line-height:1.4; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; word-break:break-word;" title="${esc(card.target)}">${lbl ? '目标: ' : '🎯 '}${esc(card.target)}</div>` : '';
+            let targetHtml = card.target ? `<div style="margin-top:4px; font-size:12px; color:#1d2129; background:#f2f3f5; padding:3px 6px; border-radius:4px; line-height:1.4; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; word-break:break-word;" title="${esc(card.target)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>${lbl ? '目标: ' : ''}${esc(card.target)}</div>` : '';
             let critCount = (card.acceptance_criteria && Array.isArray(card.acceptance_criteria)) ? card.acceptance_criteria.length : 0;
-            let criteriaHtml = critCount > 0 ? `<div style="margin-top:3px; font-size:11px; color:#0057fe;">📋 验收标准: ${critCount} 项</div>` : '';
+            let criteriaHtml = critCount > 0 ? `<div style="margin-top:3px; font-size:11px; color:#0057fe;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>验收标准: ${critCount} 项</div>` : '';
 
             let metaHtml = (hoursHtml || datesHtml || targetHtml || criteriaHtml || remarksHtml || processHtml) ? `
                 <div class="card-meta">
@@ -2128,7 +2128,7 @@
                         <span class="tag" style="background:${getBadgeStyle('person', card.assignee).bg}; color:${getBadgeStyle('person', card.assignee).text}; border:1px solid rgba(0,0,0,0.06);">负责角色: ${esc(card.assignee || '未分配')}</span>
                         ${card.handler ? `<span class="tag" style="background:${getBadgeStyle('person', card.handler).bg}; color:${getBadgeStyle('person', card.handler).text}; border:1px solid rgba(0,0,0,0.06);">处理角色: ${esc(card.handler)}</span>` : ''}
                         ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${esc(card.wbs)}</span>` : ''}
-                        ${card.tier ? `<span class="tag" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:600;">🛡️ ${esc(card.tier)}</span>` : ''}
+                        ${card.tier ? `<span class="tag" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:600;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>${esc(card.tier)}</span>` : ''}
                     </div>
                 `;
             }
@@ -2165,11 +2165,11 @@
                         <span class="detail-value">${esc(card.start_date || card.start_time || '-')} ~ ${esc(card.end_date || card.end_time || '-')}</span>
                     </div>
                     <div class="detail-item" style="grid-column: 1 / -1;">
-                        <span class="detail-label">🎯 任务核心目标 (Target)</span>
+                        <span class="detail-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:4px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>任务核心目标 (Target)</span>
                         <span class="detail-value" style="font-weight:600; color:#1d2129; background:#f7f8fa; padding:8px 12px; border-radius:6px;">${esc(card.target || '暂无明确目标')}</span>
                     </div>
                     <div class="detail-item" style="grid-column: 1 / -1;">
-                        <span class="detail-label">📋 验收标准清单 (Acceptance Criteria)</span>
+                        <span class="detail-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:4px;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>验收标准清单 (Acceptance Criteria)</span>
                         <div class="detail-value" style="margin-top:4px;">
                             ${(card.acceptance_criteria && Array.isArray(card.acceptance_criteria) && card.acceptance_criteria.length > 0)
                                 ? `<ul style="margin:0; padding-left:20px; color:#272e3b; line-height:1.6;">${card.acceptance_criteria.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`
@@ -2179,23 +2179,24 @@
                     ${card.contract ? `
                     <div class="detail-item" style="grid-column: 1 / -1; border-top: 1px dashed var(--border-color, #e2e8f0); padding-top: 10px; margin-top: 6px;">
                         <span class="detail-label" style="font-weight:700; color:#0284c7; display:flex; align-items:center; gap:6px;">
-                            📜 CCP 任务上下文契约 (Task Contract) ${card.tier ? `<span style="font-size:11px; padding:1px 6px; border-radius:4px; background:#e0f2fe; color:#0369a1;">${esc(card.tier)}</span>` : ''}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            CCP 任务上下文契约 (Task Contract) ${card.tier ? `<span style="font-size:11px; padding:1px 6px; border-radius:4px; background:#e0f2fe; color:#0369a1;">${esc(card.tier)}</span>` : ''}
                         </span>
                         <div style="background:var(--bg-subtle, #f8fafc); border:1px solid var(--border-color, #e2e8f0); border-radius:6px; padding:10px; margin-top:6px; font-size:12px;">
-                            <div style="margin-bottom:6px;"><strong>🎯 契约目标:</strong> ${esc(card.contract.target || card.target || '-')}</div>
+                            <div style="margin-bottom:6px;"><strong>契约目标:</strong> ${esc(card.contract.target || card.target || '-')}</div>
                             ${card.contract.scope ? `
                                 <div style="margin-bottom:6px;">
-                                    <strong>🔍 范围界定 (Scope):</strong>
-                                    ${card.contract.scope.in_scope ? `<div style="color:#059669; padding-left:8px;">✅ 允许改动: <code>${esc(JSON.stringify(card.contract.scope.in_scope))}</code></div>` : ''}
-                                    ${card.contract.scope.out_of_scope ? `<div style="color:#dc2626; padding-left:8px;">❌ 严禁越界: <code>${esc(JSON.stringify(card.contract.scope.out_of_scope))}</code></div>` : ''}
-                                    ${card.contract.scope.new_files_policy ? `<div style="color:#4b5563; padding-left:8px;">📁 新增策略: <code>${esc(card.contract.scope.new_files_policy)}</code></div>` : ''}
+                                    <strong>范围界定 (Scope):</strong>
+                                    ${card.contract.scope.in_scope ? `<div style="color:#059669; padding-left:8px;"><span style="font-weight:600;">[允许改动]</span> <code>${esc(JSON.stringify(card.contract.scope.in_scope))}</code></div>` : ''}
+                                    ${card.contract.scope.out_of_scope ? `<div style="color:#dc2626; padding-left:8px;"><span style="font-weight:600;">[严禁越界]</span> <code>${esc(JSON.stringify(card.contract.scope.out_of_scope))}</code></div>` : ''}
+                                    ${card.contract.scope.new_files_policy ? `<div style="color:#4b5563; padding-left:8px;"><span style="font-weight:600;">[新增策略]</span> <code>${esc(card.contract.scope.new_files_policy)}</code></div>` : ''}
                                 </div>
                             ` : ''}
                             ${card.contract.preconditions ? `
                                 <div>
-                                    <strong>📋 前置凭据 (Preconditions):</strong>
-                                    ${card.contract.preconditions.files_required ? `<div style="padding-left:8px;">📄 依赖文件: <code>${esc(JSON.stringify(card.contract.preconditions.files_required))}</code></div>` : ''}
-                                    ${card.contract.preconditions.fields_required ? `<div style="padding-left:8px;">🔑 依赖字段: <code>${esc(JSON.stringify(card.contract.preconditions.fields_required))}</code></div>` : ''}
+                                    <strong>前置凭据 (Preconditions):</strong>
+                                    ${card.contract.preconditions.files_required ? `<div style="padding-left:8px;"><span style="color:var(--text-muted);">依赖文件:</span> <code>${esc(JSON.stringify(card.contract.preconditions.files_required))}</code></div>` : ''}
+                                    ${card.contract.preconditions.fields_required ? `<div style="padding-left:8px;"><span style="color:var(--text-muted);">依赖字段:</span> <code>${esc(JSON.stringify(card.contract.preconditions.fields_required))}</code></div>` : ''}
                                 </div>
                             ` : ''}
                         </div>
@@ -2203,16 +2204,17 @@
                     ${card.return_contract ? `
                     <div class="detail-item" style="grid-column: 1 / -1; margin-top: 4px;">
                         <span class="detail-label" style="font-weight:700; color:#16a34a; display:flex; align-items:center; gap:6px;">
-                            📦 CCP 交付核销回执 (Return Contract)
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                            CCP 交付核销回执 (Return Contract)
                         </span>
                         <div style="background:var(--bg-subtle, #f8fafc); border:1px solid var(--border-color, #e2e8f0); border-radius:6px; padding:10px; margin-top:6px; font-size:12px;">
-                            <div style="margin-bottom:4px;"><strong>📄 交付报告:</strong> <code>${esc(card.return_contract.report_path || '-')}</code></div>
-                            <div style="margin-bottom:4px;"><strong>🧪 测试凭据:</strong> 状态 <code>${esc(card.return_contract.test_status || '-')}</code> | 通过: <span style="color:#16a34a; font-weight:bold;">${esc(card.return_contract.tests_passed != null ? card.return_contract.tests_passed : '-')}</span> | 失败: <span style="color:#dc2626; font-weight:bold;">${esc(card.return_contract.tests_failed != null ? card.return_contract.tests_failed : 0)}</span></div>
+                            <div style="margin-bottom:4px;"><strong>交付报告:</strong> <code>${esc(card.return_contract.report_path || '-')}</code></div>
+                            <div style="margin-bottom:4px;"><strong>测试凭据:</strong> 状态 <code>${esc(card.return_contract.test_status || '-')}</code> | 通过: <span style="color:#16a34a; font-weight:bold;">${esc(card.return_contract.tests_passed != null ? card.return_contract.tests_passed : '-')}</span> | 失败: <span style="color:#dc2626; font-weight:bold;">${esc(card.return_contract.tests_failed != null ? card.return_contract.tests_failed : 0)}</span></div>
                             ${card.return_contract.ac_verification_map ? `
-                                <div style="margin-bottom:4px;"><strong>✅ AC 逐条核验:</strong> <code>${esc(JSON.stringify(card.return_contract.ac_verification_map))}</code></div>
+                                <div style="margin-bottom:4px;"><strong>AC 逐条核验:</strong> <code>${esc(JSON.stringify(card.return_contract.ac_verification_map))}</code></div>
                             ` : ''}
                             ${card.return_contract.diff_summary ? `
-                                <div><strong>📝 代码变更:</strong> <code>${esc(JSON.stringify(card.return_contract.diff_summary))}</code></div>
+                                <div><strong>代码变更:</strong> <code>${esc(JSON.stringify(card.return_contract.diff_summary))}</code></div>
                             ` : ''}
                         </div>
                     </div>` : ''}

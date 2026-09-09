@@ -312,7 +312,7 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
         )
         if not is_human_authorized:
             print(f"[REJECT 权限拦截] 状态【已验收】为人类用户专属终态，当前角色 {role} 无权代签！CLI 自报 role=USER 或 delegated_by=USER 均不再被承认。")
-            print("  💡 合法验收通道：① Web 看板携带主控 Token 点击验收；② 真人终端执行 quick_task.py accept（自动 TTY 检测 + [y/N] 交互确认）")
+            print("  [INFO] 合法验收通道：① Web 看板携带主控 Token 点击验收；② 真人终端执行 quick_task.py accept（自动 TTY 检测 + [y/N] 交互确认）")
             return False
 
     # 3. 终态结束时间强校验 (E 类用户自执行任务豁免 end_time 强校验)

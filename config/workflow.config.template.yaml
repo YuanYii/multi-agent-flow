@@ -27,7 +27,7 @@ board:
   # storage_mode: "chunked"               # 物理存储模式：chunked (固定50任务分卷 YAML 工业级推荐) | weekly (周口径) | single (board.json 兼容，默认)
   board_file: "user_data/board.json"   # 离线看板 JSON 文件路径
   
-  # ⚠️ 字段映射说明：
+  # 字段映射说明：
 #   - provider=local（离线 board.json）时，本地 JSON 使用内置逻辑字段名（id/name/status/assignee/...），
 #     此处的 fields 映射仅对远程看板（feishu_base 等）生效——local 模式会经内置 KANBAN_FIELD_MAP 三级兜底，配置值不影响正确性。
 #   - 远程模式（feishu_base/jira/github_projects）下由 scripts/init_field_mapping.py 自动探测字段 ID。

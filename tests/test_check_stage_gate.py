@@ -131,7 +131,7 @@ def test_stage_gate_all_passed(mock_stage_env):
     assert report.failed_checks == 0
     assert report.passed_checks == 5
     formatted = format_terminal_report(report)
-    assert "✅ 阶段结项门禁审查通过" in formatted
+    assert "[PASS] 阶段结项门禁审查通过" in formatted
     assert "分支合并与版本发布" in formatted
 
 

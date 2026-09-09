@@ -40,14 +40,14 @@ def verify_git_gate(config_path: Optional[str] = None, stage: Optional[str] = No
 
     if unaccepted_completed:
         print("=" * 75)
-        print("[FAIL-CLOSED 拦截] 🛑 Git 提交与结项门禁未通过：存在待人类用户验收的任务！")
+        print("[FAIL-CLOSED 拦截] Git 提交与结项门禁未通过：存在待人类用户验收的任务！")
         print(f"共有 {len(unaccepted_completed)} 个任务已由 Agent 研发测试完毕（处于【已完成】），尚未获得人类用户最终验收：")
         for u in unaccepted_completed[:10]:
             print(f"  - [{u['id']}] {u['name']} (处理人: {u['handler']})")
         if len(unaccepted_completed) > 10:
             print(f"  ... 等共 {len(unaccepted_completed)} 条任务")
         print("-" * 75)
-        print("💡 解决指引：请人类用户审阅代码后执行验收操作：")
+        print("[INFO] 解决指引：请人类用户审阅代码后执行验收操作：")
         print("  1. 单任务验收: python3 scripts/quick_task.py accept --task-id <TASK_ID>")
         if stage:
             print(f"  2. 阶段批量验收: python3 scripts/quick_task.py accept-all --stage \"{stage}\"")
@@ -58,11 +58,11 @@ def verify_git_gate(config_path: Optional[str] = None, stage: Optional[str] = No
 
     if in_progress_tasks:
         print("=" * 75)
-        print("[FAIL-CLOSED 拦截] 🛑 Git 提交与结项门禁未通过：存在未完工的在手任务！")
+        print("[FAIL-CLOSED 拦截] Git 提交与结项门禁未通过：存在未完工的在手任务！")
         for p in in_progress_tasks[:5]:
             print(f"  - [{p['id']}] {p['name']} (当前状态: 【{p['status']}】 - 经办人: {p['handler']})")
         print("=" * 75)
         return False
 
-    print("[PASS 门禁通过] ✅ 所有关联任务均已处于终态【已验收】或【已取消】，准予 Git 提交与阶段结项！")
+    print("[PASS 门禁通过] 所有关联任务均已处于终态【已验收】或【已取消】，准予 Git 提交与阶段结项！")
     return True

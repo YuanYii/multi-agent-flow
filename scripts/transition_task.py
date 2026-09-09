@@ -323,12 +323,12 @@ def transition_task_pipeline(
                 if not force:
                     logger.error(f"[FAILED]  [单一任务原则拦截] 任务卡 [{task_name}] 违反单一职责规范 ({srp_vtype})！", extra=extra_log)
                     for r in srp_reasons:
-                        logger.error(f"  ❌ 原因: {r}", extra=extra_log)
+                        logger.error(f"  - [REJECT] 原因: {r}", extra=extra_log)
                     if srp_splits:
-                        logger.info("  💡 推荐原子任务拆解清单:", extra=extra_log)
+                        logger.info("  [RECOMMEND] 推荐原子任务拆解清单:", extra=extra_log)
                         for s in srp_splits:
-                            logger.info(f"     ➔ {s}", extra=extra_log)
-                    logger.info("  👉 如确需特殊情况强制建卡，请追加 --force 参数重跑。", extra=extra_log)
+                            logger.info(f"     -> {s}", extra=extra_log)
+                    logger.info("  [NOTE] 如确需特殊情况强制建卡，请追加 --force 参数重跑。", extra=extra_log)
                     record_audit_event(resolved_task_id, current_role, "新建", "待开始", assignee, False, f"单一任务校验拦截: {'; '.join(srp_reasons)}", delegated_by=delegated_by, delegation_reason=delegation_reason)
                     return False
                 else:
@@ -486,7 +486,7 @@ def transition_task_pipeline(
                     if not force:
                         logger.error(f"[FAILED]  [CCP 提审门禁拦截] 任务 {task_id} 提请审查未通过校验！", extra=extra_log)
                         for err in rev_errors:
-                            logger.error(f"  ❌ {err}", extra=extra_log)
+                            logger.error(f"  - [FAIL] {err}", extra=extra_log)
                         record_audit_event(task_id, current_role, from_status, to_status, assignee, False, f"CCP提审门禁拦截: {'; '.join(rev_errors)}", delegated_by=delegated_by, delegation_reason=delegation_reason)
                         return False
                     else:

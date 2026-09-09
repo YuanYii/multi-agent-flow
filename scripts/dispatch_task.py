@@ -184,7 +184,7 @@ def dispatch_task(
     if not gate_ok:
         raise RuntimeError(
             f"[REJECT 派单准入门禁拦截] 任务卡 {task_id} 无法派单，原因如下:\n" +
-            "\n".join([f"  ❌ {e}" for e in gate_errors])
+            "\n".join([f"  - [FAIL] {e}" for e in gate_errors])
         )
 
     # 4. 状态流转推进：待开始 -> 进行中

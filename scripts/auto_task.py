@@ -375,9 +375,9 @@ def main():
                 sys.exit(1)
             prev = target
 
-        print(f"[AUTO]  ✅ 任务 {task_id} 自动化流水线交付完成，当前终态【{prev}】！ (自动链止步于【已完成】，最终验收请由人类用户在 Web 看板或真人终端执行)")
+        print(f"[AUTO] [PASS] 任务 {task_id} 自动化流水线交付完成，当前终态【{prev}】！ (自动链止步于【已完成】，最终验收请由人类用户在 Web 看板或真人终端执行)")
         if prev == "已完成":
-            print(f"  💡 [提请人类验收] 请人类用户核验代码与交付物后执行验收: /yy-flow accept {task_id} 或 python3 scripts/quick_task.py accept --task-id {task_id}")
+            print(f"  [INFO] [提请人类验收] 请人类用户核验代码与交付物后执行验收: /yy-flow accept {task_id} 或 python3 scripts/quick_task.py accept --task-id {task_id}")
         sys.exit(0)
     finally:
         if chain_lock_handle:

@@ -6,6 +6,11 @@ import sys
 import shutil
 from typing import Optional
 
+_CURR_DIR = os.path.dirname(os.path.abspath(__file__))
+_SCRIPTS_DIR = os.path.dirname(_CURR_DIR)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
 import paths as _paths
 
 # 标准 Git 钩子文件名白名单（防止将 Python 脚本或配置文件误拷入 .git/hooks）
@@ -48,9 +53,13 @@ def install_hooks(project_root: Optional[str] = None) -> bool:
             installed.append(item)
 
     if installed:
-        print(f"[SUCCESS]  🎉 成功安装 Git 门禁钩子至 .git/hooks/: {', '.join(installed)}")
-        print("  💡 后续执行 `git commit` 时将自动运行 verify_git_gate.py 进行未验收任务强校验拦截！")
+        print(f"[SUCCESS] 成功安装 Git 门禁钩子至 .git/hooks/: {', '.join(installed)}")
+        print("  [INFO] 后续执行 `git commit` 时将自动运行 verify_git_gate.py 进行未验收任务强校验拦截！")
     else:
         print("[WARN]  未发现可安装的钩子文件。")
 
     return True
+
+
+if __name__ == "__main__":
+    install_hooks()

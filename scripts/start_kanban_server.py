@@ -1934,16 +1934,16 @@ def _check_and_auto_migrate_to_chunked(data_root: str = _DATA_ROOT) -> bool:
 
         if has_legacy_board or has_legacy_weekly:
             print("\n" + "=" * 70)
-            print("[MIGRATE] 🔍 启动检查：检测到存量看板数据尚未升级为 50 任务分卷模式")
-            print("[MIGRATE] 📦 正在执行全自动平滑迁移与物理备份...")
+            print("[MIGRATE] 启动检查：检测到存量看板数据尚未升级为 50 任务分卷模式")
+            print("[MIGRATE] 正在执行全自动平滑迁移与物理备份...")
             from migrate_to_chunked_storage import migrate_to_chunked_storage
             ok = migrate_to_chunked_storage(project_root=_paths.project_root())
             if ok:
-                print("[MIGRATE] ✅ 存量数据已成功迁移至 tasks_XXXX_YYYY.yaml，配置已升级为 chunked")
+                print("[MIGRATE] [PASS] 存量数据已成功迁移至 tasks_XXXX_YYYY.yaml，配置已升级为 chunked")
                 print("=" * 70 + "\n")
                 return True
             else:
-                print("[MIGRATE] ⚠️ 存量数据自动迁移未完全成功，将继续以兼容模式启动看板\n")
+                print("[MIGRATE] [WARN] 存量数据自动迁移未完全成功，将继续以兼容模式启动看板\n")
                 print("=" * 70 + "\n")
                 return False
     except Exception as e:
@@ -2013,14 +2013,14 @@ def print_kanban_urls(port: int, local_ip: str, master_token: str = ""):
     """
     token = master_token or ACTIVE_MASTER_TOKEN
     print("\n" + "=" * 70)
-    print(f"[START] ✅ Multi-Agent Flow 看板 Web 服务已就绪 (端口: {port})")
+    print(f"[START] [READY] Multi-Agent Flow 看板 Web 服务已就绪 (端口: {port})")
     print(f" 进程 PID   : {os.getpid()}")
     print(f" 绑定端口   : {port}")
     print(f" 本地直达   : http://127.0.0.1:{port}/")
     if local_ip != "127.0.0.1":
         print(f" 局域网协作 : http://{local_ip}:{port}/ (分享给团队成员，仅协作浏览与推进)")
     print("\n" + "-" * 70)
-    print(f" 🔑 主控权限令牌 (Master Token) :")
+    print(f" 主控权限令牌 (Master Token) :")
     print(f" {token}")
     print("\n ※ 权限说明:")
     print(f"   1. 携带此 Token 访问 (如 http://127.0.0.1:{port}/?token={token})")
@@ -2054,7 +2054,7 @@ def main():
                     pass
             local_ip = get_local_ip()
             print("\n" + "=" * 70)
-            print(f"[RUNNING] ✅ 本项目专属看板服务正在运行中")
+            print(f"[RUNNING] 本项目专属看板服务正在运行中")
             print(f" 进程 PID   : {pid}")
             print(f" 绑定端口   : {port}")
             print(f" 数据根目录 : {running.get('data_root')}")
@@ -2063,7 +2063,7 @@ def main():
                 print(f" 局域网协作 : http://{local_ip}:{port}/ (分享给团队成员，仅协作浏览与推进)")
             if token:
                 print("\n" + "-" * 70)
-                print(f" 🔑 主控权限令牌 (Master Token) :")
+                print(f" 主控权限令牌 (Master Token) :")
                 print(f" {token}")
                 print("\n ※ 权限说明:")
                 print(f"   1. 携带此 Token 访问 (如 http://127.0.0.1:{port}/?token={token}) 将获得主控权限；")
@@ -2071,7 +2071,7 @@ def main():
             print("=" * 70 + "\n")
             sys.exit(0)
         else:
-            print("\n[STOPPED] ⚪ 本项目专属看板服务当前未运行\n")
+            print("\n[STOPPED] 本项目专属看板服务当前未运行\n")
             sys.exit(1)
 
     env_port = os.environ.get("KANBAN_PORT", "").strip()

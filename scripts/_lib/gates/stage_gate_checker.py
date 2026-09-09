@@ -709,15 +709,15 @@ def format_terminal_report(report: StageGateReport) -> str:
 
     if report.action == "start":
         if report.passed:
-            lines.append("✅ 阶段准入门禁审查通过！满足开工条件。")
-            lines.append("🌱 阶段开工指引与拉取新分支提醒:")
+            lines.append("[PASS] 阶段准入门禁审查通过！满足开工条件。")
+            lines.append("[GUIDE] 阶段开工指引与拉取新分支提醒:")
             lines.append("   1. 请从最新主干拉取并切换至本阶段专属特性分支:")
             lines.append("      git checkout main && git pull origin main")
             lines.append(f"      git checkout -b feature/{stage_code.lower()}-dev")
             lines.append("   2. 唤起 PM 严经理 拆解 WBS 并通过 quick_task.py 批量建卡开工。")
         else:
-            lines.append(f"❌ 阶段准入门禁未通过！存在 {report.failed_checks} 项阻断项。")
-            lines.append("💡 修复建议向导:")
+            lines.append(f"[FAIL] 阶段准入门禁未通过！存在 {report.failed_checks} 项阻断项。")
+            lines.append("[ADVICE] 修复建议向导:")
             idx = 1
             for r in report.results:
                 if not r.passed and r.suggestion:
@@ -725,15 +725,15 @@ def format_terminal_report(report: StageGateReport) -> str:
                     idx += 1
     else:
         if report.passed:
-            lines.append("✅ 阶段结项门禁审查通过！满足结项准出条件，成果已全部提交入库。")
-            lines.append("🚀 下一步建议与分支合并提醒:")
+            lines.append("[PASS] 阶段结项门禁审查通过！满足结项准出条件，成果已全部提交入库。")
+            lines.append("[NEXT] 下一步建议与分支合并提醒:")
             lines.append("   1. 请 PM 严经理 派发 D 类运维任务唤起 DevOps 吕改特 执行分支合并与版本发布:")
             lines.append("      - 将当前阶段特性分支发起 PR 并合流至主干 (main) 或 release 分支;")
             lines.append("      - 在主干打版本发布 Tag（如 v1.x.0）并推送至远端;")
             lines.append("   2. 阶段总结与复盘文档归档至 docs/D01-项目管理/D02-状态报告/。")
         else:
-            lines.append(f"❌ 阶段门禁未通过！存在 {report.failed_checks} 项阻断项。")
-            lines.append("💡 修复建议向导:")
+            lines.append(f"[FAIL] 阶段门禁未通过！存在 {report.failed_checks} 项阻断项。")
+            lines.append("[ADVICE] 修复建议向导:")
             idx = 1
             for r in report.results:
                 if not r.passed and r.suggestion:

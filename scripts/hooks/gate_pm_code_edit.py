@@ -55,7 +55,7 @@ def check_tool_permission(tool_name: str, target_file: str, is_subagent: bool = 
 
     if is_protected:
         reason_msg = (
-            f"[GATE-PM-BLOCK] 🚨 物理拦截越权写入！\n"
+            f"[GATE-PM-BLOCK] 物理拦截越权写入！\n"
             f"目标文件: '{target_file}' 属于核心业务源码区域。\n"
             f"根据 YY-Flow 物理隔离铁律，主 Agent (PM 严经理) 严禁在主进程中自扮演写代码！\n"
             f"请先建卡并通过代码化派单工具调起子代理:\n"
