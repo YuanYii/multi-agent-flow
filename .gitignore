@@ -52,3 +52,6 @@ venv/
 
 # 本地测试报告产物
 test-reports/
+
+# Multi-Agent Flow runtime data
+.yy-flow/

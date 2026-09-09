@@ -97,8 +97,11 @@ def resolve_data_root(explicit=None, env=None, cwd=None) -> str:
     if legacy:
         return legacy
 
-    # 5. CWD（宿主项目根兜底）
-    return os.path.abspath(cwd)
+    # 5. CWD（宿主项目根兜底）：统一收敛至 <project_root>/.yy-flow 隐藏数据根
+    cwd_path = os.path.abspath(cwd)
+    if os.path.basename(cwd_path) == ".yy-flow":
+        return cwd_path
+    return os.path.join(cwd_path, ".yy-flow")
 
 
 # 便捷别名导出
@@ -144,7 +147,10 @@ def load_runtime_workflow_config(**kw) -> dict:
 
 
 def docs_root(**kw) -> str:
-    """项目交付文档根：优先从 workflow.config.yaml 读取 paths.docs_root / paths.docs_dir / docs_dir，默认回退至 project_root/docs。"""
+    """项目交付文档根：优先从 workflow.config.yaml 读取 paths.docs_root / paths.docs_dir / docs_dir，
+    若未显式配置，自动探测宿主已有文档目录（如 项目文档/、docs/、doc/、documentation/），
+    兜底回退至 project_root/docs。
+    """
     pr_kw = {k: v for k, v in kw.items() if k in ("explicit", "env", "cwd")}
     custom_dir = kw.get("docs_dir") or kw.get("docs_root")
     if not custom_dir:
@@ -152,11 +158,19 @@ def docs_root(**kw) -> str:
         paths_cfg = cfg.get("paths", {}) or {}
         custom_dir = paths_cfg.get("docs_root") or paths_cfg.get("docs_dir") or cfg.get("docs_dir")
 
+    p_root = project_root(**pr_kw)
     if custom_dir:
         if os.path.isabs(custom_dir):
             return os.path.abspath(custom_dir)
-        return os.path.abspath(os.path.join(project_root(**pr_kw), custom_dir))
-    return os.path.join(project_root(**pr_kw), "docs")
+        return os.path.abspath(os.path.join(p_root, custom_dir))
+
+    # 自动探测已有文档目录候选
+    for candidate in ("docs", "项目文档", "doc", "documentation"):
+        candidate_path = os.path.join(p_root, candidate)
+        if os.path.isdir(candidate_path):
+            return candidate_path
+
+    return os.path.join(p_root, "docs")
 
 
 def custom_docs_name(**kw) -> str:
@@ -239,9 +253,13 @@ def resolve_runtime_config(explicit=None, env=None, cwd=None) -> str:
 
 
 if __name__ == "__main__":
-    # CLI 输出 data_root，供 init_skill.sh 等外壳脚本解析数据根
+    # CLI 输出 data_root 或 docs_root，供 init_skill.sh 等外壳脚本解析
     import argparse
-    ap = argparse.ArgumentParser(description="数据根解析（与各脚本内部同链）")
+    ap = argparse.ArgumentParser(description="数据根与文档根解析（与各脚本内部同链）")
     ap.add_argument("--project-root", default=None, help="显式数据根（优先级最高）")
+    ap.add_argument("--docs-root", action="store_true", help="输出文档根目录绝对路径")
     args = ap.parse_args()
-    print(resolve_data_root(explicit=args.project_root))
+    if args.docs_root:
+        print(docs_root())
+    else:
+        print(resolve_data_root(explicit=args.project_root))

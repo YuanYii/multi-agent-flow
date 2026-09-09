@@ -6,21 +6,48 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $SkillRoot = Resolve-Path "$ScriptDir\.."
 
-# 数据根解析：优先 env；否则问 paths.py（含 legacy 判定）
+# 数据根解析：优先 env；否则问 paths.py（含 legacy 判定），统一收敛至 .yy-flow
 $DataRoot = $null
 if ($env:YY_FLOW_PROJECT_ROOT) {
     $DataRoot = $env:YY_FLOW_PROJECT_ROOT
 } else {
     $DataRoot = & python "$ScriptDir\paths.py" 2>$null
-    if (-not $DataRoot -or $LASTEXITCODE -ne 0) { $DataRoot = (Get-Location).Path }
+    if (-not $DataRoot -or $LASTEXITCODE -ne 0) { $DataRoot = Join-Path (Get-Location).Path ".yy-flow" }
 }
 $env:YY_FLOW_PROJECT_ROOT = $DataRoot
+
+$ProjRoot = if ((Split-Path $DataRoot -Leaf) -eq ".yy-flow") { Split-Path $DataRoot -Parent } else { $DataRoot }
 
 Write-Host "==============================================================================" -ForegroundColor Cyan
 Write-Host "[START]  开始执行 multi-agent-flow 标准 SOP 初始化流程 (PowerShell)..." -ForegroundColor Cyan
 Write-Host "  数据根 (DATA_ROOT): $DataRoot" -ForegroundColor Cyan
 Write-Host "  技能根 (SKILL_ROOT): $SkillRoot" -ForegroundColor Cyan
+Write-Host "  项目根 (PROJ_ROOT):  $ProjRoot" -ForegroundColor Cyan
 Write-Host "==============================================================================" -ForegroundColor Cyan
+
+# 自动将 .yy-flow/ 写入宿主项目 .gitignore
+$GitignoreFile = Join-Path $ProjRoot ".gitignore"
+if ((Test-Path (Join-Path $ProjRoot ".git")) -or (Test-Path $GitignoreFile)) {
+    $hasEntry = $false
+    if (Test-Path $GitignoreFile) {
+        $hasEntry = (Get-Content $GitignoreFile | Select-String "^\.yy-flow") -ne $null
+    }
+    if (-not $hasEntry) {
+        "`n# Multi-Agent Flow runtime data`n.yy-flow/" | Out-File -FilePath $GitignoreFile -Append -Encoding utf8
+        Write-Host "  - 已将 .yy-flow/ 追加至宿主项目 .gitignore" -ForegroundColor Green
+    }
+}
+
+# 自动合并迁移宿主项目根目录下可能误建的残留 user_data/
+$StrayUserData = Join-Path $ProjRoot "user_data"
+$TargetUserData = Join-Path $DataRoot "user_data"
+if ((Test-Path $StrayUserData) -and ($StrayUserData -ne $TargetUserData)) {
+    Write-Host "[MIGRATE] 检测到宿主根目录下存在残留 user_data/，合并迁移至 $TargetUserData ..." -ForegroundColor Yellow
+    if (-not (Test-Path $TargetUserData)) { New-Item -ItemType Directory -Path $TargetUserData | Out-Null }
+    Copy-Item -Path "$StrayUserData\*" -Destination $TargetUserData -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $StrayUserData -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "  - 残留 user_data/ 已合并迁移并清理完毕。" -ForegroundColor Green
+}
 
 Write-Host "[SETUP]     [Step 0/7] 校验 Python 环境与第三方依赖 (requirements.txt)..." -ForegroundColor Yellow
 if (-not (Get-Command python -ErrorAction SilentlyContinue) -and -not (Get-Command python3 -ErrorAction SilentlyContinue)) {
@@ -86,10 +113,22 @@ if (Test-Path "$SkillRoot\.git") {
 }
 
 Write-Host "[DOCS]  [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..." -ForegroundColor Yellow
-# docs 是项目交付物 → 落项目根（.yy-flow 布局下为 DataRoot 上一级；legacy 下即 DataRoot）
-$DocsRoot = Join-Path (Split-Path $DataRoot -Parent) "docs"
-if (-not (Split-Path $DataRoot -Leaf) -eq ".yy-flow") {
-    $DocsRoot = Join-Path $DataRoot "docs"
+# 检查宿主是否已有常用文档目录（如 项目文档、docs、doc、documentation）
+$ExistingDocsDir = $null
+foreach ($d in @("项目文档", "docs", "doc", "documentation")) {
+    if (Test-Path (Join-Path $ProjRoot $d)) {
+        $ExistingDocsDir = $d
+        break
+    }
+}
+
+if ($ExistingDocsDir) {
+    & $pyCmd "$ScriptDir\update_project_profile.py" --docs-dir $ExistingDocsDir --silent 2>$null | Out-Null
+}
+
+$DocsRoot = & $pyCmd "$ScriptDir\paths.py" --docs-root 2>$null
+if (-not $DocsRoot -or $LASTEXITCODE -ne 0) {
+    $DocsRoot = Join-Path $ProjRoot "docs"
 }
 $DocsDirs = @(
     "$DocsRoot\D01-项目管理\D01-需求",
@@ -111,8 +150,8 @@ foreach ($dir in $DocsDirs) {
 
 python "$ScriptDir\migrate_legacy_docs.py"
 
-Write-Host "[MIGRATE]  [Step 5.5/7] 检测存量看板工单并执行自然周无损平滑迁移 (migrate_legacy_board.py)..." -ForegroundColor Yellow
-python "$ScriptDir\migrate_legacy_board.py"
+Write-Host "[MIGRATE]  [Step 5.5/7] 检测存量看板工单并执行 50 任务分卷无损平滑迁移 (migrate_to_chunked_storage.py)..." -ForegroundColor Yellow
+python "$ScriptDir\migrate_to_chunked_storage.py"
 
 Write-Host "[SYNC]  [Step 6/7] 专家团队技术栈同步（导出时合并至各平台 Subagent）..." -ForegroundColor Yellow
 python "$ScriptDir\update_agent_tech_stacks.py"

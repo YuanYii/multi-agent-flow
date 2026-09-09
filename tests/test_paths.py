@@ -61,15 +61,25 @@ class TestResolveDataRoot:
         (fake_skill / "user_data").mkdir(parents=True)  # 只有目录，没有 board.json
         monkeypatch.setattr(paths, "_SCRIPT_DIR", str(fake_skill / "scripts"))
         got = paths.resolve_data_root(env={}, cwd=str(tmp_path / "hostcwd"))
-        assert got == str(tmp_path / "hostcwd")  # 穿透 legacy 落到 CWD
+        assert got == str(tmp_path / "hostcwd" / ".yy-flow")  # 穿透 legacy 落到 CWD 统一收敛至 .yy-flow
 
     def test_cwd_fallback(self, tmp_path):
         fake_skill = tmp_path / "fakeskill"
         monkeypatch_skill = tmp_path / "nowhere"  # 无 legacy
         got = paths.resolve_data_root(env={}, cwd=str(tmp_path))
         # 本仓库存在 legacy board.json，此处走注入 cwd 需先屏蔽 legacy——
-        # 直接验证本仓库场景下的语义: 无 env 无 explicit 时返回 skill_root（legacy）
-        assert got in (paths.skill_root(), str(tmp_path))
+        # 直接验证本仓库场景下的语义: 无 env 无 explicit 时返回 skill_root（legacy）或 .yy-flow
+        assert got in (paths.skill_root(), str(tmp_path / ".yy-flow"), str(tmp_path))
+
+    def test_docs_root_auto_detects_existing_dir(self, tmp_path, monkeypatch):
+        """若存在 项目文档 目录且未显式配置，自动对齐探测到的目录"""
+        fake_skill = tmp_path / "fakeskill"
+        (fake_skill / "scripts").mkdir(parents=True)
+        monkeypatch.setattr(paths, "_SCRIPT_DIR", str(fake_skill / "scripts"))
+        (tmp_path / "项目文档").mkdir()
+        env = {"YY_FLOW_PROJECT_ROOT": str(tmp_path / ".yy-flow")}
+        got = paths.docs_root(env=env)
+        assert got == str(tmp_path / "项目文档")
 
 
 class TestResolveRuntimeConfig:

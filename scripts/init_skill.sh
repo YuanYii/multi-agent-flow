@@ -15,22 +15,47 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# 数据根解析：优先 env；否则问 paths.py（含 legacy 判定）
+# 数据根解析：优先 env；否则问 paths.py（含 legacy 判定），统一收敛至 .yy-flow
 if [ -n "${YY_FLOW_PROJECT_ROOT}" ]; then
     DATA_ROOT="${YY_FLOW_PROJECT_ROOT}"
 else
     DATA_ROOT="$(python3 "${SCRIPT_DIR}/paths.py" 2>/dev/null || echo "")"
     if [ -z "${DATA_ROOT}" ]; then
-        DATA_ROOT="$(pwd)"
+        DATA_ROOT="$(pwd)/.yy-flow"
     fi
 fi
 export YY_FLOW_PROJECT_ROOT="${DATA_ROOT}"
+
+if [ "$(basename "${DATA_ROOT}")" = ".yy-flow" ]; then
+    PROJ_ROOT="$(dirname "${DATA_ROOT}")"
+else
+    PROJ_ROOT="${DATA_ROOT}"
+fi
 
 echo "=============================================================================="
 echo "[START]  开始执行 multi-agent-flow 标准 7 大 SOP 初始化流程..."
 echo "  数据根 (DATA_ROOT): ${DATA_ROOT}"
 echo "  技能根 (SKILL_ROOT): ${SKILL_ROOT}"
+echo "  项目根 (PROJ_ROOT):  ${PROJ_ROOT}"
 echo "=============================================================================="
+
+# 自动将 .yy-flow/ 写入宿主项目 .gitignore（若存在 git 仓库且尚未忽略）
+if [ -d "${PROJ_ROOT}/.git" ] || [ -f "${PROJ_ROOT}/.gitignore" ]; then
+    GITIGNORE_FILE="${PROJ_ROOT}/.gitignore"
+    if [ ! -f "${GITIGNORE_FILE}" ] || ! grep -q "^\.yy-flow" "${GITIGNORE_FILE}" 2>/dev/null; then
+        printf "\n# Multi-Agent Flow runtime data\n.yy-flow/\n" >> "${GITIGNORE_FILE}"
+        echo "  - 已将 .yy-flow/ 追加至宿主项目 .gitignore"
+    fi
+fi
+
+# 自动合并迁移宿主项目根目录下可能误建的残留 user_data/
+if [ -d "${PROJ_ROOT}/user_data" ] && [ "${PROJ_ROOT}/user_data" != "${DATA_ROOT}/user_data" ]; then
+    echo "[MIGRATE] 检测到宿主根目录下存在残留 user_data/，合并迁移至 ${DATA_ROOT}/user_data ..."
+    mkdir -p "${DATA_ROOT}/user_data"
+    cp -rn "${PROJ_ROOT}/user_data/"* "${DATA_ROOT}/user_data/" 2>/dev/null || true
+    rm -rf "${PROJ_ROOT}/user_data"
+    echo "  - 残留 user_data/ 已合并迁移并清理完毕。"
+fi
 
 echo "[SETUP]   [Step 0/7] 校验 Python 环境与第三方依赖 (requirements.txt)..."
 if ! command -v python3 >/dev/null 2>&1; then
@@ -82,10 +107,23 @@ if [ -d "${SKILL_ROOT}/.git" ]; then
 fi
 
 echo "[DOCS]  [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..."
-# docs 是项目交付物 → 落项目根（.yy-flow 布局下为 DATA_ROOT 上一级；legacy 下即 DATA_ROOT）
-DOCS_ROOT="$(dirname "${DATA_ROOT}")/docs"
-if [ "$(basename "${DATA_ROOT}")" != ".yy-flow" ]; then
-    DOCS_ROOT="${DATA_ROOT}/docs"
+# 检查宿主是否已有常用文档目录（如 项目文档、docs、doc、documentation）
+EXISTING_DOCS_DIR=""
+for d in "项目文档" "docs" "doc" "documentation"; do
+    if [ -d "${PROJ_ROOT}/${d}" ]; then
+        EXISTING_DOCS_DIR="${d}"
+        break
+    fi
+done
+
+if [ -n "${EXISTING_DOCS_DIR}" ]; then
+    # 若存在已有文档目录且未显式定制过，则对齐已有文档目录
+    python3 "${SCRIPT_DIR}/update_project_profile.py" --docs-dir "${EXISTING_DOCS_DIR}" --silent || true
+fi
+
+DOCS_ROOT="$(python3 "${SCRIPT_DIR}/paths.py" --docs-root 2>/dev/null || echo "")"
+if [ -z "${DOCS_ROOT}" ]; then
+    DOCS_ROOT="${PROJ_ROOT}/docs"
 fi
 mkdir -p "${DOCS_ROOT}/D01-项目管理/D01-需求" \
          "${DOCS_ROOT}/D01-项目管理/D02-状态报告" \

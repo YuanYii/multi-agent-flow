@@ -12,6 +12,7 @@ EXCLUDE_DIRS = {
     ".git", ".idea", "__pycache__", "venv", ".venv", "node_modules",
     "docs", "rules", "templates", "references", "agents", "config", "scripts",
     ".agents", ".claude", ".cursor", ".codex",
+    ".yy-flow", ".yy-flow-shared",
     "user_data", "kanban", "tests", "logs",
     ".opencode", ".zcode", ".pi",
 }
@@ -79,18 +80,27 @@ def classify_document(filepath: str) -> str:
     return "D03-业务模块"
 
 
-def scan_and_migrate_legacy_docs(project_root: str) -> List[Tuple[str, str]]:
+def scan_and_migrate_legacy_docs(project_root: str = None) -> List[Tuple[str, str]]:
     """
     扫描项目目录下的遗留文档，执行单向安全备份并迁移至 docs/ 骨架。
 
     返回:
-        int: 成功迁移的文件总数。
+        List[Tuple[str, str]]: 成功迁移的文件列表。
     """
+    if not project_root:
+        project_root = _paths.project_root()
     migrated: List[Tuple[str, str]] = []
-    target_docs_root = _paths.docs_root()
+    target_docs_root = os.path.abspath(_paths.docs_root())
+    custom_name = _paths.custom_docs_name()
 
     for root, dirs, files in os.walk(project_root):
-        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS and not d.startswith(".")]
+        dirs[:] = [
+            d for d in dirs
+            if d not in EXCLUDE_DIRS
+            and not d.startswith(".")
+            and d != custom_name
+            and os.path.abspath(os.path.join(root, d)) != target_docs_root
+        ]
 
         for file in files:
             if not file.endswith((".md", ".txt", ".docx", ".pdf")):

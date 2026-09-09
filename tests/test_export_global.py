@@ -104,7 +104,7 @@ class TestSharedMarker:
 
         monkeypatch.setattr(paths, "_SCRIPT_DIR", str(fake_skill / "scripts"))
         got = paths.resolve_data_root(env={}, cwd=str(tmp_path / "someproject"))
-        assert got == str(tmp_path / "someproject"), "共享正本含 board.json 也不得当数据根"
+        assert got == str(tmp_path / "someproject" / ".yy-flow"), "共享正本含 board.json 也不得当数据根，统一收敛至宿主 .yy-flow"
 
     def test_no_marker_legacy_still_works(self, tmp_path, monkeypatch):
         import paths
