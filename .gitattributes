@@ -12,3 +12,16 @@ e2e/**                    export-ignore
 requirements-dev.txt      export-ignore
 index.html                export-ignore
 .gitattributes            export-ignore
+
+# 官网/README 营销与展示媒体（纯文档展示，离线运行态零引用）
+kanban/screenshots/       export-ignore
+kanban/screenshots/**     export-ignore
+kanban/*.png              export-ignore
+
+# 开发全链路压力测试与仿真白盒脚本
+scripts/run_108_tasks_simulation.py export-ignore
+
+# 项目过程文档骨架与历史工单（防止遗留任何业务文档）
+docs/                     export-ignore
+docs/**                   export-ignore
+
