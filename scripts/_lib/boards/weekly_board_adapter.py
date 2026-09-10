@@ -635,12 +635,12 @@ class WeeklyBoardAdapter:
             field_name = "remarks"
             append_text = str(remarks_field_name_or_text).strip()
 
-        old_remarks = str(rec["fields"].get(field_name) or "").strip()
+        old_remarks = str(rec["fields"].get(field_name) or rec["fields"].get("remarks") or "").strip()
         if old_remarks:
             merged = f"{old_remarks} | {append_text}"
         else:
             merged = append_text
-        return self.update_record(record_id, {field_name: merged})
+        return self.update_record(record_id, {field_name: merged, "remarks": merged})
 
     @staticmethod
     def _next_node_seq(process_text: Optional[str], task_id: str) -> int:

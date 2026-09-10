@@ -10,7 +10,28 @@ from _lib.boards.weekly_board_adapter import WeeklyBoardAdapter
 from transition_task import transition_task_pipeline
 
 
-def test_rework_circuit_breaker_escalates_on_third_rejection(tmp_path, monkeypatch):
+@pytest.fixture
+def rework_config_file(tmp_path):
+    cfg_file = tmp_path / "user_data" / "workflow.config.yaml"
+    cfg_file.parent.mkdir(parents=True, exist_ok=True)
+    cfg_file.write_text("""
+project:
+  name: TestProject
+board:
+  provider: local
+  storage_mode: weekly
+  fields:
+    task_id: id
+    task_name: name
+    status: status
+    assignee: assignee
+    owner: owner
+    remarks: remarks
+""", encoding="utf-8")
+    return str(cfg_file)
+
+
+def test_rework_circuit_breaker_escalates_on_third_rejection(tmp_path, monkeypatch, rework_config_file):
     tasks_dir = tmp_path / "user_data" / "tasks"
     tasks_dir.mkdir(parents=True)
     adapter = WeeklyBoardAdapter(tasks_dir=str(tasks_dir))
@@ -43,7 +64,7 @@ def test_rework_circuit_breaker_escalates_on_third_rejection(tmp_path, monkeypat
 
     # 周审查触发第 3 次打回 (to_status="已退回")
     ok = transition_task_pipeline(
-        config_path=None,
+        config_path=rework_config_file,
         task_id="T8801",
         current_role="REVIEWER",
         from_status="审查中",
@@ -62,7 +83,7 @@ def test_rework_circuit_breaker_escalates_on_third_rejection(tmp_path, monkeypat
     assert "打回熔断仲裁" in task.get("remarks", "")
 
 
-def test_rework_circuit_breaker_allows_force_override(tmp_path, monkeypatch):
+def test_rework_circuit_breaker_allows_force_override(tmp_path, monkeypatch, rework_config_file):
     tasks_dir = tmp_path / "user_data" / "tasks"
     tasks_dir.mkdir(parents=True)
     adapter = WeeklyBoardAdapter(tasks_dir=str(tasks_dir))
@@ -89,7 +110,7 @@ def test_rework_circuit_breaker_allows_force_override(tmp_path, monkeypatch):
 
     # 携带 force=True 触发第 3 次打回
     ok = transition_task_pipeline(
-        config_path=None,
+        config_path=rework_config_file,
         task_id="T8802",
         current_role="REVIEWER",
         from_status="审查中",
