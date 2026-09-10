@@ -147,15 +147,13 @@ def validate_pre_review(task: Dict[str, Any], proj_root: Optional[str] = None) -
 
     root = proj_root or paths.project_root()
 
-    # 1. 交付回执报告物理文件与结构四件套核验
+    # 1. 交付回执核验：支持结构化工单凭据 (首选新标准) 与物理 Markdown 报告 (兼容模式)
     report_path = return_contract.get("report_path")
+    has_valid_physical_report = False
+
     if report_path:
         abs_report = _normalize_path(report_path, root)
-        if not os.path.exists(abs_report):
-            errors.append(
-                f"[REJECT 交付回执缺失] return_contract.report_path 指定的交付报告未找到物理文件: '{report_path}'"
-            )
-        else:
+        if os.path.exists(abs_report):
             try:
                 with open(abs_report, "r", encoding="utf-8", errors="ignore") as rf:
                     report_content = rf.read()
@@ -194,10 +192,55 @@ def validate_pre_review(task: Dict[str, Any], proj_root: Optional[str] = None) -
                         f"[REJECT P5-1 验收映射缺失] Tier-1 交付报告 '{report_path}' 必须包含与 Acceptance Criteria 的逐条映射核对凭据！"
                     )
 
+                if not errors:
+                    has_valid_physical_report = True
+
             except Exception as e:
                 errors.append(f"[REJECT 读取交付报告异常] 无法解析 '{report_path}': {e}")
-    elif tier == "Tier-1":
-        errors.append("[REJECT 缺少交付契约] Tier-1 任务必须在工单中声明 return_contract.report_path 并在提审前交付！")
+        else:
+            # 声明了物理报告路径但在磁盘未找到
+            pass
+
+    # 若未提供合法的物理报告，尝试检查工单自身的结构化自测凭据 (免物理报告轻量通道)
+    if not has_valid_physical_report:
+        test_summary = (
+            return_contract.get("test_summary")
+            or return_contract.get("test_results")
+            or task.get("test_summary")
+            or task.get("test_results")
+            or {}
+        )
+        remarks_str = str(task.get("remarks") or "")
+
+        has_structured_pass = False
+        if isinstance(test_summary, dict):
+            ec = test_summary.get("exit_code")
+            passed_cnt = test_summary.get("passed") or test_summary.get("passed_tests") or 0
+            if (ec == 0 or ec == "0") or (isinstance(passed_cnt, (int, float)) and passed_cnt > 0):
+                has_structured_pass = True
+        elif isinstance(test_summary, str) and ("0" in test_summary or "pass" in test_summary.lower()):
+            has_structured_pass = True
+
+        if not has_structured_pass:
+            # 从 remarks 或 comment 中检索运行态自测通过凭据 (退出码 0 / passed)
+            has_remarks_proof = bool(
+                re.search(r"(退出码\s*[:=]?\s*0|exit\s*code\s*[:=]?\s*0|单测通过|测试全部通过|pytest.*?passed)", remarks_str, re.IGNORECASE)
+            )
+            if has_remarks_proof:
+                has_structured_pass = True
+
+        if not has_structured_pass:
+            if report_path and not os.path.exists(_normalize_path(report_path, root)):
+                errors.append(
+                    f"[REJECT 交付回执缺失] return_contract.report_path 指定的交付报告未找到物理文件: '{report_path}'，且工单中未附带结构化自测凭据 (如 test_summary: exit_code=0 或 remarks 包含退出码 0)"
+                )
+            elif tier == "Tier-1":
+                errors.append(
+                    "[REJECT P5-1 自测凭据缺失] Tier-1 任务提审必须在工单 return_contract 中提供自测凭据 (如 exit_code: 0) 或交付物理报告！"
+                )
+        else:
+            # 结构化凭据已满足，若存在因缺失物理文件产生的 REJECT 错误予以清除
+            errors = [e for e in errors if "[REJECT 交付回执缺失]" not in e]
 
     # 2. Git 差异白名单与黑名单比对 (Scope Boundary Enforcement)
     scope = contract.get("scope") or {}

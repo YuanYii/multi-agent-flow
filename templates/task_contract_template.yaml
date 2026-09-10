@@ -1,7 +1,7 @@
 # ==============================================================================
 # 防御性任务工单契约标准模板 (Task Contract Template)
 # 对应规范: docs/1-方案设计/08-Context_Continuity_Protocol_上下文连续性协议架构设计方案.md
-# 归档宿主: docs/D04-研发过程/D01-任务/tasks_XXXX_YYYY.yaml (固定 50 任务容量分卷)
+# 归档宿主: .yy-flow/user_data/tasks/tasks_XXXX_YYYY.yaml (固定 50 任务分卷，存量兼容 docs/D04-研发过程/D01-任务/)
 # ==============================================================================
 
 id: "TXXXX"
@@ -70,14 +70,17 @@ contract:
     - "契约与工作区现实代码产生矛盾 → 立即停止动笔并上报，严禁自行脑补扩大 scope"
     - "契约未明确之细节遵循权威架构规范，所有工程权衡与自行决定点必须据实写入回执"
 
-# 3. 产物与回执契约 (Return Contract: 完工提审查时必须在交付报告中提交)
+# 3. 产物与回执契约 (Return Contract: 完工提审查时在工单或流转备注中提交自测凭据)
 return_contract:
-  required_items:
-    - "变更文件清单 + 关键 diff 摘要"
-    - "测试结果：对齐验收标准 (AC) 逐条映射 / 新增用例数 / 通过数 / 全量回归结论"
-    - "与契约的偏离点及原因说明"
-    - "遗留问题与需 orchestrator 决策项"
-  report_path: "docs/D04-研发过程/D02-报告/dev/DEV_{task_id}_Report.md"
+  # 3.1 结构化自测通过凭据 (首选新标准，免物理 Markdown 报告)
+  test_summary:
+    exit_code: 0
+    total_tests: 8
+    passed_tests: 8
+    coverage: "88%"
+  notes: "对齐 Acceptance Criteria 逐条验证通过，无与契约偏离项"
+  # 3.2 物理报告文件 (可选扩展项，非必须，核心重大任务需要时方配置):
+  # report_path: "docs/D04-研发过程/D02-报告/dev/DEV_{task_id}_Report.md"
 
 # 4. 全生命周期流转追踪 (Process Timeline)
 process:

@@ -383,14 +383,21 @@ class ChunkedBoardAdapter:
                 crit_list = []
 
             tier = trans.get("tier")
-            if not tier and (trans.get("contract") or trans.get("return_contract")):
+            if not tier:
                 task_type = str(trans.get("type") or trans.get("task_type") or "A").upper()
-                if task_type in ("A", "C"):
+                contract = trans.get("contract") or {}
+                has_strong_contract = bool(contract.get("interface_contract") or contract.get("preconditions"))
+                try:
+                    est_h = float(trans.get("est_hours") or 0.0)
+                except (ValueError, TypeError):
+                    est_h = 0.0
+
+                if has_strong_contract or est_h > 4.0:
                     tier = "Tier-1"
-                elif task_type in ("B", "E", "G"):
-                    tier = "Tier-2"
-                else:
+                elif task_type in ("C", "D", "E") or (est_h > 0 and est_h <= 1.5 and not contract):
                     tier = "Tier-3"
+                else:
+                    tier = "Tier-2"
 
             card = {
                 "id": new_id,

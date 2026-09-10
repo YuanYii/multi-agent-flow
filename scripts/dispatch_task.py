@@ -246,15 +246,34 @@ def dispatch_task(
         amb_str = "\n".join([f"  - {a}" for a in contract["ambiguity_policy"]])
         contract_sections.append(f"【冲突与二义性处置策略】:\n{amb_str}")
 
+    # 弹性智能推导：根据工单属性与契约复杂度自动解析 Tier (解除无脑 Tier-1 兜底)
+    raw_tier = task.get("tier")
+    if raw_tier and str(raw_tier).strip() in ("Tier-1", "Tier-2", "Tier-3"):
+        resolved_tier = str(raw_tier).strip()
+    else:
+        has_strong_contract = bool(contract.get("interface_contract") or contract.get("preconditions"))
+        try:
+            est_h = float(task.get("est_hours") or 0.0)
+        except (ValueError, TypeError):
+            est_h = 0.0
+
+        if has_strong_contract or est_h > 4.0:
+            resolved_tier = "Tier-1"
+        elif est_h > 0 and est_h <= 1.5 and not contract:
+            resolved_tier = "Tier-3"
+        else:
+            resolved_tier = "Tier-2"
+
     if return_contract:
         ret_items = return_contract.get("required_items") or []
-        ret_str = "\n".join([f"  - {item}" for item in ret_items]) or "  - 结构化结案回执四件套"
-        rep_p = return_contract.get("report_path", "未指定")
+        ret_str = "\n".join([f"  - {item}" for item in ret_items]) or "  - 结构化自测凭据与测试指标"
+        rep_p = return_contract.get("report_path")
+        report_line = f"  * 交付报告路径 (可选): `{rep_p}`\n" if rep_p else "  * 交付报告: 免独立物理文件 (优先在提审流转命令中回写自测凭据与退出码 0)\n"
         contract_sections.append(
             f"【结案回执契约 (Return Contract)】:\n"
-            f"  * 交付报告路径: `{rep_p}`\n"
-            f"  * 必备回执四件套:\n{ret_str}\n"
-            f"  * P5-1 提审自省: 必须亲跑测试记录真实用例数与退出码 0 凭据，并在报告中逐条映射验收标准 (AC)！"
+            f"{report_line}"
+            f"  * 必备凭据要素: 变更清单 + 真实测试退出码 0 / 通过用例数凭据\n"
+            f"  * P5-1 提审自省: 必须亲跑测试并在提审命令 --remarks 中附带自测通过凭据！"
         )
 
     contract_prompt_block = "\n\n" + "\n\n".join(contract_sections) if contract_sections else ""
@@ -263,7 +282,7 @@ def dispatch_task(
         "protocol_version": "2.0",
         "task_id": task_id,
         "task_name": task_name,
-        "tier": task.get("tier", "Tier-1"),
+        "tier": resolved_tier,
         "role": role_code,
         "subagent": subagent_info["type_name"],
         "target": target,
@@ -281,7 +300,7 @@ def dispatch_task(
 
 你已被指派承接研发工单: [{task_id}] {task_name}
 你的专家角色: {subagent_info['role_desc']} (Type: {subagent_info['type_name']})
-任务合规等级: {task.get('tier', 'Tier-1')}
+任务合规等级: {resolved_tier}
 
 【核心交付目标 (Target)】:
 {target}

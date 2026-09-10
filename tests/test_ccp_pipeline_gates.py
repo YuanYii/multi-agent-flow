@@ -299,3 +299,44 @@ def test_pre_review_out_of_scope_redline(temp_project_env):
     # 正常无 Git diff 越界场景通过
     ok, errs = validate_pre_review(task_scope, proj_root=root)
     assert ok is True
+
+
+def test_pre_review_structured_inline_pass_without_physical_report(temp_project_env):
+    """场景8：提审准出门禁 - 免物理 Markdown 报告，仅凭工单结构化自测凭据通过"""
+    root = temp_project_env
+    task_no_file_but_has_summary = {
+        "tier": "Tier-1",
+        "target": "重构订单状态计算服务",
+        "return_contract": {
+            "test_summary": {
+                "exit_code": 0,
+                "total": 5,
+                "passed": 5
+            }
+        },
+        "remarks": "单测全部通过 (Exit Code 0)，用例覆盖边界条件"
+    }
+
+    ok, errs = validate_pre_review(task_no_file_but_has_summary, proj_root=root)
+    assert ok is True
+    assert len(errs) == 0
+
+
+def test_pre_review_tier2_elastic_gate(temp_project_env):
+    """场景9：提审准出门禁 - Tier-2 局部优化任务免物理报告直接放行"""
+    root = temp_project_env
+    task_t2 = {
+        "tier": "Tier-2",
+        "target": "优化缓存并发读取性能",
+        "contract": {
+            "scope": {
+                "in_scope": ["app/api/v1/user.py"]
+            }
+        },
+        "remarks": "单测通过 (Exit Code 0)"
+    }
+
+    ok, errs = validate_pre_review(task_t2, proj_root=root)
+    assert ok is True
+    assert len(errs) == 0
+
