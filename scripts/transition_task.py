@@ -11,7 +11,7 @@ import time
 import datetime
 import argparse
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 from difflib import SequenceMatcher
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

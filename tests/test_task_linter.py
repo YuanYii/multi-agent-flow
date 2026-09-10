@@ -61,6 +61,27 @@ class TestTaskLinterSingleResponsibility:
         assert v_type == "OK"
         assert len(reasons) == 0
 
+    @pytest.mark.parametrize("test_prefix_name, assignee", [
+        ("E2E-登录接口开发", "李开发"),
+        ("E2E-用户手册编制", "李文通"),
+        ("E2E-看板首页样式", "马前端"),
+        ("E2E-总体架构设计", "钱架构"),
+        ("E2E-发布流水线阻塞", "吕改特"),
+        ("[TEST] 订单接口实现", "李开发"),
+        ("MOCK-数据表结构设计", "钱架构"),
+    ])
+    def test_test_namespace_prefixes_not_misclassified_as_qa(self, test_prefix_name, assignee):
+        """测试命名空间前缀（E2E-、TEST-、MOCK- 等）不误判为 QA 领域冲突"""
+        is_valid, v_type, reasons, suggestions = lint_task_single_responsibility(
+            name=test_prefix_name,
+            assignee=assignee,
+            task_type="A",
+            est_hours=2.0
+        )
+        assert is_valid is True
+        assert v_type == "OK"
+        assert len(reasons) == 0
+
     # --- 3. 跨领域复合任务拦截测试 (Cross-Domain Composite) ---
 
     @pytest.mark.parametrize("composite_name", [

@@ -96,8 +96,11 @@ def lint_task_single_responsibility(
     if name_clean.upper().startswith(("[HOTFIX]", "[BUGFIX]", "[EMERGENCY]")):
         return True, "OK", [], []
 
-    # 2. 安全短语预处理（替换安全短语为占位符，避免同领域并列被误判）
+    # 2. 安全短语与测试命名空间预处理
     sanitized_name = name_clean
+    # 剥离测试命名空间前缀（如 E2E-、TEST-、MOCK-、[E2E]、[TEST]），避免测试套件标识被误判为 QA 领域冲突
+    sanitized_name = re.sub(r"^(?:\[?(?:E2E|TEST|MOCK)\]?[-_\s:]+)", "", sanitized_name, flags=re.IGNORECASE)
+
     for idx, phrase in enumerate(SAFE_PHRASES):
         if phrase.lower() in sanitized_name.lower():
             pattern = re.compile(re.escape(phrase), re.IGNORECASE)
