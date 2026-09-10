@@ -6,6 +6,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 # 配置解析链：宿主 user_data/workflow.config.yaml > legacy skill config/ > 模板
 $ConfigFile = $null
 $Candidates = @(
+    (Join-Path (Get-Location) ".yy-flow\user_data\workflow.config.yaml"),
     (Join-Path (Get-Location) "user_data\workflow.config.yaml"),
     (Join-Path $ScriptDir "..\user_data\workflow.config.yaml"),
     (Join-Path $ScriptDir "..\config\workflow.config.yaml")

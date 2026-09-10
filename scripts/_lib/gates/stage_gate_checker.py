@@ -366,8 +366,20 @@ def check_arch_summary(ctx: StageContext) -> CheckResult:
             detail="配置已豁免架构技术总结",
         )
 
-    # 路径自适应候选模式：精准收敛为带总结/复盘的架构文档，避免误匹配基础设计文档
-    candidates = [
+    # 路径自适应候选模式：优先尝试配置的 summary_dir，随后精准收敛为带总结/复盘的架构文档
+    cfg_summary_dir = str(
+        ctx.config.get("paths", {}).get("summary_dir")
+        or ctx.config.get("summary_dir")
+        or ""
+    ).strip()
+
+    candidates = []
+    if cfg_summary_dir:
+        candidates.append(os.path.join(cfg_summary_dir, "*架构*"))
+        candidates.append(os.path.join(cfg_summary_dir, "*技术*"))
+        candidates.append(os.path.join(cfg_summary_dir, "*总结*"))
+
+    candidates.extend([
         "D04-研发过程/D02-报告/summary/*架构*",
         "D04-研发过程/D02-报告/summary/*技术*",
         "04-研发过程/02-报告/summary/*架构*",
@@ -381,7 +393,7 @@ def check_arch_summary(ctx: StageContext) -> CheckResult:
         "summary/*架构*",
         "**/*架构*总结*.md",
         "**/*技术*总结*.md",
-    ]
+    ])
     matched_files = ctx.find_docs(candidates)
     valid_doc = None
 
@@ -420,12 +432,13 @@ def check_arch_summary(ctx: StageContext) -> CheckResult:
             detail="当前阶段为非代码研发阶段，自动豁免架构技术总结",
         )
 
+    target_dir_hint = cfg_summary_dir or "docs/D04-研发过程/D02-报告/summary/"
     return CheckResult(
         code="ARCH_SUMMARY_MISSING",
         title="架构技术总结核验",
         passed=False,
-        detail=f"未在 docs/ 中找到【{ctx.target_stage}】的架构技术总结文档 (期望: *架构*总结*.md)",
-        suggestion="请架构师 钱架构 在 docs/D04-研发过程/D02-报告/summary/ 产出并定稿阶段架构技术总结",
+        detail=f"未在文档目录中找到【{ctx.target_stage}】的架构技术总结文档 (期望: *架构*总结*.md)",
+        suggestion=f"请架构师 钱架构 在项目阶段总结目录 ({target_dir_hint}) 产出并定稿阶段架构技术总结",
     )
 
 
@@ -439,7 +452,20 @@ def check_pm_summary(ctx: StageContext) -> CheckResult:
             detail="配置已豁免 PM 阶段总结",
         )
 
-    candidates = [
+    cfg_summary_dir = str(
+        ctx.config.get("paths", {}).get("summary_dir")
+        or ctx.config.get("summary_dir")
+        or ""
+    ).strip()
+
+    candidates = []
+    if cfg_summary_dir:
+        candidates.append(os.path.join(cfg_summary_dir, "*管理*"))
+        candidates.append(os.path.join(cfg_summary_dir, "*阶段*"))
+        candidates.append(os.path.join(cfg_summary_dir, "*复盘*"))
+        candidates.append(os.path.join(cfg_summary_dir, "*总结*"))
+
+    candidates.extend([
         "D01-项目管理/D02-状态报告/*总结*",
         "D01-项目管理/D02-状态报告/*复盘*",
         "D01-项目管理/D02-状态报告/*报告*",
@@ -457,7 +483,7 @@ def check_pm_summary(ctx: StageContext) -> CheckResult:
         "04-研发过程/报告/summary/*复盘*",
         "**/*阶段*总结*.md",
         "**/*阶段*复盘*.md",
-    ]
+    ])
     matched_files = ctx.find_docs(candidates)
     valid_doc = None
 
@@ -498,12 +524,13 @@ def check_pm_summary(ctx: StageContext) -> CheckResult:
         )
 
     if not valid_doc:
+        target_pm_dir = cfg_summary_dir or "docs/D01-项目管理/D02-状态报告/"
         return CheckResult(
             code="PM_SUMMARY_DOC_MISSING",
             title="PM 阶段管理与复盘总结",
             passed=False,
-            detail=f"未在 docs/ 中找到【{ctx.target_stage}】的管理复盘报告 (期望: docs/D01-项目管理/D02-状态报告/*阶段总结*.md)",
-            suggestion="请 PM 严经理 在 docs/D01-项目管理/D02-状态报告/ 编写并定稿阶段管理总结与复盘报告",
+            detail=f"未在文档目录中找到【{ctx.target_stage}】的管理复盘报告 (期望: *阶段总结*.md 或 *复盘*.md)",
+            suggestion=f"请 PM 严经理 在项目阶段总结目录 ({target_pm_dir}) 编写并定稿阶段管理总结与复盘报告",
         )
 
     return CheckResult(
@@ -730,7 +757,7 @@ def format_terminal_report(report: StageGateReport) -> str:
             lines.append("   1. 请 PM 严经理 派发 D 类运维任务唤起 DevOps 吕改特 执行分支合并与版本发布:")
             lines.append("      - 将当前阶段特性分支发起 PR 并合流至主干 (main) 或 release 分支;")
             lines.append("      - 在主干打版本发布 Tag（如 v1.x.0）并推送至远端;")
-            lines.append("   2. 阶段总结与复盘文档归档至 docs/D01-项目管理/D02-状态报告/。")
+            lines.append("   2. 阶段总结与复盘文档归档至项目状态报告或阶段总结目录。")
         else:
             lines.append(f"[FAIL] 阶段门禁未通过！存在 {report.failed_checks} 项阻断项。")
             lines.append("[ADVICE] 修复建议向导:")

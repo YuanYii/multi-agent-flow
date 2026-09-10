@@ -27,7 +27,11 @@
       "src/parser.py",
       "tests/test_parser.py"
     ],
-    "report_path": "docs/reports/dev/DEV_T0001_Report.md",
+    "test_summary": {
+      "exit_code": 0,
+      "total": 8,
+      "passed": 8
+    },
     "coverage_rate": "86.5%"
   },
   "handover_context": {
@@ -50,18 +54,18 @@
 | 流转方向 | 发起角色 | 接收角色 | 必填交接产物 (Required Artifacts) | 门控校验脚本调用命令 |
 | :--- | :--- | :--- | :--- | :--- |
 | **自领取** | PM/看板 | DEV / FRONTEND | WBS 任务包条目、需求约束 | `python3 scripts/transition_task.py --role DEV --from-status 待开始 --to-status 进行中 ...` (FRONTEND 同命令,仅 `--role` 改) |
-| **提代码审查**| DEV / FRONTEND | REVIEWER | 修改代码列表、单测结果、开发任务报告 (前端含 UX 验收清单) | `python3 scripts/transition_task.py --role DEV --from-status 进行中 --to-status 审查中 ...` (FRONTEND 同命令) |
-| **审查通过** | REVIEWER | QA | 审查报告、安全/规范评估 (前端含可访问性/响应式) | `python3 scripts/transition_task.py --role REVIEWER --from-status 审查中 --to-status 测试中 ...` |
-| **审查打回** | REVIEWER | DEV / FRONTEND | 结构化缺陷信息 `DEF-TXXX-N` | `python3 scripts/transition_task.py --role REVIEWER --from-status 审查中 --to-status 已退回 ...` |
-| **测试通过** | QA | PM | 测试报告、功能点复验覆盖表、`end_time` | `python3 scripts/transition_task.py --role QA --from-status 测试中 --to-status 已完成 ...` |
+| **提代码审查**| DEV / FRONTEND | REVIEWER | 修改代码列表、单测退出码 0 与通过数凭据 (回写 remarks 或工单 return_contract) | `python3 scripts/transition_task.py --role DEV --from-status 进行中 --to-status 审查中 --remarks "单测全部通过(退出码0)" ...` |
+| **审查通过** | REVIEWER | QA | 审查结论通过项、安全/规范评估 (回写看板 remarks) | `python3 scripts/transition_task.py --role REVIEWER --from-status 审查中 --to-status 测试中 --remarks "代码审查通过，静态扫描合规" ...` |
+| **审查打回** | REVIEWER | DEV / FRONTEND | 结构化缺陷信息 `DEF-TXXX-N` | `python3 scripts/transition_task.py --role REVIEWER --from-status 审查中 --to-status 已退回 --remarks "【打回】DEF-TXXX-1 根因与修复指引" ...` |
+| **测试通过** | QA | PM | 功能与集成用例复验凭据、实际工时、`end_time` | `python3 scripts/transition_task.py --role QA --from-status 测试中 --to-status 已完成 --end-time "..." --remarks "集成用例通过" ...` |
 | **人类验收终态**| PM / 人类用户 | 终态归档 | 阶段交付总结与验收标准结项 (Agent 严禁代签) | 由人类用户在终端执行 `python3 scripts/quick_task.py accept --task-id <ID>` 或在 Web 看板点击验收 |
 
 ---
 
 ## 3. 记忆持久化与状态共享
 
-1. **绝对禁止隐式口头传达**：所有的流转说明必须显式写落盘至 `docs/reports/` 中的 Markdown 报告或看板 `remarks` 字段中。
-2. **上下文按需载入**：接收角色激活时，使用 `view_file` 仅调阅上一阶段角色提交的 `report_path` 与对应的代码改动 `modified_files`，保持 Token 上下文精准精简。
+1. **绝对禁止隐式口头传达**：日常流转说明必须显式回写至看板 `remarks` 字段、工单流转节点或结构化回执中；阶段性重大里程碑（阶段架构技术总结/PM复盘报告）归档至**项目文档的阶段总结目录**（推荐 `<docs_root>/D04-研发过程/D02-报告/summary/`，或项目配置声明的 `summary_dir`，自适应宿主既有文档架构）。
+2. **上下文按需载入**：接收角色激活时，直接调阅任务工单契约、上一阶段角色提交的自测凭据与对应的代码改动，保持 Token 上下文精准精简。
 
 ---
 

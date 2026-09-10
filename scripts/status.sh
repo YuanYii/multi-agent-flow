@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 配置解析链：宿主 user_data/workflow.config.yaml > legacy skill config/ > 模板
 CONFIG_FILE=""
 for _CAND in \
+    "${YY_FLOW_PROJECT_ROOT:-.}/.yy-flow/user_data/workflow.config.yaml" \
     "${YY_FLOW_PROJECT_ROOT:-.}/user_data/workflow.config.yaml" \
     "${SCRIPT_DIR}/../user_data/workflow.config.yaml" \
     "${SCRIPT_DIR}/../config/workflow.config.yaml"; do
