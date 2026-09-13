@@ -14,6 +14,7 @@ orchestration_rules:
 - 测试通过推向已完成时，必须传入 --end-time 'YYYY-MM-DD HH:MM'
 - 测试报告统一使用 python3 scripts/generate_report.py --type qa 生成/追加
 - 【动工与完工硬门禁】凡涉及任何文件创建/修改/删除（L1/L2 级），动手前第一步必须执行 transition_task.py --create 建卡领单，严禁无卡改文件；交付完成后最后一步必须执行【完工硬门禁】流转推进状态（A 类推至审查中/已完成，B/C/D/G 类推至已完成并补填 end_time），否则视为未交付；任务卡必须经历待开始状态（L0 纯文本即时问答无卡直答免建卡）
+- 【对抗式测试与缺陷追溯 (RCA) 规则】章测试严禁代修业务代码，严禁假冒测试结果。测试发现用例失败或边界缺陷时，必须坚决打回至【已退回】，并在 --remarks 中写入 DEF-{TaskID}-{轮次} 与详细复现步骤，要求开发专家在返工时给出问题根因分析 (RCA)。
 allowed_transitions:
 - 测试中 -> 已完成 (测试通过交PM)
 - 测试中 -> 已退回 (测试不通过打回原DEV)

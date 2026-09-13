@@ -13,6 +13,8 @@ import sys
 import json
 import argparse
 import glob
+import secrets
+import datetime
 from typing import Dict, Any, Optional, List
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -135,7 +137,13 @@ def dispatch_task(
     pretask = task.get("pretask", "无") or "无"
 
     # 确定目标角色
-    role_code = (target_role or normalize_role(assignee) or "DEV").upper()
+    CHINESE_TO_ROLE_CODE = {
+        "严经理": "PM", "钱架构": "ARCHITECT", "李开发": "DEV", "马前端": "FRONTEND",
+        "周审查": "REVIEWER", "章测试": "QA", "李文通": "DOCS", "吕改特": "DEVOPS", "用户": "USER"
+    }
+    raw_role = target_role or assignee or "DEV"
+    norm_cname = normalize_role(raw_role)
+    role_code = (target_role or CHINESE_TO_ROLE_CODE.get(norm_cname) or norm_cname or "DEV").upper()
     subagent_info = ROLE_SUBAGENT_MAP.get(role_code, ROLE_SUBAGENT_MAP["DEV"])
 
     # 2. 门禁一：前置依赖门禁 (Dependency Gate)
@@ -187,6 +195,9 @@ def dispatch_task(
             "\n".join([f"  - [FAIL] {e}" for e in gate_errors])
         )
 
+    # 3.6 签发一次性安全派单令牌 (Dispatch Token) 强绑定 Subagent
+    dispatch_token = secrets.token_hex(8)
+
     # 4. 状态流转推进：待开始 -> 进行中
     if current_status == "待开始" and not dry_run:
         ok = transition_task_pipeline(
@@ -201,6 +212,17 @@ def dispatch_task(
         if not ok:
             raise RuntimeError(f"[REJECT 流转失败] 自动推进任务 {task_id} 从【待开始】到【进行中】未通过门禁！")
 
+    # 4.1 持久化 dispatch_token 到卡片 handover_context
+    if not dry_run:
+        handover = task.get("handover_context") or {}
+        if not isinstance(handover, dict):
+            handover = {}
+        handover["dispatch_token"] = dispatch_token
+        handover["dispatched_at"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        handover["dispatched_role"] = role_code
+        if hasattr(adapter, "update_record"):
+            adapter.update_record(task_id, {"handover_context": handover})
+
     # 5. 上下文与 Payload 装配 (CCP V2.0 契约注入)
     related_docs = find_related_docs(task, proj_root)
 
@@ -209,6 +231,7 @@ def dispatch_task(
     exit_cli = (
         f"python3 scripts/transition_task.py --task-id {task_id} "
         f"--role {exit_role} --from-status 进行中 --to-status {next_status} "
+        f"--token {dispatch_token} "
         f"--remarks '完成工单交付与自测通过'"
     )
 
@@ -285,6 +308,7 @@ def dispatch_task(
         "tier": resolved_tier,
         "role": role_code,
         "subagent": subagent_info["type_name"],
+        "dispatch_token": dispatch_token,
         "target": target,
         "acceptance_criteria": criteria,
         "contract": contract,
@@ -292,7 +316,8 @@ def dispatch_task(
         "context_files": related_docs,
         "exit_contract": {
             "target_status": next_status,
-            "required_cli": exit_cli
+            "required_cli": exit_cli,
+            "dispatch_token": dispatch_token
         }
     }
 
@@ -301,6 +326,7 @@ def dispatch_task(
 你已被指派承接研发工单: [{task_id}] {task_name}
 你的专家角色: {subagent_info['role_desc']} (Type: {subagent_info['type_name']})
 任务合规等级: {resolved_tier}
+安全派单令牌 (Token): {dispatch_token}
 
 【核心交付目标 (Target)】:
 {target}
@@ -315,9 +341,10 @@ def dispatch_task(
 【硬性退出契约与防错铁律】:
 1. 必须在独立会话中编写实体源码并执行针对性单元测试（保持单测全部通过）；
 2. 提审前自省 (P5-1): 是否亲见测试通过？每项验收标准是否有代码与日志凭据？
-3. 完工前必须物理执行以下 CLI 推进状态至【{next_status}】:
+3. 完工前必须物理执行以下 CLI 推进状态至【{next_status}】(携带专属 --token 凭据):
    `{exit_cli}`
-4. 严禁在会话中仅进行口头承诺而不调用流转命令；流转成功后输出结构化成果汇报。
+4. 严禁未带 --token 越权流转；未携带合法 Token 的流转将被状态机直接硬阻断。
+5. 严禁在会话中仅进行口头承诺而不调用流转命令；流转成功后输出结构化成果汇报。
 """
 
     dispatch_result = {

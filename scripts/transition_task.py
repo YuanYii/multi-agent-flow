@@ -178,6 +178,76 @@ def normalize_stage_name(stage_str: Optional[str]) -> Optional[str]:
     return s
 
 
+def validate_subagent_context(
+    task_id: str,
+    current_role: str,
+    from_status: str,
+    to_status: str,
+    token: Optional[str],
+    task_type: str,
+    existing_card: Optional[Dict[str, Any]],
+    force: bool = False
+) -> tuple[bool, str]:
+    """
+    核验当前流转是否满足 Subagent 物理隔离门禁：
+    1. 紧急全局旁路开关：YYFLOW_DISABLE_SUBAGENT_GATE=1 放行；
+    2. 测试与 CI 环境自动静默豁免 (PYTEST_CURRENT_TEST / YYFLOW_TEST_ENV / sys.modules['pytest'])；
+    3. PM 角色流转、人类验收 (USER) 与作废 (已取消) 豁免；
+    4. L1 轻量短链任务类型 (B/C/E/F/G 类) 豁免；
+    5. 专业研发/审查/测试角色 (DEV/FRONTEND/REVIEWER/QA) 必须核验有效 dispatch_token。
+    """
+    # 规则 1：紧急全局旁路开关
+    if os.environ.get("YYFLOW_DISABLE_SUBAGENT_GATE") == "1":
+        return True, "紧急全局旁路已开启"
+
+    # 规则 2：单测与本地测试环境自动豁免
+    if (
+        os.environ.get("PYTEST_CURRENT_TEST")
+        or os.environ.get("YYFLOW_TEST_ENV") == "1"
+        or os.environ.get("YYFLOW_TEST_MODE") == "1"
+    ):
+        return True, "单测/CI环境自动豁免"
+
+    norm_role = normalize_role(current_role)
+
+    # 规则 3：PM 角色、人类验收与作废豁免
+    if norm_role in ["严经理", "用户", "PM", "USER"] or to_status in ["已验收", "已取消"]:
+        return True, "管理/验收/取消角色豁免"
+
+    # 规则 4：L1 轻量短链类型豁免 (B/C/E/F/G 类任务)
+    if str(task_type).upper() in ["B", "C", "E", "F", "G"]:
+        return True, "轻量短链类型豁免"
+
+    # 规则 5：专业研发/审查/测试角色 (DEV, FRONTEND, REVIEWER, QA) 必须核验 dispatch_token
+    if norm_role in ["李开发", "马前端", "周审查", "章测试", "DEV", "FRONTEND", "REVIEWER", "QA"]:
+        if not existing_card:
+            return False, f"任务 {task_id} 不存在，禁止直接跃迁"
+
+        card_fields = existing_card.get("fields", existing_card) if isinstance(existing_card, dict) else existing_card
+        handover = card_fields.get("handover_context") or {}
+        if not isinstance(handover, dict):
+            handover = {}
+        expected_token = handover.get("dispatch_token") or handover.get("last_used_token")
+
+        if not expected_token:
+            if force:
+                return True, "使用 --force 覆盖未派发状态"
+            return False, (
+                f"任务 {task_id} 尚未执行代码化派单 (cli.py dispatch)，未签发 dispatch_token！"
+                f"违反物理隔离铁律：严禁在主会话中自扮演研发角色直接流转，请先通过 cli.py dispatch 派发 Subagent！"
+            )
+
+        if not token or token.strip() != str(expected_token).strip():
+            if force:
+                return True, "使用 --force 覆盖令牌校验"
+            return False, (
+                f"提供的 dispatch_token 无效或缺失！"
+                f"违反物理隔离铁律：专业研发角色 ({current_role}) 必须在 Subagent 进程中携带合法 --token 流转。"
+            )
+
+    return True, "Subagent 凭证核验通过"
+
+
 def transition_task_pipeline(
     config_path: str,                    # 配置文件路径
     task_id: str = "",                   # 任务编号（如 T0001，建卡留空自动递增分配）
@@ -217,6 +287,7 @@ def transition_task_pipeline(
     contract: Optional[Dict[str, Any]] = None,        # CCP V2.0 防御性执行契约 (Preconditions/Scope/Boundaries)
     return_contract: Optional[Dict[str, Any]] = None, # CCP V2.0 结案回执四件套契约
     tier: str = None,                                 # CCP 任务合规分级 (Tier-1/Tier-2/Tier-3)
+    token: Optional[str] = None,                      # Subagent 安全派单令牌 (Dispatch Token)
 ) -> bool:
     """
     执行任务状态流转全生命周期核心责任链管线。
@@ -445,6 +516,26 @@ def transition_task_pipeline(
         eff_pretask = pretask
         if not eff_pretask and existing:
             eff_pretask = existing.get("fields", {}).get("pretask")
+
+        # 4.5 Subagent 物理隔离硬门控校验 (Fail-Closed)
+        subagent_ok, subagent_msg = validate_subagent_context(
+            task_id=resolved_task_id,
+            current_role=current_role,
+            from_status=from_status,
+            to_status=to_status,
+            token=token,
+            task_type=task_type,
+            existing_card=existing,
+            force=force
+        )
+        if not subagent_ok:
+            logger.error(f"[FAILED]  [SUBAGENT 门禁拦截] {subagent_msg}", extra=extra_log)
+            record_audit_event(
+                resolved_task_id, current_role, from_status, to_status, assignee, False,
+                f"Subagent门禁拦截: {subagent_msg}",
+                delegated_by=delegated_by, delegation_reason=delegation_reason
+            )
+            return False
 
         # 5. 强制运行防护门控 (并发上限与 HOTFIX 特权透传，未通过则直接抛错中断！)
         is_valid = validate(
@@ -711,6 +802,18 @@ def transition_task_pipeline(
         elif to_status in ["进行中"] and not current_start:
             update_fields[start_time_key] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
+        # 消费使用过的 dispatch_token，防重放与跨角色串联
+        # 仅当任务交接至下一阶段 (待审查/待测试/已完成/待验收/已取消) 时才销毁 dispatch_token
+        if token and existing:
+            card_fields = existing.get("fields", existing) if isinstance(existing, dict) else existing
+            handover = card_fields.get("handover_context") or {}
+            if isinstance(handover, dict) and handover.get("dispatch_token"):
+                if to_status in ["待审查", "待测试", "已完成", "已验收", "已取消"]:
+                    handover_copy = dict(handover)
+                    handover_copy["last_used_token"] = handover_copy.pop("dispatch_token", None)
+                    handover_copy["token_consumed_at"] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    update_fields["handover_context"] = handover_copy
+
         orig_handler = (existing.get("fields", {}).get(handler_key) or existing.get("fields", {}).get("handler") if existing else None) or current_role
 
         try:
@@ -817,6 +920,7 @@ def main():
     parser.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
     parser.add_argument("--contract-file", default=None, help="CCP 防御性契约配置文件路径 (YAML 格式)")
     parser.add_argument("--tier", default=None, choices=["Tier-1", "Tier-2", "Tier-3"], help="CCP 任务合规分级")
+    parser.add_argument("--token", default=None, help="Subagent 派单安全令牌 (Dispatch Token)，专业研发角色校验用")
 
     args = parser.parse_args()
 
@@ -901,6 +1005,7 @@ def main():
         contract=contract_payload,
         return_contract=return_contract_payload,
         tier=tier_val,
+        token=getattr(args, "token", None),
     )
 
     if not ok:

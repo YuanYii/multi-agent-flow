@@ -6,7 +6,7 @@ version: 2.2.0
 
 # Multi-Agent Team Workflow Skill (YY-Flow)
 
-> **契约驱动的多角色 Agent 协同研发微内核** —— 消除越权、打回碎片化与状态悬挂。
+> **契约驱动的多智能体协同研发微内核 (YY-Flow)** —— 对齐 AutoGen 范式，有效防范越权、打回碎片化与状态悬挂。
 
 ---
 
@@ -51,7 +51,7 @@ version: 2.2.0
 | :--- | :--- | :--- | :--- |
 | **创建任务卡** | `python3 scripts/cli.py task create ...` | `python3 scripts/quick_task.py create ...` | `--name "..." --assignee "..." --stage "..." --type "A" --target "..." --criteria "..."` |
 | **代码化派单** | `python3 scripts/cli.py dispatch --task-id T00xx` | `python3 scripts/dispatch_task.py` | 校验依赖与并发，推至【进行中】，输出 Subagent 载荷 |
-| **推进任务流转** | `python3 scripts/transition_task.py ...` | `python3 scripts/transition_task.py ...` | `--task-id T00xx --role DEV --from-status 进行中 --to-status 审查中 --remarks "..."` |
+| **推进任务流转** | `python3 scripts/transition_task.py ...` | `python3 scripts/transition_task.py ...` | `--task-id T00xx --role DEV --from-status 进行中 --to-status 审查中 --token <token> --remarks "..."` |
 | **人类终态验收** | `python3 scripts/cli.py task accept ...` | `python3 scripts/quick_task.py accept ...` | `--task-id T00xx`（**人类用户专属**，严禁 Agent 代签） |
 | **启动看板** | `python3 scripts/cli.py kanban` | `python3 scripts/start_kanban_server.py` | 默认启动于 `http://127.0.0.1:32886/` |
 | **健康度巡检** | `python3 scripts/cli.py status` | `python3 scripts/heartbeat.py` | 输出大盘健康度、阻塞卡片与效能指标 |
@@ -63,7 +63,9 @@ version: 2.2.0
 ## 8 大专家子代理写权限与流转区间矩阵
 
 > [!IMPORTANT]
-> **物理隔离铁律**：主 Agent (PM 严经理) 严禁在主会话中自扮演研发编写业务代码！涉及代码变更的任务，**必须通过 `invoke_subagent` 派发对应专家子代理在独立进程中完成**。
+> **物理隔离铁律与令牌门控 (Dispatch Token Gating)**：
+> 1. 主 Agent (PM 严经理) 严禁在主会话中自扮演研发编写业务代码！涉及代码变更的任务，**必须通过 `invoke_subagent` 派发对应专家子代理在独立进程中完成**。
+> 2. **代码化派发与令牌门控**：任务派发时由 `cli.py dispatch` 生成专属 `dispatch_token`。专业研发角色 (`DEV`/`FRONTEND`/`REVIEWER`/`QA`) 流转时必须携带 `--token <token>`，状态机执行底层强拦截，杜绝自扮演假绿走过场。
 
 | 子代理标识 | 角色名称 | 核心职责 | 合法状态流转区间 | 退出契约 |
 | :--- | :--- | :--- | :--- | :--- |
