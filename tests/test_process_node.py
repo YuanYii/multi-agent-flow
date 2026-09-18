@@ -9,6 +9,7 @@ transition_task 流转写节点行、两条写入路径格式统一、
 运行: python3 -m pytest tests/test_process_node.py -q
 """
 
+import datetime
 import json
 import os
 import subprocess
@@ -22,6 +23,11 @@ SCRIPTS = os.path.join(REPO_ROOT, "scripts")
 sys.path.insert(0, SCRIPTS)
 
 from _lib.boards.offline_board_adapter import OfflineBoardAdapter  # noqa: E402
+
+
+def _now():
+    """返回当前时间字符串，用于 --end-time 参数，确保不早于任务 start_date。"""
+    return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 
 def _run_flow_tty(cfg, *args):
@@ -173,16 +179,17 @@ class TestTransitionWritesNodes:
              "--to-status", "测试中", "--assignee", "章测试"),
             ("--task-id", "T0001", "--role", "QA", "--from-status", "测试中",
              "--to-status", "已完成", "--assignee", "严经理",
-             "--end-time", "2026-08-16 16:40:00", "--remarks", "测试通过"),
+             "--end-time", "__NOW__", "--remarks", "测试通过"),
         ]
         for step in steps:
+            step = tuple(_now() if v == "__NOW__" else v for v in step)
             r = _run_flow(cfg, *step)
             assert r.returncode == 0, (step, r.stdout[-300:])
 
         # 人类验收一步走 PTY（模拟真人终端确认）
         r = _run_flow_tty(cfg, "--task-id", "T0001", "--role", "PM", "--from-status", "已完成",
                           "--to-status", "已验收", "--assignee", "严经理",
-                          "--end-time", "2026-08-16 16:41:00", "--force-verify-operator")
+                          "--end-time", _now(), "--force-verify-operator")
         assert r.returncode == 0, (r.stdout[-300:])
 
         card = json.loads(board.read_text(encoding="utf-8"))[0]

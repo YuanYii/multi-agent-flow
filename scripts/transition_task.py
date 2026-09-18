@@ -314,6 +314,17 @@ def transition_task_pipeline(
         logger.error("[FAILED]  流转模式必须提供 --from-status/--to-status/--assignee；仅建卡请使用 --create", extra=extra_log)
         return False
 
+    # 0.01 --end-time 格式校验与自动补齐缺失秒位
+    if end_time:
+        end_time = end_time.strip()
+        if re.match(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$', end_time):
+            end_time += ':00'
+        try:
+            datetime.datetime.fromisoformat(end_time)
+        except ValueError:
+            print(f"[REJECT 格式错误] --end-time '{end_time}' 格式不合法，要求 %Y-%m-%d %H:%M:%S")
+            return False
+
     # 0. 提权代行白名单预检(Fail-Closed):在 validate 前阻断非法代行
     #    无代行声明(delegated_by 为空)时直接跳过,交由原 validate 权限矩阵处理
     if not validate_delegation_authority(current_role, delegated_by):
@@ -536,6 +547,22 @@ def transition_task_pipeline(
                 delegated_by=delegated_by, delegation_reason=delegation_reason
             )
             return False
+
+        # 4.8 终态时序单调性校验：结束时间不得早于开工时间
+        if to_status in ["已完成", "已验收", "已取消"] and end_time:
+            _card_fields = existing.get("fields", existing) if existing and isinstance(existing, dict) else (existing or {})
+            existing_start = _card_fields.get("start_date") or _card_fields.get("startDate")
+            if existing_start:
+                try:
+                    s_dt = datetime.datetime.fromisoformat(str(existing_start).strip())
+                    e_dt = datetime.datetime.fromisoformat(str(end_time).strip())
+                    if e_dt < s_dt:
+                        print(f"[REJECT 时序倒挂] 结束时间 ({end_time}) 早于开工时间 ({existing_start})，禁止流转！")
+                        logger.error(f"[FAILED]  [时序倒挂] 结束时间 ({end_time}) 早于开工时间 ({existing_start})，禁止流转！", extra=extra_log)
+                        record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"时序倒挂: end_time={end_time} < start_date={existing_start}", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                        return False
+                except (ValueError, TypeError) as _parse_err:
+                    logger.debug(f"[SKIP] 时序单调性校验跳过: existing_start={existing_start}, end_time={end_time}, reason={_parse_err}", extra=extra_log)
 
         # 5. 强制运行防护门控 (并发上限与 HOTFIX 特权透传，未通过则直接抛错中断！)
         is_valid = validate(
