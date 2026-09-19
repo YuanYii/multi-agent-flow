@@ -135,7 +135,9 @@ def test_dispatch_task_concurrency_gate_blocks_overload(tmp_path, monkeypatch):
     # 第 4 个任务尝试派单
     adapter.create_record({
         "id": "T9914",
-        "name": "超载任务",
+        "name": "超载任务-并发门禁测试",
+        "target": "验证并发超载门禁阻断逻辑",
+        "acceptance_criteria": ["超载任务应被并发门禁成功阻断"],
         "status": "待开始",
         "assignee": "李开发",
         "pretask": "无",

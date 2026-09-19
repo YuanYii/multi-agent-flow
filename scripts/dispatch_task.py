@@ -176,7 +176,11 @@ def dispatch_task(
     all_tasks = [t.get("fields", t) if isinstance(t, dict) else t for t in raw_all_tasks]
     in_progress_count = sum(
         1 for t in all_tasks
-        if t.get("status") == "进行中" and normalize_role(t.get("assignee", "")).upper() == role_code
+        if t.get("status") == "进行中"
+        and (
+            CHINESE_TO_ROLE_CODE.get(normalize_role(t.get("assignee", ""))) == role_code
+            or normalize_role(t.get("assignee", "")) == norm_cname
+        )
         and t.get("id") != task_id
     )
     if in_progress_count >= max_parallel:
