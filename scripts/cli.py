@@ -17,10 +17,10 @@ def print_usage():
     """
     打印 yy-flow 统一命令行工具的全景使用说明与典型示例。
     
-    展示所支持的 7 大核心子命令（task, dispatch, kanban, status, help, ccp, trace）
+    展示所支持的 8 大核心子命令（task, dispatch, kanban, status, help, ccp, trace, test）
     以及常见研发场景下的标准调用示例。
     """
-    print("""usage: yy-flow [-h] {task,dispatch,kanban,status,help,ccp,trace} ...
+    print("""usage: yy-flow [-h] {task,dispatch,kanban,status,help,ccp,trace,test} ...
 
 Multi-Agent Team Workflow (YY-Flow) 统一命令行工具
 
@@ -32,6 +32,7 @@ subcommands:
   help      输出全景指令帮助手册 (透明转发至 show_help)
   ccp       上下文连续性协议门禁操作
   trace     链路全景图鉴生成 (透明转发至 generate_trace_html，0 Token 消耗)
+  test      智能增量测试 (透明转发至 run_tests，仅测改动关联用例，--all 全量)
 
 示例:
   yy-flow task create --name "实现新接口" --type A --assignee 李开发
@@ -41,6 +42,8 @@ subcommands:
   yy-flow status --json
   yy-flow ccp --task-id T0001 --stage 审查中
   yy-flow trace
+  yy-flow test
+  yy-flow test --all
 """)
 
 
@@ -178,6 +181,32 @@ def cmd_trace(extra_args):
     trace_main()
 
 
+def cmd_test(extra_args):
+    """
+    处理 test 子命令：执行智能增量测试，仅运行与改动关联的测试用例（支持 --all 全量）。
+    
+    参数:
+        extra_args (list[str]): 透传给 run_tests 的参数列表。
+    """
+    from run_tests import main as test_main
+
+    sys.argv = [sys.argv[0]] + extra_args
+    sys.exit(test_main())
+
+
+# 子命令分发路由表：通过字典映射消解多重 if-else 分支，提升分发扩展性
+HANDLERS = {
+    "task": cmd_task,
+    "dispatch": cmd_dispatch,
+    "kanban": cmd_kanban,
+    "status": cmd_status,
+    "help": cmd_help,
+    "ccp": cmd_ccp,
+    "trace": cmd_trace,
+    "test": cmd_test,
+}
+
+
 def main():
     """
     CLI 统一门面主调度入口函数。
@@ -198,20 +227,9 @@ def main():
         print_usage()
         sys.exit(0)
 
-    # 子命令分发路由表：通过字典映射消解多重 if-else 分支，提升分发扩展性
-    handlers = {
-        "task": cmd_task,
-        "dispatch": cmd_dispatch,
-        "kanban": cmd_kanban,
-        "status": cmd_status,
-        "help": cmd_help,
-        "ccp": cmd_ccp,
-        "trace": cmd_trace,
-    }
-
     # 根据子命令命中情况分发调用；若遇到未知子命令，提示错误并按 Unix 规范返回退出码 2
-    if subcommand in handlers:
-        handlers[subcommand](extra_args)
+    if subcommand in HANDLERS:
+        HANDLERS[subcommand](extra_args)
     else:
         print(f"未知子命令: {subcommand}\n")
         print_usage()
