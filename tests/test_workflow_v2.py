@@ -5,6 +5,7 @@ multi-agent-flow 工作流 v2 功能测试套件（阶段 6）
 挂起态恢复 / 幂等并发 / quick 命令 / 协议层。合计 41 个用例（含参数化）。
 运行：python3 -m pytest tests/test_workflow_v2.py -q
 """
+import datetime
 import json
 import os
 import subprocess
@@ -18,6 +19,13 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(REPO_ROOT, "scripts")
 if SCRIPTS not in sys.path:
     sys.path.insert(0, SCRIPTS)
+
+
+def _now():
+    """返回当前时间字符串，用于 --end-time 参数，确保不早于任务 start_date。"""
+    return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
@@ -465,7 +473,7 @@ class TestGateAndQuick:
             "--task-name", "越权任务", "--assignee", "李开发")
         set_status_direct(env, "T0100", "进行中")
         r = run(env, "transition_task.py", "--role", "DEV", "--from-status", "进行中", "--to-status",
-                "已完成", "--assignee", "李开发", "--task-id", "T0100", "--end-time", "2026-08-16 12:00:00",
+                "已完成", "--assignee", "李开发", "--task-id", "T0100", "--end-time", _now(),
                 expect=1)  # A 类越权直推已完成
         assert "越权" in r.stdout or "越权" in r.stderr
 
@@ -614,7 +622,7 @@ class TestOwnerAndHandlerSemantics:
         assert c.get("handler") == "章测试"    # 处理人移交章测试
 
         # 4. 测试中 -> 已完成
-        now_str = "2026-08-16 23:00:00"
+        now_str = _now()
         run(env, "transition_task.py", "--role", "QA", "--from-status", "测试中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--end-time", now_str)
         c = find(env, "T0001")
         assert c.get("assignee") == "李开发"   # 负责人不变
@@ -677,7 +685,7 @@ class TestIndependentTasksAndFieldMappingSafety:
         assert c.get("handler") == "周审查"
 
         # 3. 周审查完工提交 PM 验收: 进行中 -> 已完成
-        out = run(env, "transition_task.py", "--role", "REVIEWER", "--from-status", "进行中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", "2026-08-17 10:00:00")
+        out = run(env, "transition_task.py", "--role", "REVIEWER", "--from-status", "进行中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", _now())
         assert out.returncode == 0
         c = find(env, "T0001")
         assert c.get("status") == "已完成"
@@ -685,7 +693,7 @@ class TestIndependentTasksAndFieldMappingSafety:
         assert c.get("handler") == "严经理"   # 处理人收敛至严经理
 
         # 4. PM 验收: 已完成 -> 已验收
-        out = run_tty(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", "2026-08-17 10:00:00", "--force-verify-operator")
+        out = run_tty(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "B", "--end-time", _now(), "--force-verify-operator")
         assert out.returncode == 0
         c = find(env, "T0001")
         assert c.get("status") == "已验收"
@@ -704,7 +712,7 @@ class TestIndependentTasksAndFieldMappingSafety:
         assert c.get("handler") == "章测试"
 
         # QA 完工
-        out = run(env, "transition_task.py", "--role", "QA", "--from-status", "进行中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", "2026-08-17 10:00:00")
+        out = run(env, "transition_task.py", "--role", "QA", "--from-status", "进行中", "--to-status", "已完成", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", _now())
         assert out.returncode == 0
         c = find(env, "T0001")
         assert c.get("status") == "已完成"
@@ -712,7 +720,7 @@ class TestIndependentTasksAndFieldMappingSafety:
         assert c.get("handler") == "严经理"
 
         # PM 验收
-        out = run_tty(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", "2026-08-17 10:00:00", "--force-verify-operator")
+        out = run_tty(env, "transition_task.py", "--role", "PM", "--from-status", "已完成", "--to-status", "已验收", "--assignee", "PM", "--task-id", "T0001", "--type", "C", "--end-time", _now(), "--force-verify-operator")
         assert out.returncode == 0
         c = find(env, "T0001")
         assert c.get("status") == "已验收"

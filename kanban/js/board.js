@@ -2581,7 +2581,7 @@
             computeCardDuration(card);
 
             if (typeof apiUpdateTask === 'function') {
-                await apiUpdateTask(cardId, {
+                const res = await apiUpdateTask(cardId, {
                     name: card.name,
                     stage: card.stage,
                     wp: card.wp,
@@ -2598,6 +2598,10 @@
                     remarks: card.remarks,
                     process: card.process
                 });
+                if (!(res && (res.ok || res.code === 200))) {
+                    showToast((res && (res.error || res.message)) || '保存失败', 'error');
+                    return;
+                }
             }
 
             saveStorageData();
@@ -2993,6 +2997,11 @@
                     }
                 });
             }
+
+            const editStage = document.getElementById('edit-stage');
+            const editPretask = document.getElementById('edit-pretask');
+            if (editStage) editStage.disabled = !isMaster;
+            if (editPretask) editPretask.readOnly = !isMaster;
         }
 
         function copyCleanCollaboratorLink() {
