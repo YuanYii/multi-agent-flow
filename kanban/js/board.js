@@ -2556,6 +2556,24 @@
             const newAct = parseFloat(document.getElementById('edit-act')?.value) || card.act_hours || 0;
             const newRemarks = (document.getElementById('edit-remarks')?.value || '').trim();
 
+            // 暂存原有属性快照，用于 API 报错（如 403 越权或网络故障）时完整回滚内存状态
+            const oldCardSnapshot = {
+                name: card.name,
+                creator: card.creator,
+                stage: card.stage,
+                wp: card.wp,
+                wbs: card.wbs,
+                pretask: card.pretask,
+                assignee: card.assignee,
+                handler: card.handler,
+                status: card.status,
+                act_hours: card.act_hours,
+                start_date: card.start_date,
+                end_date: card.end_date,
+                duration: card.duration,
+                remarks: card.remarks
+            };
+
             card.name = newName;
             card.creator = newCreator;
             card.stage = newStage;
@@ -2599,7 +2617,11 @@
                     process: card.process
                 });
                 if (!(res && (res.ok || res.code === 200))) {
-                    showToast((res && (res.error || res.message)) || '保存失败', 'error');
+                    // API 失败（如 403 越权拒绝）时，还原内存对象，阻止脏数据滞留页面
+                    Object.assign(card, oldCardSnapshot);
+                    computeCardDuration(card);
+                    applyFilters();
+                    showToast((res && (res.error || res.message)) || '保存失败：非主控设备无权修改受控字段', 'error');
                     return;
                 }
             }
