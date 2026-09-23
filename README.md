@@ -5,7 +5,7 @@
   <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/github/stars/YuanYii/multi-agent-flow?style=for-the-badge&logo=github&color=38BDF8" alt="GitHub Stars"></a>
   <a href="https://github.com/YuanYii/multi-agent-flow/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge" alt="License"></a>
   <a href="https://yuanyii.github.io/multi-agent-flow/"><img src="https://img.shields.io/badge/Theme-Dark%20%2F%20Light-F59E0B?style=for-the-badge" alt="Theme Support"></a>
-  <a href="https://github.com/YuanYii/multi-agent-flow/actions/workflows/tests.yml"><img src="https://img.shields.io/badge/Tests-396%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow/actions/workflows/tests.yml"><img src="https://img.shields.io/badge/Tests-453%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
   <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/badge/Version-v2.2.0-8B5CF6?style=for-the-badge" alt="Version"></a>
 </p>
 
@@ -23,7 +23,7 @@
 - **十大协同红线与五层防错门禁**：代码级 Fail-Closed 拦截越权操作；阶段开工核验清洁度，阶段结项强制输出架构技术总结（ADR）与敏捷复盘总结；工作区存在未验收代码时物理阻断 `git commit`。
 - **统一入口网关与 L0–L2 智能分流**：控制台指令直通底层运维，业务需求经分级三问网关前置判定（L0即时问答直出、L1短链交付、L2全流程制衡）；强制执行单一职责（SRP）审查（工时 ≤ 8.0h）。
 - **项目级强关联与多 Agent 终端适配**：数据私有落盘于 `.yy-flow/` 目录随 Git 流转，原生兼容 Google Antigravity、Claude Code、Cursor、OpenAI Codex、OpenCode、ZCode 等主流终端与 IDE。
-- **396 项自动化测试全绿保障**：微内核调度、状态转移、多周分片存储、高熵令牌鉴权与并发锁具备严密的自动化测试覆盖（396 项测试用例经查验符合预期）。
+- **453 项自动化测试全绿保障**：微内核调度、状态转移、多周分片存储、高熵令牌鉴权与并发锁具备严密的自动化测试覆盖（453 项测试用例经查验符合预期）。
 
 **完整特性演示与交互体验请访问**：[https://yuanyii.github.io/multi-agent-flow/](https://yuanyii.github.io/multi-agent-flow/)
 
@@ -122,11 +122,12 @@ mkdir -p .yy-flow/skill && curl -L https://github.com/YuanYii/multi-agent-flow/a
 | :--- | :--- | :--- | :--- |
 | **创建任务卡** | `python3 scripts/cli.py task create ...` | `scripts/quick_task.py create` | `--name "..." --assignee "..." --stage "..." --type "A" --target "..." --criteria "..."` |
 | **代码化派单** | `python3 scripts/cli.py dispatch --task-id T00xx` | `scripts/dispatch_task.py` | 校验依赖与并发，推至【进行中】，输出 Subagent 载荷 |
-| **推进任务流转** | `python3 scripts/cli.py task start/finish ...` | `scripts/transition_task.py` | 结合角色与五层门控执行推进，支持 `--remarks` 打回记录 |
+| **推进任务流转** | `python3 scripts/cli.py task start/finish ...` | `scripts/transition_task.py` | 结合角色与五层门控执行推进，内置终态时序单调性防倒挂校验与 `--end-time` 秒位自动补齐，支持 `--remarks` 打回记录 |
 | **人类终态验收** | `python3 scripts/cli.py task accept ...` | `scripts/quick_task.py accept` | `--task-id T00xx`（**人类用户专属**，严禁 Agent 越权自签） |
 | **启动看板** | `python3 scripts/cli.py kanban` | `scripts/start_kanban_server.py` | 默认启动于 `http://127.0.0.1:32886/`，打印安全 Token |
 | **健康度巡检** | `python3 scripts/cli.py status` | `scripts/heartbeat.py` | 输出大盘健康度、阻塞卡片与效能统计指标 |
 | **连续性校验** | `python3 scripts/cli.py ccp ...` | `scripts/cli.py ccp` | 校验 Agent 上下文交接完整性与前置依赖产物 |
+| **智能增量测试** | `python3 scripts/cli.py test` | `scripts/run_tests.py` | 自动探测 Git 改动，仅测相关单测 (秒级)，文档变更自动豁免，`--all` 全量回归 |
 
 ### 快捷指令映射总览
 
@@ -161,7 +162,7 @@ python3 scripts/start_kanban_server.py
 
 - **本看板与 CLI 引擎面向个人 / 团队内网环境设计，请勿将服务端口直接暴露到公网**。看板默认绑定 `0.0.0.0` 并在控制台打印局域网协作链接；如需跨互联网协作，请自行置于 VPN 或反向代理 + 认证之后。
 - **Master Token 是全权凭据**：启动时打印于控制台，持有者可对看板数据执行全部写操作（增删改、导入覆写、批量删除）。请勿粘贴到公开聊天、截图或代码仓库中；多端协同时仅分发给可信成员。
-- **鉴权模型为单层主控制**：LAN 协作端默认只读视角，无用户级账号体系与细粒度 RBAC；浏览器本地保存的偏好相互隔离，但权限以「是否持 Token」唯一判定。
+- **鉴权模型为单层主控制**：LAN 协作端默认只读视角，无用户级账号体系与细粒度 RBAC；协作者模式下自动禁用所属阶段与前置任务等核心管理字段；服务端 403 物理拦截并联动前端错误提示，权限以「是否持 Token」唯一判定。
 - **CORS 默认放开**以便局域网内多端访问，网络边界防护依赖部署环境（内网/防火墙）而非应用层。
 - **合规自扫描**：`scripts/check_secrets.py` 在初始化时扫描技能包自身，不会读取或上传你的业务代码。
 
@@ -181,7 +182,7 @@ python3 scripts/start_kanban_server.py
 │   ├── 04-ccp/              # 上下文连续性协议 (CCP) 规范
 │   ├── 05-kanban/           # 看板服务运维与 PR 监听规范
 │   └── 06-governance/       # Git 提交阻断门禁与审计度量
-├── tests/                   # 396 项自动化测试套件 (实测全量通过)
+├── tests/                   # 453 项自动化测试套件 (实测全量通过)
 └── scripts/                 # 流转/门禁/巡检/看板服务 CLI 引擎
 
 # 初始化后在目标项目生成：

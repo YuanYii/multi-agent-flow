@@ -314,11 +314,14 @@ def transition_task_pipeline(
         logger.error("[FAILED]  流转模式必须提供 --from-status/--to-status/--assignee；仅建卡请使用 --create", extra=extra_log)
         return False
 
-    # 0.01 --end-time 格式校验与自动补齐缺失秒位
+    # 0.01 --end-time 格式校验与自动补齐缺失秒位（必须包含时间组件，拒绝纯日期）
     if end_time:
         end_time = end_time.strip()
-        if re.match(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$', end_time):
+        if re.match(r'^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}$', end_time):
             end_time += ':00'
+        if not re.match(r'^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}', end_time):
+            print(f"[REJECT 格式错误] --end-time '{end_time}' 格式不合法，必须包含完整时分秒（要求 %Y-%m-%d %H:%M:%S）")
+            return False
         try:
             datetime.datetime.fromisoformat(end_time)
         except ValueError:

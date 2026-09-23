@@ -554,9 +554,13 @@
             }
             // 阶段 / 工作包 — mirrors the single "阶段 / 工作包" table column
             if (cardFieldConfig.stage && (card.stage || card.wp)) {
-                const stageText = [card.stage, card.wp].filter(Boolean).join(' · ');
+                let stageParts = [card.stage, card.wp].filter(Boolean);
+                if (stageParts.length === 2 && stageParts[0] === stageParts[1]) {
+                    stageParts = [stageParts[0]];
+                }
+                const stageText = stageParts.join(' · ');
                 const st = getBadgeStyle('stage', card.stage || card.wp);
-                tagsList.push(`<span class="tag tag-stage" style="background:${st.bg}; color:${st.text}; border:1px solid rgba(0,0,0,0.06);">${lbl ? '阶段: ' : ''}${esc(stageText)}</span>`);
+                tagsList.push(`<span class="tag tag-stage" style="background:${st.bg}; color:${st.text}; border:1px solid rgba(0,0,0,0.06); max-width:100%; word-break:break-word; white-space:normal;">${lbl ? '阶段: ' : ''}${esc(stageText)}</span>`);
             }
             if (cardFieldConfig.handler && card.handler) {
                 const normHandler = normalizeRoleName(card.handler);
@@ -1049,7 +1053,9 @@
                 const stg = (c.stage || '').trim();
                 if (stg && stg !== '-') stageSet.add(stg);
             });
-            const sorted = Array.from(stageSet).sort();
+            const sorted = Array.from(stageSet).sort((a, b) => {
+                return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+            });
             let html = '<option value="">全部阶段</option>';
             sorted.forEach(name => {
                 html += `<option value="${esc(name)}">${esc(name)}</option>`;
@@ -1060,6 +1066,70 @@
             }
             if (typeof refreshUiSelects === 'function') {
                 refreshUiSelects();
+            }
+        }
+
+        let previousStageValue = '';
+        function renderEditStageOptions(selectedStage) {
+            const selectEl = document.getElementById('edit-stage');
+            if (!selectEl) return;
+
+            const stageSet = new Set();
+            rawCardsData.forEach(c => {
+                const stg = (c.stage || '').trim();
+                if (stg && stg !== '-') stageSet.add(stg);
+            });
+            if (selectedStage && selectedStage.trim() && selectedStage.trim() !== '-') {
+                stageSet.add(selectedStage.trim());
+            }
+
+            const sorted = Array.from(stageSet).sort((a, b) => {
+                return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            if (sorted.length === 0) {
+                sorted.push('Sprint 1.0');
+            }
+
+            let html = '';
+            sorted.forEach(name => {
+                html += `<option value="${esc(name)}">${esc(name)}</option>`;
+            });
+            html += '<option value="__NEW_STAGE__">+ 新增阶段...</option>';
+            selectEl.innerHTML = html;
+
+            const valToSet = (selectedStage && sorted.includes(selectedStage)) ? selectedStage : (sorted[0] || '');
+            selectEl.value = valToSet;
+            previousStageValue = valToSet;
+
+            if (!selectEl.dataset.stageHandlerBound) {
+                selectEl.dataset.stageHandlerBound = 'true';
+                selectEl.addEventListener('change', function () {
+                    if (this.value === '__NEW_STAGE__') {
+                        const newName = prompt('请输入新阶段名称 (例如: Sprint 2.1 菜单调整):');
+                        if (newName && newName.trim()) {
+                            const trimmed = newName.trim();
+                            const opt = document.createElement('option');
+                            opt.value = trimmed;
+                            opt.textContent = trimmed;
+                            this.insertBefore(opt, this.lastElementChild);
+                            this.value = trimmed;
+                            previousStageValue = trimmed;
+                        } else {
+                            this.value = previousStageValue;
+                        }
+                    } else {
+                        previousStageValue = this.value;
+                    }
+                    const wrap = this.closest('.ui-select');
+                    if (wrap && typeof syncUiSelectLabel === 'function') {
+                        syncUiSelectLabel(wrap);
+                    }
+                });
+            }
+
+            const wrap = selectEl.closest('.ui-select');
+            if (wrap && typeof syncUiSelectLabel === 'function') {
+                syncUiSelectLabel(wrap);
             }
         }
 
@@ -2092,7 +2162,7 @@
             if (editSeq) editSeq.value = card.seq;
             if (editCreator) editCreator.value = card.creator || '';
             if (editName) editName.value = card.name;
-            if (editStage) editStage.value = card.stage || 'S1 需求分析';
+            if (editStage) renderEditStageOptions(card.stage);
             if (editWp) editWp.value = card.wp || '';
             if (editWbs) editWbs.value = card.wbs || '';
             if (editPretask) editPretask.value = card.pretask || '';
@@ -2474,7 +2544,10 @@
 
             const newName = document.getElementById('edit-name').value.trim();
             const newCreator = (document.getElementById('edit-creator')?.value || '').trim() || card.creator || window.__CURRENT_USER__ || '用户';
-            const newStage = (document.getElementById('edit-stage')?.value || '').trim() || card.stage || 'S1 需求分析';
+            let newStage = (document.getElementById('edit-stage')?.value || '').trim();
+            if (newStage === '__NEW_STAGE__' || !newStage) {
+                newStage = card.stage || 'Sprint 1.0';
+            }
             const newWp = document.getElementById('edit-wp')?.value.trim() || '';
             const newWbs = document.getElementById('edit-wbs')?.value.trim() || '';
             const newPretask = (document.getElementById('edit-pretask')?.value || '').trim();
@@ -2482,6 +2555,24 @@
             const newStatus = document.getElementById('edit-status').value;
             const newAct = parseFloat(document.getElementById('edit-act')?.value) || card.act_hours || 0;
             const newRemarks = (document.getElementById('edit-remarks')?.value || '').trim();
+
+            // 暂存原有属性快照，用于 API 报错（如 403 越权或网络故障）时完整回滚内存状态
+            const oldCardSnapshot = {
+                name: card.name,
+                creator: card.creator,
+                stage: card.stage,
+                wp: card.wp,
+                wbs: card.wbs,
+                pretask: card.pretask,
+                assignee: card.assignee,
+                handler: card.handler,
+                status: card.status,
+                act_hours: card.act_hours,
+                start_date: card.start_date,
+                end_date: card.end_date,
+                duration: card.duration,
+                remarks: card.remarks
+            };
 
             card.name = newName;
             card.creator = newCreator;
@@ -2526,7 +2617,11 @@
                     process: card.process
                 });
                 if (!(res && (res.ok || res.code === 200))) {
-                    showToast((res && (res.error || res.message)) || '保存失败', 'error');
+                    // API 失败（如 403 越权拒绝）时，还原内存对象，阻止脏数据滞留页面
+                    Object.assign(card, oldCardSnapshot);
+                    computeCardDuration(card);
+                    applyFilters();
+                    showToast((res && (res.error || res.message)) || '保存失败：非主控设备无权修改受控字段', 'error');
                     return;
                 }
             }

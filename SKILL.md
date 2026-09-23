@@ -49,7 +49,8 @@ version: 2.2.0
 
 | 业务场景 | 统一 CLI 门面 (`cli.py`) | 底层专用脚本 | 核心作用与参数 |
 | :--- | :--- | :--- | :--- |
-| **创建任务卡** | `python3 scripts/cli.py task create ...` | `python3 scripts/quick_task.py create ...` | `--name "..." --assignee "..." --stage "..." --type "A" --target "..." --criteria "..."` |
+| **创建任务卡** | `python3 scripts/cli.py task create ...` | `python3 scripts/quick_task.py create ...` | `--name "..." --assignee "..." --stage "Sprint 2.1 菜单调整" --type "A" --target "..." --criteria "..."` |
+| **阶段门禁准入/结项** | `python3 scripts/check_stage_gate.py ...` | `python3 scripts/check_stage_gate.py ...` | `--action start/close --stage "Sprint 2.1 菜单调整"`（按需准入，前序依赖自动核验） |
 | **代码化派单** | `python3 scripts/cli.py dispatch --task-id T00xx` | `python3 scripts/dispatch_task.py` | 校验依赖与并发，推至【进行中】，输出 Subagent 载荷 |
 | **推进任务流转** | `python3 scripts/transition_task.py ...` | `python3 scripts/transition_task.py ...` | `--task-id T00xx --role DEV --from-status 进行中 --to-status 审查中 --token <token> --remarks "..."` |
 | **人类终态验收** | `python3 scripts/cli.py task accept ...` | `python3 scripts/quick_task.py accept ...` | `--task-id T00xx`（**人类用户专属**，严禁 Agent 代签） |
@@ -57,6 +58,7 @@ version: 2.2.0
 | **健康度巡检** | `python3 scripts/cli.py status` | `python3 scripts/heartbeat.py` | 输出大盘健康度、阻塞卡片与效能指标 |
 | **连续性校验** | `python3 scripts/cli.py ccp ...` | `python3 scripts/cli.py ccp ...` | `--task-id T00xx --stage 审查中` 校验上下文连续性 |
 | **链路全景图鉴** | `python3 scripts/cli.py trace` | `python3 scripts/generate_trace_html.py` | 离线解析会话轨迹，秒级生成全景链路图鉴 HTML (0 Token) |
+| **智能增量测试** | `python3 scripts/cli.py test` | `scripts/run_tests.py` | 自动探测 Git 改动，仅执行相关单测 (秒级)，文档变更自动豁免，`--all` 全量回归 |
 
 ---
 

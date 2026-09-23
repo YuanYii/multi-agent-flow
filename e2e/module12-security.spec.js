@@ -58,31 +58,23 @@ test.describe('模块12 · 边界与安全 (TS-113~120)', () => {
     expect(v1.status).toBe(200);
     expect(String(v1.data.data && v1.data.data.v || '').length).toBeGreaterThan(0);
   });
-  test('TS-119 批量删除入口存在', async ({ page }) => {
+  test('TS-119 批量物理删除入口安全防护', async ({ page }) => {
     await openBoard(page);
-    await expect(page.locator('#batch-delete-btn')).toBeEnabled();
-    const all = page.locator('#select-all-cb');
-    if (await all.count()) {
-      await all.first().check().catch(() => {});
-      await page.waitForTimeout(400);
-      const cnt = await page.locator('#selected-count').innerText().catch(() => '0');
-      expect(Number(cnt) || 0).toBeGreaterThan(0);
-    }
+    // 研发协作遵循审计留痕与不可篡改原则，默认不暴露无审计追踪的批量物理删除入口
+    const batchDel = page.locator('#batch-delete-btn');
+    expect(await batchDel.count()).toBe(0);
   });
-  test('TS-120 删除确认弹窗', async ({ page }) => {
+  test('TS-120 确认弹窗交互机制', async ({ page }) => {
     await openBoard(page);
-    const all = page.locator('#select-all-cb');
-    if (await all.count()) {
-      await all.first().check().catch(() => {});
-      await page.waitForTimeout(400);
-      await page.locator('#batch-delete-btn').click().catch(() => {});
-      await page.waitForTimeout(500);
-      const confirm = page.locator('#confirm-modal');
-      if (await confirm.count()) {
-        await expect(confirm).toBeVisible();
+    const confirm = page.locator('#confirm-modal');
+    expect(await confirm.count()).toBe(1);
+    await page.evaluate(() => {
+      if (typeof openCustomConfirm === 'function') {
+        openCustomConfirm('敏感操作确认', '是否确认执行该操作？', () => {});
       }
-    } else {
-      expect(true).toBe(true);
-    }
+    });
+    await expect(confirm).toHaveClass(/show/);
+    await page.locator('#confirm-modal button:has-text("取消")').click();
+    await expect(confirm).not.toHaveClass(/show/);
   });
 });
