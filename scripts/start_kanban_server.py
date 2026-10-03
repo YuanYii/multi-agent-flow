@@ -713,21 +713,18 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def end_headers(self):
         """发送通用响应标头（跨域 CORS 与安全配置）。"""
-        # 统一追加跨域与防强缓存响应头（放行本地回环、同源 Host 或无 Origin 场景）
+        # 仅对可信来源（本地回环 / 同源 Host）回显 Origin；不可信来源不返回
+        # Access-Control-Allow-Origin（浏览器将阻止跨域读取），绝不返回 "*"
+        # 通配——读接口无鉴权，通配即等同于向任意网站公开全部看板数据。
         origin = self.headers.get("Origin", "")
         host = self.headers.get("Host", "")
         if origin:
             if (
-                origin == "null"
-                or (host and (origin == f"http://{host}" or origin == f"https://{host}"))
+                (host and (origin == f"http://{host}" or origin == f"https://{host}"))
                 or re.match(r"^https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$", origin)
             ):
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Access-Control-Allow-Credentials", "true")
-            else:
-                self.send_header("Access-Control-Allow-Origin", "*")
-        else:
-            self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers",
@@ -741,8 +738,11 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     def _is_untrusted_origin(self) -> bool:
         """校验 Origin，防止外部跨站请求伪造 (CSRF) 篡改看板数据，放行回环请求与同源 Host 请求"""
         origin = self.headers.get("Origin", "")
-        if not origin or origin == "null":
+        if not origin:
             return False
+        # "null" 来自沙箱 iframe / file:// 等不透明来源，一律视为不可信
+        if origin == "null":
+            return True
         host = self.headers.get("Host", "")
         if host and (origin == f"http://{host}" or origin == f"https://{host}"):
             return False
