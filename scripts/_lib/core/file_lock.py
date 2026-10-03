@@ -113,23 +113,22 @@ def acquire_lock(lock_path, blocking=False, timeout=0.0, write_meta=True):
     """
     lock_path = os.path.abspath(lock_path)
     os.makedirs(os.path.dirname(lock_path) or ".", exist_ok=True)
-    deadline = (time.time() + timeout) if (blocking and timeout > 0) else None
+    deadline = (time.monotonic() + timeout) if (blocking and timeout > 0) else None
     while True:
         f = open(lock_path, "a+b")
         try:
             _ensure_nonempty(f)
             try:
-                if blocking:
-                    _lock_blocking(f)
-                else:
-                    _lock_nonblocking(f)
+                # 底层阻塞锁无法遵守调用方的超时，统一非阻塞尝试并在外层轮询。
+                _lock_nonblocking(f)
             except OSError:
                 f.close()
                 if not blocking:
                     raise LockBusyError(lock_path)
-                if deadline is not None and time.time() >= deadline:
+                if deadline is not None and time.monotonic() >= deadline:
                     raise LockBusyError(lock_path)
-                time.sleep(0.05)
+                remaining = deadline - time.monotonic() if deadline is not None else 0.05
+                time.sleep(max(0.0, min(0.05, remaining)))
                 continue
             if write_meta:
                 _write_meta(f)
