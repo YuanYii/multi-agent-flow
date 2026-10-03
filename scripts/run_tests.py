@@ -131,8 +131,13 @@ CORE_INFRA_FILES = [
 
 
 def get_git_changed_files(repo_root: str) -> List[str]:
-    """通过 Git 状态与 Diff 获取工作区与暂存区的所有变更文件相对路径。"""
+    """通过 Git 状态与 Diff 获取工作区与暂存区的所有变更文件相对路径。
+
+    Fail-Closed：任一 git 调用失败即抛出 RuntimeError，调用方必须显式处理，
+    禁止静默返回空列表导致门禁误报“秒级通过”。
+    """
     changed = set()
+    git_errors = []
 
     # 1. 获取工作区未跟踪、未暂存与已暂存的文件
     try:
@@ -154,8 +159,8 @@ def get_git_changed_files(repo_root: str) -> List[str]:
                 if " -> " in path:
                     path = path.split(" -> ")[1]
                 changed.add(path.strip())
-    except Exception:
-        pass
+    except Exception as e:
+        git_errors.append(f"git status --porcelain 失败: {e}")
 
     # 2. 获取针对 HEAD 的 Diff 文件列表
     try:
@@ -169,8 +174,13 @@ def get_git_changed_files(repo_root: str) -> List[str]:
             for p in res.stdout.splitlines():
                 if p.strip():
                     changed.add(p.strip())
-    except Exception:
-        pass
+        else:
+            git_errors.append(f"git diff --name-only HEAD 退出码 {res.returncode}: {res.stderr.strip()}")
+    except Exception as e:
+        git_errors.append(f"git diff --name-only HEAD 失败: {e}")
+
+    if git_errors:
+        raise RuntimeError("Git 变更探测失败，无法确定改动范围: " + "; ".join(git_errors))
 
     return sorted(list(changed))
 
@@ -267,7 +277,7 @@ def main() -> int:
         prog="yy-flow test (run_tests.py)",
         description="Multi-Agent Flow 智能增量测试调度器：仅运行与当前改动相关的测试用例"
     )
-    parser.add_argument("--all", action="store_true", help="强制执行全量测试套件 (453 项用例)")
+    parser.add_argument("--all", action="store_true", help="强制执行全量测试套件")
     parser.add_argument("--dry-run", action="store_true", help="仅分析并打印待执行的测试文件清单，不实际运行 pytest")
     parser.add_argument("--files", nargs="*", help="显式指定改动的文件清单进行模拟测试推导")
 
@@ -293,7 +303,13 @@ def main() -> int:
         changed_files = args.files
         print(f"[*] 模式: 显式指定改动文件 ({len(changed_files)} 个)")
     else:
-        changed_files = get_git_changed_files(PROJECT_ROOT)
+        try:
+            changed_files = get_git_changed_files(PROJECT_ROOT)
+        except RuntimeError as e:
+            # Fail-Closed：无法探测变更时阻断门禁，而非静默报“秒级通过”
+            print(f"\n[!] 门禁阻断: {e}")
+            print("[!] 请检查 git 是否可用，或改用 --all 全量回归 / --files 显式指定改动文件。")
+            return 2
         print(f"[*] 模式: Git 增量变更自动探测 (发现 {len(changed_files)} 个改动项)")
 
     if changed_files:
