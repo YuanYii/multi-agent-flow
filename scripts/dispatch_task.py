@@ -15,14 +15,18 @@ import argparse
 import glob
 import secrets
 import datetime
+import shlex
+import io
+from contextlib import redirect_stdout
 from typing import Dict, Any, Optional, List
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
 import paths
-from enums import TaskStatus, normalize_role
+from enums import TaskStatus, TaskType, normalize_role
 from _lib.boards import board_adapter_factory
+from _lib.core.validate_transition import validate
 from transition_task import transition_task_pipeline
 
 # 角色到 Antigravity Subagent TypeName 与官方名称映射
@@ -76,6 +80,84 @@ ROLE_SUBAGENT_MAP = {
         "exit_role": "PM"
     }
 }
+
+
+def _shell_join(args: List[str]) -> str:
+    """按当前平台的终端规则引用参数（Windows 使用 PowerShell）。"""
+    if os.name == "nt":
+        quoted = [
+            "'" + arg.replace("'", "''") + "'"
+            if any(c.isspace() or c in "'\"`$;&|()<>{}*?[]" for c in arg)
+            else arg
+            for arg in args
+        ]
+        command = " ".join(quoted)
+        return "& " + command if quoted[0] != args[0] else command
+    return shlex.join(args)
+
+
+def _build_exit_cli(task: Dict[str, Any], task_id: str, role: str,
+                    dispatch_token: str, config_path: Optional[str]) -> tuple[str, str]:
+    """生成满足现有权限矩阵的退出命令，终态结束时间在实际执行时生成。"""
+    task_type = str(task.get("task_type") or task.get("type") or "A").strip().upper()
+    if not TaskType.is_valid(task_type):
+        raise RuntimeError(f"[REJECT 退出契约非法] 不支持的任务类型: {task_type}")
+    if task_type == TaskType.E.value:
+        raise RuntimeError("[REJECT 退出契约非法] E 类任务由人类用户执行与验收，不能派发专家子代理。")
+
+    from_status = task.get("status", "")
+    if from_status == TaskStatus.TODO.value:
+        from_status = TaskStatus.IN_PROGRESS.value
+    next_status = ROLE_SUBAGENT_MAP[role]["next_status"]
+    if task_type in TaskType.short_chain_types():
+        next_status = TaskStatus.COMPLETED.value
+    elif from_status == TaskStatus.IN_PROGRESS.value and role in {"DEV", "FRONTEND", "ARCHITECT"}:
+        next_status = TaskStatus.IN_REVIEW.value
+
+    next_assignee = {
+        TaskStatus.IN_REVIEW.value: normalize_role("REVIEWER"),
+        TaskStatus.IN_TEST.value: normalize_role("QA"),
+        TaskStatus.COMPLETED.value: normalize_role("PM"),
+    }[next_status]
+    remarks = "完成工单交付与自测通过"
+    is_terminal = next_status in TaskStatus.terminal_statuses()
+    # validate 的终端提示不能污染 dispatch --format json 的机器可读输出。
+    validation_output = io.StringIO()
+    with redirect_stdout(validation_output):
+        exit_valid = validate(
+            role=role, from_status=from_status, to_status=next_status,
+            assignee=next_assignee,
+            end_time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") if is_terminal else None,
+            active_dev_count=1, task_type=task_type, task_name=task.get("name", ""), remarks=remarks,
+        )
+    if not exit_valid:
+        raise RuntimeError(
+            f"[REJECT 退出契约非法] 角色 {role} 无法在 {task_type} 类任务中从【{from_status}】"
+            f"推进至【{next_status}】。A 类审查/测试任务请从【审查中】/【测试中】派发；"
+            "独立审查/测试工单请使用合适的轻量短链任务类型。\n" + validation_output.getvalue().strip()
+        )
+
+    args = [
+        os.path.join(SCRIPT_DIR, "transition_task.py"), "--task-id", task_id,
+        "--role", role, "--from-status", from_status, "--to-status", next_status,
+        "--assignee", next_assignee, "--type", task_type,
+        "--token", dispatch_token, "--remarks", remarks,
+    ]
+    if config_path:
+        args.extend(["--config", config_path])
+    if is_terminal:
+        # PowerShell 5 的原生命令传参会剥离嵌入的双引号，代码只使用单引号字面量。
+        arg_literals = [
+            "'" + arg.encode("unicode_escape").decode("ascii").replace("'", "\\'").replace('"', "\\x22") + "'"
+            for arg in args
+        ]
+        code = (
+            "import datetime, runpy, sys; sys.argv = [" + ", ".join(arg_literals) + "]; "
+            "sys.argv.extend(['--end-time', datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')]); "
+            "runpy.run_path(sys.argv[0], run_name='__main__')"
+        )
+        return next_status, _shell_join([sys.executable, "-c", code])
+    return next_status, _shell_join([sys.executable] + args)
 
 
 def find_related_docs(task: Dict[str, Any], project_root: str) -> List[str]:
@@ -141,9 +223,11 @@ def dispatch_task(
         "严经理": "PM", "钱架构": "ARCHITECT", "李开发": "DEV", "马前端": "FRONTEND",
         "周审查": "REVIEWER", "章测试": "QA", "李文通": "DOCS", "吕改特": "DEVOPS", "用户": "USER"
     }
-    raw_role = target_role or assignee or "DEV"
+    raw_role = target_role or task.get("handler") or assignee or "DEV"
     norm_cname = normalize_role(raw_role)
-    role_code = (target_role or CHINESE_TO_ROLE_CODE.get(norm_cname) or norm_cname or "DEV").upper()
+    role_code = (CHINESE_TO_ROLE_CODE.get(norm_cname) or norm_cname or "DEV").upper()
+    if role_code not in ROLE_SUBAGENT_MAP:
+        raise RuntimeError(f"[REJECT 角色非法] 无法派发专家角色: {raw_role}")
     subagent_info = ROLE_SUBAGENT_MAP.get(role_code, ROLE_SUBAGENT_MAP["DEV"])
 
     # 2. 门禁一：前置依赖门禁 (Dependency Gate)
@@ -201,13 +285,16 @@ def dispatch_task(
 
     # 3.6 签发一次性安全派单令牌 (Dispatch Token) 强绑定 Subagent
     dispatch_token = secrets.token_hex(8)
+    # 在推进状态或写入令牌前确认退出契约可执行，避免签发无法完成的工单。
+    next_status, exit_cli = _build_exit_cli(task, task_id, role_code, dispatch_token, config_path)
 
     # 4. 状态流转推进：待开始 -> 进行中
     if current_status == "待开始" and not dry_run:
         ok = transition_task_pipeline(
             config_path=config_path,
             current_role="PM",
-            assignee=assignee,
+            assignee=norm_cname,
+            task_type=str(task.get("task_type") or task.get("type") or "A").strip().upper(),
             task_id=task_id,
             from_status="待开始",
             to_status="进行中",
@@ -229,15 +316,6 @@ def dispatch_task(
 
     # 5. 上下文与 Payload 装配 (CCP V2.0 契约注入)
     related_docs = find_related_docs(task, proj_root)
-
-    next_status = subagent_info["next_status"]
-    exit_role = subagent_info["exit_role"]
-    exit_cli = (
-        f"python3 scripts/transition_task.py --task-id {task_id} "
-        f"--role {exit_role} --from-status 进行中 --to-status {next_status} "
-        f"--token {dispatch_token} "
-        f"--remarks '完成工单交付与自测通过'"
-    )
 
     criteria_str = "\n".join([f"  - {c}" for c in criteria]) if criteria else "  - 按设计契约与单测用例准出"
 
