@@ -5,9 +5,17 @@
  * Load order: util.js -> data.js -> listbox.js -> board.js -> app.js
  * ============================================================ */
 
-// 动态 Master Token 与全局权限标记 (纯从当前 URL 读取，0 缓存)
+// 动态 Master Token 与全局权限标记
+// URL 仅作一次性引导：读取后立即从地址栏清除，避免 token 常驻浏览器历史、
+// 书签或经 Referer 泄露；后续 API 调用统一走 X-Master-Token 请求头。
 const urlParams = new URLSearchParams(window.location.search);
 window.MASTER_TOKEN = (urlParams.get('token') || '').trim();
+if (window.MASTER_TOKEN && window.history && typeof window.history.replaceState === 'function') {
+    urlParams.delete('token');
+    const cleanQuery = urlParams.toString();
+    const cleanUrl = window.location.pathname + (cleanQuery ? "?" + cleanQuery : "") + window.location.hash;
+    window.history.replaceState(null, "", cleanUrl);
+}
 window.IS_MASTER = 0; // 零信任：初始默认无权（协作模式），必须经由服务端响应权威校准
 
 // 设备信息与鉴权请求头构造器

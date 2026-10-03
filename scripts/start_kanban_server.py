@@ -749,7 +749,11 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         return not bool(re.match(r"^https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$", origin))
 
     def _is_master_authorized(self) -> bool:
-        """校验当前请求是否持有合法的主控权限 Token (支持 X-Master-Token, Authorization: Bearer, URL ?token=)"""
+        """校验当前请求是否持有合法的主控权限 Token (支持 X-Master-Token, Authorization: Bearer, URL ?token=)
+
+        注：?token= 仅作为首次访问的一次性引导（前端读取后会立即用 history.replaceState
+        从地址栏清除）；常规调用请使用 X-Master-Token / Authorization 请求头。
+        """
         # 1. Header: X-Master-Token
         token = self.headers.get("X-Master-Token", "").strip()
 
@@ -2035,10 +2039,12 @@ def print_kanban_urls(port: int, local_ip: str, master_token: str = ""):
     print(f" 主控权限令牌 (Master Token) :")
     print(f" {token}")
     print("\n ※ 权限说明:")
-    print(f"   1. 携带此 Token 访问 (如 http://127.0.0.1:{port}/?token={token})")
-    print(f"      将获得主控管理权限 (支持新建、物理删除、全量导入、修改标题与终态验收)；")
+    print(f"   1. 首次访问可在地址栏追加 ?token={token} 完成主控认证")
+    print(f"      （页面加载后会自动从地址栏清除该参数，后续请求走 X-Master-Token 请求头）；")
+    print(f"      认证后将获得主控管理权限 (支持新建、物理删除、全量导入、修改标题与终态验收)；")
     print(f"   2. 每次启动看板均生成全新动态 Token，重启后旧 Token 自动失效；")
-    print(f"   3. 主控若需向其他协作者授予管理权限，可直接复制带 Token 的完整链接发送给对方。")
+    print(f"   3. 向协作者授予管理权限时请只分享 Token 本身，不要分享带 ?token= 的完整链接")
+    print(f"      （链接会残留在浏览器历史/书签中，并可能经 Referer 头泄露到站外）。")
     print("=" * 70 + "\n")
 
 
