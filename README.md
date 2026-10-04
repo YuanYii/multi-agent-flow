@@ -5,8 +5,8 @@
   <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/github/stars/YuanYii/multi-agent-flow?style=for-the-badge&logo=github&color=38BDF8" alt="GitHub Stars"></a>
   <a href="https://github.com/YuanYii/multi-agent-flow/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge" alt="License"></a>
   <a href="https://yuanyii.github.io/multi-agent-flow/"><img src="https://img.shields.io/badge/Theme-Dark%20%2F%20Light-F59E0B?style=for-the-badge" alt="Theme Support"></a>
-  <a href="https://github.com/YuanYii/multi-agent-flow/actions/workflows/tests.yml"><img src="https://img.shields.io/badge/Tests-453%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
-  <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/badge/Version-v2.2.0-8B5CF6?style=for-the-badge" alt="Version"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow/actions/workflows/tests.yml"><img src="https://img.shields.io/badge/Tests-474%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/badge/Version-v12.0-8B5CF6?style=for-the-badge" alt="Version"></a>
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@
 - **十大协同红线与五层防错门禁**：代码级 Fail-Closed 拦截越权操作；阶段开工核验清洁度，阶段结项强制输出架构技术总结（ADR）与敏捷复盘总结；工作区存在未验收代码时物理阻断 `git commit`。
 - **统一入口网关与 L0–L2 智能分流**：控制台指令直通底层运维，业务需求经分级三问网关前置判定（L0即时问答直出、L1短链交付、L2全流程制衡）；强制执行单一职责（SRP）审查（工时 ≤ 8.0h）。
 - **项目级强关联与多 Agent 终端适配**：数据私有落盘于 `.yy-flow/` 目录随 Git 流转，原生兼容 Google Antigravity、Claude Code、Cursor、OpenAI Codex、OpenCode、ZCode 等主流终端与 IDE。
-- **453 项自动化测试全绿保障**：微内核调度、状态转移、多周分片存储、高熵令牌鉴权与并发锁具备严密的自动化测试覆盖（453 项测试用例经查验符合预期）。
+- **474 项自动化测试全绿保障**：微内核调度、状态转移、多周分片存储、高熵令牌鉴权与并发锁具备严密的自动化测试覆盖（474 项测试用例经查验符合预期）。
 
 **完整特性演示与交互体验请访问**：[https://yuanyii.github.io/multi-agent-flow/](https://yuanyii.github.io/multi-agent-flow/)
 
@@ -33,7 +33,7 @@
 
 本项目现已提供开箱即用的离线原生可视化全景图鉴：
 
-- **图鉴文件**：[`docs/0-系统架构/multi-agent-flow-全景架构与执行链路图鉴.html`](../docs/0-系统架构/multi-agent-flow-全景架构与执行链路图鉴.html)
+- **图鉴文件**：`docs/0-系统架构/multi-agent-flow-全景架构与执行链路图鉴.html`（初始化时由 [scripts/generate_trace_html.py](scripts/generate_trace_html.py) 生成）
 - **技术亮点**：
   - **八层微内核架构拓扑**：网关入口、调度编排、状态机内核、存储适配、安全门禁、上下文连续性协议 (CCP)、Web 看板与度量巡检 8 大业务域；
   - **端到端 10 阶段研发时序**：从自然语言需求、PM 分级建卡、专家派发、物理隔离编码到单测提审、打回熔断、终态验收与 Git 结项；
@@ -183,7 +183,7 @@ python3 scripts/start_kanban_server.py
 │   ├── 04-ccp/              # 上下文连续性协议 (CCP) 规范
 │   ├── 05-kanban/           # 看板服务运维与 PR 监听规范
 │   └── 06-governance/       # Git 提交阻断门禁与审计度量
-├── tests/                   # 453 项自动化测试套件 (实测全量通过)
+├── tests/                   # 474 项自动化测试套件 (实测全量通过)
 └── scripts/                 # 流转/门禁/巡检/看板服务 CLI 引擎
 
 # 初始化后在目标项目生成：
@@ -198,7 +198,7 @@ docs/                        # 交付文档骨架
 ## 模块化规约索引
 
 - [官方交互主页 & 在线演示](https://yuanyii.github.io/multi-agent-flow/)
-- [全景架构与执行链路图鉴 (本地打开)](../docs/0-系统架构/multi-agent-flow-全景架构与执行链路图鉴.html)
+- [全景架构与执行链路图鉴生成器](scripts/generate_trace_html.py) — 初始化时生成离线 HTML 全景图鉴
 - [技能主入口 SKILL.md](SKILL.md) — 统一网关、分级三问、指令契约与角色矩阵
 - [网关分级规约](references/01-gateway/01-task_classification.md) — 业务需求 L0–L2 判决与单一职责审查
 - [初始化 SOP 规约](references/02-bootstrap/01-initialization_sop.md) — 冷启动自检与架构自适应
