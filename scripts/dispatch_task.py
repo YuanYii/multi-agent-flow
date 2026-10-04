@@ -105,8 +105,13 @@ def _build_exit_cli(task: Dict[str, Any], task_id: str, role: str,
     if task_type == TaskType.E.value:
         raise RuntimeError("[REJECT 退出契约非法] E 类任务由人类用户执行与验收，不能派发专家子代理。")
 
+    OPENING_STATUSES = {
+        TaskStatus.TODO.value,
+        TaskStatus.REJECTED.value,
+        TaskStatus.BLOCKED.value,
+    }
     from_status = task.get("status", "")
-    if from_status == TaskStatus.TODO.value:
+    if from_status in OPENING_STATUSES:
         from_status = TaskStatus.IN_PROGRESS.value
     next_status = ROLE_SUBAGENT_MAP[role]["next_status"]
     if task_type in TaskType.short_chain_types():
@@ -210,6 +215,11 @@ def dispatch_task(
     task = raw_task.get("fields", raw_task) if isinstance(raw_task, dict) else raw_task
 
     current_status = task.get("status", "")
+    if current_status in TaskStatus.terminal_statuses():
+        raise RuntimeError(
+            f"[REJECT 派单非法] 任务卡 {task_id} 已处于终态【{current_status}】，禁止直接派单！"
+            "若需纠偏重开，请先通过管理员通道 (--force-reopen) 纠偏重开工单。"
+        )
     assignee = task.get("assignee", "")
     task_name = task.get("name", "")
     target = task.get("target", "") or task_name
@@ -288,20 +298,30 @@ def dispatch_task(
     # 在推进状态或写入令牌前确认退出契约可执行，避免签发无法完成的工单。
     next_status, exit_cli = _build_exit_cli(task, task_id, role_code, dispatch_token, config_path)
 
-    # 4. 状态流转推进：待开始 -> 进行中
-    if current_status == "待开始" and not dry_run:
+    # 4. 状态流转推进：待开始/已退回/已阻塞 -> 进行中
+    OPENING_STATUSES = {
+        TaskStatus.TODO.value,
+        TaskStatus.REJECTED.value,
+        TaskStatus.BLOCKED.value,
+    }
+    if current_status in OPENING_STATUSES and not dry_run:
+        remarks_map = {
+            TaskStatus.TODO.value: f"【代码化派单】PM 严经理派发任务至 {subagent_info['role_desc']}",
+            TaskStatus.REJECTED.value: f"【返工派单开工】打回任务重新派发至 {subagent_info['role_desc']} 进入进行中",
+            TaskStatus.BLOCKED.value: f"【解阻派单开工】解除阻塞任务派发至 {subagent_info['role_desc']} 恢复开工",
+        }
         ok = transition_task_pipeline(
             config_path=config_path,
             current_role="PM",
             assignee=norm_cname,
             task_type=str(task.get("task_type") or task.get("type") or "A").strip().upper(),
             task_id=task_id,
-            from_status="待开始",
-            to_status="进行中",
-            remarks=f"【代码化派单】PM 严经理派发任务至 {subagent_info['role_desc']}"
+            from_status=current_status,
+            to_status=TaskStatus.IN_PROGRESS.value,
+            remarks=remarks_map.get(current_status, f"【代码化派单】PM 严经理派发任务至 {subagent_info['role_desc']}"),
         )
         if not ok:
-            raise RuntimeError(f"[REJECT 流转失败] 自动推进任务 {task_id} 从【待开始】到【进行中】未通过门禁！")
+            raise RuntimeError(f"[REJECT 流转失败] 自动推进任务 {task_id} 从【{current_status}】到【{TaskStatus.IN_PROGRESS.value}】未通过门禁！")
 
     # 4.1 持久化 dispatch_token 到卡片 handover_context
     if not dry_run:

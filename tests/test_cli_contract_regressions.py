@@ -88,6 +88,8 @@ def execute_exit_cli(command, monkeypatch):
     ("DOCS", "C", "进行中", "进行中", "已完成", "严经理"),
     ("DEVOPS", "D", "进行中", "进行中", "已完成", "严经理"),
     ("PM", "F", "进行中", "进行中", "已完成", "严经理"),
+    ("DEV", "A", "已退回", "进行中", "审查中", "周审查"),
+    ("DEV", "A", "已阻塞", "进行中", "审查中", "周审查"),
 ])
 def test_dispatch_exit_cli_passes_parser_and_existing_permissions(
     dispatch_env, monkeypatch, tmp_path, role, task_type, status,
@@ -214,6 +216,31 @@ def test_dispatch_rejects_unusable_exit_before_mutation(dispatch_env, role, task
         dispatch(role, task_type, status)
     initial_transition.assert_not_called()
     adapter.update_record.assert_not_called()
+
+
+@pytest.mark.parametrize("terminal_status", ["已完成", "已验收", "已取消"])
+def test_dispatch_rejects_terminal_tasks(dispatch_env, terminal_status):
+    dispatch, adapter, initial_transition = dispatch_env
+    with pytest.raises(RuntimeError, match="已处于终态"):
+        dispatch("DEV", "A", terminal_status)
+    initial_transition.assert_not_called()
+    adapter.update_record.assert_not_called()
+
+
+@pytest.mark.parametrize("status,expected_remark_keyword", [
+    ("待开始", "代码化派单"),
+    ("已退回", "返工派单开工"),
+    ("已阻塞", "解阻派单开工"),
+])
+def test_dispatch_promotes_rework_and_unblocked_tasks_to_in_progress(dispatch_env, status, expected_remark_keyword):
+    dispatch, _, initial_transition = dispatch_env
+    dispatch("DEV", "A", status=status, dry_run=False)
+    initial_transition.assert_called_once()
+    kwargs = initial_transition.call_args.kwargs
+    assert kwargs["from_status"] == status
+    assert kwargs["to_status"] == "进行中"
+    assert kwargs["current_role"] == "PM"
+    assert expected_remark_keyword in kwargs["remarks"]
 
 
 def test_quick_create_rejects_failed_stage_report(monkeypatch, capsys):
