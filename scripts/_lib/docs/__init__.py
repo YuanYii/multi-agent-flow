@@ -6,6 +6,8 @@ from _lib.discovery.legacy_migrator import (
     EXCLUDE_DIRS,
     CATEGORY_KEYWORDS,
     classify_document,
+    build_doc_catalog,
+    save_doc_catalog,
     scan_and_migrate_legacy_docs,
 )
 
@@ -13,5 +15,7 @@ __all__ = [
     "EXCLUDE_DIRS",
     "CATEGORY_KEYWORDS",
     "classify_document",
+    "build_doc_catalog",
+    "save_doc_catalog",
     "scan_and_migrate_legacy_docs",
 ]

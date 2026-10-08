@@ -106,7 +106,7 @@ if [ -d "${SKILL_ROOT}/.git" ]; then
     echo "       如需清理可手动执行: rm -rf \"${SKILL_ROOT}/.git\""
 fi
 
-echo "[DOCS]  [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..."
+echo "[DOCS]  [Step 5/7] 项目工程文档拓扑扫描与只读索引注册 (Zero Relocation)..."
 # 检查宿主是否已有常用文档目录（如 项目文档、docs、doc、documentation）
 EXISTING_DOCS_DIR=""
 for d in "项目文档" "docs" "doc" "documentation"; do
@@ -126,21 +126,7 @@ if [ -z "${DOCS_ROOT}" ]; then
     DOCS_ROOT="${PROJ_ROOT}/docs"
 fi
 
-# 仅当宿主项目完全无任何既有文档目录规范时，才建立推荐的标准文档骨架；若已有文档目录，则坚决尊重既有结构，不强行注入 D01~D06
-if [ -z "${EXISTING_DOCS_DIR}" ]; then
-    mkdir -p "${DOCS_ROOT}/D01-项目管理/D01-需求" \
-             "${DOCS_ROOT}/D01-项目管理/D02-状态报告" \
-             "${DOCS_ROOT}/D02-架构设计" \
-             "${DOCS_ROOT}/D03-业务模块" \
-             "${DOCS_ROOT}/D04-研发过程/D02-报告" \
-             "${DOCS_ROOT}/D04-研发过程/D03-操作手册" \
-             "${DOCS_ROOT}/D05-规范标准" \
-             "${DOCS_ROOT}/D06-文档模板" \
-             "${DOCS_ROOT}/草稿箱"
-else
-    echo "  - 检测到宿主已存在文档目录规范 (${EXISTING_DOCS_DIR})，尊重宿主既有目录，跳过 D01~D06 骨架注入。"
-fi
-
+# 严格遵循无侵入原则：只读扫描建立索引清单，不向宿主业务工程强行注入空骨架目录或移动文档
 python3 "${SCRIPT_DIR}/migrate_legacy_docs.py"
 
 echo "[MIGRATE]  [Step 5.5/7] 检测存量看板工单并执行 50 任务分卷无损平滑迁移 (migrate_to_chunked_storage.py)..."

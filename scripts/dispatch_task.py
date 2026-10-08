@@ -81,15 +81,53 @@ ROLE_SUBAGENT_MAP = {
 def find_related_docs(task: Dict[str, Any], project_root: str) -> List[str]:
     """智能查找与当前任务关联的架构设计或需求文档"""
     docs = []
-    # 1. 扫描 docs/ 目录下的设计方案
+    # 1. 优先从只读索引清单 doc_catalog.json 中检索关联文档
+    catalog_candidates = [
+        os.path.join(project_root, ".yy-flow", "user_data", "doc_catalog.json"),
+        os.path.join(project_root, "user_data", "doc_catalog.json"),
+    ]
+    catalog_path = next((p for p in catalog_candidates if os.path.isfile(p)), None)
+    if catalog_path:
+        try:
+            with open(catalog_path, "r", encoding="utf-8") as f:
+                cat_data = json.load(f)
+            doc_list = cat_data.get("documents", [])
+            task_role = str(task.get("role", "")).upper()
+            task_type = str(task.get("type", "")).upper()
+
+            # 按任务角色与类别偏好进行语义关联排序
+            if task_role in ("ARCHITECT", "钱架构") or task_type == "B":
+                preferred_cats = ["D02-架构设计", "D01-项目管理"]
+            elif task_role in ("PM", "严经理") or task_type == "A":
+                preferred_cats = ["D01-项目管理", "D02-架构设计"]
+            elif task_role in ("QA", "章测试"):
+                preferred_cats = ["D04-研发过程", "D02-架构设计"]
+            else:
+                preferred_cats = ["D02-架构设计", "D03-业务模块", "D05-规范标准"]
+
+            for cat in preferred_cats:
+                for doc in doc_list:
+                    p = doc.get("path")
+                    if doc.get("category") == cat and p and p not in docs:
+                        docs.append(p)
+
+            for doc in doc_list:
+                p = doc.get("path")
+                if p and p not in docs:
+                    docs.append(p)
+        except Exception:
+            pass
+
+    # 2. 存量兼容与兜底：扫描 docs/ 目录下的设计方案
+    docs_root = paths.docs_root(explicit=project_root)
     doc_patterns = [
-        os.path.join(project_root, "docs", "**", "*.md"),
-        os.path.join(project_root, "docs", "D02-架构设计", "*.md"),
-        os.path.join(project_root, "docs", "1-方案设计", "*.md"),
+        os.path.join(docs_root, "**", "*.md"),
+        os.path.join(docs_root, "D02-架构设计", "*.md"),
+        os.path.join(docs_root, "1-方案设计", "*.md"),
     ]
     for pat in doc_patterns:
         for f in glob.glob(pat, recursive=True):
-            rel = os.path.relpath(f, project_root)
+            rel = os.path.relpath(f, project_root).replace("\\", "/")
             if rel not in docs:
                 docs.append(rel)
     return docs[:5]
