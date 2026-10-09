@@ -401,6 +401,7 @@ class ChunkedBoardAdapter:
 
             card = {
                 "id": new_id,
+                "type": str(trans.get("type") or trans.get("task_type") or "A").upper(),
                 "seq": seq_num,
                 "tier": tier,
                 "name": str(trans.get("name") or "").strip(),

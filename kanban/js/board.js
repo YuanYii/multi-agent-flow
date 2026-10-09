@@ -921,6 +921,10 @@
                 renderTableBody(items, startIndex);
                 renderPaginationBar(total, tablePaginationState.page, sizeParam, totalPages, items.length, startIndex);
 
+                if (typeof window.updateAllCustomScrollbars === 'function') {
+                    setTimeout(window.updateAllCustomScrollbars, 30);
+                }
+
                 const totalCountEl = document.getElementById('total-count');
                 if (totalCountEl) totalCountEl.innerText = total;
                 const rawCountEl = document.getElementById('raw-count');
@@ -1354,6 +1358,10 @@
             if (totalCountEl) totalCountEl.innerText = currentCardsData.length;
             const rawCountEl = document.getElementById('raw-count');
             if (rawCountEl) rawCountEl.innerText = rawCardsData.length;
+
+            if (typeof window.updateAllCustomScrollbars === 'function') {
+                setTimeout(window.updateAllCustomScrollbars, 30);
+            }
         }
 
         function initRender() {
@@ -1797,6 +1805,10 @@
                 } else {
                     await fetchKanbanTasksFromServer();
                     renderKanbanViews();
+                }
+
+                if (typeof updateAllCustomScrollbars === 'function') {
+                    setTimeout(updateAllCustomScrollbars, 30);
                 }
             });
         });
@@ -3093,4 +3105,229 @@
             } catch (e) {}
             const input = document.getElementById('header-user-name-input');
             if (input) input.value = finalName;
+        }
+
+        /* ============================================================
+         * Custom Synchronized Horizontal Scrollbar System
+         * Fully overrides native 2px overlay scrollbars in Firefox (and other non-WebKit environments)
+         * ============================================================ */
+        let updateTableCustomScrollbarFn = null;
+        let updateKanbanCustomScrollbarFn = null;
+
+        function updateAllCustomScrollbars() {
+            if (typeof updateTableCustomScrollbarFn === 'function') {
+                updateTableCustomScrollbarFn();
+            }
+            if (typeof updateKanbanCustomScrollbarFn === 'function') {
+                updateKanbanCustomScrollbarFn();
+            }
+        }
+        window.updateAllCustomScrollbars = updateAllCustomScrollbars;
+
+        function initCustomSyncScrollbars() {
+            const isFirefox = /firefox|fxios/i.test(navigator.userAgent) || typeof InstallTrigger !== 'undefined';
+            if (isFirefox) {
+                document.documentElement.classList.add('is-firefox');
+            }
+
+            // 1. Table custom scrollbar setup
+            const tableContainer = document.querySelector('#view-table .table-container');
+            const tableWrapper = document.getElementById('table-custom-scrollbar');
+            if (tableContainer && tableWrapper) {
+                const track = tableWrapper.querySelector('.custom-scrollbar-track');
+                const thumb = tableWrapper.querySelector('.custom-scrollbar-thumb');
+                if (track && thumb) {
+                    let isDragging = false;
+                    let startX = 0;
+                    let startLeft = 0;
+
+                    function updateTable() {
+                        if (isDragging) return;
+                        const scrollW = tableContainer.scrollWidth;
+                        const clientW = tableContainer.clientWidth;
+                        const maxScroll = scrollW - clientW;
+
+                        if (maxScroll <= 1) {
+                            tableWrapper.style.visibility = 'hidden';
+                            return;
+                        }
+                        tableWrapper.style.visibility = 'visible';
+
+                        const trackW = track.clientWidth;
+                        const thumbW = Math.max(30, Math.round((clientW / scrollW) * trackW));
+                        thumb.style.width = thumbW + 'px';
+
+                        const maxThumbLeft = trackW - thumbW;
+                        const left = maxScroll > 0 ? Math.round((tableContainer.scrollLeft / maxScroll) * maxThumbLeft) : 0;
+                        thumb.style.left = Math.max(0, Math.min(maxThumbLeft, left)) + 'px';
+                    }
+
+                    updateTableCustomScrollbarFn = updateTable;
+                    tableContainer.addEventListener('scroll', updateTable, { passive: true });
+
+                    thumb.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        isDragging = true;
+                        thumb.classList.add('dragging');
+                        startX = e.clientX;
+                        startLeft = parseFloat(thumb.style.left) || 0;
+
+                        function onMouseMove(ev) {
+                            if (!isDragging) return;
+                            const trackW = track.clientWidth;
+                            const thumbW = thumb.offsetWidth;
+                            const maxThumbLeft = trackW - thumbW;
+                            if (maxThumbLeft <= 0) return;
+
+                            const deltaX = ev.clientX - startX;
+                            const newLeft = Math.max(0, Math.min(maxThumbLeft, startLeft + deltaX));
+                            thumb.style.left = newLeft + 'px';
+
+                            const maxScroll = tableContainer.scrollWidth - tableContainer.clientWidth;
+                            tableContainer.scrollLeft = (newLeft / maxThumbLeft) * maxScroll;
+                        }
+
+                        function onMouseUp() {
+                            if (!isDragging) return;
+                            isDragging = false;
+                            thumb.classList.remove('dragging');
+                            window.removeEventListener('mousemove', onMouseMove);
+                            window.removeEventListener('mouseup', onMouseUp);
+                        }
+
+                        window.addEventListener('mousemove', onMouseMove);
+                        window.addEventListener('mouseup', onMouseUp);
+                    });
+
+                    track.addEventListener('mousedown', (e) => {
+                        if (e.target === thumb) return;
+                        const rect = track.getBoundingClientRect();
+                        const clickX = e.clientX - rect.left;
+                        const trackW = track.clientWidth;
+                        const thumbW = thumb.offsetWidth;
+                        const maxThumbLeft = trackW - thumbW;
+                        if (maxThumbLeft <= 0) return;
+
+                        const targetLeft = Math.max(0, Math.min(maxThumbLeft, clickX - thumbW / 2));
+                        thumb.style.left = targetLeft + 'px';
+
+                        const maxScroll = tableContainer.scrollWidth - tableContainer.clientWidth;
+                        tableContainer.scrollLeft = (targetLeft / maxThumbLeft) * maxScroll;
+                    });
+                }
+            }
+
+            // 2. Kanban boards custom scrollbar setup
+            const kanbanWrapper = document.getElementById('kanban-custom-scrollbar');
+            if (kanbanWrapper) {
+                const track = kanbanWrapper.querySelector('.custom-scrollbar-track');
+                const thumb = kanbanWrapper.querySelector('.custom-scrollbar-thumb');
+                if (track && thumb) {
+                    let isDragging = false;
+                    let startX = 0;
+                    let startLeft = 0;
+
+                    function getActiveKanbanEl() {
+                        return document.querySelector('.view.active[id^="view-kanban-"]');
+                    }
+
+                    function updateKanban() {
+                        if (isDragging) return;
+                        const activeEl = getActiveKanbanEl();
+                        if (!activeEl) {
+                            kanbanWrapper.style.visibility = 'hidden';
+                            return;
+                        }
+
+                        const scrollW = activeEl.scrollWidth;
+                        const clientW = activeEl.clientWidth;
+                        const maxScroll = scrollW - clientW;
+
+                        if (maxScroll <= 1) {
+                            kanbanWrapper.style.visibility = 'hidden';
+                            return;
+                        }
+                        kanbanWrapper.style.visibility = 'visible';
+
+                        const trackW = track.clientWidth;
+                        const thumbW = Math.max(30, Math.round((clientW / scrollW) * trackW));
+                        thumb.style.width = thumbW + 'px';
+
+                        const maxThumbLeft = trackW - thumbW;
+                        const left = maxScroll > 0 ? Math.round((activeEl.scrollLeft / maxScroll) * maxThumbLeft) : 0;
+                        thumb.style.left = Math.max(0, Math.min(maxThumbLeft, left)) + 'px';
+                    }
+
+                    updateKanbanCustomScrollbarFn = updateKanban;
+
+                    ['view-kanban-status', 'view-kanban-assignee', 'view-kanban-stage'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            el.addEventListener('scroll', () => {
+                                if (el.classList.contains('active')) updateKanban();
+                            }, { passive: true });
+                        }
+                    });
+
+                    thumb.addEventListener('mousedown', (e) => {
+                        const activeEl = getActiveKanbanEl();
+                        if (!activeEl) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        isDragging = true;
+                        thumb.classList.add('dragging');
+                        startX = e.clientX;
+                        startLeft = parseFloat(thumb.style.left) || 0;
+
+                        function onMouseMove(ev) {
+                            if (!isDragging) return;
+                            const activeElNow = getActiveKanbanEl();
+                            if (!activeElNow) return;
+                            const trackW = track.clientWidth;
+                            const thumbW = thumb.offsetWidth;
+                            const maxThumbLeft = trackW - thumbW;
+                            if (maxThumbLeft <= 0) return;
+
+                            const deltaX = ev.clientX - startX;
+                            const newLeft = Math.max(0, Math.min(maxThumbLeft, startLeft + deltaX));
+                            thumb.style.left = newLeft + 'px';
+
+                            const maxScroll = activeElNow.scrollWidth - activeElNow.clientWidth;
+                            activeElNow.scrollLeft = (newLeft / maxThumbLeft) * maxScroll;
+                        }
+
+                        function onMouseUp() {
+                            if (!isDragging) return;
+                            isDragging = false;
+                            thumb.classList.remove('dragging');
+                            window.removeEventListener('mousemove', onMouseMove);
+                            window.removeEventListener('mouseup', onMouseUp);
+                        }
+
+                        window.addEventListener('mousemove', onMouseMove);
+                        window.addEventListener('mouseup', onMouseUp);
+                    });
+
+                    track.addEventListener('mousedown', (e) => {
+                        const activeEl = getActiveKanbanEl();
+                        if (!activeEl || e.target === thumb) return;
+                        const rect = track.getBoundingClientRect();
+                        const clickX = e.clientX - rect.left;
+                        const trackW = track.clientWidth;
+                        const thumbW = thumb.offsetWidth;
+                        const maxThumbLeft = trackW - thumbW;
+                        if (maxThumbLeft <= 0) return;
+
+                        const targetLeft = Math.max(0, Math.min(maxThumbLeft, clickX - thumbW / 2));
+                        thumb.style.left = targetLeft + 'px';
+
+                        const maxScroll = activeEl.scrollWidth - activeEl.clientWidth;
+                        activeEl.scrollLeft = (targetLeft / maxThumbLeft) * maxScroll;
+                    });
+                }
+            }
+
+            window.addEventListener('resize', updateAllCustomScrollbars);
+            setTimeout(updateAllCustomScrollbars, 60);
         }

@@ -434,6 +434,7 @@ class WeeklyBoardAdapter:
 
             card = {
                 "id": new_id,
+                "type": str(trans.get("type") or trans.get("task_type") or "A").upper(),
                 "seq": int(_TASK_ID_RE.match(new_id).group(1)) if _TASK_ID_RE.match(new_id) else len(tasks) + 1,
                 "name": str(trans.get("name") or "").strip(),
                 "stage": trans.get("stage") or "开发阶段",

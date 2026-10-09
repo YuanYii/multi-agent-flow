@@ -4,7 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>多专家Agent协作任务看板</title>
-    <link rel="stylesheet" href="css/styles.css?v=20260825_v5">
+    <link rel="stylesheet" href="css/styles.css?v=20261009_v2">
+    <script>
+        if (/firefox|fxios/i.test(navigator.userAgent) || typeof InstallTrigger !== 'undefined') {
+            document.documentElement.classList.add('is-firefox');
+        }
+    </script>
 </head>
 <body>
 
@@ -286,6 +291,11 @@
                 
             </table>
         </div>
+        <div class="custom-scrollbar-wrapper" id="table-custom-scrollbar">
+            <div class="custom-scrollbar-track">
+                <div class="custom-scrollbar-thumb"></div>
+            </div>
+        </div>
         <div class="pagination-bar" id="table-pagination-bar">
             <!-- Populated by JS -->
         </div>
@@ -309,6 +319,13 @@
     <div class="view" id="view-kanban-stage">
         <div class="board" id="board-stage">
             <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <!-- Kanban Unified Synchronized Scrollbar (for Firefox & cross-browser) -->
+    <div class="custom-scrollbar-wrapper kanban-board-scrollbar" id="kanban-custom-scrollbar">
+        <div class="custom-scrollbar-track">
+            <div class="custom-scrollbar-thumb"></div>
         </div>
     </div>
 
@@ -632,7 +649,7 @@
     <script src="js/util.js?v=20260825_v1"></script>
     <script src="js/data.js?v=20260825_v1"></script>
     <script src="js/listbox.js?v=20260825_v1"></script>
-    <script src="js/board.js?v=20260825_v1"></script>
-    <script src="js/app.js?v=20260825_v1"></script>
+    <script src="js/board.js?v=20261009_v2"></script>
+    <script src="js/app.js?v=20261009_v2"></script>
 </body>
 </html>

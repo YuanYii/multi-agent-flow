@@ -1073,3 +1073,84 @@ class TestKanbanNewFeaturesV33:
         assert r3["data"]["total"] == 1
         assert r3["data"]["items"][0]["id"] == "T0002"
 
+    def test_71_cors_rejects_untrusted_and_null_origin(self, server):
+        """用例 71: 外部不可信 Origin 与 null Origin 禁止返回 Access-Control-Allow-Origin 通配符或回显"""
+        import urllib.request
+        import urllib.error
+        url = f"http://127.0.0.1:{server['port']}/api/tasks"
+
+        # 1. 外部恶意域名 https://evil.com
+        req1 = urllib.request.Request(url, headers={"Origin": "https://evil.com"})
+        with urllib.request.urlopen(req1, timeout=10) as resp1:
+            assert resp1.status == 200
+            assert "Access-Control-Allow-Origin" not in resp1.headers
+
+        # 2. 不透明来源 null (沙箱 iframe / data URL)
+        req2 = urllib.request.Request(url, headers={"Origin": "null"})
+        with urllib.request.urlopen(req2, timeout=10) as resp2:
+            assert resp2.status == 200
+            assert "Access-Control-Allow-Origin" not in resp2.headers
+
+    def test_72_cors_allows_loopback_and_same_origin(self, server):
+        """用例 72: 本地回环与同源 Host 正常回显 Access-Control-Allow-Origin 响应头"""
+        import urllib.request
+        port = server["port"]
+        url = f"http://127.0.0.1:{port}/api/tasks"
+
+        # 1. 回环 IP: 127.0.0.1
+        req1 = urllib.request.Request(url, headers={"Origin": f"http://127.0.0.1:{port}"})
+        with urllib.request.urlopen(req1, timeout=10) as resp1:
+            assert resp1.status == 200
+            assert resp1.headers.get("Access-Control-Allow-Origin") == f"http://127.0.0.1:{port}"
+            assert resp1.headers.get("Access-Control-Allow-Credentials") == "true"
+
+        # 2. 回环主机: localhost
+        req2 = urllib.request.Request(url, headers={"Origin": f"http://localhost:{port}"})
+        with urllib.request.urlopen(req2, timeout=10) as resp2:
+            assert resp2.status == 200
+            assert resp2.headers.get("Access-Control-Allow-Origin") == f"http://localhost:{port}"
+
+    def test_73_csrf_blocks_null_and_external_origin_on_write(self, server):
+        """用例 73: POST / PUT 请求携带 null 或外部 Origin 时触发 403 CSRF 拦截"""
+        import urllib.request
+        import urllib.error
+        url = f"http://127.0.0.1:{server['port']}/api/tasks"
+
+        # 1. POST + Origin: null 必须被 403 拦截
+        req1 = urllib.request.Request(
+            url,
+            data=json.dumps({"name": "CSRF任务"}).encode("utf-8"),
+            headers={"Origin": "null", "Content-Type": "application/json"},
+            method="POST"
+        )
+        try:
+            urllib.request.urlopen(req1, timeout=10)
+            pytest.fail("预期 403 CSRF 拦截但未抛出异常")
+        except urllib.error.HTTPError as e:
+            assert e.code == 403
+            resp_body = json.loads(e.read().decode("utf-8"))
+            assert "禁止非本地跨域操作 (CSRF 拦截)" in resp_body.get("message", "")
+
+        # 2. POST + Origin: https://evil.com 必须被 403 拦截
+        req2 = urllib.request.Request(
+            url,
+            data=json.dumps({"name": "恶意跨域任务"}).encode("utf-8"),
+            headers={"Origin": "https://evil.com", "Content-Type": "application/json"},
+            method="POST"
+        )
+        try:
+            urllib.request.urlopen(req2, timeout=10)
+            pytest.fail("预期 403 CSRF 拦截但未抛出异常")
+        except urllib.error.HTTPError as e:
+            assert e.code == 403
+            resp_body = json.loads(e.read().decode("utf-8"))
+            assert "禁止非本地跨域操作 (CSRF 拦截)" in resp_body.get("message", "")
+
+    def test_74_csrf_allows_requests_without_origin_header(self, server):
+        """用例 74: 无 Origin 请求（命令行 curl 或 Python 脚本）放行 CSRF 校验"""
+        # 不带 Origin，验证通过 CSRF 校验层（进入后续鉴权或参数校验，非 CSRF 403）
+        s, r = _api(server, "POST", "/api/tasks", body={"name": "正常脚本创建任务", "assignee": "李开发"}, auth=True)
+        assert s == 200
+        assert r["data"]["name"] == "正常脚本创建任务"
+
+

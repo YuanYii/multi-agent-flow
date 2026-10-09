@@ -237,10 +237,10 @@ def main():
                 current_status = str(fields.get("status") or "")
                 board_name = board_name or str(fields.get("name") or fields.get("task_name") or "")
                 card_assignee = str(fields.get("assignee") or "")
-                card_type = str(fields.get("task_type") or fields.get("type") or task_type).upper()
+                task_type = str(fields.get("task_type") or fields.get("type") or "A").upper()
                 if not args.role:
                     main_role = detect_main_role(board_name, card_assignee, main_role)
-                    chain, step_roles = resolve_chain(card_type, main_role)
+                chain, step_roles = resolve_chain(task_type, main_role)
         if not task_id or current_status == "":
             if not args.task_name:
                 print("[FAILED]  任务不存在且未提供 --task-name，无法建卡！")
@@ -367,6 +367,7 @@ def main():
                 remarks=None,
                 comment=step_comment,
                 dry_run=args.simulate,
+                preview_from_status=prev if args.simulate else None,
                 delegated_by=delegated_by,
                 delegation_reason=delegation_reason,
             )

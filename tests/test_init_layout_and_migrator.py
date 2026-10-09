@@ -48,11 +48,14 @@ def test_migrator_does_not_scan_custom_docs_or_yyflow(tmp_path, monkeypatch):
     migrated = scan_and_migrate_legacy_docs(project_root=str(proj))
     
     migrated_srcs = [m[0] for m in migrated]
-    # 必须迁移项目根的散落文档
+    # 必须索引项目根的散落文档
     assert any("scattered_arch.md" in s for s in migrated_srcs)
-    # 绝不能迁移目标项目文档或 .yy-flow 内的文件
+    # 绝不能索引或迁移目标项目文档或 .yy-flow 内的文件
     assert not any("existing_doc.md" in s for s in migrated_srcs)
     assert not any("some_internal.md" in s for s in migrated_srcs)
+    # 验证严格无物理复制：未创建 原项目文档/ 副本，仅生成只读索引清单
+    assert not (docs / "原项目文档").exists()
+    assert (yyflow / "user_data" / "doc_catalog.json").is_file()
 
 
 def test_init_skill_sh_execution(tmp_path):
@@ -101,16 +104,18 @@ def test_init_skill_sh_execution(tmp_path):
     assert (proj / ".yy-flow" / "user_data" / "workflow.config.yaml").is_file()
     assert (proj / ".yy-flow" / "user_data" / "stray.txt").is_file()
 
-    # 4. 验证任务分卷收敛至 .yy-flow/user_data/tasks，且由于宿主已有文档目录规范，未强行注入 D01~D06
+    # 4. 验证任务分卷收敛至 .yy-flow/user_data/tasks，且由于宿主已有文档目录规范，未强行注入 D01~D06 与 原项目文档
     assert not (proj / "docs").exists()
     assert (proj / ".yy-flow" / "user_data" / "tasks").is_dir()
     assert (proj / ".yy-flow" / "user_data" / "tasks" / "tasks_0001_0050.yaml").is_file()
     assert not (proj / "项目文档" / "D01-项目管理").exists()
     assert not (proj / "项目文档" / "D04-研发过程").exists()
+    assert not (proj / "项目文档" / "原项目文档").exists()
+    assert (proj / ".yy-flow" / "user_data" / "doc_catalog.json").is_file()
 
 
 def test_init_skill_sh_on_fresh_project_creates_docs_skeleton(tmp_path):
-    """测试在完全无既有文档的空白项目中，init_skill.sh 建立默认推荐文档骨架"""
+    """测试在完全无既有文档的空白项目中，init_skill.sh 遵循无侵入原则不向宿主注入 docs/，仅生成只读索引"""
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     init_script = os.path.join(repo_root, "scripts", "init_skill.sh")
 
@@ -128,8 +133,10 @@ def test_init_skill_sh_on_fresh_project_creates_docs_skeleton(tmp_path):
     )
     assert res.returncode == 0
 
-    # 空白项目建立 docs/ 默认推荐骨架
-    assert (proj / "docs" / "D01-项目管理" / "D01-需求").is_dir()
+    # 空白项目遵循无侵入原则，不向工程根目录注入 docs/ 或空骨架
+    assert not (proj / "docs").exists()
+    # 验证只读文档索引清单正确落盘
+    assert (proj / ".yy-flow" / "user_data" / "doc_catalog.json").is_file()
     # 任务分卷依然干净落入 .yy-flow/user_data/tasks
     assert (proj / ".yy-flow" / "user_data" / "tasks" / "tasks_0001_0050.yaml").is_file()
 

@@ -164,10 +164,7 @@ def validate_delegation_authority(current_role: str, delegated_by: str) -> bool:
     返回 True=合法代行, False=非法代行(阻断)。
     当 delegated_by 为空/None 时,直接返回 True(无代行声明,交给 validate 的常规权限矩阵处理)。
     """
-    # 安全加固 (2026-08-27): OPERATOR_VIA_TOKEN 是 Web 流转 API 在主控 Token 校验通过后
-    # 由服务端注入的真人操作凭据，不属于"角色代行"范畴，放行至 §2.4 人类专属门控处理。
-    if str(delegated_by).strip().upper() == "OPERATOR_VIA_TOKEN":
-        return True
+    # 代行来源必须是白名单中的角色，字符串不能代表经过验证的身份。
     if not delegated_by or not str(delegated_by).strip():
         return True
     role_upper = str(current_role).upper().strip()
@@ -301,15 +298,10 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
     #   a) role=USER 不再是合法人类信号 —— CLI 的 --role 是纯自报参数，任何进程/Agent 都能自称 USER；
     #      USER 身份只能由 Web 看板 API 在验证主控 Token 后于服务端内部赋予；
     #   b) delegated_by=USER 不再作为人类授权凭据 —— 它是可伪造的普通字符串；
-    #      真实人类授权只认两种通道：
-    #      ① OPERATOR_VIA_TOKEN —— Web 流转 API 通过主控 Token 强校验后由服务端注入的内部标记；
-    #      ② force_verify_operator=True —— transition_task/quick_task 入口层完成 isatty 检测与
-    #         [y/N] 交互确认后注入的真人确认标记。
+    #      Web 验收由独立 API 验证主控 Token；此 CLI 校验器只接受入口完成
+    #      isatty 检测与 [y/N] 交互确认后注入的 force_verify_operator 标记。
     if to_status == "已验收":
-        is_human_authorized = (
-            str(delegated_by).strip().upper() == "OPERATOR_VIA_TOKEN"
-            or force_verify_operator
-        )
+        is_human_authorized = bool(force_verify_operator)
         if not is_human_authorized:
             print(f"[REJECT 权限拦截] 状态【已验收】为人类用户专属终态，当前角色 {role} 无权代签！CLI 自报 role=USER 或 delegated_by=USER 均不再被承认。")
             print("  [INFO] 合法验收通道：① Web 看板携带主控 Token 点击验收；② 真人终端执行 quick_task.py accept（自动 TTY 检测 + [y/N] 交互确认）")

@@ -6,6 +6,7 @@
 """
 
 import os
+import subprocess
 import sys
 import yaml
 
@@ -69,10 +70,17 @@ def safe_symlink(source_dir, target_link_path, relative=True):
         return True
     except (OSError, NotImplementedError):
         # Windows / 受限环境回退：如果无法创建 symlink，创建 Junction 或提示
+        # 注：使用列表传参避免 shell 解析，路径含引号/特殊字符时不会被注入执行
         if sys.platform == "win32":
-            cmd = f'mklink /J "{target_link_path}" "{source_dir}"'
-            if os.system(cmd) == 0:
+            try:
+                subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", target_link_path, source_dir],
+                    check=True,
+                    capture_output=True,
+                )
                 return True
+            except (subprocess.CalledProcessError, OSError):
+                pass
         return False
 
 def detect_active_platforms(platforms_config, global_mode=False):
