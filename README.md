@@ -161,6 +161,10 @@ python3 scripts/start_kanban_server.py
 
 [![Multi-Agent Flow 数据表格视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png)](https://yuanyii.github.io/multi-agent-flow/)
 
+### 存储模式兼容说明
+
+分卷/自然周模式的全量导入或覆写当前返回明确的 HTTP 501，不再返回未落盘的成功结果。请通过单任务创建、编辑和状态流转接口更新这些存储模式；单体 JSON 模式仍支持全量导入。客户端应检查 HTTP 状态和错误内容，不能将服务端拒绝当成离线保存成功。
+
 ---
 
 ## 安全边界（Security Boundary）

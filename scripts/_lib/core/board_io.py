@@ -24,8 +24,8 @@ from typing import Any, Dict, List
 from _lib.core import file_lock
 
 
-def load_cards(board_file: str) -> List[Dict[str, Any]]:
-    """读取看板卡片（JSON 数组，兼容 {"cards": [...]} 包装）。文件缺失或解析失败返回 []。"""
+def load_cards(board_file: str, *, strict: bool = False) -> List[Dict[str, Any]]:
+    """读取卡片；缺失文件返回 []，strict=True 时结构或解析失败抛出异常。"""
     if not os.path.exists(board_file):
         return []
     try:
@@ -36,7 +36,11 @@ def load_cards(board_file: str) -> List[Dict[str, Any]]:
         if isinstance(data, dict) and isinstance(data.get("cards"), list):
             return data["cards"]
     except Exception:
+        if strict:
+            raise
         return []
+    if strict:
+        raise ValueError(f"看板文件结构不正确，拒绝以空看板覆盖: {board_file}")
     return []
 
 
