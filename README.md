@@ -143,6 +143,10 @@ mkdir -p .yy-flow/skill && curl -L https://github.com/YuanYii/multi-agent-flow/a
 
 > **日常协同全走自然语言**：需求拆解、阶段结项、认领、提审、测试打回等均可直接自然语言沟通，专家在后台自主调度底层脚本。
 
+### 升级兼容说明
+
+已有任务的状态和类型以持久化记录为准：`--from-status` 必须与实际状态一致，`--type` 仅用于建卡，不能改变已有工单的流转规则。旧版本的周口径/分卷适配器未保存任务类型；升级前创建的短链工单需要先在其原始 YAML 的对应任务下补录正确的 `type: B`（或其他实际类型）。无法确定类型的历史工单按 A 类校验，不能根据本次命令参数猜测历史类型。新建工单会自动保存类型。
+
 ---
 
 ## 可视化看板
@@ -156,6 +160,10 @@ python3 scripts/start_kanban_server.py
 内置 **数据表格**、**状态泳道**、**专家负载**、**阶段工作包** 4 套视图，支持多终端独立偏好与离线/局域网双模。
 
 [![Multi-Agent Flow 数据表格视图](https://fastly.jsdelivr.net/gh/YuanYii/multi-agent-flow@main/kanban/screenshots/table-view.png)](https://yuanyii.github.io/multi-agent-flow/)
+
+### 存储模式兼容说明
+
+分卷/自然周模式的全量导入或覆写当前返回明确的 HTTP 501，不再返回未落盘的成功结果。请通过单任务创建、编辑和状态流转接口更新这些存储模式；单体 JSON 模式仍支持全量导入。客户端应检查 HTTP 状态和错误内容，不能将服务端拒绝当成离线保存成功。
 
 ---
 
