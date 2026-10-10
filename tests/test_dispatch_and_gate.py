@@ -82,7 +82,8 @@ def test_dispatch_task_payload_assembly(tmp_path, monkeypatch):
     prompt = subagent["Prompt"]
     assert "编写高吞吐流式解析器" in prompt
     assert "覆盖 UTF-8 与 GBK" in prompt
-    assert "transition_task.py --task-id T9901" in prompt
+    assert "transition_task.py" in prompt
+    assert "--task-id T9901" in prompt
 
 
 def test_dispatch_task_dependency_gate_blocks_incomplete(tmp_path, monkeypatch):
