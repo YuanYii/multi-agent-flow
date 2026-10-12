@@ -288,6 +288,7 @@ def transition_task_pipeline(
     return_contract: Optional[Dict[str, Any]] = None, # CCP V2.0 结案回执四件套契约
     tier: str = None,                                 # CCP 任务合规分级 (Tier-1/Tier-2/Tier-3)
     token: Optional[str] = None,                      # Subagent 安全派单令牌 (Dispatch Token)
+    preview_from_status: Optional[str] = None,        # 仅只读自动链模拟使用的虚拟前一步状态
 ) -> bool:
     """
     执行任务状态流转全生命周期核心责任链管线。
@@ -335,16 +336,10 @@ def transition_task_pipeline(
         record_audit_event(resolved_task_id, current_role, from_status, to_status, assignee, False, f"代行未授权阻断: {delegated_by} 代行 {current_role}", delegated_by=delegated_by, delegation_reason=delegation_reason)
         return False
 
-    # 0.1 安全门禁 (2026-08-27): 流转至【已验收】必须携带真实人类操作凭据 (Fail-Closed)
-    #     合法通道仅两种:
-    #       A) Web 看板 API 持主控 Token 验证后注入 delegated_by="OPERATOR_VIA_TOKEN";
-    #       B) 真人终端调用 (--force-verify-operator / quick_task accept): 由入口层完成
-    #          isatty 检测与 [y/N] 交互确认后注入。
-    #     CLI 显式伪造 role=USER 或 delegated_by=USER 均不再被承认。
+    # CLI 的代行参数仅表示角色，不能作为已验证的人类凭据。
+    # Web 验收由其独立端点验证主控 Token；此管线只接受入口完成交互确认的标记。
     if to_status == "已验收":
-        _operator_vouched = bool(force_verify_operator) or (
-            str(delegated_by or "").strip().upper() == "OPERATOR_VIA_TOKEN"
-        )
+        _operator_vouched = bool(force_verify_operator)
         if not _operator_vouched:
             print("[REJECT 人类专属门禁] 流转至【已验收】必须由真实人类授权: Web 看板主控 Token 验收, 或真人终端执行 quick_task.py accept。CLI 自报 role/delegated-by=USER 不再被承认！")
             logger.error("[FAILED]  [人类专属门禁] 流转至【已验收】必须由真实人类授权: Web 看板主控 Token 验收, 或真人终端执行 quick_task.py accept。CLI 自报 role/delegated-by=USER 不再被承认！", extra=extra_log)
@@ -526,6 +521,20 @@ def transition_task_pipeline(
         # 4. 任务存在性检查（只读，前置）：确定目标记录与是否需要自动建单
         resolved_record_id = record_id or task_id
         existing = adapter.get_record(resolved_record_id) if resolved_record_id else None
+
+        # 已有工单是状态与类型的唯一事实来源，调用参数不能改变门禁类别。
+        if existing:
+            stored_fields = existing.get("fields", existing)
+            stored_status = stored_fields.get(field_mapping.get("status", "status")) or stored_fields.get("status")
+            if dry_run and preview_from_status is not None:
+                stored_status = preview_from_status
+            if stored_status != from_status:
+                logger.error(f"[FAILED] 原状态不一致: 参数为【{from_status}】，任务实际为【{stored_status}】，请重新读取任务后流转。", extra=extra_log)
+                return False
+            stored_type = stored_fields.get(field_mapping.get("task_type", "type")) or stored_fields.get("type") or stored_fields.get("task_type")
+            if not stored_type and str(task_type).upper() != "A":
+                logger.warning("[WARN] 历史任务未记录 type；将按 A 类校验。请先在原始任务文件补录正确类型后重试，流转参数不会修改已有任务类型。", extra=extra_log)
+            task_type = str(stored_type or "A").upper()
 
         eff_pretask = pretask
         if not eff_pretask and existing:
@@ -981,20 +990,23 @@ def main():
     return_contract_payload = None
     tier_val = getattr(args, "tier", None)
     contract_file = getattr(args, "contract_file", None)
-    if contract_file and os.path.exists(contract_file):
+    if contract_file:
         try:
+            import yaml
             with open(contract_file, "r", encoding="utf-8") as cf:
                 c_data = yaml.safe_load(cf)
-            if isinstance(c_data, dict):
-                contract_payload = c_data.get("contract")
-                return_contract_payload = c_data.get("return_contract")
-                tier_val = tier_val or c_data.get("tier")
-                if not args.target and c_data.get("target"):
-                    args.target = c_data.get("target")
-                if not args.criteria and c_data.get("acceptance_criteria"):
-                    args.criteria = c_data.get("acceptance_criteria")
+            if not isinstance(c_data, dict):
+                raise ValueError("契约文件根节点必须是 YAML 对象")
+            contract_payload = c_data.get("contract")
+            return_contract_payload = c_data.get("return_contract")
+            tier_val = tier_val or c_data.get("tier")
+            if not args.target and c_data.get("target"):
+                args.target = c_data.get("target")
+            if not args.criteria and c_data.get("acceptance_criteria"):
+                args.criteria = c_data.get("acceptance_criteria")
         except Exception as _ce:
-            logger.warning(f"[WARN] 解析契约文件 {contract_file} 失败: {_ce}")
+            logger.error(f"[REJECT 契约加载失败] 无法读取契约文件 {contract_file}: {_ce}")
+            sys.exit(1)
 
     ok = transition_task_pipeline(
         config_path=args.config,

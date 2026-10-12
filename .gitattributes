@@ -19,6 +19,8 @@ kanban/screenshots/**     export-ignore
 kanban/*.png              export-ignore
 
 # 开发全链路压力测试与仿真白盒脚本
+scripts/run_simulation.py export-ignore
+scripts/run_52_tasks_simulation.py export-ignore
 scripts/run_108_tasks_simulation.py export-ignore
 
 # 项目过程文档骨架与历史工单（防止遗留任何业务文档）

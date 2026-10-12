@@ -47,6 +47,7 @@ def env(tmp_path):
     if base is None:
         raise FileNotFoundError("config/workflow.config.yaml 与模板均不存在")
     base["board"]["board_file"] = str(board)
+    base["board"]["storage_mode"] = "single"
     cfg.write_text(yaml.safe_dump(base, allow_unicode=True, sort_keys=False), encoding="utf-8")
     return {"board": board, "cfg": cfg, "tmp": tmp_path}
 

@@ -321,7 +321,7 @@ def atomic_write_board_data(cards: list) -> bool:
         return False
 
 
-def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
+def atomic_mutate_board_data(mutate_fn, expected_version: str = "", *, allow_reopen: bool = False) -> tuple:
     """持文件排他锁执行 board.json 变更，支持 HTTP 409 乐观并发控制。
 
     mutate_fn(cards: list) -> (success: bool, status_code: int, message: str, result_data: dict)
@@ -345,6 +345,8 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
                 # 在 weekly 模式下利用适配器定向原位写回或物理删除，严格检验持久化返回值
                 from _lib.boards.board_adapter_factory import get_board_adapter
                 adapter = get_board_adapter()
+                # REOPEN 仅由已校验主控 Token 的流转路由授权；回调在锁内确认真实起始终态。
+                force_reopen = allow_reopen and isinstance(res_data, dict) and res_data.get("reopen") is True
                 persistence_ok = True
                 persist_err = ""
 
@@ -355,7 +357,7 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
                         tid = str(target_card.get("id", ""))
                         if tid:
                             if adapter.get_record(tid):
-                                if not adapter.update_record(tid, target_card):
+                                if not adapter.update_record(tid, target_card, force_reopen=force_reopen):
                                     persistence_ok = False
                                     persist_err = f"任务 {tid} 原位更新失败（可能受终态防篡改保护或写入异常）"
                             else:
@@ -368,7 +370,7 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
                         target_card = next((c for c in cards if str(c.get("id")) == tid), None)
                         if target_card:
                             if adapter.get_record(tid):
-                                if not adapter.update_record(tid, target_card):
+                                if not adapter.update_record(tid, target_card, force_reopen=force_reopen):
                                     persistence_ok = False
                                     persist_err = f"任务 {tid} 原位更新失败（可能受终态防篡改保护或写入异常）"
                             else:
@@ -379,7 +381,7 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
                     elif "id" in res_data and "name" in res_data:
                         tid = str(res_data["id"])
                         if adapter.get_record(tid):
-                            if not adapter.update_record(tid, res_data):
+                            if not adapter.update_record(tid, res_data, force_reopen=force_reopen):
                                 persistence_ok = False
                                 persist_err = f"任务 {tid} 更新失败"
                         else:
@@ -408,7 +410,8 @@ def atomic_mutate_board_data(mutate_fn, expected_version: str = "") -> tuple:
             if expected_version and expected_version != current_v:
                 return 409, "数据已被其他操作修改，发生版本冲突 (conflict)", {"v": current_v}
 
-            cards = read_board_data()
+            # 写入必须读取有效文件，禁止将损坏数据按空列表覆盖；不复用只读容错缓存。
+            cards = board_io.load_cards(USER_DATA_BOARD, strict=True)
             success, code, msg, res_data = mutate_fn(cards)
             if not success:
                 return code, msg, res_data
@@ -713,21 +716,18 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def end_headers(self):
         """发送通用响应标头（跨域 CORS 与安全配置）。"""
-        # 统一追加跨域与防强缓存响应头（放行本地回环、同源 Host 或无 Origin 场景）
+        # 仅对可信来源（本地回环 / 同源 Host）回显 Origin；不可信来源不返回
+        # Access-Control-Allow-Origin（浏览器将阻止跨域读取），绝不返回 "*"
+        # 通配——读接口无鉴权，通配即等同于向任意网站公开全部看板数据。
         origin = self.headers.get("Origin", "")
         host = self.headers.get("Host", "")
         if origin:
             if (
-                origin == "null"
-                or (host and (origin == f"http://{host}" or origin == f"https://{host}"))
+                (host and (origin == f"http://{host}" or origin == f"https://{host}"))
                 or re.match(r"^https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$", origin)
             ):
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Access-Control-Allow-Credentials", "true")
-            else:
-                self.send_header("Access-Control-Allow-Origin", "*")
-        else:
-            self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers",
@@ -741,8 +741,11 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
     def _is_untrusted_origin(self) -> bool:
         """校验 Origin，防止外部跨站请求伪造 (CSRF) 篡改看板数据，放行回环请求与同源 Host 请求"""
         origin = self.headers.get("Origin", "")
-        if not origin or origin == "null":
+        if not origin:
             return False
+        # "null" 来自沙箱 iframe / file:// 等不透明来源，一律视为不可信
+        if origin == "null":
+            return True
         host = self.headers.get("Host", "")
         if host and (origin == f"http://{host}" or origin == f"https://{host}"):
             return False
@@ -1160,6 +1163,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(400, "载荷必须为任务卡片数组", None, http_status=400)
                 return
 
+            if _is_weekly_storage_mode():
+                self._send_json_resp(
+                    501,
+                    "分卷/自然周存储模式不支持全量导入或覆写，请使用单任务创建、编辑或流转接口",
+                    {"error_type": "BULK_REPLACE_UNSUPPORTED"},
+                    http_status=501
+                )
+                return
+
             def _mutate_bulk(cards):
                 """处理批量任务状态修改或归档 API。"""
                 cards.clear()
@@ -1444,12 +1456,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "node_id": node_id,
                     "from_status": from_status,
                     "to_status": target_status,
+                    "reopen": _is_reopen,
                     "process": card["process"],
                     "card": card,
                     "history_entry": log_text
                 }
 
-            code, msg, data = atomic_mutate_board_data(_mutate_trans, expected_version=expected_v)
+            code, msg, data = atomic_mutate_board_data(
+                _mutate_trans, expected_version=expected_v, allow_reopen=self._is_master_authorized()
+            )
             self._send_json_resp(code, msg, data, http_status=code)
             return
 
@@ -1555,7 +1570,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 if not self._is_master_authorized():
                     protected_fields = [
                         "name", "stage", "wp", "wbs", "pretask", "creator", "creator_role", "assignee", "status",
-                        "est_hours", "start_date", "end_date"
+                        "est_hours", "start_date", "end_date", "process", "target", "acceptance_criteria"
                     ]
                     for k in protected_fields:
                         if k in body_data:

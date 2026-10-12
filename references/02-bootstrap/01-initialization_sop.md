@@ -14,9 +14,9 @@
    - 运行 `python3 scripts/auto_scan_stack.py` 对工作区工程依赖、配置文件与 README 进行只读预检分析。
 4. **模板生成与落库**：
    - 复制模板生成 `user_data/project_architecture.config.yaml`。
-5. **项目工程骨架建立与原项目历史文档只读隔离归档**：
-   - 建立任务与交付物规范骨架。
-   - 运行 `python3 scripts/migrate_legacy_docs.py` 自动扫描原项目中散落的历史文档，分类归档至 `原项目文档/` 隔离区。
+5. **项目工程文档拓扑扫描与只读索引注册**：
+   - 运行 `python3 scripts/migrate_legacy_docs.py` 自动只读嗅探工程中散落的历史文档，建立虚拟分类索引并持久化至 `user_data/doc_catalog.json`。
+   - 严格遵循无侵入（Zero Relocation）原则，不执行任何物理文件移动、复制或重命名，保持宿主工作区零污染。
 6. **物理派发架构全景鉴定工单**：
    - 运行 `python3 scripts/quick_task.py create ...` 物理建卡【待开始】。
 7. **架构师深度鉴定、能力拓展与 PM 终态验收**：

@@ -67,3 +67,89 @@ def test_cli_integration():
     from cli import HANDLERS
     assert "test" in HANDLERS
     assert callable(HANDLERS["test"])
+
+
+def test_get_git_changed_files_fail_closed_on_subprocess_error(monkeypatch):
+    """验证 Git 命令不可用或抛出异常时，Fail-Closed 显式抛出 RuntimeError。"""
+    import subprocess
+    from run_tests import get_git_changed_files
+
+    def mock_run(*args, **kwargs):
+        raise FileNotFoundError("[Errno 2] No such file or directory: 'git'")
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        get_git_changed_files("/mock/repo")
+
+    err_msg = str(exc_info.value)
+    assert "Git 变更探测失败" in err_msg
+    assert "No such file or directory: 'git'" in err_msg
+
+
+def test_get_git_changed_files_fail_closed_on_diff_nonzero(monkeypatch):
+    """验证 git diff 退出码非 0 (如缺少 HEAD) 时，Fail-Closed 显式抛出 RuntimeError。"""
+    import subprocess
+    from run_tests import get_git_changed_files
+
+    def mock_run(cmd, *args, **kwargs):
+        if cmd[1] == "status":
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+        if cmd[1] == "diff":
+            return subprocess.CompletedProcess(
+                args=cmd,
+                returncode=128,
+                stdout="",
+                stderr="fatal: ambiguous argument 'HEAD': unknown revision"
+            )
+        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        get_git_changed_files("/mock/repo")
+
+    err_msg = str(exc_info.value)
+    assert "Git 变更探测失败" in err_msg
+    assert "git diff --name-only HEAD 退出码 128" in err_msg
+
+
+def test_main_git_error_blocks_with_exit_code_2(monkeypatch, capsys):
+    """验证 main() 捕获 RuntimeError 时输出门禁阻断提示并返回 exit 2。"""
+    import run_tests
+    from run_tests import main
+
+    def mock_get_git_changed_files(repo_root):
+        raise RuntimeError("Git 变更探测失败，无法确定改动范围: git status 失败")
+
+    monkeypatch.setattr(run_tests, "get_git_changed_files", mock_get_git_changed_files)
+    monkeypatch.setattr(sys, "argv", ["run_tests.py"])
+
+    exit_code = main()
+    assert exit_code == 2
+
+    captured = capsys.readouterr()
+    assert "[!] 门禁阻断" in captured.out
+    assert "Git 变更探测失败" in captured.out
+    assert "--all" in captured.out
+
+
+def test_get_git_changed_files_success_parsing(monkeypatch):
+    """验证正常 Git 输出下正确解析并合并 status 与 diff 的改动文件列表。"""
+    import subprocess
+    from run_tests import get_git_changed_files
+
+    def mock_run(cmd, *args, **kwargs):
+        if cmd[1] == "status":
+            stdout = " M scripts/run_tests.py\n?? tests/test_new.py\n R old.py -> new.py\n"
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=stdout, stderr="")
+        if cmd[1] == "diff":
+            stdout = "scripts/run_tests.py\nscripts/cli.py\n"
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=stdout, stderr="")
+        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+
+    files = get_git_changed_files("/mock/repo")
+    assert files == ["new.py", "scripts/cli.py", "scripts/run_tests.py", "tests/test_new.py"]
+

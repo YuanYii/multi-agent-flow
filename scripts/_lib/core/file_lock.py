@@ -40,14 +40,20 @@ def _lock_nonblocking(f):
         fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 
-def _lock_blocking(f):
-    """在指定超时时间内轮询尝试获取底层文件锁，超时则抛出异常。"""
-    if sys.platform == "win32":
-        import msvcrt
-        msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
-    else:
-        import fcntl
-        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+def _lock_blocking(f, deadline=None):
+    """在指定超时时间内轮询尝试获取底层文件锁，超时则抛出 LockBusyError。
+
+    注：必须用非阻塞试锁 + 轮询实现。直接调阻塞式 flock / LK_LOCK 会在
+    锁被占用时无限挂起（永不抛异常），导致上层的 deadline/超时逻辑成为死代码。
+    """
+    while True:
+        try:
+            _lock_nonblocking(f)
+            return
+        except OSError:
+            if deadline is not None and time.time() >= deadline:
+                raise LockBusyError("acquire lock timed out")
+            time.sleep(0.05)
 
 
 def _unlock(f):
@@ -120,7 +126,7 @@ def acquire_lock(lock_path, blocking=False, timeout=0.0, write_meta=True):
             _ensure_nonempty(f)
             try:
                 if blocking:
-                    _lock_blocking(f)
+                    _lock_blocking(f, deadline)
                 else:
                     _lock_nonblocking(f)
             except OSError:

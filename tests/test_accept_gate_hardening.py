@@ -55,7 +55,7 @@ def run(env, *args, expect=0):
         cmd = [sys.executable, os.path.join(SCRIPTS, script), "--config", str(env["cfg"]), *rest]
     sub_env = os.environ.copy()
     sub_env["YY_FLOW_PROJECT_ROOT"] = str(env.get("tmp") or env["board"].parent)
-    r = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT, env=sub_env)
+    r = subprocess.run(cmd, input="", capture_output=True, text=True, cwd=REPO_ROOT, env=sub_env)
     assert r.returncode == expect, f"exit={r.returncode} (期望 {expect})\nstdout={r.stdout}\nstderr={r.stderr}"
     return r
 

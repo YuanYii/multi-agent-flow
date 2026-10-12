@@ -182,3 +182,179 @@ def lint_task_single_responsibility(
         violation_type = "OK"
 
     return is_valid, violation_type, reasons, suggestions
+
+
+# 蓝军对抗性特征词与隐式复合解耦模式
+ADVERSARIAL_DECOUPLING_PATTERNS = [
+    # 模式 1: 契约/定义 与 业务实现混杂
+    (
+        r"(?:契约|定义|文档|spec|mock).*(?:实现|编写|开发|编码)|(?:实现|编写|开发|编码).*(?:契约|定义|文档|spec|mock)",
+        "契约/Mock定义与业务编码混杂在单卡中，阻碍前端Mock先行并行协作",
+        ["接口契约定义与 Mock 规范定稿", "接口后端业务逻辑实现"]
+    ),
+    # 模式 2: 数据表/DDL 与 业务接口混杂
+    (
+        r"(?:表结构|表设计|ddl|数据库迁移|迁移脚本).*(?:接口|api|service|服务)|(?:接口|api|service|服务).*(?:表结构|表设计|ddl|数据库迁移|迁移脚本)",
+        "数据库表结构/迁移具备独立交付性，与上层业务接口混杂违背交付可验性",
+        ["数据库表结构设计与迁移脚本编写", "业务接口及数据访问层实现"]
+    ),
+    # 模式 3: 隐式双动词复合阶段
+    (
+        r"(?:设计|编写|开发|构建)\s*(?:并|以及|且)\s*(?:实现|部署|上线|测试|验证)",
+        "包含两个不同交付阶段的动作，失败时无法有效隔离回滚面",
+        ["阶段性设计与规范定义", "具体功能实现与验证"]
+    )
+]
+
+
+def adversarial_srp_lint(
+    name: str,
+    task_type: str = "A",
+    assignee: Optional[str] = None,
+    est_hours: float = 0.0,
+    custom_cfg: Optional[Dict[str, Any]] = None
+) -> Tuple[bool, bool, List[str], List[str]]:
+    """
+    单轮蓝军对抗性质询校验接口 (Adversarial SRP Challenge)。
+
+    在基础 lint_task_single_responsibility 规则之上，站在审计者视角进行挑刺质询：
+    Q1. 交付可验性：是否存在可独立交付/单测的阶段性交付物（如：表迁移与接口逻辑）；
+    Q2. 依赖并行性：能否先行产出契约/Mock 提前解锁下游；
+    Q3. 失败隔离性：子功能打回是否会导致不相关代码连带回滚；
+    Q4. 动作单一性：是否隐含多动词、混合目标或工时 > 4.0h。
+
+    返回:
+        (is_atomic, can_split_further, challenge_reasons, split_suggestions)
+        - is_atomic: True 为合规原子卡，False 为存在复合特征
+        - can_split_further: True 表示被蓝军质询命中，建议执行单次二次细拆；False 为不可再拆
+        - challenge_reasons: 质疑理由列表
+        - split_suggestions: 细拆子任务建议清单
+    """
+    if not name or not str(name).strip():
+        return False, False, ["任务名称不能为空"], []
+
+    name_clean = str(name).strip()
+
+    # 1. 紧急通道豁免
+    if name_clean.upper().startswith(("[HOTFIX]", "[BUGFIX]", "[EMERGENCY]")):
+        return True, False, [], []
+
+    # 2. 先行执行标准单一职责门禁
+    is_valid, violation_type, base_reasons, base_suggestions = lint_task_single_responsibility(
+        name=name,
+        task_type=task_type,
+        assignee=assignee,
+        est_hours=est_hours,
+        custom_cfg=custom_cfg
+    )
+
+    challenge_reasons: List[str] = list(base_reasons)
+    split_suggestions: List[str] = list(base_suggestions)
+
+    # 3. 预处理白名单短语
+    sanitized_name = name_clean
+    for idx, phrase in enumerate(SAFE_PHRASES):
+        if phrase.lower() in sanitized_name.lower():
+            pattern = re.compile(re.escape(phrase), re.IGNORECASE)
+            sanitized_name = pattern.sub(f"__SAFE_PHRASE_{idx}__", sanitized_name)
+
+    adversarial_sugs: List[str] = []
+    # 4. 执行对抗性挑刺模式匹配 (Q1/Q2/Q3)
+    for pat, reason, sugs in ADVERSARIAL_DECOUPLING_PATTERNS:
+        if re.search(pat, sanitized_name, re.IGNORECASE):
+            challenge_reasons.append(f"【对抗性质询】{reason}")
+            adversarial_sugs.extend(sugs)
+
+    # 若命中高优先级领域对抗解耦模式，优先采用高质量领域拆分建议，避免与粗糙的连词截断重复
+    if adversarial_sugs:
+        split_suggestions = adversarial_sugs
+
+    # 5. 执行工时与阶段质询 (Q4)
+    if est_hours > 4.0:
+        challenge_reasons.append(f"【对抗性质询】预估工时 {est_hours:.1f}h 超过单轮原子工时推荐上限 (4.0h)，存在隐式复合阶段")
+        if not split_suggestions:
+            split_suggestions.extend([
+                f"{name_clean} - 核心主干流程",
+                f"{name_clean} - 异常边界与校验"
+            ])
+
+    if challenge_reasons or not is_valid:
+        # 保持顺序去重建议
+        dedup_sugs = list(dict.fromkeys(split_suggestions))
+        return False, True, challenge_reasons, dedup_sugs
+
+    return True, False, [], []
+
+
+def apply_one_pass_srp_loop(
+    tasks: List[Dict[str, Any]],
+    custom_cfg: Optional[Dict[str, Any]] = None
+) -> List[Dict[str, Any]]:
+    """
+    执行单轮对抗性回环拆解 (One-Pass Adversarial SRP Loop)：
+    针对输入的初次候选任务列表，逐一执行蓝军对抗性质询；
+    对命中可再拆项执行单次二次细拆；
+    二次细拆完成后立即收敛，不再进行第二轮/递归质询。
+
+    参数：
+        tasks: 候选任务字典列表
+        custom_cfg: 可选的自定义配置
+
+    返回：
+        refined_tasks: 收敛后的终态任务列表
+    """
+    refined_tasks: List[Dict[str, Any]] = []
+
+    for task in tasks:
+        name = str(task.get("name") or "").strip()
+        task_type = str(task.get("type") or task.get("task_type") or "A")
+        assignee = task.get("assignee") or task.get("owner")
+        est_hours = float(task.get("est_hours") or 0.0)
+
+        is_atomic, can_split, reasons, suggestions = adversarial_srp_lint(
+            name=name,
+            task_type=task_type,
+            assignee=assignee,
+            est_hours=est_hours,
+            custom_cfg=custom_cfg
+        )
+
+        if can_split and suggestions:
+            # Pass 2: 单次二次细拆分摊工时，下限 1.0h
+            sub_count = len(suggestions)
+            sub_hours = round(est_hours / sub_count, 1) if est_hours > 0 else 2.0
+            if sub_hours < 1.0:
+                sub_hours = 1.0
+
+            for idx, sug in enumerate(suggestions, start=1):
+                clean_name = sug
+                for prefix in ("子任务 1:", "子任务 2:", "子任务 3:", "拆分原子任务："):
+                    if clean_name.startswith(prefix):
+                        clean_name = clean_name[len(prefix):].strip()
+
+                sub_task = dict(task)
+                sub_task["name"] = clean_name
+                sub_task["est_hours"] = sub_hours
+                sub_task["split_from"] = name
+                sub_task["adversarial_audit"] = {
+                    "challenged": True,
+                    "reasons": reasons,
+                    "split_round": 1,
+                    "is_atomic": True  # 单轮细拆后强制收敛，不再继续拆分
+                }
+                refined_tasks.append(sub_task)
+        else:
+            # 无需拆分或已是原子任务
+            atomic_task = dict(task)
+            if "est_hours" not in atomic_task:
+                atomic_task["est_hours"] = est_hours
+            atomic_task["adversarial_audit"] = {
+                "challenged": False,
+                "reasons": reasons,
+                "split_round": 0,
+                "is_atomic": is_atomic
+            }
+            refined_tasks.append(atomic_task)
+
+    return refined_tasks
+

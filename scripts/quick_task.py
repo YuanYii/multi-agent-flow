@@ -93,12 +93,15 @@ def main():
             try:
                 from _lib.gates.stage_gate_checker import run_stage_gate_check
                 stage_report = run_stage_gate_check(stage_name=args.stage, action="start")
-                if not stage_report.passed:
-                    failed_details = "; ".join(f"{c.title}: {c.detail}" for c in stage_report.failed_checks)
-                    print(f"[REJECT 阶段准入拦截] 无法在阶段【{args.stage}】创建任务！前序阶段未达标:\n  - {failed_details}\n如确需强制开工建单，请显式传入 --force 参数。")
-                    sys.exit(1)
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"[REJECT 阶段准入检查失败] 无法核验阶段【{args.stage}】的开工条件: {exc}")
+                sys.exit(1)
+            if not stage_report.passed:
+                failed_details = "; ".join(
+                    f"{c.title}: {c.detail}" for c in stage_report.results if not c.passed
+                ) or f"存在 {stage_report.failed_checks} 项阻断项"
+                print(f"[REJECT 阶段准入拦截] 无法在阶段【{args.stage}】创建任务！前序阶段未达标:\n  - {failed_details}\n如确需强制开工建单，请显式传入 --force 参数。")
+                sys.exit(1)
 
         contract_payload = None
         return_contract_payload = None
