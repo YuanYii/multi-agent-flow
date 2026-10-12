@@ -648,6 +648,105 @@
             border-radius: 0 0 8px 8px;
         }
 
+        /* --------------------------------------------------------------------------
+         * 四个看板默认常驻横向滚动条系统 (浅色模式)
+         * -------------------------------------------------------------------------- */
+        #view-table .table-container::-webkit-scrollbar,
+        .view::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        #view-table .table-container::-webkit-scrollbar-track,
+        .view::-webkit-scrollbar-track {
+            background: #eef0f4;
+            border-radius: 5px;
+        }
+
+        #view-table .table-container::-webkit-scrollbar-thumb,
+        .view::-webkit-scrollbar-thumb {
+            background: #b0b5be;
+            border-radius: 5px;
+        }
+
+        #view-table .table-container::-webkit-scrollbar-thumb:hover,
+        .view::-webkit-scrollbar-thumb:hover {
+            background: #8f959e;
+        }
+
+        #view-table .table-container::-webkit-scrollbar-thumb:active,
+        .view::-webkit-scrollbar-thumb:active {
+            background: #6f7580;
+        }
+
+        /* ==========================================================================
+         * Custom Synchronized Scrollbar (Zero-dependency Firefox & Cross-browser)
+         * ========================================================================== */
+        .custom-scrollbar-wrapper {
+            display: none;
+            width: 100%;
+            box-sizing: border-box;
+            flex-shrink: 0;
+            user-select: none;
+        }
+
+        #table-custom-scrollbar {
+            padding: 4px 12px 6px 12px;
+            background: var(--card-bg, #ffffff);
+            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+        }
+
+        #kanban-custom-scrollbar {
+            padding: 4px 20px 8px 20px;
+            background: var(--bg-color);
+        }
+
+        /* When Table view is active, hide the kanban scrollbar */
+        #view-table.active ~ #kanban-custom-scrollbar {
+            display: none !important;
+        }
+
+        .custom-scrollbar-track {
+            width: 100%;
+            height: 10px;
+            background: #eef0f4;
+            border-radius: 5px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .custom-scrollbar-thumb {
+            height: 10px;
+            background: #b0b5be;
+            border-radius: 5px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: grab;
+            transition: background 0.15s ease;
+        }
+
+        .custom-scrollbar-thumb:hover {
+            background: #8f959e;
+        }
+
+        .custom-scrollbar-thumb.dragging,
+        .custom-scrollbar-thumb:active {
+            background: #6f7580;
+            cursor: grabbing;
+        }
+
+        /* Firefox Specific: Hide native 2px overlay scrollbar and display custom 10px scrollbar */
+        html.is-firefox #view-table .table-container,
+        html.is-firefox .view {
+            scrollbar-width: none !important;
+        }
+
+        html.is-firefox .custom-scrollbar-wrapper {
+            display: block;
+        }
+
         /* Board Area */
         .board {
             display: flex;
@@ -1215,6 +1314,58 @@
     background-color: var(--card-bg) !important;
     background: var(--card-bg) !important;
 }
+
+/* --------------------------------------------------------------------------
+ * 四个看板横向滚动条系统 (深色模式)
+ * -------------------------------------------------------------------------- */
+[data-theme="dark"] #view-table .table-container::-webkit-scrollbar-track,
+[data-theme="dark"] .view::-webkit-scrollbar-track {
+    background: #1b1e24;
+}
+
+[data-theme="dark"] #view-table .table-container::-webkit-scrollbar-thumb,
+[data-theme="dark"] .view::-webkit-scrollbar-thumb {
+    background: #4a505c;
+    border-radius: 5px;
+}
+
+[data-theme="dark"] #view-table .table-container::-webkit-scrollbar-thumb:hover,
+[data-theme="dark"] .view::-webkit-scrollbar-thumb:hover {
+    background: #646b7a;
+}
+
+[data-theme="dark"] #view-table .table-container::-webkit-scrollbar-thumb:active,
+[data-theme="dark"] .view::-webkit-scrollbar-thumb:active {
+    background: #7e8696;
+}
+
+/* Custom Synchronized Scrollbar (Dark Theme) */
+[data-theme="dark"] #table-custom-scrollbar {
+    background: var(--card-bg, #262a31);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] #kanban-custom-scrollbar {
+    background: var(--bg-color, #17191c);
+}
+
+[data-theme="dark"] .custom-scrollbar-track {
+    background: #1b1e24;
+}
+
+[data-theme="dark"] .custom-scrollbar-thumb {
+    background: #4a505c;
+}
+
+[data-theme="dark"] .custom-scrollbar-thumb:hover {
+    background: #646b7a;
+}
+
+[data-theme="dark"] .custom-scrollbar-thumb.dragging,
+[data-theme="dark"] .custom-scrollbar-thumb:active {
+    background: #7e8696;
+}
+
         [data-theme="dark"] .header { background: var(--card-bg); }
         [data-theme="dark"] .toolbar { background: #1c1f23; }
         [data-theme="dark"] .board-title:focus { background: var(--card-bg); }

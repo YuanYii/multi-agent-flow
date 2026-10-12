@@ -28,3 +28,6 @@
         verifyFieldTableParity();
         loadStorageData();
         makeColumnsResizable();
+        if (typeof initCustomSyncScrollbars === 'function') {
+            initCustomSyncScrollbars();
+        }
