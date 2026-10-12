@@ -1,5 +1,10 @@
 # 03 - 防错闭环与五层防错门控机制 (§九)
 
+> [!WARNING]
+> **规约版本已迁移废弃声明 (Deprecation Notice)**：
+> 本扁平单文件规约为历史存量归档，系统当前事实标准已全面迁移至模块化规约体系与根入口 [`../SKILL.md`](../SKILL.md)。
+> 最新防错门禁与越权拦截规范请调阅：[`03-engine/01-state_flow_rules.md`](03-engine/01-state_flow_rules.md)。
+
 > **全规约导航**：[01 主索引](01-AI-Team-Workflow-Index.md) | [02 状态推导](02-State-Flow-Rules.md) | [04 Git规范](04-Git-Workflow-Spec.md) | [05 文档管理](05-Document-Management-Spec.md) | [06 交接协议](06-Inter-Agent-Handover-Protocol.md)
 
 ---
