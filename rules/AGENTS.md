@@ -35,13 +35,13 @@
 
 ## 动态按需加载协议 (Lazy Load Protocol)
 
-执行协同任务或推导状态流转时，**必须按需调阅 `../references/` 中的规范文件**：
-1. **角色边界**：调阅 [`../references/01-AI-Team-Workflow-Index.md`](../references/01-AI-Team-Workflow-Index.md)
-2. **状态流转矩阵**：调阅 [`../references/02-State-Flow-Rules.md`](../references/02-State-Flow-Rules.md)
-3. **防错闭环与提权门控**：调阅 [`../references/03-Anti-Error-Mechanism.md`](../references/03-Anti-Error-Mechanism.md)
-4. **Git 与版本规范**：调阅 [`../references/04-Git-Workflow-Spec.md`](../references/04-Git-Workflow-Spec.md)
-5. **文档结构与元数据规范**：调阅 [`../references/05-Document-Management-Spec.md`](../references/05-Document-Management-Spec.md)
-6. **交接契约与消息总线载荷**：调阅 [`../references/06-Inter-Agent-Handover-Protocol.md`](../references/06-Inter-Agent-Handover-Protocol.md)
+执行协同任务或推导状态流转时，**必须按需调阅 `../references/` 对应子目录规范或根入口 [`../SKILL.md`](../SKILL.md)**：
+1. **统一入口网关与单一职责判定**：调阅 [`../references/01-gateway/01-task_classification.md`](../references/01-gateway/01-task_classification.md)
+2. **冷启动与环境初始化 SOP**：调阅 [`../references/02-bootstrap/01-initialization_sop.md`](../references/02-bootstrap/01-initialization_sop.md)
+3. **状态流转矩阵与防错门禁**：调阅 [`../references/03-engine/01-state_flow_rules.md`](../references/03-engine/01-state_flow_rules.md)
+4. **上下文交接与跨 Agent Handoff (CCP)**：调阅 [`../references/04-ccp/01-ccp_protocol_spec.md`](../references/04-ccp/01-ccp_protocol_spec.md)
+5. **看板服务运维与 PR 监听**：调阅 [`../references/05-kanban/01-kanban_and_pr_sync.md`](../references/05-kanban/01-kanban_and_pr_sync.md)
+6. **Git 提交门禁与审计度量规范**：调阅 [`../references/06-governance/01-git_and_audit_spec.md`](../references/06-governance/01-git_and_audit_spec.md)
 
 ---
 
