@@ -315,7 +315,6 @@ def transition_task_pipeline(
         logger.error("[FAILED]  流转模式必须提供 --from-status/--to-status/--assignee；仅建卡请使用 --create", extra=extra_log)
         return False
 
-<<<<<<< HEAD
     # 0.01 --end-time 格式校验与自动补齐缺失秒位（必须包含时间组件，拒绝纯日期）
     if end_time:
         end_time = end_time.strip()
