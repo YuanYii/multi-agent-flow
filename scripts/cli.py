@@ -39,6 +39,8 @@ subcommands:
   yy-flow dispatch --task-id T0001
   yy-flow task accept --task-id T0001
   yy-flow kanban --port 32886
+  yy-flow kanban --lan               # 启动看板并开启局域网多人协同
+  yy-flow kanban --port 32886        # 默认仅本地监听
   yy-flow status --json
   yy-flow ccp --task-id T0001 --stage 审查中
   yy-flow trace
