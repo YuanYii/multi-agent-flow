@@ -100,8 +100,8 @@ def build_context(role: str, action: str = "general") -> str:
     elif action == "dispatch":
         context_output.append("- 执行任务分级三问判定 (L0/L1/L2) 与单一职责 (SRP) 审查：")
         context_output.append("  1. 会留下文件/仓库变更吗？否 -> L0 即时问答（直接作答不建卡，L0 无卡不违规）；")
-        context_output.append("  2. 留下的东西需要事后追溯吗？否 -> L0，是 -> L1 轻量任务（B/C/D/F/G，建卡走短链）；")
-        context_output.append("  3. 需要多角色协作或动核心资产吗？是 -> L2 标准任务（A 类，建卡走全链）；")
+        context_output.append("  2. 留下的东西需要事后追溯吗？否 -> L0，是 -> L1 轻量任务（B/C/D/F/G，建单停步待开工）；")
+        context_output.append("  3. 需要多角色协作或动核心资产吗？是 -> L2 标准任务（A 类，建单停步待开工）；")
         context_output.append("- 单一职责 (SRP) 自检：单角色、单交付物、工时 ≤ 8.0h；三必拆（DB/接口/前端必须独立拆单），严禁复合大卡。")
         context_output.append("- 硬红线：修改文件/仓库必建卡；结论被引用必建卡；用户显式要求建卡必建卡。")
     elif action == "submit":
@@ -111,6 +111,7 @@ def build_context(role: str, action: str = "general") -> str:
         context_output.append("- 通关：更至 `测试中`，处理人移交 `QA`；")
         context_output.append("- 打回：更至 `已退回`，处理人改回原负责人，备注写入 `DEF-TXXX-N`。")
     elif action == "test":
+        context_output.append("- 测试验证：严禁执行裸 pytest 全量测试！必须优先调用 python3 scripts/cli.py test 自动探测变更并精准测试；")
         context_output.append("- 通关：更至 `已完成`，处理人移交 `PM`，强制写入结束时间；")
         context_output.append("- 打回：更至 `已退回`，处理人改回原负责人。")
     else:

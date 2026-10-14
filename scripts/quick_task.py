@@ -93,12 +93,15 @@ def main():
             try:
                 from _lib.gates.stage_gate_checker import run_stage_gate_check
                 stage_report = run_stage_gate_check(stage_name=args.stage, action="start")
-                if not stage_report.passed:
-                    failed_details = "; ".join(f"{c.title}: {c.detail}" for c in stage_report.failed_checks)
-                    print(f"[REJECT 阶段准入拦截] 无法在阶段【{args.stage}】创建任务！前序阶段未达标:\n  - {failed_details}\n如确需强制开工建单，请显式传入 --force 参数。")
-                    sys.exit(1)
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"[REJECT 阶段准入检查失败] 无法核验阶段【{args.stage}】的开工条件: {exc}")
+                sys.exit(1)
+            if not stage_report.passed:
+                failed_details = "; ".join(
+                    f"{c.title}: {c.detail}" for c in stage_report.results if not c.passed
+                ) or f"存在 {stage_report.failed_checks} 项阻断项"
+                print(f"[REJECT 阶段准入拦截] 无法在阶段【{args.stage}】创建任务！前序阶段未达标:\n  - {failed_details}\n如确需强制开工建单，请显式传入 --force 参数。")
+                sys.exit(1)
 
         contract_payload = None
         return_contract_payload = None
@@ -166,7 +169,7 @@ def main():
         if not is_interactive and not has_force_token:
             print("[REJECT 物理拦截] accept 命令禁止在非交互式/自动化子进程中执行！请在终端手动输入或在 Web 看板携带主控 Token 验收。")
             _sys.exit(1)
-        if is_interactive:
+        if is_interactive and not has_force_token:
             print(f"[SECURITY]  确认执行人类最终验收？任务 {args.task_id} 将永久流转至【已验收】终态 (不可逆)。")
             try:
                 confirm = input("请输入 y 确认验收 (其他任意键取消): ").strip().lower()
@@ -219,7 +222,7 @@ def main():
         if not is_interactive and not has_force_token:
             print("[REJECT 物理拦截] accept-all 命令禁止在非交互式/自动化子进程中执行！请在终端手动输入或在 Web 看板携带主控 Token 验收。")
             _sys.exit(1)
-        if is_interactive:
+        if is_interactive and not has_force_token:
             print(f"[SECURITY]  确认批量执行人类最终验收？共 {len(candidates)} 个任务将永久流转至【已验收】终态 (不可逆)。")
             try:
                 confirm = input("请输入 y 确认批量验收 (其他任意键取消): ").strip().lower()

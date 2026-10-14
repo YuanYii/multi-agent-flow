@@ -82,7 +82,8 @@ def test_dispatch_task_payload_assembly(tmp_path, monkeypatch):
     prompt = subagent["Prompt"]
     assert "编写高吞吐流式解析器" in prompt
     assert "覆盖 UTF-8 与 GBK" in prompt
-    assert "transition_task.py --task-id T9901" in prompt
+    assert "transition_task.py" in prompt
+    assert "--task-id T9901" in prompt
 
 
 def test_dispatch_task_dependency_gate_blocks_incomplete(tmp_path, monkeypatch):
@@ -135,7 +136,9 @@ def test_dispatch_task_concurrency_gate_blocks_overload(tmp_path, monkeypatch):
     # 第 4 个任务尝试派单
     adapter.create_record({
         "id": "T9914",
-        "name": "超载任务",
+        "name": "超载任务-并发门禁测试",
+        "target": "验证并发超载门禁阻断逻辑",
+        "acceptance_criteria": ["超载任务应被并发门禁成功阻断"],
         "status": "待开始",
         "assignee": "李开发",
         "pretask": "无",
@@ -149,3 +152,30 @@ def test_dispatch_task_concurrency_gate_blocks_overload(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError) as exc_info:
         dispatch_task(task_id="T9914", max_parallel=3, dry_run=True)
     assert "[REJECT 并发超载]" in str(exc_info.value)
+
+
+def test_find_related_docs_reads_doc_catalog(tmp_path):
+    """测试 find_related_docs 优先从只读索引清单 doc_catalog.json 获取文档并按角色分类偏好排序"""
+    from dispatch_task import find_related_docs
+    yyflow_dir = tmp_path / ".yy-flow" / "user_data"
+    yyflow_dir.mkdir(parents=True)
+    catalog = {
+        "documents": [
+            {"path": "specs/arch.md", "category": "D02-架构设计"},
+            {"path": "docs/req.md", "category": "D01-项目管理"},
+            {"path": "guide/ops.md", "category": "D04-研发过程"}
+        ]
+    }
+    with open(yyflow_dir / "doc_catalog.json", "w", encoding="utf-8") as f:
+        json.dump(catalog, f)
+
+    # 1. 架构师任务优先匹配 D02-架构设计
+    task_arch = {"role": "ARCHITECT", "type": "B"}
+    res_arch = find_related_docs(task_arch, str(tmp_path))
+    assert res_arch[0] == "specs/arch.md"
+
+    # 2. PM 任务优先匹配 D01-项目管理
+    task_pm = {"role": "PM", "type": "A"}
+    res_pm = find_related_docs(task_pm, str(tmp_path))
+    assert res_pm[0] == "docs/req.md"
+

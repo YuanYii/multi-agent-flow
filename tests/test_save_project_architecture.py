@@ -76,3 +76,49 @@ def test_save_architecture_config_and_assertions(tmp_path, monkeypatch):
     assert saved["meta"]["initialized"] is True
     assert "expert_capabilities" in saved["tech_stack"]
     assert "dev" in saved["tech_stack"]["expert_capabilities"]
+
+
+def test_save_architecture_config_force_recalc(tmp_path, monkeypatch):
+    """P2-2 验证：force_recalc=True 强制丢弃旧 expert_capabilities 并重新推导计算。"""
+    test_user_data = tmp_path / "user_data"
+    test_user_data.mkdir()
+    monkeypatch.setenv("YY_FLOW_PROJECT_ROOT", str(tmp_path))
+
+    old_stale_caps = {
+        "dev": ["陈旧的历史能力1", "陈旧的历史能力2", "陈旧的历史能力3"],
+        "frontend": ["旧前端1", "旧前端2", "旧前端3"],
+        "reviewer": ["旧审查1", "旧审查2", "旧审查3"],
+        "qa": ["旧测试1", "旧测试2", "旧测试3"],
+        "architect": ["旧架构1", "旧架构2", "旧架构3"],
+        "devops": ["旧运维1", "旧运维2", "旧运维3"]
+    }
+    arch_data = {
+        "project": {"name": "recalc-project", "version": "1.0.0", "app_type": "fullstack"},
+        "tech_stack": {
+            "languages": [{"name": "Java"}],
+            "backend_frameworks": ["Spring Boot"],
+            "testing": {"framework": "JUnit 5"},
+            "expert_capabilities": old_stale_caps
+        },
+        "architecture_overview": {
+            "pattern": "Modular Monolith",
+            "entry_points": ["Application.java"],
+            "core_directories": {"src": "source code"}
+        }
+    }
+
+    # 1. 默认不加 force_recalc 时，直通保留 old_stale_caps
+    save_architecture_config(arch_data, skip_export=True, force_recalc=False)
+    config_file = test_user_data / "project_architecture.config.yaml"
+    with open(config_file, "r", encoding="utf-8") as f:
+        saved1 = yaml.safe_load(f)
+    assert saved1["tech_stack"]["expert_capabilities"]["dev"] == ["陈旧的历史能力1", "陈旧的历史能力2", "陈旧的历史能力3"]
+
+    # 2. 携带 force_recalc=True 时，强制丢弃并根据当前 Java + Spring Boot 重算
+    save_architecture_config(arch_data, skip_export=True, force_recalc=True)
+    with open(config_file, "r", encoding="utf-8") as f:
+        saved2 = yaml.safe_load(f)
+    dev_caps = saved2["tech_stack"]["expert_capabilities"]["dev"]
+    assert "陈旧的历史能力1" not in dev_caps
+    assert any("Spring Boot" in c for c in dev_caps)
+

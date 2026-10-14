@@ -126,9 +126,18 @@ def apply_tech_stack_to_role(role_data: dict, arch_data: dict, role_key: str) ->
     frontend_fw = _frontend_fw_str(arch_data)
     test_framework = _test_framework(arch_data)
 
-    # 动态推导各专家 3~5 项高匹配能力
-    all_caps = expand_expert_capabilities(arch_data)
-    role_caps = all_caps.get(role_key, [])
+    # 动态推导各专家 3~5 项高匹配能力（优先消费显式持久化的 expert_capabilities）
+    persisted_caps = (arch_data.get("tech_stack", {}) or {}).get("expert_capabilities", {})
+    role_caps = []
+    if isinstance(persisted_caps, dict) and role_key in persisted_caps and persisted_caps[role_key]:
+        raw_val = persisted_caps[role_key]
+        if isinstance(raw_val, list):
+            role_caps = [str(x) for x in raw_val if str(x).strip()][:5]
+        elif isinstance(raw_val, str) and raw_val.strip():
+            role_caps = [raw_val.strip()]
+    if not role_caps:
+        all_caps = expand_expert_capabilities(arch_data)
+        role_caps = all_caps.get(role_key, [])
 
     if role_key == "architect":
         role_data["tech_stack"] = {

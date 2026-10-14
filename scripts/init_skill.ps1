@@ -113,7 +113,7 @@ if (Test-Path "$SkillRoot\.git") {
     Write-Host "       如需清理可手动执行: Remove-Item -Recurse -Force `"$SkillRoot\.git`"" -ForegroundColor Yellow
 }
 
-Write-Host "[DOCS]  [Step 5/7] 项目工程文档骨架建立树与原项目历史文档只读隔离归档..." -ForegroundColor Yellow
+Write-Host "[DOCS]  [Step 5/7] 项目工程文档拓扑扫描与只读索引注册 (Zero Relocation)..." -ForegroundColor Yellow
 # 检查宿主是否已有常用文档目录（如 项目文档、docs、doc、documentation）
 $ExistingDocsDir = $null
 foreach ($d in @("项目文档", "docs", "doc", "documentation")) {
@@ -132,28 +132,7 @@ if (-not $DocsRoot -or $LASTEXITCODE -ne 0) {
     $DocsRoot = Join-Path $ProjRoot "docs"
 }
 
-# 仅当宿主项目完全无任何既有文档目录规范时，才建立推荐的标准文档骨架；若已有文档目录，则坚决尊重既有结构，不强行注入 D01~D06
-if (-not $ExistingDocsDir) {
-    $DocsDirs = @(
-        "$DocsRoot\D01-项目管理\D01-需求",
-        "$DocsRoot\D01-项目管理\D02-状态报告",
-        "$DocsRoot\D02-架构设计",
-        "$DocsRoot\D03-业务模块",
-        "$DocsRoot\D04-研发过程\D02-报告",
-        "$DocsRoot\D04-研发过程\D03-操作手册",
-        "$DocsRoot\D05-规范标准",
-        "$DocsRoot\D06-文档模板",
-        "$DocsRoot\草稿箱"
-    )
-    foreach ($dir in $DocsDirs) {
-        if (-not (Test-Path $dir)) {
-            New-Item -ItemType Directory -Path $dir | Out-Null
-        }
-    }
-} else {
-    Write-Host "  - 检测到宿主已存在文档目录规范 ($ExistingDocsDir)，尊重宿主既有目录，跳过 D01~D06 骨架注入。" -ForegroundColor Gray
-}
-
+# 严格遵循无侵入原则：只读扫描建立索引清单，不向宿主业务工程强行注入空骨架目录或移动文档
 python "$ScriptDir\migrate_legacy_docs.py"
 
 Write-Host "[MIGRATE]  [Step 5.5/7] 检测存量看板工单并执行 50 任务分卷无损平滑迁移 (migrate_to_chunked_storage.py)..." -ForegroundColor Yellow

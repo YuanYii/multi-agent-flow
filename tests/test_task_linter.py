@@ -8,7 +8,12 @@ import sys
 SCRIPT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts"))
 sys.path.insert(0, SCRIPT_DIR)
 
-from _lib.core.task_linter import lint_task_single_responsibility, DOMAIN_KEYWORDS
+from _lib.core.task_linter import (
+    lint_task_single_responsibility,
+    adversarial_srp_lint,
+    apply_one_pass_srp_loop,
+    DOMAIN_KEYWORDS
+)
 
 
 class TestTaskLinterSingleResponsibility:
@@ -230,3 +235,164 @@ class TestTaskLinterSingleResponsibility:
             force=True
         )
         assert ok_force is True
+
+
+class TestAdversarialSRPLoop:
+    """单轮对抗性提问回环机制 (One-Pass Adversarial SRP Loop) 单元测试"""
+
+    def test_adversarial_lint_pass_on_atomic(self):
+        """标准原子任务通过蓝军挑刺质询，不可再拆"""
+        is_atomic, can_split, reasons, suggestions = adversarial_srp_lint(
+            name="重构待办列表筛选与排序接口",
+            assignee="李开发",
+            task_type="A",
+            est_hours=2.0
+        )
+        assert is_atomic is True
+        assert can_split is False
+        assert len(reasons) == 0
+        assert len(suggestions) == 0
+
+    def test_adversarial_lint_challenged_on_decoupling(self):
+        """契约与实现混杂、数据表与接口混杂的任务被蓝军质询命中并建议细拆"""
+        # 1. 契约与实现混杂
+        is_atomic, can_split, reasons, suggestions = adversarial_srp_lint(
+            name="用户认证接口契约定义并实现业务逻辑",
+            assignee="李开发",
+            task_type="A",
+            est_hours=3.5
+        )
+        assert is_atomic is False
+        assert can_split is True
+        assert any("契约/Mock定义与业务编码混杂" in r for r in reasons)
+        assert len(suggestions) >= 2
+
+        # 2. 数据表与接口混杂
+        is_atomic2, can_split2, reasons2, suggestions2 = adversarial_srp_lint(
+            name="订单数据表结构设计与增删改查接口编写",
+            assignee="李开发",
+            task_type="A",
+            est_hours=3.0
+        )
+        assert is_atomic2 is False
+        assert can_split2 is True
+        assert any("数据库表结构/迁移具备独立交付性" in r for r in reasons2)
+
+    def test_adversarial_lint_challenged_on_high_hours(self):
+        """工时超过 4.0h 触发蓝军 Q4 工时质询"""
+        is_atomic, can_split, reasons, suggestions = adversarial_srp_lint(
+            name="重构待办列表SQL批量聚合查询下推",
+            assignee="李开发",
+            task_type="A",
+            est_hours=6.0
+        )
+        assert is_atomic is False
+        assert can_split is True
+        assert any("超过单轮原子工时推荐上限 (4.0h)" in r for r in reasons)
+        assert len(suggestions) >= 2
+
+    def test_apply_one_pass_srp_loop_executes_single_round(self):
+        """验证单轮回环调度器仅执行一轮细拆后立即收敛"""
+        initial_tasks = [
+            {
+                "name": "用户认证接口契约定义并实现业务逻辑",
+                "assignee": "李开发",
+                "type": "A",
+                "est_hours": 4.0
+            },
+            {
+                "name": "编写用户操作指引手册",
+                "assignee": "李文通",
+                "type": "C",
+                "est_hours": 2.0
+            }
+        ]
+
+        refined_tasks = apply_one_pass_srp_loop(initial_tasks)
+
+        # 第 1 个任务被单轮细拆为 2 个子任务，第 2 个任务保持不变，总数为 3
+        assert len(refined_tasks) == 3
+
+        # 校验子任务元数据
+        sub_tasks = [t for t in refined_tasks if t.get("split_from") == "用户认证接口契约定义并实现业务逻辑"]
+        assert len(sub_tasks) == 2
+        for st in sub_tasks:
+            assert st["adversarial_audit"]["challenged"] is True
+            assert st["adversarial_audit"]["split_round"] == 1
+            assert st["adversarial_audit"]["is_atomic"] is True
+            assert st["est_hours"] == 2.0
+
+        # 校验未细拆任务元数据
+        doc_task = [t for t in refined_tasks if t["name"] == "编写用户操作指引手册"][0]
+        assert doc_task["adversarial_audit"]["challenged"] is False
+        assert doc_task["adversarial_audit"]["split_round"] == 0
+        assert doc_task["adversarial_audit"]["is_atomic"] is True
+        assert doc_task["est_hours"] == 2.0
+
+        # 严格验证：再次执行回环调度器，任务列表不再变化（单轮即止，不重复递归）
+        second_pass = apply_one_pass_srp_loop(refined_tasks)
+        assert len(second_pass) == len(refined_tasks)
+
+    def test_adversarial_lint_pattern3_implicit_composite_phase(self):
+        """模式 3：隐式双动词复合阶段（设计并实现/构建且部署）被挑刺命中"""
+        is_atomic, can_split, reasons, suggestions = adversarial_srp_lint(
+            name="设计并实现全局异常拦截器",
+            assignee="李开发",
+            task_type="A",
+            est_hours=3.0
+        )
+        assert is_atomic is False
+        assert can_split is True
+        assert any("包含两个不同交付阶段的动作" in r for r in reasons)
+        assert len(suggestions) == 2
+
+    def test_adversarial_lint_hotfix_bypass_and_empty_name(self):
+        """验证 Hotfix 紧急通道放行与空名称防御"""
+        # 1. Hotfix 放行
+        is_atomic, can_split, reasons, suggestions = adversarial_srp_lint(
+            name="[HOTFIX] 紧急修复接口契约定义并实现",
+            assignee="李开发",
+            task_type="A",
+            est_hours=3.0
+        )
+        assert is_atomic is True
+        assert can_split is False
+        assert len(reasons) == 0
+
+        # 2. 空名称拦截
+        is_atomic_empty, can_split_empty, reasons_empty, _ = adversarial_srp_lint(
+            name="",
+            assignee="李开发"
+        )
+        assert is_atomic_empty is False
+        assert can_split_empty is False
+        assert "任务名称不能为空" in reasons_empty[0]
+
+    def test_apply_one_pass_srp_loop_cross_domain_and_fallback(self):
+        """验证基础跨领域任务在单轮回环中的拆分与建议清洗"""
+        tasks = [
+            {
+                "name": "编写架构方案并开发前后端页面",
+                "assignee": "李开发",
+                "est_hours": 6.0
+            }
+        ]
+        results = apply_one_pass_srp_loop(tasks)
+        assert len(results) >= 2
+        for r in results:
+            assert r["adversarial_audit"]["challenged"] is True
+            assert r["adversarial_audit"]["split_round"] == 1
+            assert r["adversarial_audit"]["is_atomic"] is True
+            assert not r["name"].startswith("拆分原子任务：")
+
+    def test_apply_one_pass_srp_loop_empty_and_missing_fields(self):
+        """验证空任务列表与缺省字段鲁棒性"""
+        assert apply_one_pass_srp_loop([]) == []
+
+        task_missing_fields = [{"name": "编写用户手册"}]
+        res = apply_one_pass_srp_loop(task_missing_fields)
+        assert len(res) == 1
+        assert res[0]["est_hours"] == 0.0
+        assert res[0]["adversarial_audit"]["is_atomic"] is True
+
+

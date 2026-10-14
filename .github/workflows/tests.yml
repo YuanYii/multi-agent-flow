@@ -5,9 +5,15 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - release_active
+      - 'release_*'
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - release_active
+      - 'release_*'
   workflow_dispatch:
 
 jobs:

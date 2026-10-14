@@ -105,9 +105,11 @@ test.describe('模块4 · 任务详情与编辑 (TS-033~044)', () => {
   });
   test('TS-044 详情操作入口存在', async ({ page }) => {
     await openDetail(page, 'E2E-缓存缺陷退回');
-    const delId = page.locator('#detail-delete-btn');
-    const anyDel = page.locator('[id*="delete"]');
-    expect(await delId.count() + await anyDel.count()).toBeGreaterThan(0);
+    const toggleBtn = page.locator('#toggle-detail-edit-btn');
+    await expect(toggleBtn).toBeVisible();
+    await toggleBtn.click();
+    const saveBtn = page.locator('#detail-save-btn');
+    await expect(saveBtn).toBeVisible();
   });
 
 });

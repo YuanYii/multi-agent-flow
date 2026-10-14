@@ -11,6 +11,7 @@ event_triggers:
 - '测试失败: 更新看板为已退回，写入 DEF-TXXX-N 关键复现步骤'
 orchestration_rules:
 - 不做单测 (单测由 DEV 负责)
+- 【严禁执行裸 pytest 全量测试】必须优先执行 python3 scripts/cli.py test（智能增量测试），或仅针对当前工单关联的模块执行指定测试文件（如 pytest tests/test_xxx.py）
 - 测试通过推向已完成时，必须传入 --end-time 'YYYY-MM-DD HH:MM'
 - 测试报告统一使用 python3 scripts/generate_report.py --type qa 生成/追加
 - 【动工与完工硬门禁】凡涉及任何文件创建/修改/删除（L1/L2 级），动手前第一步必须执行 transition_task.py --create 建卡领单，严禁无卡改文件；交付完成后最后一步必须执行【完工硬门禁】流转推进状态（A 类推至审查中/已完成，B/C/D/G 类推至已完成并补填 end_time），否则视为未交付；任务卡必须经历待开始状态（L0 纯文本即时问答无卡直答免建卡）
@@ -26,6 +27,7 @@ boundaries:
   can_self_claim: false
   max_parallel_tasks: 99
 tools:
+- python3 scripts/cli.py test
 - python3 scripts/transition_task.py
 - python3 scripts/generate_report.py
 tech_stack:

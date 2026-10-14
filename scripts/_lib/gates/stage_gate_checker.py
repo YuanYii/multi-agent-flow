@@ -45,6 +45,43 @@ class StageGateReport:
 # 2. 阶段上下文与自适应辅助工具 (Stage Context)
 # =============================================================================
 
+def parse_stage_metadata(s: str) -> Optional[Dict[str, Any]]:
+    """解析阶段名称，提取前缀代号、版本号元组、业务语义简述等信息。
+    支持格式示例：
+    - "Sprint 2.1 菜单调整" -> prefix: "SPRINT", version_tuple: (2, 1), desc: "菜单调整", code: "Sprint 2.1"
+    - "S1 需求分析" -> prefix: "S", version_tuple: (1,), desc: "需求分析", code: "S1"
+    - "WP02 数据持久化" -> prefix: "WP", version_tuple: (2,), desc: "数据持久化", code: "WP02"
+    - "Sprint 10.2" -> prefix: "SPRINT", version_tuple: (10, 2), desc: "", code: "Sprint 10.2"
+    - "2.1 菜单调整" -> prefix: "SPRINT", version_tuple: (2, 1), desc: "菜单调整", code: "Sprint 2.1"
+    """
+    if not s:
+        return None
+    raw = str(s).strip()
+    m = re.match(r"^(?:(Sprint|WP|Stage|S)\s*)?(\d+(?:\.\d+)*)(?:[\s\-_:：]+(.*))?$", raw, re.IGNORECASE)
+    if not m:
+        return None
+    p = (m.group(1) or "").strip()
+    prefix = p.upper() if p else "SPRINT"
+    ver_str = m.group(2)
+    desc = (m.group(3) or "").strip()
+    ver_parts = []
+    for part in ver_str.split("."):
+        try:
+            ver_parts.append(int(part))
+        except ValueError:
+            ver_parts.append(0)
+    ver_tuple = tuple(ver_parts)
+    code = f"{prefix} {ver_str}" if prefix not in ("S", "WP") else f"{prefix}{ver_str}"
+    return {
+        "prefix": prefix,
+        "version_str": ver_str,
+        "version_tuple": ver_tuple,
+        "desc": desc,
+        "code": code,
+        "raw": raw,
+    }
+
+
 class StageContext:
     """阶段核验上下文实体类，封装目标阶段、工单列表及清洁度数据。"""
     def __init__(
@@ -119,7 +156,7 @@ class StageContext:
         return {}
 
     def _resolve_target_stage(self) -> str:
-        """根据输入阶段名（如 'S1'）模糊对齐看板真实阶段名"""
+        """根据输入阶段名（如 'S1' 或 'Sprint 2.1'）模糊对齐看板真实阶段名"""
         all_stages = list({
             str(r.get("stage", "")).strip()
             for r in self.normalized_records
@@ -140,15 +177,24 @@ class StageContext:
             if s.lower() == self.stage_input.lower():
                 return s
 
-        # 3. 前缀代号匹配 (如 'S1' 匹配 'S1 需求分析与系统架构设计')
-        m = re.match(r"^(S\d+)", self.stage_input, re.IGNORECASE)
+        # 3. 语义版本代号匹配 (如 'Sprint 2.1' 匹配 'Sprint 2.1 菜单调整')
+        target_meta = parse_stage_metadata(self.stage_input)
+        if target_meta:
+            t_ver = target_meta["version_tuple"]
+            for s in all_stages:
+                s_meta = parse_stage_metadata(s)
+                if s_meta and s_meta["version_tuple"] == t_ver:
+                    return s
+
+        # 4. 前缀代号正则匹配 (兜底如 'S1' 匹配 'S1 需求分析')
+        m = re.match(r"^([A-Za-z]+\s*\d+)", self.stage_input, re.IGNORECASE)
         if m:
-            code = m.group(1).upper()
+            code = m.group(1).strip().upper()
             for s in all_stages:
                 if re.match(r"^" + re.escape(code) + r"([\s\-_:：]|$)", s, re.IGNORECASE):
                     return s
 
-        # 4. 包含子串匹配
+        # 5. 包含子串匹配
         for s in all_stages:
             if self.stage_input.lower() in s.lower():
                 return s
@@ -162,10 +208,10 @@ class StageContext:
             return False
         if stage_val == target or stage_val.lower() == target.lower():
             return True
-        m1 = re.match(r"^(S\d+)", stage_val, re.IGNORECASE)
-        m2 = re.match(r"^(S\d+)", target, re.IGNORECASE)
-        if m1 and m2 and m1.group(1).upper() == m2.group(1).upper():
-            return True
+        m1 = parse_stage_metadata(stage_val)
+        m2 = parse_stage_metadata(target)
+        if m1 and m2:
+            return m1["version_tuple"] == m2["version_tuple"]
         return False
 
     def find_docs(self, candidate_patterns: List[str]) -> List[str]:
@@ -312,8 +358,8 @@ def check_wbs_reconciliation(ctx: StageContext) -> CheckResult:
 
     for wf in wbs_files:
         fn = os.path.basename(wf).upper()
-        m = re.match(r"^(S\d+)", ctx.target_stage, re.IGNORECASE)
-        stage_code = m.group(1).upper() if m else ""
+        meta = parse_stage_metadata(ctx.target_stage)
+        stage_code = meta["code"].upper() if meta else ""
         if stage_code and stage_code in fn:
             matched_wbs_file = wf
             break
@@ -397,8 +443,8 @@ def check_arch_summary(ctx: StageContext) -> CheckResult:
     matched_files = ctx.find_docs(candidates)
     valid_doc = None
 
-    m = re.match(r"^(S\d+)", ctx.target_stage, re.IGNORECASE)
-    stage_code = m.group(1).upper() if m else ""
+    meta = parse_stage_metadata(ctx.target_stage)
+    stage_code = meta["code"].upper() if meta else ""
 
     for f in matched_files:
         fn = os.path.basename(f)
@@ -487,8 +533,8 @@ def check_pm_summary(ctx: StageContext) -> CheckResult:
     matched_files = ctx.find_docs(candidates)
     valid_doc = None
 
-    m = re.match(r"^(S\d+)", ctx.target_stage, re.IGNORECASE)
-    stage_code = m.group(1).upper() if m else ""
+    meta = parse_stage_metadata(ctx.target_stage)
+    stage_code = meta["code"].upper() if meta else ""
 
     for f in matched_files:
         fn = os.path.basename(f)
@@ -611,16 +657,16 @@ def check_git_working_tree_cleanliness(ctx: StageContext) -> CheckResult:
 
 def check_stage_start_predecessors(ctx: StageContext) -> CheckResult:
     """Check: 阶段开始准入 - 前序阶段完结性检查"""
-    m = re.match(r"^S(\d+)", ctx.target_stage, re.IGNORECASE)
-    if not m:
+    curr_meta = parse_stage_metadata(ctx.target_stage)
+    if not curr_meta:
         return CheckResult(
             code="START_PRED_PASS",
             title="前序阶段完结性",
             passed=True,
             detail=f"目标阶段【{ctx.target_stage}】无强依赖前序阶段代号",
         )
-    curr_idx = int(m.group(1))
-    if curr_idx <= 1:
+    curr_ver = curr_meta["version_tuple"]
+    if curr_ver <= (1,) or curr_ver == (1, 0):
         return CheckResult(
             code="START_PRED_PASS",
             title="前序阶段完结性",
@@ -628,18 +674,32 @@ def check_stage_start_predecessors(ctx: StageContext) -> CheckResult:
             detail=f"【{ctx.target_stage}】为起始阶段，无需前序结项依赖",
         )
 
-    pred_code = f"S{curr_idx - 1}"
-    pred_records = [
-        r for r in ctx.normalized_records
-        if re.match(r"^" + re.escape(pred_code) + r"([\s\-_:：]|$)", str(r.get("stage", "")).strip(), re.IGNORECASE)
-    ]
-    if not pred_records:
+    # 在已有卡片中查找所有版本严格低于当前阶段的前序阶段
+    stage_to_ver = {}
+    for r in ctx.normalized_records:
+        stg = str(r.get("stage", "")).strip()
+        if not stg or stg == "-":
+            continue
+        sm = parse_stage_metadata(stg)
+        if sm and sm["version_tuple"] < curr_ver:
+            stage_to_ver[stg] = sm["version_tuple"]
+
+    if not stage_to_ver:
         return CheckResult(
             code="START_PRED_PASS",
             title="前序阶段完结性",
             passed=True,
-            detail=f"未检测到前序阶段【{pred_code}】的历史任务卡，允许准入",
+            detail="未检测到前序阶段的历史任务卡，允许准入",
         )
+
+    # 选取版本最接近的前序阶段作为直接依赖前序
+    sorted_pred_stages = sorted(stage_to_ver.items(), key=lambda x: x[1])
+    pred_stage_name, _ = sorted_pred_stages[-1]
+
+    pred_records = [
+        r for r in ctx.normalized_records
+        if ctx._stage_matches(str(r.get("stage", "")).strip(), pred_stage_name)
+    ]
 
     unaccepted = [r for r in pred_records if str(r.get("status", "")).strip() not in ("已验收", "已取消")]
     if unaccepted:
@@ -648,14 +708,14 @@ def check_stage_start_predecessors(ctx: StageContext) -> CheckResult:
             code="START_PRED_UNFINISHED",
             title="前序阶段完结性",
             passed=False,
-            detail=f"前序阶段【{pred_code}】尚有 {len(unaccepted)} 个任务未完成验收: {tids}",
-            suggestion=f"请先完成前序阶段【{pred_code}】的全量验收与阶段结项门禁核验",
+            detail=f"前序阶段【{pred_stage_name}】尚有 {len(unaccepted)} 个任务未完成验收: {tids}",
+            suggestion=f"请先完成前序阶段【{pred_stage_name}】的全量验收与阶段结项门禁核验",
         )
     return CheckResult(
         code="START_PRED_PASS",
         title="前序阶段完结性",
         passed=True,
-        detail=f"前序阶段【{pred_code}】共 {len(pred_records)} 个任务已全部完成终态验收",
+        detail=f"前序阶段【{pred_stage_name}】共 {len(pred_records)} 个任务已全部完成终态验收",
     )
 
 
@@ -731,8 +791,9 @@ def format_terminal_report(report: StageGateReport) -> str:
         lines.append(f"{badge} {r.title}: {r.detail}")
 
     lines.append("-" * 64)
-    m = re.match(r"^(S\d+)", report.stage_name, re.IGNORECASE)
-    stage_code = m.group(1).upper() if m else "STAGE"
+    meta = parse_stage_metadata(report.stage_name)
+    stage_code = meta["code"] if meta else "STAGE"
+    branch_suffix = stage_code.lower().replace(" ", "-")
 
     if report.action == "start":
         if report.passed:
@@ -740,7 +801,7 @@ def format_terminal_report(report: StageGateReport) -> str:
             lines.append("[GUIDE] 阶段开工指引与拉取新分支提醒:")
             lines.append("   1. 请从最新主干拉取并切换至本阶段专属特性分支:")
             lines.append("      git checkout main && git pull origin main")
-            lines.append(f"      git checkout -b feature/{stage_code.lower()}-dev")
+            lines.append(f"      git checkout -b feature/{branch_suffix}-dev")
             lines.append("   2. 唤起 PM 严经理 拆解 WBS 并通过 quick_task.py 批量建卡开工。")
         else:
             lines.append(f"[FAIL] 阶段准入门禁未通过！存在 {report.failed_checks} 项阻断项。")

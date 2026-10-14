@@ -1,7 +1,7 @@
 ---
 name: yy-flow
 description: 适用于 AI 多 Agent 与人类团队协同研发的多角色状态流转、质量审计、防错闭环与看板自动化工作流技能包。可通过 /yy-flow help、/yy-flow start、/yy-flow status、/yy-flow kanban、/yy-flow trace 快捷指令或自然语言唤醒。
-version: 2.2.0
+version: 12.0
 ---
 
 # Multi-Agent Team Workflow Skill (YY-Flow)
@@ -29,11 +29,11 @@ version: 2.2.0
    ├─► 1. 会留下代码/文档/配置等仓库文件修改吗？
    │      ├─ 否 ──► 2. 结论需要作为后续工程依据事后追溯吗？
    │      │            ├─ 否 ───────────────► 【L0 即时问答】（无卡直接作答，0 毫秒 CLI 延迟，草稿入草稿箱）
-   │      │            └─ 是 ───────────────► 【L1 轻量任务】（建卡走短链：单角色完成 → 提请用户验收）
+   │      │            └─ 是 ───────────────► 【L1 轻量任务】（建单停步待开工 → 待人类授权后单角色完成）
    │      │
    │      └─ 是 ──► 3. 需要多角色协作、修改核心业务代码或变更公共基础库吗？
    │                   ├─ 否 ───────────────► 【L1 轻量任务】
-   │                   └─ 是 ───────────────► 【L2 标准研发任务】（建卡走全链：DEV 编码 → Reviewer 审查 → QA 测试 → 提请用户验收）
+   │                   └─ 是 ───────────────► 【L2 标准研发任务】（建单停步待开工 → 待人类授权后多角色协同）
 ```
 
 - **网关分级与 CCP 弹性分级映射**：
@@ -41,6 +41,7 @@ version: 2.2.0
   - **【L1 轻量任务】**：映射为 **CCP Tier-3**（Fast-Path 快速放行，物理免独立报告，凭据直接回写看板）；
   - **【L2 标准研发】**：根据规模与契约自动匹配 **CCP Tier-2**（局部优化，工时 ≤ 4.0h，免物理报告）或 **CCP Tier-1**（核心架构与接口契约强约束）。
 - 凡属于 L1/L2 业务需求，网关强制执行单一职责审查（工时 ≤ 8.0h，单一原子交付物）。跨正交领域需求必须拆解建卡。
+- **开工授权硬红线**：建卡完成即达成本次规划会话终态，任务卡必须严格停留在【待开始】状态；未经人类用户显式下达开工授权指令（如“开工”、“开始开发”、“确认执行”），严禁自动派单推进至【进行中】。
 - 执行态 Task ID（如 `T0001`）直接穿透网关进入状态机推进，严禁二次建卡。
 
 ---
@@ -49,14 +50,17 @@ version: 2.2.0
 
 | 业务场景 | 统一 CLI 门面 (`cli.py`) | 底层专用脚本 | 核心作用与参数 |
 | :--- | :--- | :--- | :--- |
-| **创建任务卡** | `python3 scripts/cli.py task create ...` | `python3 scripts/quick_task.py create ...` | `--name "..." --assignee "..." --stage "..." --type "A" --target "..." --criteria "..."` |
+| **创建任务卡** | `python3 scripts/cli.py task create ...` | `python3 scripts/quick_task.py create ...` | `--name "..." --assignee "..." --stage "Sprint 2.1 菜单调整" --type "A" --target "..." --criteria "..."` |
+| **阶段门禁准入/结项** | `python3 scripts/check_stage_gate.py ...` | `python3 scripts/check_stage_gate.py ...` | `--action start/close --stage "Sprint 2.1 菜单调整"`（按需准入，前序依赖自动核验） |
 | **代码化派单** | `python3 scripts/cli.py dispatch --task-id T00xx` | `python3 scripts/dispatch_task.py` | 校验依赖与并发，推至【进行中】，输出 Subagent 载荷 |
 | **推进任务流转** | `python3 scripts/transition_task.py ...` | `python3 scripts/transition_task.py ...` | `--task-id T00xx --role DEV --from-status 进行中 --to-status 审查中 --token <token> --remarks "..."` |
 | **人类终态验收** | `python3 scripts/cli.py task accept ...` | `python3 scripts/quick_task.py accept ...` | `--task-id T00xx`（**人类用户专属**，严禁 Agent 代签） |
 | **启动看板** | `python3 scripts/cli.py kanban` | `python3 scripts/start_kanban_server.py` | 默认启动于 `http://127.0.0.1:32886/` |
 | **健康度巡检** | `python3 scripts/cli.py status` | `python3 scripts/heartbeat.py` | 输出大盘健康度、阻塞卡片与效能指标 |
+| **技术栈同步/画像重算** | - | `scripts/update_agent_tech_stacks.py` | `--force-recalc` 强制重算专家技术能力画像并刷新导出 Subagent，解决技术栈迁移后画像陈旧问题 |
 | **连续性校验** | `python3 scripts/cli.py ccp ...` | `python3 scripts/cli.py ccp ...` | `--task-id T00xx --stage 审查中` 校验上下文连续性 |
 | **链路全景图鉴** | `python3 scripts/cli.py trace` | `python3 scripts/generate_trace_html.py` | 离线解析会话轨迹，秒级生成全景链路图鉴 HTML (0 Token) |
+| **智能增量测试** | `python3 scripts/cli.py test` | `scripts/run_tests.py` | 自动探测 Git 改动，仅执行相关单测 (秒级)，文档变更自动豁免，`--all` 全量回归 |
 
 ---
 
@@ -69,12 +73,12 @@ version: 2.2.0
 
 | 子代理标识 | 角色名称 | 核心职责 | 合法状态流转区间 | 退出契约 |
 | :--- | :--- | :--- | :--- | :--- |
-| `@flow-pm` | 严经理 (项目经理) | 需求拆解、分级判定与派单 | 待开始 -> 进行中 / 提请验收 | 终态停在【已完成】，提请人类验收 |
+| `@flow-pm` | 严经理 (项目经理) | 需求拆解、分级判定与建卡 | 待开始 -> 进行中 / 提请验收 | 建卡场景停在【待开始】等待开工授权；提请人类验收 |
 | `@flow-architect`| 钱架构 (系统架构师) | 系统总体架构、接口契约与选型 | 待开始 -> 进行中 -> 已完成 | 产出 ADR 与架构方案文档 |
 | `@flow-dev` | 李开发 (开发工程师) | 后端/全栈核心编码与单测实现 | 待开始 -> 进行中 -> 审查中 | 必须运行单测，生成开发报告 |
 | `@flow-frontend` | 马前端 (前端开发工程师) | Web/UI 组件与前端体验实现 | 待开始 -> 进行中 -> 审查中 | 验证组件渲染与交互，生成报告 |
 | `@flow-reviewer` | 周审查 (代码审查专家) | 代码规范、安全扫描与质量门控 | 审查中 -> 测试中 / 审查中 -> 已退回 | 静态扫描无告警，产出审查意见 |
-| `@flow-qa` | 章测试 (测试工程师) | 集成测试、边界用例与质量准出 | 测试中 -> 已完成 / 测试中 -> 已退回 | 编写测试用例，记录实际工时 |
+| `@flow-qa` | 章测试 (测试工程师) | 针对性集成测试与准出（仅执行当前任务相关测试，严禁全量脚本） | 测试中 -> 已完成 / 测试中 -> 已退回 | 编写针对性测试用例，记录实际工时 |
 | `@flow-docs` | 李文通 (文档工程师) | 交付物文档治理与用户手册 | 待开始 -> 进行中 -> 已完成 | 遵循 GB/T 7713 学术与工程规范 |
 | `@flow-devops` | 吕改特 (运维管理员) | 分支合流、发布构建与 Git 历史保护 | 待开始 -> 进行中 -> 已完成 | 验证流水线通过，解决 PR 阻塞 |
 

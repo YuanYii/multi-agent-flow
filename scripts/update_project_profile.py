@@ -134,10 +134,12 @@ def merge_detected_tech_stack(arch_dict: Dict[str, Any], detected_info: Dict[str
     merge_string_list(tech["databases_and_storage"], detected_info.get("storage", []))
 
     # 5. 测试框架探测
-    if detected_info.get("testing_framework") and detected_info["testing_framework"] != "pytest":
+    detected_tf = detected_info.get("testing_framework")
+    if detected_tf:
         testing = tech.get("testing", {}) or {}
-        testing["framework"] = detected_info["testing_framework"]
-        tech["testing"] = testing
+        if not testing.get("framework") or detected_tf != "pytest":
+            testing["framework"] = detected_tf
+            tech["testing"] = testing
 
     # 6. 项目名称自动校正
     proj = arch_dict.get("project", {}) or {}
@@ -161,6 +163,8 @@ def main():
     parser.add_argument("--auto-detect", action="store_true", help="策略 B: 自动嗅探并静默增量合并新技术栈")
     parser.add_argument("--silent", action="store_true", help="静默模式，减少日志输出")
     parser.add_argument("--skip-export", action="store_true", default=True, help="跳过生成平台中间产物 (默认跳过以保持仓库干净)")
+    parser.add_argument("--force-recalc", "--force", action="store_true",
+                        help="强制重新推导计算专家技术能力，刷新陈旧画像缓存")
 
     args = parser.parse_args()
 
@@ -170,7 +174,7 @@ def main():
 
     # 2. 检查技术栈更新
     needs_arch_update = bool(
-        args.auto_detect or args.name or args.languages or
+        args.auto_detect or args.force_recalc or args.name or args.languages or
         args.backend or args.frontend or args.db or args.test_framework or args.version
     )
 
@@ -206,7 +210,7 @@ def main():
             detected = scan_project_stack(_paths.project_root())
             added = merge_detected_tech_stack(arch_data, detected, silent=args.silent)
 
-        ok = save_architecture_config(arch_data, skip_export=args.skip_export)
+        ok = save_architecture_config(arch_data, skip_export=args.skip_export, force_recalc=args.force_recalc)
         if not ok:
             sys.exit(1)
 

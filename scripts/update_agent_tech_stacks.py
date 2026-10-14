@@ -21,11 +21,24 @@ def main():
     专家团队技术栈自适应同步 CLI 主入口。
     将扫描推断出的语言与框架能力注入到 8 位专家的 YAML 定义中。
     """
+    import argparse
+    parser = argparse.ArgumentParser(description="专家技术栈同步触发器")
+    parser.add_argument("--force-recalc", "--force", action="store_true",
+                        help="强制重新推导并覆盖 expert_capabilities，刷新陈旧画像")
+    args = parser.parse_args()
+
     arch = load_arch_data()
     if arch is None:
         print("[NOTE]  架构配置未初始化（user_data/project_architecture.config.yaml 缺失或为占位）。")
         print("        跳过技术栈覆盖导出；将先执行 auto_scan_stack.py --write 完成扫描后自动联动。")
         return 0
+
+    if args.force_recalc:
+        print("[RECALC] 触发强制重新推导各专家专精画像...")
+        from _lib.discovery.arch_persister import save_architecture_config
+        if "tech_stack" in arch:
+            arch["tech_stack"].pop("expert_capabilities", None)
+        save_architecture_config(arch, skip_export=True, force_recalc=True)
 
     proj = (arch.get("project") or {}).get("name", "未知")
     print(f"[SYNC]  [技术栈覆盖导出] 项目【{proj}】技术栈将在导出时合并至各平台 Subagent...")

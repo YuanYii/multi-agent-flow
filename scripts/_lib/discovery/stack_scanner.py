@@ -20,8 +20,8 @@ def scan_project_stack(target_dir: Optional[str] = None) -> Dict[str, Any]:
         "backend_frameworks": [],
         "frontend_frameworks": [],
         "frameworks": [],
-        "testing_framework": "pytest",
-        "testing_frameworks": ["pytest"],
+        "testing_framework": "",
+        "testing_frameworks": [],
         "storage": [],
         "security": [],
         "build_tools": [],
@@ -32,31 +32,38 @@ def scan_project_stack(target_dir: Optional[str] = None) -> Dict[str, Any]:
     if default_name and default_name not in [".", "/", ""]:
         info["project_name"] = default_name
 
-    def find_files(fname):
+    def find_files(fname: str, max_depth: int = 3):
         """
-        递归扫描指定目录中匹配特定后缀或文件名的所有路径列表。
-
-        参数:
-            root (str): 扫描根目录。
-            targets (list[str]): 目标文件名或扩展名列表。
-
-        返回:
-            list[str]: 匹配的文件相对路径列表。
+        探测指定目录及至多 max_depth 层子目录中匹配目标文件名的路径列表。
+        自动忽略 node_modules、.venv、dist 等构建与依赖目录。
         """
         found = []
-        p = os.path.join(target_dir, fname)
+        ignore_dirs = {
+            "node_modules", ".venv", "venv", "dist", "build", "user_data",
+            ".git", ".idea", ".agents", "target", ".gradle", ".mvn", "bin", "out"
+        }
+        target_abs = os.path.abspath(target_dir)
+
+        p = os.path.join(target_abs, fname)
         if os.path.exists(p):
             found.append(p)
+
         try:
-            for item in os.listdir(target_dir):
-                sub = os.path.join(target_dir, item)
-                if os.path.isdir(sub) and not item.startswith(".") and item not in ["node_modules", ".venv", "venv", "dist", "build", "user_data"]:
-                    p_sub = os.path.join(sub, fname)
-                    if os.path.exists(p_sub):
-                        found.append(p_sub)
+            for root, dirs, files in os.walk(target_abs):
+                # 过滤黑名单目录
+                dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ignore_dirs]
+                rel = os.path.relpath(root, target_abs)
+                depth = 0 if rel == "." else len(rel.split(os.sep))
+                if depth > max_depth:
+                    dirs[:] = []
+                    continue
+                if rel != "." and fname in files:
+                    found.append(os.path.join(root, fname))
         except Exception:
             pass
-        return found
+
+        # 保序去重
+        return list(dict.fromkeys(found))
 
     # 1. 解析 README.md 中的物理项目名称
     readme_candidates = find_files("README.md")
@@ -204,19 +211,119 @@ def scan_project_stack(target_dir: Optional[str] = None) -> Dict[str, Any]:
         except Exception:
             pass
 
-    # 6. 探测 Dockerfile / docker-compose
+    # 6. 探测 Java (pom.xml / build.gradle)
+    pom_files = find_files("pom.xml")
+    gradle_files = find_files("build.gradle") + find_files("build.gradle.kts")
+    if pom_files or gradle_files:
+        if "Java" not in info["languages"]:
+            info["languages"].append("Java")
+        java_contents = []
+        for jf in (pom_files + gradle_files):
+            try:
+                with open(jf, "r", encoding="utf-8", errors="ignore") as f:
+                    java_contents.append(f.read().lower())
+            except Exception:
+                continue
+        combined_java = " ".join(java_contents)
+        if "spring-boot" in combined_java or "org.springframework.boot" in combined_java:
+            if "Spring Boot" not in info["backend_frameworks"]:
+                info["backend_frameworks"].append("Spring Boot")
+        if "mybatis" in combined_java:
+            fw_title = "MyBatis-Plus" if "mybatis-plus" in combined_java else "MyBatis"
+            if fw_title not in info["backend_frameworks"]:
+                info["backend_frameworks"].append(fw_title)
+        if "sqlite" in combined_java and "SQLite" not in info["storage"]:
+            info["storage"].append("SQLite")
+        if "mysql" in combined_java and "MySQL" not in info["storage"]:
+            info["storage"].append("MySQL")
+        if ("postgresql" in combined_java or "r2dbc-postgresql" in combined_java) and "PostgreSQL" not in info["storage"]:
+            info["storage"].append("PostgreSQL")
+        if "redis" in combined_java and "Redis" not in info["storage"]:
+            info["storage"].append("Redis")
+        if "junit" in combined_java or "spring-boot-starter-test" in combined_java:
+            info["testing_framework"] = "JUnit 5 / Spring Boot Test"
+            if "JUnit 5" not in info["testing_frameworks"]:
+                info["testing_frameworks"].append("JUnit 5")
+        if pom_files and "Maven" not in info["build_tools"]:
+            info["build_tools"].append("Maven")
+        if gradle_files and "Gradle" not in info["build_tools"]:
+            info["build_tools"].append("Gradle")
+
+    # 7. 探测 Rust (Cargo.toml)
+    cargo_files = find_files("Cargo.toml")
+    if cargo_files:
+        if "Rust" not in info["languages"]:
+            info["languages"].append("Rust")
+        try:
+            with open(cargo_files[0], "r", encoding="utf-8", errors="ignore") as f:
+                c_content = f.read().lower()
+                if "axum" in c_content and "Axum" not in info["backend_frameworks"]:
+                    info["backend_frameworks"].append("Axum")
+                if "actix-web" in c_content and "Actix-web" not in info["backend_frameworks"]:
+                    info["backend_frameworks"].append("Actix-web")
+                if "tokio" in c_content and "Tokio" not in info["backend_frameworks"]:
+                    info["backend_frameworks"].append("Tokio")
+                if "cargo" not in [b.lower() for b in info["build_tools"]]:
+                    info["build_tools"].append("Cargo")
+        except Exception:
+            pass
+
+    # 8. 探测 Dockerfile / docker-compose
     docker_files = find_files("Dockerfile") + find_files("docker-compose.yml") + find_files("docker-compose.yaml")
     if docker_files:
         if "Docker / Container" not in info["build_tools"]:
             info["build_tools"].append("Docker / Container")
 
-    # 7. 纯前端 / 原生静态资源兜底探测 (HTML / CSS / JS)
+    # 9. 纯前端 / 原生静态资源兜底探测 (HTML / CSS / JS)
     if not info["frontend_frameworks"]:
         html_files = find_files("index.html")
         if html_files:
             info["frontend_frameworks"].append("Vanilla HTML5 / Modern CSS / ES6")
             if "JavaScript" not in " ".join(info["languages"]):
                 info["languages"].append("JavaScript")
+
+    # 10. 测试框架语言自适应兜底与多语言互斥清理
+    langs_lower = [str(l).lower() for l in info["languages"]]
+    backend_lower = [str(b).lower() for b in info["backend_frameworks"]]
+    build_lower = [str(b).lower() for b in info["build_tools"]]
+    has_java_backend = (
+        any("spring" in b or "mybatis" in b for b in backend_lower)
+        or ("java" in langs_lower and any(b in ["maven", "gradle"] for b in build_lower))
+    )
+
+    # 若为主 Java 后端工程（即使包含辅助 Python 脚本），或仅有 Java 无 Python，清理可能残留的 pytest
+    if has_java_backend or (any("java" in l for l in langs_lower) and not any("python" in l for l in langs_lower)):
+        info["testing_frameworks"] = [tf for tf in info["testing_frameworks"] if "pytest" not in tf.lower()]
+        if info["testing_framework"] and "pytest" in info["testing_framework"].lower():
+            info["testing_framework"] = ""
+
+    if not info["testing_framework"]:
+        if any("java" in l for l in langs_lower):
+            info["testing_framework"] = "JUnit 5 / Spring Boot Test" if any("spring" in b.lower() for b in info["backend_frameworks"]) else "JUnit 5"
+            if "JUnit 5" not in info["testing_frameworks"]:
+                info["testing_frameworks"].append("JUnit 5")
+        elif any("go" in l for l in langs_lower):
+            info["testing_framework"] = "go test"
+            if "go test" not in info["testing_frameworks"]:
+                info["testing_frameworks"].append("go test")
+        elif any("rust" in l for l in langs_lower):
+            info["testing_framework"] = "cargo test"
+            if "cargo test" not in info["testing_frameworks"]:
+                info["testing_frameworks"].append("cargo test")
+        elif any("python" in l for l in langs_lower):
+            info["testing_framework"] = "pytest"
+            if "pytest" not in info["testing_frameworks"]:
+                info["testing_frameworks"].append("pytest")
+        elif any(k in l for l in langs_lower for k in ["javascript", "typescript", "node"]):
+            info["testing_framework"] = info["testing_frameworks"][0] if info["testing_frameworks"] else "Jest / Vitest"
+            if not info["testing_frameworks"]:
+                info["testing_frameworks"].append("Jest / Vitest")
+        else:
+            info["testing_framework"] = "pytest"
+            if "pytest" not in info["testing_frameworks"]:
+                info["testing_frameworks"].append("pytest")
+    elif not info["testing_frameworks"]:
+        info["testing_frameworks"].append(info["testing_framework"])
 
     # 合并 frameworks 列表
     info["frameworks"] = list(set(info["backend_frameworks"] + info["frontend_frameworks"]))

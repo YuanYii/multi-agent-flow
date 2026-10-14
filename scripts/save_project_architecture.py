@@ -43,6 +43,8 @@ def main():
     parser.add_argument("--min-coverage", type=int, default=80, help="最低测试覆盖率")
     parser.add_argument("--skip-export", action="store_true",
                         help="跳过 Antigravity 专属 Subagent 导出（多宿主/WorkBuddy 等非 Antigravity 环境用，等价于 env YY_FLOW_SKIP_AGENT_EXPORT=1）")
+    parser.add_argument("--force-recalc", "--force", action="store_true",
+                        help="强制重新推导计算专家技术能力，刷新陈旧画像缓存")
 
     args = parser.parse_args()
 
@@ -92,7 +94,7 @@ def main():
             },
         }
 
-    ok = save_architecture_config(arch_dict, skip_export=args.skip_export)
+    ok = save_architecture_config(arch_dict, skip_export=args.skip_export, force_recalc=args.force_recalc)
     if not ok:
         sys.exit(1)
     sys.exit(0)

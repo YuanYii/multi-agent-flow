@@ -30,6 +30,8 @@ def main():
                         help="以 JSON 格式输出供管道消费")
     parser.add_argument("--merge", action="store_true",
                         help="策略 B: 自动将探测到的新技术栈静默增量合并至架构配置")
+    parser.add_argument("--force-recalc", "--force", action="store_true",
+                        help="强制重新推导计算专家技术能力，刷新陈旧画像缓存")
     args = parser.parse_args()
 
     info = scan_project_stack(args.target_dir)
@@ -40,7 +42,7 @@ def main():
         from _lib.discovery.arch_persister import save_architecture_config
         arch_data = load_or_init_arch_config()
         added = merge_detected_tech_stack(arch_data, info, silent=args.json)
-        save_architecture_config(arch_data, skip_export=True)
+        save_architecture_config(arch_data, skip_export=True, force_recalc=args.force_recalc)
         if not args.json and added:
             print(f"[AUTO-MERGE] 策略 B 自动静默合并新发现技术栈: {', '.join(added)}")
 

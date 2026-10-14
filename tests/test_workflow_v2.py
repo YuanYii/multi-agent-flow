@@ -47,6 +47,7 @@ def env(tmp_path):
     if base is None:
         raise FileNotFoundError("config/workflow.config.yaml 与模板均不存在")
     base["board"]["board_file"] = str(board)
+    base["board"]["storage_mode"] = "single"
     cfg.write_text(yaml.safe_dump(base, allow_unicode=True, sort_keys=False), encoding="utf-8")
     return {"board": board, "cfg": cfg, "tmp": tmp_path}
 
@@ -987,7 +988,23 @@ class TestHumanAcceptanceAndGitGate:
         assert os.path.exists(os.path.join(project_root, ".git", "hooks", "pre-commit"))
 
 
+# =====================================================================
+# 组 22 · 时间参数严格校验 (Strict Datetime Validation)
+# =====================================================================
+class TestStrictDatetimeValidation:
+    def test_end_time_pure_date_rejected(self, env):
+        """验证 --end-time 传入纯日期（缺失时分秒）时被硬拒绝。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "时间格式校验任务", "--assignee", "PM")
+        r = run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status", "进行中",
+                "--assignee", "李开发", "--task-id", "T0001", "--type", "A",
+                "--end-time", "2026-09-21", expect=1)
+        assert "必须包含完整时分秒" in r.stdout or "格式错误" in r.stdout
 
-
-
-
+    def test_end_time_minute_auto_completion(self, env):
+        """验证 --end-time 传入时分（YYYY-MM-DD HH:MM）自动补齐秒位并成功流转。"""
+        run(env, "transition_task.py", "--role", "PM", "--create", "--task-name", "时间自动补齐任务", "--assignee", "PM")
+        future_time = (datetime.datetime.now() + datetime.timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M')
+        run(env, "transition_task.py", "--role", "DEV", "--from-status", "待开始", "--to-status", "进行中",
+            "--assignee", "李开发", "--task-id", "T0001", "--type", "A",
+            "--end-time", future_time, expect=0)
+        assert status_of(env, "T0001") == "进行中"

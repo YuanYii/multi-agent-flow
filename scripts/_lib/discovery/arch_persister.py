@@ -50,7 +50,7 @@ def validate_schema(data: dict) -> bool:
         return False
 
 
-def save_architecture_config(arch_dict: dict, skip_export: bool = False) -> bool:
+def save_architecture_config(arch_dict: dict, skip_export: bool = False, force_recalc: bool = False) -> bool:
     """持久化架构配置并执行 Fail-Closed 断言。
 
     skip_export=True（或环境变量 YY_FLOW_SKIP_AGENT_EXPORT=1/true/yes）时跳过
@@ -81,7 +81,10 @@ def save_architecture_config(arch_dict: dict, skip_export: bool = False) -> bool
                         norm_items.append(item)
                 tech_stack[fld] = norm_items
 
-    # 2. 自动派生 3~5 项专家能力并回填
+    # 2. 自动派生 3~5 项专家能力并回填（支持全量直通与部分定制增量合并；force_recalc 时强制重新计算）
+    if force_recalc and "tech_stack" in arch_dict and isinstance(arch_dict["tech_stack"], dict):
+        arch_dict["tech_stack"].pop("expert_capabilities", None)
+
     expert_caps = expand_expert_capabilities(arch_dict)
     if "tech_stack" not in arch_dict:
         arch_dict["tech_stack"] = {}

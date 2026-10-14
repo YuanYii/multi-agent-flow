@@ -128,7 +128,8 @@ class OfflineBoardAdapter:
     # ------------------------------------------------------------------
     def _read_cards(self) -> List[Dict[str, Any]]:
         """读取看板全部卡片（JSON 数组，经 board_io 共享内核）。文件不存在返回空列表。"""
-        return board_io.load_cards(self.board_file)
+        # 读取失败不能被当成空看板，否则下一次写入会覆盖现有历史数据。
+        return board_io.load_cards(self.board_file, strict=True)
 
     def _write_cards(self, cards: List[Dict[str, Any]]) -> bool:
         """原子写：先写临时文件再 os.replace，避免半写文件。内置只追加完整性校验断言。"""
