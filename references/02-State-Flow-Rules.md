@@ -1,5 +1,10 @@
 # 02 - 状态流转规则与打回不拆单规范
 
+> [!WARNING]
+> **规约版本已迁移废弃声明 (Deprecation Notice)**：
+> 本扁平单文件规约为历史存量归档，系统当前事实标准已全面迁移至模块化规约体系与根入口 [`../SKILL.md`](../SKILL.md)。
+> 最新状态机引擎与防错规则请调阅：[`03-engine/01-state_flow_rules.md`](03-engine/01-state_flow_rules.md)。
+
 > 本规范定义任务在 8 个标准状态间的推进规则、打回处理约束与终态核验门控。  
 > 跨角色提权代行与专家 Agent 间的消息总线 Context Payload 结构请强参阅：->  [`references/06-Inter-Agent-Handover-Protocol.md`](06-Inter-Agent-Handover-Protocol.md)
 

@@ -1,5 +1,10 @@
 # 06-Inter-Agent-Handover-Protocol.md (专家 Agent 间任务交接与消息总线协议)
 
+> [!WARNING]
+> **规约版本已迁移废弃声明 (Deprecation Notice)**：
+> 本扁平单文件规约为历史存量归档，系统当前事实标准已全面迁移至模块化规约体系与根入口 [`../SKILL.md`](../SKILL.md)。
+> 最新上下文连续性协议 (CCP) 与交接契约请调阅：[`04-ccp/01-ccp_protocol_spec.md`](04-ccp/01-ccp_protocol_spec.md)。
+
 > 规范多 Agent 协同流转时的上下文 Payload 载荷结构、记忆持久化与交接契约。
 
 ---
