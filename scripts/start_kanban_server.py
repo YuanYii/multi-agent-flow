@@ -519,6 +519,10 @@ def validate_bulk_cards_payload(cards: Any) -> Optional[str]:
         if task_id in seen_ids:
             return f"任务 ID [{task_id}] 重复"
         seen_ids.add(task_id)
+        if "status" in card:
+            card_status = str(card.get("status") or "").strip()
+            if not TaskStatus.is_valid(card_status):
+                return f"第 {index + 1} 项包含非法任务状态 [{card.get('status')}]"
     return None
 
 
@@ -1384,7 +1388,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(
                     400,
                     f"非法目标状态: {target_status}",
-                    {"error_type": "INVALID_TASK_STATUS", "target_status": target_status},
+                    {"error_type": "INVALID_TASK_STATUS", "status": target_status, "target_status": target_status},
                     http_status=400,
                 )
                 return
@@ -1607,11 +1611,26 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(400, "请求体必须为 JSON 对象", None, http_status=400)
                 return
 
+            if "status" in body_data and not TaskStatus.is_valid(body_data["status"]):
+                self._send_json_resp(
+                    400,
+                    f"非法任务状态: {body_data['status']}",
+                    {"error_type": "INVALID_TASK_STATUS", "status": body_data["status"]},
+                    http_status=400,
+                )
+                return
+
             def _mutate_put(cards):
                 """处理卡片属性全量更新 API。"""
                 card = next((c for c in cards if c.get("id") == task_id), None)
                 if not card:
                     return False, 404, f"未找到任务 [{task_id}]", None
+
+                if "status" in body_data and not TaskStatus.is_valid(body_data["status"]):
+                    return False, 400, f"非法任务状态: {body_data['status']}", {
+                        "error_type": "INVALID_TASK_STATUS",
+                        "status": body_data["status"],
+                    }
 
                 # 非主控权限字段级差量防护：仅允许修改 act_hours, remarks, handler, operator
                 if not self._is_master_authorized():

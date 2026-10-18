@@ -21,3 +21,11 @@ def test_bulk_payload_accepts_unique_cards():
         {"id": "T0001", "name": "A"},
         {"id": "T0002", "name": "B"},
     ]) is None
+
+
+def test_bulk_payload_rejects_invalid_status():
+    error = server.validate_bulk_cards_payload([
+        {"id": "T0001", "name": "A", "status": "非法未知状态"},
+    ])
+    assert error and "非法任务状态" in error
+
