@@ -32,7 +32,7 @@ sys.path.insert(0, SCRIPT_DIR)
 from _lib.core.step_summary import generate_step_summary
 from _lib.core.task_spec import resolve_default_stage_wp_wbs
 from _lib.core.task_linter import lint_task_single_responsibility
-from enums import ROLE_NORMALIZE_MAP as ROLE_NAME_MAP, normalize_role as _normalize_role_cn
+from enums import ROLE_NORMALIZE_MAP as ROLE_NAME_MAP, TaskStatus, normalize_role as _normalize_role_cn
 
 DEFAULT_PORT = 32886
 PROBE_RANGE = 20
@@ -499,6 +499,31 @@ def allocate_next_task_id(cards: list) -> str:
         if m:
             max_id = max(max_id, int(m.group(1)))
     return f"T{max_id + 1:04d}"
+
+
+def validate_bulk_cards_payload(cards: Any) -> Optional[str]:
+    """Validate identity invariants before replacing the whole board.
+
+    Bulk import is a privileged write path, so malformed entries or duplicate
+    task IDs must be rejected before the existing board is cleared.
+    """
+    if not isinstance(cards, list):
+        return "载荷必须为任务卡片数组"
+    seen_ids = set()
+    for index, card in enumerate(cards):
+        if not isinstance(card, dict):
+            return f"第 {index + 1} 项不是 JSON 对象"
+        task_id = str(card.get("id") or "").strip()
+        if not task_id:
+            return f"第 {index + 1} 项缺少任务 ID"
+        if task_id in seen_ids:
+            return f"任务 ID [{task_id}] 重复"
+        seen_ids.add(task_id)
+        if "status" in card:
+            card_status = str(card.get("status") or "").strip()
+            if not TaskStatus.is_valid(card_status):
+                return f"第 {index + 1} 项包含非法任务状态 [{card.get('status')}]"
+    return None
 
 
 # 角色归一化单一来源收敛（CODE_AUDIT_REPORT 重复逻辑 #1）：
@@ -1159,8 +1184,18 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 )
                 return
 
-            if not isinstance(body_data, list):
-                self._send_json_resp(400, "载荷必须为任务卡片数组", None, http_status=400)
+            bulk_error = validate_bulk_cards_payload(body_data)
+            if bulk_error:
+                self._send_json_resp(400, bulk_error, {"error_type": "INVALID_BULK_PAYLOAD"}, http_status=400)
+                return
+
+            if _is_weekly_storage_mode():
+                self._send_json_resp(
+                    501,
+                    "分卷/自然周存储模式不支持全量导入或覆写，请使用单任务创建、编辑或流转接口",
+                    {"error_type": "BULK_REPLACE_UNSUPPORTED"},
+                    http_status=501
+                )
                 return
 
             if _is_weekly_storage_mode():
@@ -1202,6 +1237,16 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(400, "任务名称 (name) 不能为空", None, http_status=400)
                 return
 
+            requested_status = body_data.get("status") or "待开始"
+            if not TaskStatus.is_valid(requested_status):
+                self._send_json_resp(
+                    400,
+                    f"非法任务状态: {requested_status}",
+                    {"error_type": "INVALID_TASK_STATUS", "status": requested_status},
+                    http_status=400,
+                )
+                return
+
             # 单一任务原则 (SRP) 校验：拦截复合任务与大杂烩卡片
             if not body_data.get("force", False):
                 assignee_input = normalize_role_name(body_data.get("assignee")) or "李开发"
@@ -1239,7 +1284,7 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                     new_id = allocate_next_task_id(cards)
 
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                status = body_data.get("status") or "待开始"
+                status = requested_status
                 assignee = normalize_role_name(body_data.get("assignee")) or "李开发"
                 remarks = body_data.get("remarks", "")
 
@@ -1348,6 +1393,15 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(400, "缺少 target_status 目标状态", None, http_status=400)
                 return
 
+            if not TaskStatus.is_valid(target_status):
+                self._send_json_resp(
+                    400,
+                    f"非法目标状态: {target_status}",
+                    {"error_type": "INVALID_TASK_STATUS", "status": target_status, "target_status": target_status},
+                    http_status=400,
+                )
+                return
+
             if target_status in ("已验收", "已取消") and not self._is_master_authorized():
                 self._send_json_resp(
                     403,
@@ -1396,6 +1450,12 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 card = next((c for c in cards if c.get("id") == task_id), None)
                 if not card:
                     return False, 404, f"未找到任务 [{task_id}]", None
+
+                if "status" in body_data and not TaskStatus.is_valid(body_data["status"]):
+                    return False, 400, f"非法任务状态: {body_data['status']}", {
+                        "error_type": "INVALID_TASK_STATUS",
+                        "status": body_data["status"],
+                    }
 
                 from_status = card.get("status", "待开始")
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1560,11 +1620,26 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json_resp(400, "请求体必须为 JSON 对象", None, http_status=400)
                 return
 
+            if "status" in body_data and not TaskStatus.is_valid(body_data["status"]):
+                self._send_json_resp(
+                    400,
+                    f"非法任务状态: {body_data['status']}",
+                    {"error_type": "INVALID_TASK_STATUS", "status": body_data["status"]},
+                    http_status=400,
+                )
+                return
+
             def _mutate_put(cards):
                 """处理卡片属性全量更新 API。"""
                 card = next((c for c in cards if c.get("id") == task_id), None)
                 if not card:
                     return False, 404, f"未找到任务 [{task_id}]", None
+
+                if "status" in body_data and not TaskStatus.is_valid(body_data["status"]):
+                    return False, 400, f"非法任务状态: {body_data['status']}", {
+                        "error_type": "INVALID_TASK_STATUS",
+                        "status": body_data["status"],
+                    }
 
                 # 非主控权限字段级差量防护：仅允许修改 act_hours, remarks, handler, operator
                 if not self._is_master_authorized():

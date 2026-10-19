@@ -5,7 +5,7 @@
   <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/github/stars/YuanYii/multi-agent-flow?style=for-the-badge&logo=github&color=38BDF8" alt="GitHub Stars"></a>
   <a href="https://github.com/YuanYii/multi-agent-flow/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge" alt="License"></a>
   <a href="https://yuanyii.github.io/multi-agent-flow/"><img src="https://img.shields.io/badge/Theme-Dark%20%2F%20Light-F59E0B?style=for-the-badge" alt="Theme Support"></a>
-  <a href="https://github.com/YuanYii/multi-agent-flow/actions/workflows/tests.yml"><img src="https://img.shields.io/badge/Tests-474%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
+  <a href="https://github.com/YuanYii/multi-agent-flow/actions/workflows/tests.yml"><img src="https://img.shields.io/badge/Tests-585%20Passed-10B981?style=for-the-badge" alt="Tests"></a>
   <a href="https://github.com/YuanYii/multi-agent-flow"><img src="https://img.shields.io/badge/Version-v12.0-8B5CF6?style=for-the-badge" alt="Version"></a>
 </p>
 
@@ -23,7 +23,7 @@
 - **十大协同红线与五层防错门禁**：代码级 Fail-Closed 拦截越权操作；阶段开工核验清洁度，阶段结项强制输出架构技术总结（ADR）与敏捷复盘总结；工作区存在未验收代码时物理阻断 `git commit`。
 - **统一入口网关与 L0–L2 智能分流**：控制台指令直通底层运维，业务需求经分级三问网关前置判定（L0即时问答直出、L1短链交付、L2全流程制衡）；强制执行单一职责（SRP）审查（工时 ≤ 8.0h）。
 - **项目级强关联与多 Agent 终端适配**：数据私有落盘于 `.yy-flow/` 目录随 Git 流转，原生兼容 Google Antigravity、Claude Code、Cursor、OpenAI Codex、OpenCode、ZCode 等主流终端与 IDE。
-- **474 项自动化测试全绿保障**：微内核调度、状态转移、多周分片存储、高熵令牌鉴权与并发锁具备严密的自动化测试覆盖（474 项测试用例经查验符合预期）。
+- **585 项自动化测试全绿保障**：微内核调度、状态转移、多周分片存储、高熵令牌鉴权与并发锁具备严密的自动化测试覆盖（585 项测试用例经查验符合预期）。
 
 **完整特性演示与交互体验请访问**：[https://yuanyii.github.io/multi-agent-flow/](https://yuanyii.github.io/multi-agent-flow/)
 
@@ -191,7 +191,7 @@ python3 scripts/start_kanban_server.py
 │   ├── 04-ccp/              # 上下文连续性协议 (CCP) 规范
 │   ├── 05-kanban/           # 看板服务运维与 PR 监听规范
 │   └── 06-governance/       # Git 提交阻断门禁与审计度量
-├── tests/                   # 474 项自动化测试套件 (实测全量通过)
+├── tests/                   # 585 项自动化测试套件 (实测全量通过)
 └── scripts/                 # 流转/门禁/巡检/看板服务 CLI 引擎
 
 # 初始化后在目标项目生成：

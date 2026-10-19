@@ -1,5 +1,10 @@
 # 01 - AI Team Workflow 协同主索引
 
+> [!WARNING]
+> **规约版本已迁移废弃声明 (Deprecation Notice)**：
+> 本扁平单文件规约为历史存量归档，系统当前事实标准已全面迁移至模块化规约体系与根入口 [`../SKILL.md`](../SKILL.md)。
+> 最新规约请调阅对应模块：[`01-gateway/`](01-gateway/01-task_classification.md) | [`02-bootstrap/`](02-bootstrap/01-initialization_sop.md) | [`03-engine/`](03-engine/01-state_flow_rules.md) | [`04-ccp/`](04-ccp/01-ccp_protocol_spec.md) | [`05-kanban/`](05-kanban/01-kanban_and_pr_sync.md) | [`06-governance/`](06-governance/01-git_and_audit_spec.md)。
+
 > **核心规约交叉索引**：
 > - 状态推导与打回规则：->  [`02-State-Flow-Rules.md`](02-State-Flow-Rules.md)
 > - 防错门控与守护机制：->  [`03-Anti-Error-Mechanism.md`](03-Anti-Error-Mechanism.md)
