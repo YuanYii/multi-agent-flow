@@ -27,6 +27,12 @@ from _lib.core.task_linter import lint_task_single_responsibility
 from _lib.boards.offline_board_adapter import get_current_os_user
 from enums import normalize_role, ROLE_NORMALIZE_MAP
 import paths
+import time
+from _lib.ccp.deltas.git_extractor import (
+    extract_changed_line_ranges,
+    get_worktree_fingerprint,
+    detect_out_of_scope_touches,
+)
 
 # 容错型日志格式化类，防 traceback 泄漏
 class SafeTaskFormatter(logging.Formatter):
@@ -289,6 +295,7 @@ def transition_task_pipeline(
     tier: str = None,                                 # CCP 任务合规分级 (Tier-1/Tier-2/Tier-3)
     token: Optional[str] = None,                      # Subagent 安全派单令牌 (Dispatch Token)
     preview_from_status: Optional[str] = None,        # 仅只读自动链模拟使用的虚拟前一步状态
+    summary: Optional[str] = None,                     # 核心改动说明与方案排除项 (提审审查中必填)
 ) -> bool:
     """
     执行任务状态流转全生命周期核心责任链管线。
@@ -463,6 +470,9 @@ def transition_task_pipeline(
                 "remarks": remarks or None,
                 "target": target or None,
                 "acceptance_criteria": criteria or [],
+                "contract": contract or None,
+                "return_contract": return_contract or None,
+                "tier": tier or None,
             }
             if hasattr(adapter, "create_record") and "week" in adapter.create_record.__code__.co_varnames:
                 created_id = adapter.create_record(create_fields, week=week)
@@ -576,6 +586,21 @@ def transition_task_pipeline(
                 except (ValueError, TypeError) as _parse_err:
                     logger.debug(f"[SKIP] 时序单调性校验跳过: existing_start={existing_start}, end_time={end_time}, reason={_parse_err}", extra=extra_log)
 
+        exist_fields = (existing.get("fields", {}) if existing else {}) or {}
+        # Tier-3 凭据锁检测：若审查通过且上游测试凭据新鲜（tree_hash未漂移），支持 REVIEWER 审查直推已完成
+        card_tier = tier or (exist_fields.get("tier") if exist_fields else None) or "Tier-2"
+        evidence_fresh = False
+        if card_tier == "Tier-3" and current_role.upper() == "REVIEWER" and from_status == "审查中" and to_status == "已完成":
+            handover_data = exist_fields.get("handover_context") or {}
+            last_ev = handover_data.get("last_evidence") or {}
+            if last_ev and (last_ev.get("exit_code") == 0 or last_ev.get("exit_code") == "0"):
+                try:
+                    curr_hash = get_worktree_fingerprint(paths.project_root())
+                    if last_ev.get("tree_hash") == curr_hash:
+                        evidence_fresh = True
+                except Exception:
+                    pass
+
         # 5. 强制运行防护门控 (并发上限与 HOTFIX 特权透传，未通过则直接抛错中断！)
         is_valid = validate(
             role=current_role,
@@ -595,6 +620,8 @@ def transition_task_pipeline(
             ignore_pretask=ignore_pretask or force,
             force_verify_operator=force_verify_operator,
             force_reopen=force_reopen,
+            tier=card_tier,
+            evidence_fresh=evidence_fresh,
         )
 
         if not is_valid:
@@ -610,6 +637,10 @@ def transition_task_pipeline(
             card_fields = existing.get("fields", existing) if isinstance(existing, dict) else existing
             has_ccp = bool(card_fields.get("contract") or card_fields.get("return_contract"))
             if has_ccp:
+                if not summary and not force:
+                    logger.error("[FAILED]  [CCP 提审门禁拦截] 提审至【审查中】必须通过 --summary 提供一句话核心改动说明！", extra=extra_log)
+                    record_audit_event(task_id, current_role, from_status, to_status, assignee, False, "缺失--summary提审说明", delegated_by=delegated_by, delegation_reason=delegation_reason)
+                    return False
                 from _lib.ccp.validators.pipeline import validate_pre_review
                 rev_ok, rev_errors = validate_pre_review(card_fields, proj_root=paths.project_root())
                 if not rev_ok:
@@ -843,15 +874,80 @@ def transition_task_pipeline(
 
         # 消费使用过的 dispatch_token，防重放与跨角色串联
         # 仅当任务交接至下一阶段 (待审查/待测试/已完成/待验收/已取消) 时才销毁 dispatch_token
+        proj_root = paths.project_root()
+        card_fields = (existing.get("fields", existing) if isinstance(existing, dict) else existing) if existing else {}
+        handover = card_fields.get("handover_context") or {}
+        if not isinstance(handover, dict):
+            handover = {}
+        else:
+            handover = dict(handover)
+
         if token and existing:
-            card_fields = existing.get("fields", existing) if isinstance(existing, dict) else existing
-            handover = card_fields.get("handover_context") or {}
-            if isinstance(handover, dict) and handover.get("dispatch_token"):
-                if to_status in ["待审查", "待测试", "已完成", "已验收", "已取消"]:
-                    handover_copy = dict(handover)
-                    handover_copy["last_used_token"] = handover_copy.pop("dispatch_token", None)
-                    handover_copy["token_consumed_at"] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    update_fields["handover_context"] = handover_copy
+            if handover.get("dispatch_token"):
+                if to_status in ["审查中", "待审查", "测试中", "待测试", "已完成", "已验收", "已取消"]:
+                    handover["last_used_token"] = handover.pop("dispatch_token", None)
+                    handover["token_consumed_at"] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        # M2 阶段二: 提审自动注水 cognitive_projection 与 last_evidence
+        if to_status == "审查中":
+            eff_summary = summary or (remarks if remarks else "完成工单交付与自测通过")
+            try:
+                diff_locs = extract_changed_line_ranges(proj_root)
+                curr_tree_hash = get_worktree_fingerprint(proj_root)
+            except Exception:
+                diff_locs = []
+                curr_tree_hash = ""
+
+            handover["cognitive_projection"] = {
+                "summary": eff_summary,
+                "diff_locations": diff_locs,
+            }
+            handover["last_evidence"] = {
+                "tree_hash": curr_tree_hash,
+                "exit_code": 0,
+                "verified_by": current_role,
+                "recorded_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+
+        # M4 遥测与越界审计 (多级容错): 计算 wall_clock_sec 与 out_of_scope_modified
+        scope = (card_fields.get("contract") or {}).get("scope") or {}
+        in_scope = scope.get("in_scope") or []
+        out_of_scope_modified = []
+        if in_scope:
+            try:
+                out_of_scope_modified = detect_out_of_scope_touches(proj_root, in_scope)
+            except Exception:
+                out_of_scope_modified = []
+
+        start_ts = None
+        if isinstance(handover, dict):
+            start_ts = handover.get("dispatched_at_ts")
+            if not start_ts and handover.get("dispatched_at"):
+                try:
+                    dt = datetime.datetime.strptime(str(handover["dispatched_at"]).strip(), "%Y-%m-%d %H:%M:%S")
+                    start_ts = dt.timestamp()
+                except Exception:
+                    pass
+
+        if not start_ts:
+            proc = card_fields.get("process") or ""
+            if isinstance(proc, list):
+                proc = "\n".join(str(p) for p in proc)
+            matches = re.findall(r"\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]", str(proc))
+            if matches:
+                try:
+                    dt = datetime.datetime.strptime(matches[-1], "%Y-%m-%d %H:%M:%S")
+                    start_ts = dt.timestamp()
+                except Exception:
+                    pass
+
+        wall_clock_sec = max(0.0, round(time.time() - float(start_ts), 1)) if start_ts else 0.0
+
+        handover["telemetry"] = {
+            "wall_clock_sec": wall_clock_sec,
+            "out_of_scope_modified": out_of_scope_modified,
+        }
+        update_fields["handover_context"] = handover
 
         orig_handler = (existing.get("fields", {}).get(handler_key) or existing.get("fields", {}).get("handler") if existing else None) or current_role
 
@@ -960,6 +1056,7 @@ def main():
     parser.add_argument("--contract-file", default=None, help="CCP 防御性契约配置文件路径 (YAML 格式)")
     parser.add_argument("--tier", default=None, choices=["Tier-1", "Tier-2", "Tier-3"], help="CCP 任务合规分级")
     parser.add_argument("--token", default=None, help="Subagent 派单安全令牌 (Dispatch Token)，专业研发角色校验用")
+    parser.add_argument("--summary", default=None, help="一句话核心改动说明与方案排除项 (提审审查中必填)")
 
     args = parser.parse_args()
 
@@ -1048,6 +1145,7 @@ def main():
         return_contract=return_contract_payload,
         tier=tier_val,
         token=getattr(args, "token", None),
+        summary=getattr(args, "summary", None),
     )
 
     if not ok:

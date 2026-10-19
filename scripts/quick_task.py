@@ -54,6 +54,8 @@ def main():
     p_create.add_argument("--no-dup-check", action="store_true", help="跳过重复任务校验")
     p_create.add_argument("--contract-file", default=None, help="CCP 防御性契约配置文件路径 (YAML 格式)")
     p_create.add_argument("--tier", default=None, choices=["Tier-1", "Tier-2", "Tier-3"], help="CCP 任务合规分级")
+    p_create.add_argument("--in-scope", action="append", default=[], help="允许修改的文件路径与职责说明")
+    p_create.add_argument("--dry-run", action="store_true", help="演练模式，仅打印任务卡数据不落盘")
 
     p_accept = sub.add_parser("accept", help="人类用户专属验收命令（将已完成推进至已验收）")
     p_accept.add_argument("--config", default=None, help="配置文件路径")
@@ -126,7 +128,30 @@ def main():
             except Exception as _ce:
                 print(f"[WARN] 解析契约文件 {contract_file} 失败: {_ce}")
 
+        in_scope_list = getattr(args, "in_scope", []) or []
+        if in_scope_list:
+            if not contract_payload:
+                contract_payload = {}
+            if "scope" not in contract_payload:
+                contract_payload["scope"] = {}
+            existing_in_scope = contract_payload["scope"].get("in_scope") or []
+            merged = list(existing_in_scope)
+            for item in in_scope_list:
+                if item and item not in merged:
+                    merged.append(item)
+            contract_payload["scope"]["in_scope"] = merged
+
         assignee = normalize_role_name(args.assignee or args.role)
+
+        if getattr(args, "dry_run", False):
+            print("[DRY-RUN] 模拟创建任务卡:")
+            print(f"  name: {args.name}")
+            print(f"  role: {args.role}")
+            print(f"  assignee: {assignee}")
+            print(f"  tier: {tier_val}")
+            if contract_payload and "scope" in contract_payload:
+                print(f"  contract.scope.in_scope: {contract_payload['scope'].get('in_scope')}")
+            sys.exit(0)
         ok = transition_task_pipeline(
             config_path=args.config,
             current_role=args.role,

@@ -50,13 +50,13 @@ version: 12.0
 
 | 业务场景 | 统一 CLI 门面 (`cli.py`) | 底层专用脚本 | 核心作用与参数 |
 | :--- | :--- | :--- | :--- |
-| **创建任务卡** | `python3 scripts/cli.py task create ...` | `python3 scripts/quick_task.py create ...` | `--name "..." --assignee "..." --stage "Sprint 2.1 菜单调整" --type "A" --target "..." --criteria "..."` |
+| **创建任务卡** | `python3 scripts/cli.py task create ...` | `python3 scripts/quick_task.py create ...` | `--name "..." --assignee "..." --stage "Sprint 2.1 菜单调整" --type "A" --target "..." --criteria "..." [--in-scope "file # 原因"]` |
 | **阶段门禁准入/结项** | `python3 scripts/check_stage_gate.py ...` | `python3 scripts/check_stage_gate.py ...` | `--action start/close --stage "Sprint 2.1 菜单调整"`（按需准入，前序依赖自动核验） |
-| **代码化派单** | `python3 scripts/cli.py dispatch --task-id T00xx` | `python3 scripts/dispatch_task.py` | 校验依赖与并发，推至【进行中】，输出 Subagent 载荷 |
-| **推进任务流转** | `python3 scripts/transition_task.py ...` | `python3 scripts/transition_task.py ...` | `--task-id T00xx --role DEV --from-status 进行中 --to-status 审查中 --token <token> --remarks "..."` |
+| **代码化派单** | `python3 scripts/cli.py dispatch --task-id T00xx` | `python3 scripts/dispatch_task.py` | 校验依赖与并发，推至【进行中】，输出 Subagent 载荷（支持 `--in-scope` 即时落盘，支持 `--no-strict-scope` 旁路放行） |
+| **推进任务流转** | `python3 scripts/transition_task.py ...` | `python3 scripts/transition_task.py ...` | `--task-id T00xx --role DEV --from-status 进行中 --to-status 审查中 --token <token> --summary "核心改动说明" --remarks "..."`（提审强制携带 `--summary` 自动注水差异与凭据快照） |
 | **人类终态验收** | `python3 scripts/cli.py task accept ...` | `python3 scripts/quick_task.py accept ...` | `--task-id T00xx`（**人类用户专属**，严禁 Agent 代签） |
 | **启动看板** | `python3 scripts/cli.py kanban` | `python3 scripts/start_kanban_server.py` | 默认启动于 `http://127.0.0.1:32886/` |
-| **健康度巡检** | `python3 scripts/cli.py status` | `python3 scripts/heartbeat.py` | 输出大盘健康度、阻塞卡片与效能指标 |
+| **健康度巡检** | `python3 scripts/cli.py status` | `python3 scripts/heartbeat.py` | 输出大盘健康度、阻塞卡片与效能指标（含子代理认知漫游与超 600s 告警） |
 | **技术栈同步/画像重算** | - | `scripts/update_agent_tech_stacks.py` | `--force-recalc` 强制重算专家技术能力画像并刷新导出 Subagent，解决技术栈迁移后画像陈旧问题 |
 | **连续性校验** | `python3 scripts/cli.py ccp ...` | `python3 scripts/cli.py ccp ...` | `--task-id T00xx --stage 审查中` 校验上下文连续性 |
 | **链路全景图鉴** | `python3 scripts/cli.py trace` | `python3 scripts/generate_trace_html.py` | 离线解析会话轨迹，秒级生成全景链路图鉴 HTML (0 Token) |
@@ -75,12 +75,13 @@ version: 12.0
 | :--- | :--- | :--- | :--- | :--- |
 | `@flow-pm` | 严经理 (项目经理) | 需求拆解、分级判定与建卡 | 待开始 -> 进行中 / 提请验收 | 建卡场景停在【待开始】等待开工授权；提请人类验收 |
 | `@flow-architect`| 钱架构 (系统架构师) | 系统总体架构、接口契约与选型 | 待开始 -> 进行中 -> 已完成 | 产出 ADR 与架构方案文档 |
-| `@flow-dev` | 李开发 (开发工程师) | 后端/全栈核心编码与单测实现 | 待开始 -> 进行中 -> 审查中 | 必须运行单测，生成开发报告 |
-| `@flow-frontend` | 马前端 (前端开发工程师) | Web/UI 组件与前端体验实现 | 待开始 -> 进行中 -> 审查中 | 验证组件渲染与交互，生成报告 |
-| `@flow-reviewer` | 周审查 (代码审查专家) | 代码规范、安全扫描与质量门控 | 审查中 -> 测试中 / 审查中 -> 已退回 | 静态扫描无告警，产出审查意见 |
+| `@flow-dev` | 李开发 (开发工程师) | 后端/全栈核心编码与单测实现 | 待开始 -> 进行中 -> 审查中 | 必须运行单测，生成开发报告，提审提供 `--summary` |
+| `@flow-frontend` | 马前端 (前端开发工程师) | Web/UI 组件与前端体验实现 | 待开始 -> 进行中 -> 审查中 | 验证组件渲染与交互，生成报告，提审提供 `--summary` |
+| `@flow-reviewer` | 周审查 (代码审查专家) | 代码规范、安全扫描与质量门控 | 审查中 -> 测试中 / 审查中 -> 已完成 (Tier-3 凭据新鲜且未漂移免 QA 直通) / 审查中 -> 已退回 | 静态扫描无告警，产出审查意见 |
 | `@flow-qa` | 章测试 (测试工程师) | 针对性集成测试与准出（仅执行当前任务相关测试，严禁全量脚本） | 测试中 -> 已完成 / 测试中 -> 已退回 | 编写针对性测试用例，记录实际工时 |
 | `@flow-docs` | 李文通 (文档工程师) | 交付物文档治理与用户手册 | 待开始 -> 进行中 -> 已完成 | 遵循 GB/T 7713 学术与工程规范 |
 | `@flow-devops` | 吕改特 (运维管理员) | 分支合流、发布构建与 Git 历史保护 | 待开始 -> 进行中 -> 已完成 | 验证流水线通过，解决 PR 阻塞 |
+
 
 ---
 
