@@ -22,7 +22,8 @@ import subprocess
 import ipaddress
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, unquote
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import HTTPServer, SimpleHTTPRequestHandler, ThreadingHTTPServer
+import threading
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
@@ -205,6 +206,9 @@ _BOARD_MEMORY_CACHE = {
     "cards": []
 }
 
+# 多线程并发安全锁：进程内线程锁保护内存缓存读取
+_BOARD_CACHE_LOCK = threading.Lock()
+
 
 def _is_weekly_storage_mode() -> bool:
     """判断当前运行态是否启用了自然周 YAML 存储模式"""
@@ -259,50 +263,52 @@ def read_board_data() -> list:
     """安全读取看板卡片数据，具备高速内存缓存。
     在 weekly 模式下从 WeeklyBoardAdapter 聚合加载多周卡片；
     在 single 模式下从 board.json 加载。
+    使用 _BOARD_CACHE_LOCK 保证多线程并发读取安全。
     """
-    if _is_weekly_storage_mode():
+    with _BOARD_CACHE_LOCK:
+        if _is_weekly_storage_mode():
+            try:
+                curr_v = compute_board_version()
+                if (curr_v and curr_v == _BOARD_MEMORY_CACHE.get("version") and _BOARD_MEMORY_CACHE.get("cards")):
+                    return [dict(c) for c in _BOARD_MEMORY_CACHE["cards"]]
+
+                from _lib.boards.board_adapter_factory import get_board_adapter
+                adapter = get_board_adapter()
+                recs = adapter.list_records(limit=5000, include_sealed=True)
+                cards = [r["fields"] for r in recs if isinstance(r, dict) and "fields" in r]
+                for idx, c in enumerate(cards, start=1):
+                    c["seq"] = idx
+                _BOARD_MEMORY_CACHE["version"] = curr_v
+                _BOARD_MEMORY_CACHE["cards"] = cards
+                return [dict(c) for c in cards]
+            except Exception as e:
+                sys.stderr.write(f"[WARN] read_board_data weekly failed: {e}\n")
+
+        os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
+        if not os.path.exists(USER_DATA_BOARD):
+            with open(USER_DATA_BOARD, "w", encoding="utf-8") as f:
+                f.write("[]")
+            _BOARD_MEMORY_CACHE["mtime"] = 0.0
+            _BOARD_MEMORY_CACHE["size"] = 2
+            _BOARD_MEMORY_CACHE["cards"] = []
+            return []
+
         try:
-            curr_v = compute_board_version()
-            if (curr_v and curr_v == _BOARD_MEMORY_CACHE.get("version") and _BOARD_MEMORY_CACHE.get("cards")):
+            stat = os.stat(USER_DATA_BOARD)
+            if (stat.st_mtime == _BOARD_MEMORY_CACHE.get("mtime") and
+                stat.st_size == _BOARD_MEMORY_CACHE.get("size")):
                 return [dict(c) for c in _BOARD_MEMORY_CACHE["cards"]]
 
-            from _lib.boards.board_adapter_factory import get_board_adapter
-            adapter = get_board_adapter()
-            recs = adapter.list_records(limit=5000, include_sealed=True)
-            cards = [r["fields"] for r in recs if isinstance(r, dict) and "fields" in r]
-            for idx, c in enumerate(cards, start=1):
-                c["seq"] = idx
-            _BOARD_MEMORY_CACHE["version"] = curr_v
-            _BOARD_MEMORY_CACHE["cards"] = cards
-            return [dict(c) for c in cards]
-        except Exception as e:
-            sys.stderr.write(f"[WARN] read_board_data weekly failed: {e}\n")
-
-    os.makedirs(os.path.dirname(USER_DATA_BOARD), exist_ok=True)
-    if not os.path.exists(USER_DATA_BOARD):
-        with open(USER_DATA_BOARD, "w", encoding="utf-8") as f:
-            f.write("[]")
-        _BOARD_MEMORY_CACHE["mtime"] = 0.0
-        _BOARD_MEMORY_CACHE["size"] = 2
-        _BOARD_MEMORY_CACHE["cards"] = []
-        return []
-
-    try:
-        stat = os.stat(USER_DATA_BOARD)
-        if (stat.st_mtime == _BOARD_MEMORY_CACHE.get("mtime") and
-            stat.st_size == _BOARD_MEMORY_CACHE.get("size")):
-            return [dict(c) for c in _BOARD_MEMORY_CACHE["cards"]]
-
-        with open(USER_DATA_BOARD, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                _BOARD_MEMORY_CACHE["mtime"] = stat.st_mtime
-                _BOARD_MEMORY_CACHE["size"] = stat.st_size
-                _BOARD_MEMORY_CACHE["cards"] = data
-                return [dict(c) for c in data]
+            with open(USER_DATA_BOARD, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    _BOARD_MEMORY_CACHE["mtime"] = stat.st_mtime
+                    _BOARD_MEMORY_CACHE["size"] = stat.st_size
+                    _BOARD_MEMORY_CACHE["cards"] = data
+                    return [dict(c) for c in data]
+                return []
+        except Exception:
             return []
-    except Exception:
-        return []
 
 
 def atomic_write_board_data(cards: list) -> bool:
@@ -734,6 +740,9 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         ".json": "application/json; charset=utf-8",
         ".md": "text/markdown; charset=utf-8",
     }
+
+    # 套接字读取超时，防止 Slowloris / 未完成请求无限阻塞工作线程
+    timeout = 10.0
 
     def __init__(self, *args, **kwargs):
         """初始化看板 HTTP 请求处理器实例。"""
@@ -1792,11 +1801,14 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
         sys.stderr.write(f" [Kanban HTTP {port}] {self.address_string()} - {format % args}\n")
 
 
-class ReusableHTTPServer(HTTPServer):
-    """支持端口快速释放与复用的增强 HTTPServer 类。"""
+class ReusableHTTPServer(ThreadingHTTPServer):
+    """支持端口快速释放与复用的增强 ThreadingHTTPServer 类。"""
     # Windows 上 SO_REUSEADDR 允许两个活跃进程同时绑定同一端口（等效于 SO_REUSEPORT 的危害），
     # 必须禁用；Unix 上仅允许复用 TIME_WAIT 端口，保留
     allow_reuse_address = (sys.platform != "win32")
+
+    # 确保主进程接收 SIGINT/Ctrl+C 时子线程可迅速释放退出，不产生僵尸进程
+    daemon_threads = True
 
     def server_bind(self):
         """绑定服务器端口并设置 SO_REUSEADDR 标志，防止端口占用假死。"""
@@ -1904,21 +1916,24 @@ def probe_port(requested_port: int, fingerprint: str, pinned: bool = False) -> P
     sys.exit(1)
 
 
-def _write_runtime_file(port: int, fingerprint: str):
+def _write_runtime_file(port: int, fingerprint: str, host: str = "0.0.0.0"):
     """落盘运行时信息，供人工排障与后续工具查询（不做启动快速路径）"""
     try:
         os.makedirs(os.path.dirname(KANBAN_RUNTIME_FILE), exist_ok=True)
         local_ip = get_local_ip()
+        # 判断局域网是否启用
+        is_lan_enabled = host in ("0.0.0.0", "") or is_valid_lan_ip(host)
         payload = {
             "port": port,
             "pid": os.getpid(),
             "fingerprint": fingerprint,
             "data_root": _DATA_ROOT,
+            "host": host,
             "master_token": ACTIVE_MASTER_TOKEN,
             "url": f"http://127.0.0.1:{port}/",
             "master_url": f"http://127.0.0.1:{port}/?token={ACTIVE_MASTER_TOKEN}",
-            "lan_url": f"http://{local_ip}:{port}/",
-            "lan_master_url": f"http://{local_ip}:{port}/?token={ACTIVE_MASTER_TOKEN}",
+            "lan_url": f"http://{local_ip}:{port}/" if is_lan_enabled and local_ip != "127.0.0.1" else None,
+            "lan_master_url": f"http://{local_ip}:{port}/?token={ACTIVE_MASTER_TOKEN}" if is_lan_enabled and local_ip != "127.0.0.1" else None,
             "started_at": datetime.now().isoformat(),
         }
         with open(KANBAN_RUNTIME_FILE, "w", encoding="utf-8") as f:
@@ -2062,7 +2077,9 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool =
         print(f" 既有实例 PID: {result.health.get('pid', '未知')} | 启动于: {result.health.get('data_root', '')}")
         print("=" * 70)
         token = result.health.get("master_token") or ""
-        print_kanban_urls(result.port, get_local_ip(), master_token=token)
+        # 复用时从运行时文件读取 host，若无则默认 0.0.0.0
+        running_host = result.health.get("host", "0.0.0.0") if result.health else "0.0.0.0"
+        print_kanban_urls(result.port, get_local_ip(), master_token=token, host=running_host)
         return
 
     # probe_port 在 127.0.0.1 上试探性绑定成功；若最终要求监听其他 host，重建监听
@@ -2083,11 +2100,11 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool =
         master_token=ACTIVE_MASTER_TOKEN,
     )
 
-    _write_runtime_file(result.port, fingerprint)
+    _write_runtime_file(result.port, fingerprint, host=host)
     atexit.register(_remove_runtime_file)
 
     local_ip = get_local_ip()
-    print_kanban_urls(result.port, local_ip, master_token=ACTIVE_MASTER_TOKEN)
+    print_kanban_urls(result.port, local_ip, master_token=ACTIVE_MASTER_TOKEN, host=host)
 
     try:
         httpd.serve_forever()
@@ -2096,22 +2113,27 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool =
         httpd.server_close()
 
 
-def print_kanban_urls(port: int, local_ip: str, master_token: str = ""):
+def print_kanban_urls(port: int, local_ip: str, master_token: str = "", host: str = "0.0.0.0"):
     """
     控制台格式化打印本地直达链接、局域网协作链接与 Master Token。
 
     参数:
         port (int): 绑定端口。
-        token (str): 动态高熵令牌。
+        local_ip (str): 本机局域网 IP。
+        master_token (str): 动态高熵令牌。
+        host (str): 监听地址。
     """
     token = master_token or ACTIVE_MASTER_TOKEN
+    is_lan_enabled = host in ("0.0.0.0", "") or is_valid_lan_ip(host)
     print("\n" + "=" * 70)
     print(f"[START] [READY] Multi-Agent Flow 看板 Web 服务已就绪 (端口: {port})")
     print(f" 进程 PID   : {os.getpid()}")
     print(f" 绑定端口   : {port}")
     print(f" 本地直达   : http://127.0.0.1:{port}/")
-    if local_ip != "127.0.0.1":
+    if is_lan_enabled and local_ip != "127.0.0.1":
         print(f" 局域网协作 : http://{local_ip}:{port}/ (分享给团队成员，仅协作浏览与推进)")
+    else:
+        print(f" 局域网协作 : 未开启 (仅本机监听；如需开放局域网请使用默认参数或指定 --host 0.0.0.0 启动)")
     print("\n" + "-" * 70)
     print(f" 主控权限令牌 (Master Token) :")
     print(f" {token}")
@@ -2128,10 +2150,12 @@ def main():
     parser = argparse.ArgumentParser(description="Multi-Agent Flow 看板简易 HTTP 服务")
     parser.add_argument("--port", type=int, default=None,
                         help=f"固定服务端口 (默认: 环境变量 KANBAN_PORT 或 {DEFAULT_PORT}+自动探测)")
-    parser.add_argument("--host", type=str, default="127.0.0.1",
-                        help="监听 Host (安全默认: 127.0.0.1 仅本机；需要局域网协作时显式传 --host 0.0.0.0)")
+    parser.add_argument("--host", type=str, default="0.0.0.0",
+                        help="监听 Host (默认: 0.0.0.0 开启局域网协同；仅限本机请传 --host 127.0.0.1)")
     parser.add_argument("--status", action="store_true", help="查询当前项目绑定的看板服务运行状态与访问直达链接")
     args = parser.parse_args()
+
+    host = args.host
 
     if args.status:
         running = resolve_running_kanban(_DATA_ROOT)
@@ -2146,14 +2170,18 @@ def main():
                 except Exception:
                     pass
             local_ip = get_local_ip()
+            running_host = running.get("host", "0.0.0.0")
+            is_lan_enabled = running_host in ("0.0.0.0", "") or is_valid_lan_ip(running_host)
             print("\n" + "=" * 70)
             print(f"[RUNNING] 本项目专属看板服务正在运行中")
             print(f" 进程 PID   : {pid}")
             print(f" 绑定端口   : {port}")
             print(f" 数据根目录 : {running.get('data_root')}")
             print(f" 本地直达   : http://127.0.0.1:{port}/")
-            if local_ip != "127.0.0.1":
+            if is_lan_enabled and local_ip != "127.0.0.1":
                 print(f" 局域网协作 : http://{local_ip}:{port}/ (分享给团队成员，仅协作浏览与推进)")
+            else:
+                print(f" 局域网协作 : 未开启 (仅本机监听；如需开放局域网请使用默认参数或指定 --host 0.0.0.0 启动)")
             if token:
                 print("\n" + "-" * 70)
                 print(f" 主控权限令牌 (Master Token) :")
@@ -2175,7 +2203,7 @@ def main():
     else:
         port, pinned = DEFAULT_PORT, False
 
-    start_server(port=port, host=args.host, pinned=pinned)
+    start_server(port=port, host=host, pinned=pinned)
 
 
 if __name__ == "__main__":
