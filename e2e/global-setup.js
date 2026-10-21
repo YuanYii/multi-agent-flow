@@ -41,6 +41,17 @@ module.exports = async () => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
   fs.mkdirSync(path.join(tmpRoot, 'user_data', 'logs'), { recursive: true });
 
+  const baseCfgPath = fs.existsSync(path.resolve(__dirname, '../config/workflow.config.yaml'))
+    ? path.resolve(__dirname, '../config/workflow.config.yaml')
+    : path.resolve(__dirname, '../config/workflow.config.template.yaml');
+  let cfgContent = fs.readFileSync(baseCfgPath, 'utf-8');
+  if (cfgContent.includes('storage_mode:')) {
+    cfgContent = cfgContent.replace(/storage_mode:\s*\w+/, 'storage_mode: single');
+  } else {
+    cfgContent = cfgContent.replace(/board:\s*\n/, 'board:\n  storage_mode: single\n');
+  }
+  fs.writeFileSync(path.join(tmpRoot, 'user_data', 'workflow.config.yaml'), cfgContent, 'utf-8');
+
   const srvLog = fs.openSync(path.join(RUNTIME_DIR, 'server.log'), 'a');
   const proc = spawn('python3', ['scripts/start_kanban_server.py', '--port', String(PORT)], {
     cwd: path.resolve(__dirname, '..'),
