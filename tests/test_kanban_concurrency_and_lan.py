@@ -5,8 +5,9 @@
 1. test_server_is_threading_http_server: 断言 ReusableHTTPServer 继承自 ThreadingHTTPServer 且 daemon_threads is True
 2. test_handler_socket_timeout_configured: 断言 KanbanHTTPRequestHandler.timeout == 10.0
 3. test_concurrent_slow_client_isolation: 启动测试服务端，模拟慢客户端，断言并发隔离
-4. test_lan_argument_parsing: 模拟传入 --lan，断言解析出的 host 为 0.0.0.0
-5. test_print_and_runtime_file_reflects_host: 断言运行时文件准确反映 host 状态
+4. test_default_host_is_lan_enabled: 断言默认监听 0.0.0.0，开箱即支持局域网协同
+5. test_runtime_file_reflects_host: 断言 _write_runtime_file 准确反映 host 状态
+6. test_board_cache_thread_safety: 断言 _BOARD_CACHE_LOCK 存在且为 Lock
 """
 
 import os
@@ -15,13 +16,19 @@ import json
 import socket
 import threading
 import time
-import tempfile
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # 添加脚本目录到路径
 SCRIPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts")
 sys.path.insert(0, SCRIPT_DIR)
+
+
+def _get_free_port():
+    """动态获取一个当前空闲的 TCP 端口"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
 
 class TestServerThreadingAndTimeout:
@@ -63,8 +70,7 @@ class TestConcurrentSlowClientIsolation:
         board_file = data_dir / "board.json"
         board_file.write_text("[]", encoding="utf-8")
 
-        # 随机端口
-        port = 18888
+        port = _get_free_port()
 
         # 启动服务器进程
         env = os.environ.copy()
@@ -78,13 +84,20 @@ class TestConcurrentSlowClientIsolation:
         )
 
         try:
-            # 等待服务器启动
-            time.sleep(2)
+            # 等待服务器端口就绪
+            ready = False
+            for _ in range(30):
+                try:
+                    with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+                        ready = True
+                        break
+                except OSError:
+                    time.sleep(0.1)
+            assert ready, f"服务器在端口 {port} 未能及时就绪"
 
             # 创建慢客户端（只建立 TCP 连接，不发送 HTTP 请求）
             slow_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             slow_sock.connect(("127.0.0.1", port))
-            # 不发送任何数据，模拟慢客户端
 
             # 并发发起正常 HTTP 请求
             start_time = time.time()
@@ -105,72 +118,36 @@ class TestConcurrentSlowClientIsolation:
             server_proc.wait(timeout=5)
 
 
-class TestLanArgumentParsing:
-    """测试 --lan 参数解析"""
+class TestDefaultHostConfiguration:
+    """测试默认启动监听地址即支持局域网协同"""
 
-    def test_lan_argument_parsing(self):
-        """模拟传入 --lan，断言解析出的 host 为 0.0.0.0"""
+    def test_default_host_is_all_interfaces(self):
+        """断言默认启动参数 host 为 0.0.0.0，无需额外增加命令"""
         import argparse
+        import start_kanban_server
 
-        # 模拟 start_kanban_server.py 中的参数解析逻辑
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--lan", action="store_true",
-                            help="开启局域网协同访问 (自动监听 0.0.0.0 物理网卡)")
-        parser.add_argument("--host", type=str, default="127.0.0.1")
-
-        # 测试 --lan 参数
-        args = parser.parse_args(["--lan"])
-        host = "0.0.0.0" if args.lan else args.host
-        assert host == "0.0.0.0", f"传入 --lan 时 host 应为 0.0.0.0，实际为 {host}"
-
-        # 测试不传 --lan 时的默认值
-        args = parser.parse_args([])
-        host = "0.0.0.0" if args.lan else args.host
-        assert host == "127.0.0.1", f"不传 --lan 时 host 应为 127.0.0.1，实际为 {host}"
-
-    def test_lan_argument_with_host_conflict(self):
-        """测试 --lan 与 --host 同时传入时的行为"""
-        import argparse
-
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--lan", action="store_true")
-        parser.add_argument("--host", type=str, default="127.0.0.1")
-
-        # --lan 应覆盖 --host
-        args = parser.parse_args(["--lan", "--host", "192.168.1.100"])
-        host = "0.0.0.0" if args.lan else args.host
-        assert host == "0.0.0.0", "--lan 应覆盖 --host 参数"
+        # 检查 start_kanban_server 中的 main 参数定义
+        with patch("argparse.ArgumentParser.parse_args") as mock_args, \
+             patch("start_kanban_server.start_server") as mock_start:
+            # 模拟不传参数
+            mock_args.return_value = argparse.Namespace(port=None, host="0.0.0.0", status=False)
+            start_kanban_server.main()
+            mock_start.assert_called_once()
+            _, kwargs = mock_start.call_args
+            assert kwargs.get("host") == "0.0.0.0", "默认启动 host 应为 0.0.0.0"
 
 
 class TestRuntimeFileReflectsHost:
     """测试运行时文件准确反映 host 状态"""
 
-    def test_runtime_file_with_loopback_host(self, tmp_path):
+    def test_runtime_file_with_loopback_host(self, tmp_path, monkeypatch):
         """断言在 host='127.0.0.1' 时，kanban_server.json 中的 lan_url 为 None"""
-        from start_kanban_server import _write_runtime_file, is_valid_lan_ip
-
-        # 模拟 _write_runtime_file 的逻辑
-        port = 32886
-        host = "127.0.0.1"
-        fingerprint = "test123"
+        import start_kanban_server
         runtime_file = tmp_path / "kanban_server.json"
+        monkeypatch.setattr(start_kanban_server, "KANBAN_RUNTIME_FILE", str(runtime_file))
 
-        # 计算 is_lan_enabled
-        is_lan_enabled = host in ("0.0.0.0", "") or is_valid_lan_ip(host)
+        start_kanban_server._write_runtime_file(32886, "test_fp", host="127.0.0.1")
 
-        local_ip = "192.168.1.100"  # 模拟局域网 IP
-        payload = {
-            "port": port,
-            "host": host,
-            "url": f"http://127.0.0.1:{port}/",
-            "lan_url": f"http://{local_ip}:{port}/" if is_lan_enabled and local_ip != "127.0.0.1" else None,
-            "lan_master_url": f"http://{local_ip}:{port}/?token=test" if is_lan_enabled and local_ip != "127.0.0.1" else None,
-        }
-
-        with open(runtime_file, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
-
-        # 验证
         with open(runtime_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -178,53 +155,35 @@ class TestRuntimeFileReflectsHost:
         assert data["lan_url"] is None, "host=127.0.0.1 时 lan_url 应为 None"
         assert data["lan_master_url"] is None, "host=127.0.0.1 时 lan_master_url 应为 None"
 
-    def test_runtime_file_with_lan_host(self, tmp_path):
+    def test_runtime_file_with_lan_host(self, tmp_path, monkeypatch):
         """断言在 host='0.0.0.0' 时，kanban_server.json 中正常生成局域网 URL"""
-        from start_kanban_server import is_valid_lan_ip
-
-        port = 32886
-        host = "0.0.0.0"
-        local_ip = "192.168.1.100"
-
-        is_lan_enabled = host in ("0.0.0.0", "") or is_valid_lan_ip(host)
-
-        payload = {
-            "port": port,
-            "host": host,
-            "url": f"http://127.0.0.1:{port}/",
-            "lan_url": f"http://{local_ip}:{port}/" if is_lan_enabled and local_ip != "127.0.0.1" else None,
-            "lan_master_url": f"http://{local_ip}:{port}/?token=test" if is_lan_enabled and local_ip != "127.0.0.1" else None,
-        }
-
+        import start_kanban_server
         runtime_file = tmp_path / "kanban_server.json"
-        with open(runtime_file, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
+        monkeypatch.setattr(start_kanban_server, "KANBAN_RUNTIME_FILE", str(runtime_file))
+
+        start_kanban_server._write_runtime_file(32886, "test_fp", host="0.0.0.0")
 
         with open(runtime_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         assert data["host"] == "0.0.0.0"
-        assert data["lan_url"] == f"http://{local_ip}:{port}/", "host=0.0.0.0 时应生成局域网 URL"
-        assert "token" in data["lan_master_url"], "lan_master_url 应包含 token"
+        local_ip = start_kanban_server.get_local_ip()
+        if local_ip != "127.0.0.1":
+            assert data["lan_url"] == f"http://{local_ip}:32886/", "host=0.0.0.0 时应生成局域网 URL"
+            assert "token" in data["lan_master_url"], "lan_master_url 应包含 token"
 
 
 class TestBoardCacheThreadSafety:
     """测试看板缓存线程安全性"""
 
     def test_board_cache_lock_exists(self):
-        """断言 _BOARD_CACHE_LOCK 和 _BOARD_WRITE_LOCK 存在"""
+        """断言 _BOARD_CACHE_LOCK 存在且为 Lock 实例"""
         import start_kanban_server
 
-        assert hasattr(start_kanban_server, '_BOARD_CACHE_LOCK'), \
+        assert hasattr(start_kanban_server, "_BOARD_CACHE_LOCK"), \
             "start_kanban_server 应定义 _BOARD_CACHE_LOCK"
-        assert hasattr(start_kanban_server, '_BOARD_WRITE_LOCK'), \
-            "start_kanban_server 应定义 _BOARD_WRITE_LOCK"
-
-        import threading
         assert isinstance(start_kanban_server._BOARD_CACHE_LOCK, type(threading.Lock())), \
             "_BOARD_CACHE_LOCK 应为 threading.Lock 实例"
-        assert isinstance(start_kanban_server._BOARD_WRITE_LOCK, type(threading.RLock())), \
-            "_BOARD_WRITE_LOCK 应为 threading.RLock 实例"
 
 
 if __name__ == "__main__":

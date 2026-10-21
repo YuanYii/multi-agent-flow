@@ -206,9 +206,8 @@ _BOARD_MEMORY_CACHE = {
     "cards": []
 }
 
-# 多线程并发安全锁：进程内线程锁 + 跨进程文件锁双重保护
+# 多线程并发安全锁：进程内线程锁保护内存缓存读取
 _BOARD_CACHE_LOCK = threading.Lock()
-_BOARD_WRITE_LOCK = threading.RLock()
 
 
 def _is_weekly_storage_mode() -> bool:
@@ -1851,7 +1850,7 @@ def probe_port(requested_port: int, fingerprint: str, pinned: bool = False) -> P
     sys.exit(1)
 
 
-def _write_runtime_file(port: int, fingerprint: str, host: str = "127.0.0.1"):
+def _write_runtime_file(port: int, fingerprint: str, host: str = "0.0.0.0"):
     """落盘运行时信息，供人工排障与后续工具查询（不做启动快速路径）"""
     try:
         os.makedirs(os.path.dirname(KANBAN_RUNTIME_FILE), exist_ok=True)
@@ -2012,8 +2011,8 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool =
         print(f" 既有实例 PID: {result.health.get('pid', '未知')} | 启动于: {result.health.get('data_root', '')}")
         print("=" * 70)
         token = result.health.get("master_token") or ""
-        # 复用时从运行时文件读取 host，若无则默认 127.0.0.1
-        running_host = result.health.get("host", "127.0.0.1") if result.health else "127.0.0.1"
+        # 复用时从运行时文件读取 host，若无则默认 0.0.0.0
+        running_host = result.health.get("host", "0.0.0.0") if result.health else "0.0.0.0"
         print_kanban_urls(result.port, get_local_ip(), master_token=token, host=running_host)
         return
 
@@ -2048,7 +2047,7 @@ def start_server(port: int = DEFAULT_PORT, host: str = "0.0.0.0", pinned: bool =
         httpd.server_close()
 
 
-def print_kanban_urls(port: int, local_ip: str, master_token: str = "", host: str = "127.0.0.1"):
+def print_kanban_urls(port: int, local_ip: str, master_token: str = "", host: str = "0.0.0.0"):
     """
     控制台格式化打印本地直达链接、局域网协作链接与 Master Token。
 
@@ -2068,7 +2067,7 @@ def print_kanban_urls(port: int, local_ip: str, master_token: str = "", host: st
     if is_lan_enabled and local_ip != "127.0.0.1":
         print(f" 局域网协作 : http://{local_ip}:{port}/ (分享给团队成员，仅协作浏览与推进)")
     else:
-        print(f" 局域网协作 : 未开启 (仅本机监听；局域网共享请携带 --lan 或 --host 0.0.0.0 启动)")
+        print(f" 局域网协作 : 未开启 (仅本机监听；如需开放局域网请使用默认参数或指定 --host 0.0.0.0 启动)")
     print("\n" + "-" * 70)
     print(f" 主控权限令牌 (Master Token) :")
     print(f" {token}")
@@ -2085,15 +2084,12 @@ def main():
     parser = argparse.ArgumentParser(description="Multi-Agent Flow 看板简易 HTTP 服务")
     parser.add_argument("--port", type=int, default=None,
                         help=f"固定服务端口 (默认: 环境变量 KANBAN_PORT 或 {DEFAULT_PORT}+自动探测)")
-    parser.add_argument("--host", type=str, default="127.0.0.1",
-                        help="监听 Host (安全默认: 127.0.0.1 仅本机；需要局域网协作时显式传 --host 0.0.0.0)")
-    parser.add_argument("--lan", action="store_true",
-                        help="开启局域网协同访问 (自动监听 0.0.0.0 物理网卡)")
+    parser.add_argument("--host", type=str, default="0.0.0.0",
+                        help="监听 Host (默认: 0.0.0.0 开启局域网协同；仅限本机请传 --host 127.0.0.1)")
     parser.add_argument("--status", action="store_true", help="查询当前项目绑定的看板服务运行状态与访问直达链接")
     args = parser.parse_args()
 
-    # --lan 参数等效于 --host 0.0.0.0
-    host = "0.0.0.0" if args.lan else args.host
+    host = args.host
 
     if args.status:
         running = resolve_running_kanban(_DATA_ROOT)
@@ -2108,7 +2104,7 @@ def main():
                 except Exception:
                     pass
             local_ip = get_local_ip()
-            running_host = running.get("host", "127.0.0.1")
+            running_host = running.get("host", "0.0.0.0")
             is_lan_enabled = running_host in ("0.0.0.0", "") or is_valid_lan_ip(running_host)
             print("\n" + "=" * 70)
             print(f"[RUNNING] 本项目专属看板服务正在运行中")
@@ -2119,7 +2115,7 @@ def main():
             if is_lan_enabled and local_ip != "127.0.0.1":
                 print(f" 局域网协作 : http://{local_ip}:{port}/ (分享给团队成员，仅协作浏览与推进)")
             else:
-                print(f" 局域网协作 : 未开启 (仅本机监听；局域网共享请携带 --lan 或 --host 0.0.0.0 启动)")
+                print(f" 局域网协作 : 未开启 (仅本机监听；如需开放局域网请使用默认参数或指定 --host 0.0.0.0 启动)")
             if token:
                 print("\n" + "-" * 70)
                 print(f" 主控权限令牌 (Master Token) :")
