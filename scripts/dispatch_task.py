@@ -15,6 +15,7 @@ import argparse
 import glob
 import secrets
 import datetime
+import time
 import shlex
 import io
 from contextlib import redirect_stdout
@@ -148,6 +149,8 @@ def _build_exit_cli(task: Dict[str, Any], task_id: str, role: str,
         "--assignee", next_assignee, "--type", task_type,
         "--token", dispatch_token, "--remarks", remarks,
     ]
+    if next_status == "审查中":
+        args.extend(["--summary", "<本次核心改动说明与方案排除项>"])
     if config_path:
         args.extend(["--config", config_path])
     if is_terminal:
@@ -226,7 +229,9 @@ def dispatch_task(
     config_path: Optional[str] = None,
     output_format: str = "json",
     dry_run: bool = False,
-    max_parallel: int = 3
+    max_parallel: int = 3,
+    in_scope: Optional[List[str]] = None,
+    no_strict_scope: bool = False
 ) -> Dict[str, Any]:
     """
     执行任务代码化派发核心逻辑。
@@ -251,6 +256,23 @@ def dispatch_task(
         raise ValueError(f"[FAIL-CLOSED] 任务卡不存在: {task_id}")
 
     task = raw_task.get("fields", raw_task) if isinstance(raw_task, dict) else raw_task
+
+    # 1.5 动态修补 in-scope 并去重落盘
+    if in_scope:
+        contract = task.get("contract") or {}
+        if not isinstance(contract, dict):
+            contract = {}
+        if "scope" not in contract:
+            contract["scope"] = {}
+        cur_in_scope = contract["scope"].get("in_scope") or []
+        merged_in_scope = list(cur_in_scope)
+        for item in in_scope:
+            if item and item not in merged_in_scope:
+                merged_in_scope.append(item)
+        contract["scope"]["in_scope"] = merged_in_scope
+        task["contract"] = contract
+        if not dry_run and hasattr(adapter, "update_record"):
+            adapter.update_record(task_id, {"contract": contract})
 
     current_status = task.get("status", "")
     if current_status in TaskStatus.terminal_statuses():
@@ -324,7 +346,12 @@ def dispatch_task(
     # 3.5 门禁三：CCP V2.0 派单准入门禁 (Pre-Dispatch Gate)
     from _lib.ccp.validators.pipeline import validate_pre_dispatch
     proj_root = paths.project_root()
-    gate_ok, gate_errors = validate_pre_dispatch(task, proj_root)
+    try:
+        gate_ok, gate_errors = validate_pre_dispatch(
+            task, proj_root, target_role=role_code, strict=not no_strict_scope
+        )
+    except TypeError:
+        gate_ok, gate_errors = validate_pre_dispatch(task, proj_root)
     if not gate_ok:
         raise RuntimeError(
             f"[REJECT 派单准入门禁拦截] 任务卡 {task_id} 无法派单，原因如下:\n" +
@@ -362,13 +389,15 @@ def dispatch_task(
             raise RuntimeError(f"[REJECT 流转失败] 自动推进任务 {task_id} 从【{current_status}】到【{TaskStatus.IN_PROGRESS.value}】未通过门禁！")
 
     # 4.1 持久化 dispatch_token 到卡片 handover_context
+    handover = task.get("handover_context") or {}
+    if not isinstance(handover, dict):
+        handover = {}
+    handover["dispatch_token"] = dispatch_token
+    handover["dispatched_at"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    handover["dispatched_at_ts"] = time.time()
+    handover["dispatched_role"] = role_code
+    task["handover_context"] = handover
     if not dry_run:
-        handover = task.get("handover_context") or {}
-        if not isinstance(handover, dict):
-            handover = {}
-        handover["dispatch_token"] = dispatch_token
-        handover["dispatched_at"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        handover["dispatched_role"] = role_code
         if hasattr(adapter, "update_record"):
             adapter.update_record(task_id, {"handover_context": handover})
 
@@ -466,7 +495,12 @@ def dispatch_task(
     else:
         task_action_rule = "1. 必须在独立会话中编写实体源码并执行针对性单元测试（保持单测全部通过）；"
 
-    subagent_prompt = f"""【YY-Flow 专家工单派发指令】
+    from build_agent_context import render_governance_and_projection_block
+    gov_block = render_governance_and_projection_block(task, role_code, proj_root)
+
+    subagent_prompt = f"""{gov_block}
+
+【YY-Flow 专家工单派发指令】
 
 你已被指派承接研发工单: [{task_id}] {task_name}
 你的专家角色: {subagent_info['role_desc']} (Type: {subagent_info['type_name']})
@@ -531,6 +565,8 @@ def main():
     parser.add_argument("--format", choices=["json", "prompt", "summary"], default="json", help="输出格式")
     parser.add_argument("--dry-run", action="store_true", help="演练模式，不实际触发看板状态跃迁")
     parser.add_argument("--max-parallel", type=int, default=3, help="角色最大并行在手任务数限制")
+    parser.add_argument("--in-scope", action="append", default=[], help="允许修改的文件路径与职责说明")
+    parser.add_argument("--no-strict-scope", action="store_true", help="非严格白名单模式，白名单缺失时降级为告警")
 
     args = parser.parse_args()
 
@@ -541,7 +577,9 @@ def main():
             config_path=args.config,
             output_format=args.format,
             dry_run=args.dry_run,
-            max_parallel=args.max_parallel
+            max_parallel=args.max_parallel,
+            in_scope=args.in_scope,
+            no_strict_scope=args.no_strict_scope
         )
         if args.format == "json":
             print(json.dumps(res, ensure_ascii=False, indent=2))

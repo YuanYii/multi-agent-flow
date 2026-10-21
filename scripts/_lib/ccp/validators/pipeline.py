@@ -31,7 +31,26 @@ def _normalize_path(p: str, proj_root: str) -> str:
     return os.path.abspath(os.path.join(proj_root, clean_p))
 
 
-def validate_pre_dispatch(task: Dict[str, Any], proj_root: Optional[str] = None) -> Tuple[bool, List[str]]:
+def verify_scope_before_dispatch(task: dict, target_role: str, strict: bool = True) -> Tuple[bool, str]:
+    """派发前校验 contract.scope.in_scope 非空，拦截无白名单任务。"""
+    scope = (task.get("contract") or {}).get("scope") or {}
+    in_scope = [s for s in (scope.get("in_scope") or []) if str(s).strip()]
+    if target_role and target_role.upper() in {"DEV", "FRONTEND", "REVIEWER", "QA"} and not in_scope:
+        msg = (
+            f"[REJECT 缺失修改范围] 任务 {task.get('id')} 缺失必填契约字段 contract.scope.in_scope。\n"
+            f"请通过派发参数直接补齐并落盘：\n"
+            f"  python3 scripts/dispatch_task.py {task.get('id')} --role {target_role} --in-scope \"path/to/file # 原因\""
+        )
+        return (False, msg) if strict else (True, f"[WARN] {msg}")
+    return True, "OK"
+
+
+def validate_pre_dispatch(
+    task: Dict[str, Any],
+    proj_root: Optional[str] = None,
+    target_role: Optional[str] = None,
+    strict: bool = True
+) -> Tuple[bool, List[str]]:
     """
     派单准入门禁 (Pre-Dispatch Gate)
     在派发任务前执行本地确定性校验，任一断言失败直接拦截派单。
@@ -63,6 +82,15 @@ def validate_pre_dispatch(task: Dict[str, Any], proj_root: Optional[str] = None)
         # Tier-1 核心研发任务强制校验必备区块
         if not contract.get("scope"):
             errors.append("[REJECT 契约不完整] Tier-1 任务 contract 必须包含 scope (in_scope 白名单)")
+
+    # 2.5 契约修改范围白名单门禁校验
+    role_to_check = target_role or task.get("target_role") or task.get("role") or ""
+    if role_to_check:
+        scope_ok, scope_msg = verify_scope_before_dispatch(task, role_to_check, strict=strict)
+        if not scope_ok:
+            errors.append(scope_msg)
+        elif scope_msg and scope_msg != "OK":
+            errors.append(scope_msg)
 
     # 3. 前置断言真实性静态扫描 (Preconditions Probe)
     preconditions = contract.get("preconditions") or []
@@ -123,7 +151,7 @@ def validate_pre_dispatch(task: Dict[str, Any], proj_root: Optional[str] = None)
                         f"[REJECT 前置断言不满足] 契约声明必须包含 '{field_name}' 字段，但在依赖文件中未检索到！"
                     )
 
-    passed = len(errors) == 0
+    passed = len([e for e in errors if not e.startswith("[WARN]")]) == 0
     return passed, errors
 
 

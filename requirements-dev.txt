@@ -3,3 +3,4 @@
 
 -r requirements.txt
 pytest>=8.0         # 单元测试套件（tests/，349 用例）
+jsonschema>=4.0.0   # 静态 Schema 门禁校验（scripts/check_static_consistency.py 与 tests/test_static_consistency.py）

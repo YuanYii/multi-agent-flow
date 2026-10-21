@@ -1198,15 +1198,6 @@ class KanbanHTTPRequestHandler(SimpleHTTPRequestHandler):
                 )
                 return
 
-            if _is_weekly_storage_mode():
-                self._send_json_resp(
-                    501,
-                    "分卷/自然周存储模式不支持全量导入或覆写，请使用单任务创建、编辑或流转接口",
-                    {"error_type": "BULK_REPLACE_UNSUPPORTED"},
-                    http_status=501
-                )
-                return
-
             def _mutate_bulk(cards):
                 """处理批量任务状态修改或归档 API。"""
                 cards.clear()

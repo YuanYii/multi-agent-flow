@@ -3,13 +3,119 @@
 动态角色 Prompt 上下文裁剪合成器 (Build Agent Context CLI)
 """
 import os
+import sys
+import re
 import yaml
 import argparse
-from typing import Dict, Any
+from pathlib import Path
+from typing import Dict, Any, List, Optional
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
 WORKFLOW_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 AGENTS_DIR = os.path.join(WORKFLOW_ROOT, "agents")
+
+from _lib.ccp.deltas.git_extractor import get_worktree_fingerprint
+
+# 匹配常见 TS/TSX/JS/Python 顶层组件、函数、类或类型定义
+SYMBOL_PATTERN = re.compile(
+    r"^\s*(?:export\s+(?:default\s+)?)?(?:async\s+)?(?:function|class|const|interface|type|def)\s+([A-Za-z0-9_]+)"
+)
+
+
+def build_pre_dispatch_code_map(repo_root: str, in_scope_files: List[str], max_symbols: int = 15) -> str:
+    """
+    派发第一棒 DEV 前，本地毫秒级扫描 in_scope 文件生成符号行号锚点地图（0 LLM Token 消耗）。
+    """
+    lines_out = ["### [MAP] 目标文件结构与行号预索引（请直接按行区间切片 view_file，严禁全文件重复读取）"]
+    root = Path(repo_root)
+
+    for raw_entry in in_scope_files:
+        raw_clean = str(raw_entry).strip().replace("\\", "/")
+        rel_path = raw_clean.split("#")[0].strip()
+        reason = raw_clean.split("#")[1].strip() if "#" in raw_clean else ""
+        fp = root / rel_path
+        if not fp.is_file():
+            lines_out.append(f"- `{rel_path}` (待新建文件){f' — {reason}' if reason else ''}")
+            continue
+
+        try:
+            content_lines = fp.read_text(encoding="utf-8", errors="replace").splitlines()
+        except Exception:
+            continue
+
+        symbols = [
+            f"`{m.group(1)}` (L{idx})"
+            for idx, text in enumerate(content_lines, start=1)
+            if (m := SYMBOL_PATTERN.match(text))
+        ]
+        sym_str = ", ".join(symbols[:max_symbols]) or "配置文件/无顶层导出符号"
+        overflow_hint = f" (仅展示前 {max_symbols} 个，共 {len(symbols)} 个符号锚点)" if len(symbols) > max_symbols else ""
+        lines_out.append(
+            f"- **`{rel_path}`** (共 {len(content_lines)} 行{f' | 改动点: {reason}' if reason else ''})\n"
+            f"  - 符号行号锚点: {sym_str}{overflow_hint}"
+        )
+    return "\n".join(lines_out)
+
+
+def render_governance_and_projection_block(task: Dict[str, Any], role: str, repo_root: str = ".") -> str:
+    """
+    统一生成置于派发 Prompt 顶部的【执行边界预算 + 双阶段认知投影 + 凭据锁】区块。
+    """
+    tier = task.get("tier") or "Tier-2"
+    explore_budget = {"Tier-1": 40, "Tier-2": 25, "Tier-3": 12}.get(tier, 25)
+    outside_probe_limit = {"Tier-1": 5, "Tier-2": 3, "Tier-3": 0}.get(tier, 3)
+
+    scope = (task.get("contract") or {}).get("scope") or {}
+    in_scope = scope.get("in_scope") or []
+    out_of_scope = scope.get("out_of_scope") or []
+
+    handover = task.get("handover_context") or {}
+    projection = handover.get("cognitive_projection") or {}
+    last_ev = handover.get("last_evidence") or {}
+
+    blocks = [
+        "## 【P0 协议级执行边界与预算红线（强制遵守）】",
+        f"1. **身份已锁定**：当前任务 `{task.get('id')}`、角色 `{role}` 已由系统确认，**严禁调用 `cli.py status` / `kanban` 等命令自证身份**。",
+        f"2. **探索步数预算（{tier}）**：编码/审查前只读工具调用上限为 **{explore_budget} 步**；同一文件严禁全量读取超过 1 次，必须使用行区间切片读取。",
+        f"3. **文件白名单硬边界（清单外只读探测上限：{outside_probe_limit} 次）**：",
+        *[f"   - [允许改动] `{item}`" for item in in_scope],
+        *[f"   - [禁止改动] `{item}`" for item in out_of_scope],
+        "   > 如需修改白名单外文件或探测超限，必须立即中止并回执 PM 通过 `--in-scope` 扩域。",
+    ]
+
+    # 阶段一：针对编码角色注入本地静态符号行号预索引
+    if role.upper() in {"DEV", "FRONTEND"} and in_scope:
+        blocks.append("\n" + build_pre_dispatch_code_map(repo_root, in_scope))
+
+    # 阶段二：若存在上游认知投影（diff_locations / summary），置顶注入供 REVIEWER / QA / 返工 DEV 继承
+    diff_locs = projection.get("diff_locations") or []
+    summary = projection.get("summary") or ""
+    if diff_locs or summary:
+        blocks.append("\n## 【上游认知投影（禁止重做已完成的定位与分析）】")
+        if summary:
+            blocks.append(f"- **上游改动摘要与排除项**：{summary}")
+        if diff_locs:
+            blocks.append("- **Git 精确变更行区间（请直接按以下行号切片审查，禁止全局漫游）**：")
+            blocks.extend([f"  - `{loc}`" for loc in diff_locs])
+
+    # 阶段三：校验测试凭据快照锁
+    if role.upper() in {"REVIEWER", "QA"} and last_ev:
+        curr_hash = get_worktree_fingerprint(repo_root, in_scope)
+        is_fresh = (last_ev.get("exit_code") == 0 and last_ev.get("tree_hash") == curr_hash)
+        if is_fresh:
+            blocks.append(
+                f"\n## 【上游测试凭据已锁定（快照未漂移 `{curr_hash}`）】\n"
+                f"- 已验证通过凭据：`{last_ev.get('command', 'verified')}` (by {last_ev.get('verified_by')})\n"
+                f"- **免重跑指令**：当前代码树哈希与上游完全一致，**严禁重复运行相同测试命令**。"
+                + ("当前为 Tier-3 任务，审查通过后可直接流转至「已完成」（免除独立 QA 段）。" if tier == "Tier-3" else "")
+            )
+        else:
+            blocks.append(f"\n## 【上游测试凭据已漂移】代码快照已变更（当前 `{curr_hash}`），请重新执行验证。")
+
+    return "\n".join(blocks)
 
 def load_role_yaml(role: str) -> Dict[str, Any]:
     """

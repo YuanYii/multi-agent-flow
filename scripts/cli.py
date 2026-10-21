@@ -32,7 +32,7 @@ subcommands:
   help      输出全景指令帮助手册 (透明转发至 show_help)
   ccp       上下文连续性协议门禁操作
   trace     链路全景图鉴生成 (透明转发至 generate_trace_html，0 Token 消耗)
-  test      智能增量测试 (透明转发至 run_tests，仅测改动关联用例，--all 全量)
+  test      智能增量测试 (透明转发至 run_tests，支持 --all 全量，--release 定版准出)
 
 示例:
   yy-flow task create --name "实现新接口" --type A --assignee 李开发
@@ -44,6 +44,7 @@ subcommands:
   yy-flow trace
   yy-flow test
   yy-flow test --all
+  yy-flow test --release
 """)
 
 

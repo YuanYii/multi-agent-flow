@@ -832,6 +832,13 @@
                         fetchBackgroundData(false);
                     }
                 });
+            } else if (groupField === 'assignee' && typeof apiUpdateTask === 'function') {
+                apiUpdateTask(cardId, { assignee: newVal, handler: newHandler, remarks: logMsg }).then(resp => {
+                    if (resp && resp.ok === false) {
+                        showToast(`负责角色更新失败: ${resp.message || resp.error}`, 'danger');
+                        fetchBackgroundData(false);
+                    }
+                });
             }
 
             cancelTransition();

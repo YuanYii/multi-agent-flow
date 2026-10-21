@@ -176,7 +176,7 @@ def validate_delegation_authority(current_role: str, delegated_by: str) -> bool:
     return False
 
 
-def validate(role: str, from_status: str, to_status: str, assignee: str, end_time: str, active_dev_count: int, task_type: str = "A", task_name: str = "", max_parallel: int = 3, remarks: str = "", special_types: List[str] = None, delegated_by: str = "", delegation_reason: str = "", pretask: str = "", adapter: Any = None, ignore_pretask: bool = False, force_verify_operator: bool = False, force_reopen: bool = False) -> bool:
+def validate(role: str, from_status: str, to_status: str, assignee: str, end_time: str, active_dev_count: int, task_type: str = "A", task_name: str = "", max_parallel: int = 3, remarks: str = "", special_types: List[str] = None, delegated_by: str = "", delegation_reason: str = "", pretask: str = "", adapter: Any = None, ignore_pretask: bool = False, force_verify_operator: bool = False, force_reopen: bool = False, tier: str = "Tier-2", evidence_fresh: bool = False) -> bool:
     """
     五层立体防错门控核心校验入口。
     对状态越迁合法性、角色权限区间、连续打回次数熔断、终态人类验收专有权及前置交付物进行系统性断言。
@@ -201,6 +201,16 @@ def validate(role: str, from_status: str, to_status: str, assignee: str, end_tim
 
     allowed_list = list(ROLE_BASE_PERMISSIONS.get(role_upper, []))
     is_hotfix = bool(task_name and "[HOTFIX]" in task_name.upper())
+
+    # Tier-3 轻量任务凭据锁放行逻辑: 审查通过且上游测试凭据新鲜有效（tree_hash未漂移）时，放行 REVIEWER 从 "审查中 -> 已完成"
+    norm_tier = tier if tier in {"Tier-1", "Tier-2", "Tier-3"} else "Tier-2"
+    if norm_tier == "Tier-3" and role_upper == "REVIEWER" and from_status == "审查中" and to_status == "已完成":
+        if evidence_fresh:
+            allowed_list.append("审查中 -> 已完成")
+            print("[PASS Tier-3 免QA] 上游测试凭据有效且代码树未漂移，放行审查直推已完成。")
+        else:
+            print("[REJECT Tier-3] 审查直推已完成被拒绝：缺少有效测试凭据或代码快照已漂移，请流转至「测试中」。")
+            return False
 
     # 0. 终态不可逆流拦截与受控重开通道 (REOPEN 管理员纠偏)
     if from_status in ["已验收", "已取消"] and from_status != to_status:
