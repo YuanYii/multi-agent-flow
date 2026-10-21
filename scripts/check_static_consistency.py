@@ -72,7 +72,7 @@ class StaticConsistencyChecker:
     def check_schema_compliance(self) -> int:
         """检查核心配置文件与模板是否符合 JSON Schema 规范。"""
         if jsonschema is None:
-            self.add_violation("Schema", "requirements.txt", "jsonschema 库未安装，无法执行 Schema 校验")
+            self.add_violation("Schema", "requirements-dev.txt", "jsonschema 库未安装，无法执行 Schema 校验")
             return 0
 
         checked_count = 0
