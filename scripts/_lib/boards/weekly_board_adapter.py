@@ -462,6 +462,13 @@ class WeeklyBoardAdapter:
                 "process": trans.get("process") or f"[{new_id}-N01]  [{now_str}]  建单并进入【{trans.get('status') or '待开始'}】 | 创建人: {creator} (创建角色: {creator_role}) | 负责角色: {assignee}"
             }
 
+            if trans.get("contract"):
+                card["contract"] = trans.get("contract")
+            if trans.get("return_contract"):
+                card["return_contract"] = trans.get("return_contract")
+            if trans.get("tier"):
+                card["tier"] = trans.get("tier")
+
             tasks.append(card)
             data["tasks"] = tasks
             meta["updated_at"] = now_str

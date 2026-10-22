@@ -62,7 +62,8 @@ def test_dispatch_task_payload_assembly(tmp_path, monkeypatch):
         "target": "编写高吞吐流式解析器",
         "acceptance_criteria": ["1. 覆盖 UTF-8 与 GBK", "2. 单测全部通过"],
         "pretask": "无",
-        "week": "2026-W36"
+        "week": "2026-W36",
+        "contract": {"scope": {"in_scope": ["src/parser.py # 核心解析"]}}
     })
 
     # mock get_board_adapter 返回当前 adapter

@@ -1757,7 +1757,7 @@
       <div class="stat-item">
         <div class="num">8</div>
         <div class="lbl" data-i18n="stat_agents">专属专家子代理</div>
-        <div class="sub" data-i18n="stat_agents_sub">PM / 架构 / 开发 / 审查 / QA / 文档 / 运维 / 前端</div>
+        <div class="sub" data-i18n="stat_agents_sub">PMP / TOGAF / Clean Code / ISTQB / Diátaxis / SRE / Web UX</div>
       </div>
       <div class="stat-item">
         <div class="num">10</div>
@@ -1923,7 +1923,7 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
             <span data-i18n="lbl_practice">yy-flow 工程落地</span>
           </div>
-          <span data-i18n="auto_c5_practice">零假设原则与凭据闭环（Proof-of-Execution）；DEV 提审必带单测通过凭据，QA 必带测试日志；微内核基于 585 项自动化测试保障。</span>
+          <span data-i18n="auto_c5_practice">零假设原则与凭据闭环（Proof-of-Execution）；DEV 提审必带单测通过凭据，QA 必带测试日志；微内核基于 599 项自动化测试保障。</span>
         </div>
       </div>
 
@@ -1937,7 +1937,7 @@
         <div class="autogen-box theory">
           <div class="autogen-box-lbl">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span data-i18n="lbl_theory">论文原型挑战</span>
+            <span data-i18n="lbl_theory">论文核心思想</span>
           </div>
           <span data-i18n="auto_c6_theory">原生 AutoGen 依赖 LLM 概率推测与自然语言 Prompt 截断，在工业研发中易出现无限死循环震荡与缺乏底层文件级权限防护。</span>
         </div>
@@ -2015,7 +2015,7 @@
             <span class="why-icon" style="color:var(--emerald);">✓</span>
             <div>
               <h4 data-i18n="why_g1_h">AI 内部交叉制衡，周审查与章测试替你严把关</h4>
-              <p data-i18n="why_g1_p">李开发 编码后必须经 周审查 独立挑刺并由 章测试 执行端到端用例，严经理 终检验收，AI 互相监督替代人工肉眼扫代码。</p>
+              <p data-i18n="why_g1_p">李开发 编码后必须经 周审查 独立挑刺并由 章测试 执行端到端用例，提请人类用户 终检验收，AI 互相监督替代人工肉眼扫代码。</p>
             </div>
           </div>
           <div class="why-item">
@@ -2069,14 +2069,14 @@
             <div class="agent-code">01-pm.yaml · PMP/敏捷规范</div>
           </div>
         </div>
-        <p class="agent-desc" data-i18n="a1_desc">基于 PMP 与敏捷规范，负责 WBS 工作包拆解、前后端级联拆单（Mock-First）、开发计划自动风险评级（高/中/低）、阶段门禁核验与终态验收。</p>
+        <p class="agent-desc" data-i18n="a1_desc">基于 PMP 与敏捷规范，负责 WBS 工作包拆解、前后端级联拆单（Mock-First）、开发计划自动风险评级（高/中/低）、阶段门禁核验与提请人类验收。</p>
         <div class="agent-tags">
-          <span class="agent-tag status-tag" data-i18n="a1_tag_status">流转: 待开始->进行中 / 已完成->已验收</span>
+          <span class="agent-tag status-tag" data-i18n="a1_tag_status">流转: 待开始->进行中 / 进行中->提请验收</span>
           <span class="agent-tag">PMP / 敏捷规范</span>
           <span class="agent-tag">全栈级联拆解</span>
           <span class="agent-tag">计划风险评估</span>
           <span class="agent-tag">阶段管理总结</span>
-          <span class="agent-tag">终态验收</span>
+          <span class="agent-tag">提请验收</span>
         </div>
       </div>
 
@@ -2291,7 +2291,7 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <h3 data-i18n="f7_h">全自动单任务流转与断点续跑</h3>
-        <p data-i18n="f7_p">通过 /yy-flow auto 全自动执行完整生命周期至已验收，结合实际任务名称动态生成阶段交付实质总结，全生命周期注入【Agent Loop】备注并支持断点续跑。</p>
+        <p data-i18n="f7_p">通过 /yy-flow auto 全自动执行完整生命周期至【已完成】并提请人类核验验收，结合实际任务名称动态生成阶段交付实质总结并支持断点续跑。</p>
       </div>
 
       <!-- F9: CCP 两阶段确定性门禁管道 (2026-09 新增) -->
@@ -2310,6 +2310,24 @@
         </div>
         <h3 data-i18n="f10_h">固定 50 任务分卷存储与启动自愈迁移</h3>
         <p data-i18n="f10_p">看板工单按 tasks_XXXX_YYYY.yaml 固定 50 任务容量物理分卷，原子并发控制杜绝脏写；启动看板时自动探测存量数据并无损平滑迁移（含物理备份），chunked / weekly / single 多模式平滑兼容。</p>
+      </div>
+
+      <!-- F11: 子代理认知投影与白名单预算门禁 (2026-10 新增) -->
+      <div class="feat-card">
+        <div class="feat-icon" style="background:rgba(56, 189, 248, 0.12); border-color:rgba(56, 189, 248, 0.25);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+        </div>
+        <h3 data-i18n="f11_h">子代理认知投影与白名单预算门禁</h3>
+        <p data-i18n="f11_p">引入认知投影协议（Cognitive Projection Protocol）约束子代理上下文注意力边界；结合 Token 预算白名单与单轮对抗性提问回环，杜绝过度拆解与上下文漫游。</p>
+      </div>
+
+      <!-- F12: Tier-3 审查直通与开工显式授权 (2026-10 新增) -->
+      <div class="feat-card">
+        <div class="feat-icon" style="background:rgba(245, 158, 11, 0.12); border-color:rgba(245, 158, 11, 0.25);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <h3 data-i18n="f12_h">Tier-3 审查直通与开工显式授权</h3>
+        <p data-i18n="f12_p">文档与静态资产直通 Tier-3 秒级放行，免耗时全量测试；解耦任务建卡与全链执行，建卡完成即停步，未经人类显式授权严禁自动派单开工。</p>
       </div>
     </div>
   </div>
@@ -2373,11 +2391,17 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="sec-tag" data-i18n="cmd_tag">SLASH COMMANDS</span>
-      <h2 data-i18n="cmd_hd">五大快捷指令，开箱即用</h2>
+      <h2 data-i18n="cmd_hd">七大快捷指令，开箱即用</h2>
       <p data-i18n="cmd_sub">在 AI 对话中输入 /yy-flow 快捷指令即可触发对应工作流能力，无需记忆底层脚本与参数。</p>
     </div>
 
     <div class="cmd-grid">
+      <div class="cmd-card">
+        <div class="cmd-badge">/yy-flow help</div>
+        <h4 data-i18n="cmd0_h">全景指令手册与职责规范</h4>
+        <p data-i18n="cmd0_p">输出统一入口网关协议、8 位专家职责矩阵、L0–L2 分级标准与核心流转红线。</p>
+        <div class="cmd-nl-example" data-i18n="cmd0_nl">💬 口令示例：“查看工作流帮助” 或 “yy-flow有哪些命令”</div>
+      </div>
       <div class="cmd-card">
         <div class="cmd-badge">/yy-flow start</div>
         <h4 data-i18n="cmd1_h">一键激活工作流</h4>
@@ -2405,8 +2429,14 @@
       <div class="cmd-card">
         <div class="cmd-badge">/yy-flow auto</div>
         <h4 data-i18n="cmd5_h">全自动单任务流转</h4>
-        <p data-i18n="cmd5_p">一条指令全自动执行任务完整生命周期至【已完成】并提请人类核验验收，支持 A–G 全类型链、断点续跑与已阻塞解阻。</p>
+        <p data-i18n="cmd5_p">一条指令全自动执行任务完整生命周期至【已完成】并提请人类用户核验验收，支持 A–G 全类型链、断点续跑与已阻塞解阻。</p>
         <div class="cmd-nl-example" data-i18n="cmd5_nl">💬 口令示例：“把任务 T0001 全自动跑完”</div>
+      </div>
+      <div class="cmd-card">
+        <div class="cmd-badge">/yy-flow trace</div>
+        <h4 data-i18n="cmd6_h">离线架构图鉴与链路全息</h4>
+        <p data-i18n="cmd6_p">生成离线独立原生可视化全景图鉴，含八层微内核拓扑、端到端时序与代码物理行号 Hover 浮窗。</p>
+        <div class="cmd-nl-example" data-i18n="cmd6_nl">💬 口令示例：“生成执行链路图鉴” 或 “查看全景架构”</div>
       </div>
     </div>
 
@@ -2643,7 +2673,7 @@
       </div>
       <span>Multi-Agent Flow</span>
     </div>
-    <span data-i18n="footer_desc">· MIT Licensed · AI 团队敏捷协同工作流</span>
+    <span data-i18n="footer_desc">· MIT Licensed · AI 专家协同与团队敏捷研发工作流</span>
     
     <div class="footer-links">
       <a href="autogen-analysis.html" target="_blank" style="color:var(--cyan);font-weight:600;">AutoGen 理论对齐报告</a>
@@ -2901,17 +2931,17 @@ async function fetchRepoStats() {
       localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
       updateStatsUI(data);
     } else {
-      updateStatsUI({ stargazers_count: 12, forks_count: 2 });
+      updateStatsUI({ stargazers_count: 25, forks_count: 7 });
     }
   } catch (err) {
     console.warn('GitHub API fetch failed, fallback to baseline stats', err);
-    updateStatsUI({ stargazers_count: 12, forks_count: 2 });
+    updateStatsUI({ stargazers_count: 25, forks_count: 7 });
   }
 }
 
 function updateStatsUI(data) {
-  const stars = data.stargazers_count !== undefined ? data.stargazers_count : 12;
-  const forks = data.forks_count !== undefined ? data.forks_count : 2;
+  const stars = data.stargazers_count !== undefined ? data.stargazers_count : 25;
+  const forks = data.forks_count !== undefined ? data.forks_count : 7;
   const navStars = document.getElementById('nav-stars');
   const heroStars = document.getElementById('hero-stars');
   const heroForks = document.getElementById('hero-forks');

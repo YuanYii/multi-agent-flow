@@ -331,6 +331,45 @@ def run_heartbeat(
                     "message": f"任务 {tid} 交付前置周期为 0 秒 (start_date == end_date: {start_date})，疑似瞬时冲卡或未记录真实开工时间",
                 })
 
+        # ---- 巡检 5.1: 子代理认知漫游与执行超时告警 ----
+        if status in ("进行中", "审查中"):
+            hc = t.get("handover_context")
+            if isinstance(hc, str):
+                try:
+                    import json as _json
+                    hc = _json.loads(hc)
+                except Exception:
+                    hc = {}
+            if isinstance(hc, dict):
+                telem = hc.get("telemetry") or {}
+                wall_sec = telem.get("wall_clock_sec")
+                if wall_sec is None and status == "进行中":
+                    disp_ts = hc.get("dispatched_at_ts")
+                    if disp_ts:
+                        try:
+                            wall_sec = round(now.timestamp() - float(disp_ts), 1)
+                        except Exception:
+                            wall_sec = None
+
+                if isinstance(wall_sec, (int, float)) and wall_sec > 600:
+                    alerts.append({
+                        "severity": "warning",
+                        "code": "SUBAGENT_TIMEOUT",
+                        "task_id": tid,
+                        "message": f"任务 {tid} 子代理任务执行耗时 {wall_sec}s 超出 600s 阈值，疑似陷入长循环或死锁",
+                    })
+
+                out_of_scope = telem.get("out_of_scope_modified")
+                if isinstance(out_of_scope, list) and len(out_of_scope) > 0:
+                    drift_files = ", ".join(str(f) for f in out_of_scope)
+                    alerts.append({
+                        "severity": "warning",
+                        "code": "SUBAGENT_SCOPE_DRIFT",
+                        "task_id": tid,
+                        "message": f"任务 {tid} 检测到清单外越界修改/新建文件: {drift_files}，存在认知漫游风险",
+                    })
+
+
     # 并发上限核验告警
     for who, cnt in dev_active_count.items():
         if cnt > thresholds["dev_max_parallel"]:

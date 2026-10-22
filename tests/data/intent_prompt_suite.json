@@ -1,0 +1,194 @@
+[
+  {
+    "id": "CASE-A-01",
+    "prompt": "/yy-flow help",
+    "expected_branch": "A",
+    "expected_level": null,
+    "expected_target": "scripts/show_help.py",
+    "description": "控制台帮助查询"
+  },
+  {
+    "id": "CASE-A-02",
+    "prompt": "/yy-flow status",
+    "expected_branch": "A",
+    "expected_level": null,
+    "expected_target": "scripts/heartbeat.py",
+    "description": "大盘巡检与心跳状态"
+  },
+  {
+    "id": "CASE-A-03",
+    "prompt": "/yy-flow kanban",
+    "expected_branch": "A",
+    "expected_level": null,
+    "expected_target": "scripts/start_kanban_server.py",
+    "description": "启动本地看板服务"
+  },
+  {
+    "id": "CASE-A-04",
+    "prompt": "/yy-flow sync-pr",
+    "expected_branch": "A",
+    "expected_level": null,
+    "expected_target": "scripts/sync_pr_status.py",
+    "description": "同步 PR 状态"
+  },
+  {
+    "id": "CASE-A-05",
+    "prompt": "/yy-flow trace",
+    "expected_branch": "A",
+    "expected_level": null,
+    "expected_target": "scripts/generate_trace_html.py",
+    "description": "生成离线链路图鉴"
+  },
+  {
+    "id": "CASE-A-06",
+    "prompt": "/yy-flow start",
+    "expected_branch": "A",
+    "expected_level": null,
+    "expected_target": "scripts/init_skill.sh",
+    "description": "项目初始化引导 SOP"
+  },
+  {
+    "id": "CASE-B-L0-01",
+    "prompt": "解释一下 scripts/paths.py 中 resolve_repo_root 函数的实现逻辑",
+    "expected_branch": "B",
+    "expected_level": "L0",
+    "expected_target": "direct_answer",
+    "description": "纯代码语义解释，无文件修改需求"
+  },
+  {
+    "id": "CASE-B-L0-02",
+    "prompt": "分析当前看板前端 js/board.js 的时间复杂度与渲染瓶颈",
+    "expected_branch": "B",
+    "expected_level": "L0",
+    "expected_target": "direct_answer",
+    "description": "性能咨询与静态分析，无落盘要求"
+  },
+  {
+    "id": "CASE-B-L0-03",
+    "prompt": "帮我看看这个正则表达式匹配邮箱是否严谨：^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+    "expected_branch": "B",
+    "expected_level": "L0",
+    "expected_target": "direct_answer",
+    "description": "即时问答，语法探讨"
+  },
+  {
+    "id": "CASE-B-L0-04",
+    "prompt": "什么是 CCP 上下文连续性协议？它和普通 Git commit 有什么区别？",
+    "expected_branch": "B",
+    "expected_level": "L0",
+    "expected_target": "direct_answer",
+    "description": "概念咨询与知识问答"
+  },
+  {
+    "id": "CASE-B-L0-05",
+    "prompt": "查询目前工作区里的 Python 版本和依赖库环境",
+    "expected_branch": "B",
+    "expected_level": "L0",
+    "expected_target": "direct_answer",
+    "description": "即时环境问答"
+  },
+  {
+    "id": "CASE-B-L0-06",
+    "prompt": "为什么这段代码在空输入时会抛出 IndexError？def get_first(items): return items[0]",
+    "expected_branch": "B",
+    "expected_level": "L0",
+    "expected_target": "direct_answer",
+    "description": "即时 Bug 咨询问答"
+  },
+  {
+    "id": "CASE-B-L1-01",
+    "prompt": "给 scripts/paths.py 补全缺失的函数类型注解和 docstring 注释",
+    "expected_branch": "B",
+    "expected_level": "L1",
+    "expected_target": "scripts/quick_task.py",
+    "description": "轻量单角色任务：纯文档/类型优化"
+  },
+  {
+    "id": "CASE-B-L1-02",
+    "prompt": "修复 kanban/css/styles.css 中列表项在移动端断点下的 2px 溢出边距",
+    "expected_branch": "B",
+    "expected_level": "L1",
+    "expected_target": "scripts/quick_task.py",
+    "description": "轻量单角色任务：单文件样式修补"
+  },
+  {
+    "id": "CASE-B-L1-03",
+    "prompt": "在 scripts/check_secrets.py 中追加对阿里云 AccessKeyId 的正则特征匹配",
+    "expected_branch": "B",
+    "expected_level": "L1",
+    "expected_target": "scripts/quick_task.py",
+    "description": "轻量单角色任务：单点规则补齐"
+  },
+  {
+    "id": "CASE-B-L1-04",
+    "prompt": "修正 README.md 中失效的本地文档跳转链接",
+    "expected_branch": "B",
+    "expected_level": "L1",
+    "expected_target": "scripts/quick_task.py",
+    "description": "轻量单角色任务：说明文件修正"
+  },
+  {
+    "id": "CASE-B-L1-05",
+    "prompt": "在 scripts/init_skill.sh 中增加对 macOS BSD 平台 sed 命令的兼容保护",
+    "expected_branch": "B",
+    "expected_level": "L1",
+    "expected_target": "scripts/quick_task.py",
+    "description": "轻量单角色任务：单脚本跨平台微调"
+  },
+  {
+    "id": "CASE-B-L1-06",
+    "prompt": "优化 scripts/_lib/core/file_lock.py 的超时重试退避间隔从 0.1s 改为 0.05s",
+    "expected_branch": "B",
+    "expected_level": "L1",
+    "expected_target": "scripts/quick_task.py",
+    "description": "轻量单角色任务：参数微调"
+  },
+  {
+    "id": "CASE-B-L2-01",
+    "prompt": "设计并实现用户认证微服务，包含 JWT 鉴权、密码哈希加盐与刷新令牌机制",
+    "expected_branch": "B",
+    "expected_level": "L2",
+    "expected_target": "scripts/auto_task.py",
+    "description": "标准多角色复杂研发任务"
+  },
+  {
+    "id": "CASE-B-L2-02",
+    "prompt": "将单文件看板存储方案彻底重构为按容量分片与按周归档的分卷混合存储架构",
+    "expected_branch": "B",
+    "expected_level": "L2",
+    "expected_target": "scripts/auto_task.py",
+    "description": "核心底层架构重构与多模块协同"
+  },
+  {
+    "id": "CASE-B-L2-03",
+    "prompt": "开发支持飞书多维表格与 Jira 的双向实时数据同步适配器模块",
+    "expected_branch": "B",
+    "expected_level": "L2",
+    "expected_target": "scripts/auto_task.py",
+    "description": "外部系统数据集成与状态流转"
+  },
+  {
+    "id": "CASE-B-L2-04",
+    "prompt": "实现完整的 CI/CD 自动化发布流水线，包含 Docker 镜像打包、安全审计与自动化发布",
+    "expected_branch": "B",
+    "expected_level": "L2",
+    "expected_target": "scripts/auto_task.py",
+    "description": "运维与核心工程链路建设"
+  },
+  {
+    "id": "CASE-B-L2-05",
+    "prompt": "重写看板前端状态管理模块，引入响应式响应树并重写所有卡片拖拽与撤销事件",
+    "expected_branch": "B",
+    "expected_level": "L2",
+    "expected_target": "scripts/auto_task.py",
+    "description": "前端核心层深度重构"
+  },
+  {
+    "id": "CASE-B-L2-06",
+    "prompt": "引入端到端加密通信协议，对多 Agent 之间传递的 CCP 信封进行签名防篡改验证",
+    "expected_branch": "B",
+    "expected_level": "L2",
+    "expected_target": "scripts/auto_task.py",
+    "description": "跨系统核心安全通信机制"
+  }
+]

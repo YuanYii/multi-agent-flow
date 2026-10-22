@@ -278,11 +278,17 @@ def main() -> int:
         description="Multi-Agent Flow 智能增量测试调度器：仅运行与当前改动相关的测试用例"
     )
     parser.add_argument("--all", action="store_true", help="强制执行全量测试套件")
+    parser.add_argument("--release", action="store_true", help="执行定版发布五阶全量准出流水线 (Gate 1~5)")
     parser.add_argument("--dry-run", action="store_true", help="仅分析并打印待执行的测试文件清单，不实际运行 pytest")
     parser.add_argument("--files", nargs="*", help="显式指定改动的文件清单进行模拟测试推导")
 
     # 解析已知参数，其余透传给 pytest
     args, pytest_args = parser.parse_known_args()
+
+    # 0. 若为定版发布模式，无缝移交至专属准出总控
+    if args.release:
+        cmd = [sys.executable, os.path.join(SCRIPT_DIR, "run_release_gates.py")] + pytest_args
+        return subprocess.run(cmd, cwd=PROJECT_ROOT).returncode
 
     print("=" * 70)
     print("  Multi-Agent Flow 智能增量测试调度器 (Smart Incremental Test Runner)")
